@@ -141,6 +141,12 @@
     a.button {
         text-decoration: none;
     }
+
+    .file_metadata th {
+        text-align: left;
+        font-weight: bold;
+        color: #888;
+    }
     
     .file_metadata td.attr_name {
         padding-left:30px;
@@ -206,7 +212,7 @@
 			</td>
 			<td>
                         {% if GLOBAL_User %}
-                            <span style="color:#AAA">logged in as {{GLOBAL_User.Name}}&nbsp;({{GLOBAL_User.Username}})&nbsp;</span><a href="{{GLOBAL_AppTopPath}}/auth/logout?redirect={{GLOBAL_AppTopPath}}/gui/index">log out</a>
+                            <span style="color:#AAA">logged in as {{GLOBAL_User.Name or ""}}&nbsp;<a href="./user?username={{GLOBAL_User.Username}}">{{GLOBAL_User.Username}}</a>&nbsp;</span><a href="{{GLOBAL_AppTopPath}}/auth/logout?redirect={{GLOBAL_AppTopPath}}/gui/index">log out</a>
                         {% else %}
                             <a href="{{GLOBAL_AppTopPath}}/auth/login?redirect={{GLOBAL_AppTopPath}}/gui/index">log in</a>
                         {% endif %}

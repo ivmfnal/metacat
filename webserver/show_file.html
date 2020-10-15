@@ -46,9 +46,12 @@
 <h3>Metadata</h3>
 
 
-<table class="data">
+<table class="file_metadata">
+    <tr>
+        <th>Parameter</th><th>Value</th>
+    </tr>
     {% for k, v in f.Metadata.items()|sort %}
-	<tr><td>{{k}}</td><td>{{v}}</td></tr>
+	<tr><td class="attr_name">{{k}}</td><td class="attr_value">{{v}}</td></tr>
     {% endfor %}
 </table>
 

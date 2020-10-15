@@ -32,7 +32,7 @@ To set the client environment:
           Server:
               URL:    http://host.fnal.gov:8080
 
-  2. Set PYTHONPATH:
+  2. Set environment:
   
       .. code-block:: shell
       
