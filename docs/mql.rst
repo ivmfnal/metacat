@@ -319,11 +319,12 @@ Assume the file metadata has the following parameters:
 .. code-block:: json
     
     {
-        "run_type":   "calibration",
+        "run_type":       "calibration",
         "trigger_mask":   [0,1,0,0,1],
-        "trigger_bits":   {
-            "muon":     1,
-            "electron": 0
+        "trigger_bits":   
+        {
+            "muon":       1,
+            "electron":   0
         }
     }
 
