@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block headline %}Dataset {{dataset.Namespace}}:{{dataset.Name}} files{% endblock %}
+
+{% block content %}
+
+<p><i>First 100 files shown</i></p>
+
+<table class="data">
+	<tr>
+		<th>Namespace</th>
+		<th>Name</th>
+		{% if with_meta %}<th colspan=0>Metadata</th>{% endif %}
+	</tr>
+	{% for f in files %}
+		<tr>
+			<td>{{f.Namespace}}</td><td><a href="./show_file?fid={{f.FID}}">{{f.Name}}</a></td>
+                {% if with_meta %}
+				    {% for k, v in f.Metadata.items()|sort %}
+			            <td>
+					            {{k}}={{v}}
+			            </td>
+				    {% endfor %}
+                {% endif %}
+		</tr>	
+	{% endfor %}
+</table>
+
+
+{% endblock %}

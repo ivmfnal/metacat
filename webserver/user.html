@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block headline %}
+	{% if create %}
+		Create User
+	{% elif edit %}
+		Edit user {{user.Username}} {{user.Name}}
+    {% else %}
+    
+	{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<form method=POST action="./save_user">
+    
+<input type="hidden" name="new_user" value="{{'yes' if mode=='create' else 'no'}}"/>
+
+<table class="form">
+	<tr>
+		<th>Username</th>
+		<td>
+			{% if mode=="create" %}
+				<input type="text" name="username"/>
+			{% else %}
+				<input type="hidden" name="username" value="{{user.Username}}"/>
+				{{user.Username}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>Name</th>
+		<td>
+			{% if mode == "create" %}
+				<input type="text" name="name"/>
+			{% elif mode == "edit" %}
+				<input type="text" name="name" value="{{user.Name}}"/>
+            {% else %}
+                {{user.Name}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>EMail</th>
+		<td>
+			{% if mode == "create" %}
+				<input type="text" name="email"/>
+			{% elif mode == "edit" %}
+				<input type="text" name="email" value="{{user.EMail}}"/>
+            {% else %}
+                {{user.EMail}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>Flags</th>
+		<td>
+            {% if mode == "create" %}
+			    <input type="text" name="flags"/>
+		    {% elif mode == "edit" %}
+                {% if admin %}
+                    <input type="text" name="flags" value="{{user.Flags}}"/>
+                {% else %}
+                    {{user.Flags}}
+                {% endif %}
+            {% else %}
+                {{user.Flags}}
+		    {% endif %}
+		</td>
+	</tr>
+    {% if mode == "create" or mode == "edit" %}
+        <tr>
+            <th>Password</th>
+            <td><input type="password" name="password1"/></td>
+        </tr>
+        <tr>
+            <th>Repeat password</th>
+            <td><input type="password" name="password2"/></td>
+        </tr>
+    {% endif %}
+	<tr>
+		<th>Roles</th>
+		<td>
+            {% if mode == "create" %}
+                    {% for r in all_roles %}
+                        <input type="checkbox" name="member:{{r.Name}}"/>{{r.Name}}&nbsp;({{r.Description}})<br/>
+                    {% endfor %}
+            {% elif mode == "edit" %}
+                {% if admin %}
+                    {% for r in all_roles %}
+                        <input type="checkbox" name="member:{{r.Name}}" {% if user in r %}checked="checked"{% endif %}/>{{r.Name}}&nbsp;({{r.Description}})<br/>
+                    {% endfor %}
+                {% else %}
+                    {% for r in user.roles() %}{{r.Name}}&nbsp;({{r.Description}})<br/>{% endfor %}
+                {% endif %}
+            {% else %}
+                {% for r in user.roles() %}{{r.Name}}&nbsp;({{r.Description}})<br/>{% endfor %}
+            {% endif %}
+		</td>
+	</tr>
+    
+    
+	{% if mode == "edit" or mode == "create" %}
+		<tr><td></td><td><input type="submit" value="Save"/></td>
+		</tr>
+	{% endif %}
+</table>
+
+</form>
+
+{% endblock %}
+	

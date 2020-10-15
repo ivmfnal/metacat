@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block headline %}Datasets{% endblock %}
+
+{% block content %}
+
+<p>
+<a href="./create_dataset">create</a>
+</p>
+
+<table class="data">
+	<tr>
+		<th>Namespace</th>
+		<th>Name</th>
+		<th>Frozen</th>
+		<th>Monotonic</th>
+		<th>Files</th>
+	</tr>
+	{% for ds in datasets %}
+		<tr>
+            <td><a href="./namespace?name={{ds.Namespace}}">{{ds.Namespace}}</a></td>
+            <td><a href="./dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">{{ds.Name}}</a></td>
+            <td>{{'frozen' if ds.Frozen}}</td>
+            <td>{{'monotonic' if ds.Monotonic}}</td>
+            <td id="count:{{ds.Namespace}}:{{ds.Name}}" class="right"></td>
+            <script>
+		        var out = document.getElementById("count:{{ds.Namespace}}:{{ds.Name}}");
+		        out.data_received = function(data, param) { this.innerHTML = "" + data.nfiles; };
+                HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_count/{{ds.Namespace}}:{{ds.Name}}", 
+			        out, null, "json");
+            </script>
+        </tr>
+	{% endfor %}
+</table>
+
+
+{% endblock %}

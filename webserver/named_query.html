@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block headline %}
+	{% if create %}
+		Create Named Query
+	{% else %}
+		Named Query {{query.Namespace}}:{{query.Name}}
+	{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<form method=POST action="./save_named_query">
+
+<input type="hidden" name="create" value="{{"yes" if create else "no"}}"/>
+
+<table class="form">
+	<tr>
+		<th>Namespace</th>
+		<td>
+			{% if create %}
+				<select name="namespace"/>
+                    {% for ns in namespaces %}
+                        <option value="{{ns.Name}}">{{ns.Name}}</option>
+                    {% endfor %}
+                </select>
+			{% else %}
+				<input type="hidden" name="namespace" 
+					value="{{query.Namespace}}"/>
+				{{query.Namespace}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>Name</th>
+		<td>
+			{% if create %}
+				<input type="text" name="name"/>
+			{% else %}
+				<input type="hidden" name="name" 
+					value="{{query.Name}}"/>
+				{{query.Name}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>Source</th>
+		<td>	{% if edit or create %}
+				<textarea name="source" cols=80 rows=10>{% if not create %}{{query.Source}}{% endif %}</textarea>
+			{% else %}
+				<pre class="source">{{query.Source}}</pre>
+			{% endif %}
+		</td>
+	</tr>
+	{% if edit or create %}
+		<tr><td></td><td><input type="submit" value="Save"/></td>
+		</tr>
+	{% endif %}
+</table>
+
+</form>
+
+{% endblock %}
+	

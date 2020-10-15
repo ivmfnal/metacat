@@ -1,0 +1,289 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Command Line Interface &#8212; MetaCat  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Metaserver REST API" href="REST_API.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="command-line-interface">
+<h1>Command Line Interface<a class="headerlink" href="#command-line-interface" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>You will need Python 3.7 or newer.</p>
+<p>To install the client side components:</p>
+<blockquote>
+<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/ivmfnal/metadata.git
+mkdir ~/build
+<span class="nb">cd</span> metadata
+make <span class="c1"># this will create ~/build/metadata and</span>
+     <span class="c1"># a tar file with contents of ~/build/metadata</span>
+pip install --user requests
+</pre></div>
+</div>
+</div></blockquote>
+<p>You can use the client components from ~/metadata/build or from some other location where you untar the tar file created by make</p>
+</div>
+<div class="section" id="environment">
+<h2>Environment<a class="headerlink" href="#environment" title="Permalink to this headline">¶</a></h2>
+<p>To set the client environment:</p>
+<blockquote>
+<div><ol class="arabic">
+<li><p>Create config YAML file:</p>
+<blockquote>
+<div><div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">Server</span><span class="p">:</span>
+    <span class="nt">URL</span><span class="p">:</span>    <span class="l l-Scalar l-Scalar-Plain">http://host.fnal.gov:8080</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p>Set PYTHONPATH:</p>
+<blockquote>
+<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">PYTHONPATH</span><span class="o">=</span>~/build/metadata/lib:~/build/metadata/ui:<span class="nv">$PYTHONPATH</span>
+<span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span>~/build/metadata/ui:<span class="nv">$PATH</span>
+<span class="nb">export</span> <span class="nv">METACAT_CONFIG</span><span class="o">=</span>/path/to/config.yaml
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ol>
+</div></blockquote>
+</div>
+<div class="section" id="authentication">
+<h2>Authentication<a class="headerlink" href="#authentication" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth login &lt;username&gt;           <span class="c1"># login, will create/update ~/.metacat_tokens</span>
+metacat auth whomi                      <span class="c1"># shows current token username and expiration</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="namespaces">
+<h2>Namespaces<a class="headerlink" href="#namespaces" title="Permalink to this headline">¶</a></h2>
+<p>Currently done via GUI only</p>
+</div>
+<div class="section" id="datasets">
+<h2>Datasets<a class="headerlink" href="#datasets" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat dataset list <span class="o">[[</span>&lt;namespace pattern&gt;:<span class="o">]</span>&lt;name pattern&gt;<span class="o">]</span>     - list datasets
+<span class="c1"># examples:</span>
+<span class="c1"># metacat dataset list ns1:*</span>
+<span class="c1"># metacat dataset list *:A*</span>
+
+metacat dataset create <span class="o">[</span>-p &lt;parent namespace&gt;:&lt;parent name&gt;<span class="o">]</span> &lt;namespace&gt;:&lt;name&gt;
+metacat dataset show &lt;namespace&gt;:&lt;name&gt;
+</pre></div>
+</div>
+</div>
+<div class="section" id="declaring-new-files">
+<h2>Declaring new Files<a class="headerlink" href="#declaring-new-files" title="Permalink to this headline">¶</a></h2>
+<p>Create JSON file with metadata:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;namespace:name&quot;</span><span class="p">,</span>    <span class="c1"># required</span>
+        <span class="s2">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>                <span class="c1"># optional - will fail if already exists</span>
+        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>        <span class="c1"># optional</span>
+        <span class="s2">&quot;parents&quot;</span><span class="p">:</span>  <span class="p">[</span> <span class="s2">&quot;fid1&quot;</span><span class="p">,</span> <span class="s2">&quot;fid2&quot;</span><span class="p">,</span> <span class="o">...</span> <span class="p">]</span>     <span class="c1"># optional</span>
+    <span class="p">},</span>
+    <span class="o">...</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>Get a sample of the JSON file:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat file <span class="nb">declare</span> --sample
+</pre></div>
+</div>
+<p>Declare files:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat file <span class="nb">declare</span> <span class="o">[</span>-N &lt;default namespace&gt;<span class="o">]</span> <span class="se">\</span>
+        metadata.json <span class="o">[</span>&lt;namespace&gt;:<span class="o">]</span>&lt;dataset&gt;
+</pre></div>
+</div>
+</div>
+<div class="section" id="adding-files-to-dataset">
+<h2>Adding files to dataset<a class="headerlink" href="#adding-files-to-dataset" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat add -N &lt;namespace&gt;:&lt;name&gt;<span class="o">[</span>,...<span class="o">]</span> &lt;dataset namespace&gt;:&lt;dataset name&gt;
+metacat add -n @&lt;file with names&gt; &lt;dataset namespace&gt;:&lt;dataset name&gt;
+metacat add -i &lt;file id&gt;<span class="o">[</span>,...<span class="o">]</span> &lt;dataset namespace&gt;:&lt;dataset name&gt;
+metacat add -i @&lt;file with ids&gt; &lt;dataset namespace&gt;:&lt;dataset name&gt;
+metacat add -j &lt;JSON file&gt; &lt;dataset namespace&gt;:&lt;dataset name&gt;
+</pre></div>
+</div>
+<p>JSON file structure:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;namespace:name&quot;</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;...&quot;</span>
+    <span class="p">},</span>
+    <span class="o">...</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>Get a sample of the JSON file:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat file add --sample
+</pre></div>
+</div>
+<p><strong>Example:</strong> add files from dataset A but not in dataset B to dataset C:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat query -i -N <span class="nb">test</span> <span class="s2">&quot;files from A - files from B&quot;</span> &gt; file_ids.txt
+$ metacat file add -i @file_ids.txt test:C
+</pre></div>
+</div>
+</div>
+<div class="section" id="file-metadata">
+<h2>File Metadata<a class="headerlink" href="#file-metadata" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="updating">
+<h3>Updating<a class="headerlink" href="#updating" title="Permalink to this headline">¶</a></h3>
+<p>Create JSON file with (new) metadata:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;name:namespace&quot;</span><span class="p">,</span>        <span class="c1"># optional  - the file will be renamed</span>
+        <span class="s2">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>                    <span class="c1"># required</span>
+        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>            <span class="c1"># optional - metadata will be updated</span>
+        <span class="s2">&quot;parents&quot;</span><span class="p">:</span>  <span class="p">[</span> <span class="s2">&quot;fid1&quot;</span><span class="p">,</span> <span class="s2">&quot;fid2&quot;</span><span class="p">,</span> <span class="o">...</span> <span class="p">]</span>     <span class="c1"># parents will be updated</span>
+    <span class="p">},</span>
+    <span class="o">...</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>Get a sample of the JSON file:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat file update --sample
+</pre></div>
+</div>
+<p>Update metadata:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat file update <span class="o">[</span>-N &lt;default namespace&gt;<span class="o">]</span> metadata.json
+</pre></div>
+</div>
+</div>
+<div class="section" id="retrieving">
+<h3>Retrieving<a class="headerlink" href="#retrieving" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat file show &lt;namespace&gt;:&lt;name&gt;            <span class="c1"># - by namespace/name</span>
+metacat file show -i &lt;fid&gt;                      <span class="c1"># - by file id</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="query">
+<h2>Query<a class="headerlink" href="#query" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat query &lt;options&gt; <span class="s2">&quot;&lt;MQL query&gt;&quot;</span>
+metacat query &lt;options&gt; -f &lt;MQL query file&gt;
+
+Options:
+    -j<span class="p">|</span>--json                           - print raw JSON output
+    -p<span class="p">|</span>--pretty                         - pretty-print metadata
+    -i<span class="p">|</span>--ids                            - print file ids instead of names
+    -s<span class="p">|</span>--summary                        - print only summary information
+    -m<span class="p">|</span>--metadata<span class="o">=[</span>&lt;field&gt;,...<span class="o">]</span>         - print metadata fields
+                                          overrides --summary
+    -m<span class="p">|</span>--metadata<span class="o">=</span>all                   - print all metadata fields
+                                          overrides --summary
+    -N<span class="p">|</span>--namespace<span class="o">=</span>&lt;default namespace&gt;  - default namespace <span class="k">for</span> the query
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">MetaCat</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="mql.html">MQL - Metadata Query Language</a></li>
+<li class="toctree-l1"><a class="reference internal" href="REST_API.html">Metaserver REST API</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Command Line Interface</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#environment">Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#authentication">Authentication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#namespaces">Namespaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#datasets">Datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#declaring-new-files">Declaring new Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#adding-files-to-dataset">Adding files to dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#file-metadata">File Metadata</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#query">Query</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="REST_API.html" title="previous chapter">Metaserver REST API</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Igor Mandrichenko.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.0.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/ui.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

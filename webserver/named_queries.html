@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block headline %}Named Queries{% if namespace %} in Namespace {{namespace}}{% endif %}{% endblock %}
+
+{% block content %}
+
+<p><a href="./create_named_query">create</a></p>
+
+<table class="data">
+	<tr>
+		<th>Namespace</th>
+		<th>Name</th>
+	</tr>
+	{% for q in queries %}
+		<tr>
+				<td>{{q.Namespace}}</td>
+				<td><a href="./named_query?name={{q.Namespace}}:{{q.Name}}&edit=yes">{{q.Name}}</td>
+	</tr>
+	{% endfor %}
+</table>
+
+
+{% endblock %}

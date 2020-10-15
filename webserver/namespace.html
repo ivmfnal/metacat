@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block headline %}
+	{% if create %}
+		Create namespace
+	{% elif edit %}
+		Edit namespace {{namespace.Name}}
+    {% else %}
+        Namespace {{namespace.Name}}
+	{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<form method=POST action="./save_namespace">
+
+<input type="hidden" name="create" value="{{"yes" if create else "no"}}"/>
+
+<table class="form">
+	<tr>
+		<th>Name</th>
+		<td>
+			{% if create %}
+				<input type="text" name="name"/>
+			{% else %}
+				<input type="hidden" name="name" value="{{namespace.Name}}"/>
+				{{namespace.Name}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>Owner role</th>
+		<td>{% if create or edit %}
+                <select name="role">
+                    {% for r in roles %}
+                        <!-- {{r}} -->
+                        <option value="{{r.Name}}">{{r.Name}}</option>
+                    {% endfor %}
+                </select>
+            {% else %}
+                {{namespace.Owner.Name}}
+            {% endif %}    
+        </td>
+	</tr>
+	{% if edit or create %}
+		<tr><td></td><td><input type="submit" value="Save"/></td>
+		</tr>
+	{% endif %}
+</table>
+
+</form>
+
+{% endblock %}
+	

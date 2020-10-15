@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block headline %}
+		Create parameter category
+{% endblock %}
+
+{% block content %}
+
+<form method=POST action="./do_save">
+
+<input type="hidden" name="create" value="yes"/>
+
+<table class="form">
+	<tr>
+		<th>Parent category</th>
+		<td><select name="parent">
+                {% if admin %}<option value="">(top)</option>{% endif %}
+                {% for p in parents %}
+                    <option value="{p}">{{p}}</option>
+                {% endfor %}
+            </select>
+        </td>
+    </tr>
+    <tr>
+		<th>Relative path</th>
+		<td><input name="path"/></td>
+    </tr>
+    <tr>
+        <th>Restricted</th>
+        <td><input type="checkbox" name="restricted"/></td>
+    </tr>
+    <tr>
+        <th>Owner role</th>
+        </td>
+                <select name="owner">
+                    {% for r in roles %}
+                        <option value="{{r.Name}}">{{r.Name}}</option>
+                    {% endfor %}
+                </select>
+        </td>
+    </tr>
+	<tr><td></td><td><input type="submit" value="Create"/></td>
+	</tr>
+</table>
+
+</form>
+
+{% endblock %}
+	

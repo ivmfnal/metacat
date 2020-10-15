@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block headline %}
+	{% if create %}
+		Create Dataset
+	{% elif edit %}
+		Edit Dataset {{dataset.Namespace}}:{{dataset.Name}}
+    {% else %}
+        Dataset {{dataset.Namespace}}:{{dataset.Name}}
+	{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<form method=POST action="./save_dataset">
+
+<input type="hidden" name="create" value="{{"yes" if create else "no"}}"/>
+
+<table class="form">
+    <tr>
+        <th>Namespace:</th>
+        <td>
+            {% if create %}
+                <select name="namespace">
+                    {% for ns in namespaces %}
+                        <option value="{{ns.Name}}">{{ns.Name}}</option>
+                    {% endfor %}
+                </select>
+            {% else %}
+				<input type="hidden" name="namespace" value="{{dataset.Namespace}}"/>
+                {{dataset.Namespace}}
+            {% endif %}
+        </td>
+    <tr>
+	<tr>
+		<th>Name:</th>
+		<td>
+			{% if create %}
+				<input type="text" name="name"/>
+			{% else %}
+				<input type="hidden" name="name" value="{{dataset.Name}}"/>
+				{{dataset.Name}}
+			{% endif %}
+		</td>
+	</tr>
+    <tr>
+        <th>Frozen:</th>
+        <td>
+            {% if create %}
+                <input type="checkbox" name="frozen"/>
+            {% elif edit %}
+                <input type="checkbox" name="frozen" {{'checked="checked"' if dataset.Frozen}}/>
+            {% else %}
+                {{'yes' if dataset.Frozen else 'no'}}
+            {% endif %}
+        </td>
+    </tr>
+    <tr>
+        <th>Monotonic:</th>
+        <td>
+            {% if create %}
+                <input type="checkbox" name="monotonic"/>
+            {% elif edit %}
+                <input type="checkbox" name="monotonic" {{'checked="checked"' if dataset.Monotonic}}/>
+            {% else %}
+                {{'yes' if dataset.Monotonic else 'no'}}
+            {% endif %}
+        </td>
+    </tr>
+    {% if not create %}
+        <tr>
+            <th>Files:</th>
+            <td id="nfiles">...</td>
+            <script>
+    		    var out = document.getElementById("nfiles");
+    		    out.data_received = function(data, param) { this.innerHTML = "" + data.nfiles; };
+                HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_count/{{dataset.Namespace}}:{{dataset.Name}}", 
+    			    out, null, "json");
+            </script>
+        </tr>
+    {% endif %}
+	{% if edit or create %}
+		<tr><td></td><td><input type="submit" value="Save"/></td>
+		</tr>
+	{% endif %}
+</table>
+
+
+</form>
+
+
+{% if files %}
+
+    <h3>Sample files</h3>
+
+    <p><i>{{files|length}}/{{nfiles}} files shown</i></p>
+
+    <table class="data">
+        <tr>
+            <th>File name</th>{% for a in attr_names %}<th>{{a}}</th>{% endfor %}
+        </tr>
+        {% for f in files|sort(attribute="Name") %}
+            <tr>
+                <td><a class="left" href="./show_file?fid={{f.FID}}">{{f.Namespace}}:{{f.Name}}</a></td>
+                    {% for n in attr_names %}
+                        <td>{{f.Metadata[n]}}</td>
+                    {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+
+{% endif %}
+
+{% endblock %}
+	

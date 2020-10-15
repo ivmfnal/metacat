@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block headline %}
+	{% if create %}
+		Create role
+	{% elif edit %}
+		Edit role {{role.Name}}
+    {% else %}
+    
+	{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<form method=POST action="./save_role">
+
+<input type="hidden" name="create" value="{{"yes" if create else "no"}}"/>
+
+<table class="form">
+	<tr>
+		<th>Name</th>
+		<td>
+			{% if create %}
+				<input type="text" name="name"/>
+			{% else %}
+				<input type="hidden" name="name" value="{{role.Name}}"/>
+				{{role.Name}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>Description</th>
+		<td>
+			{% if create %}
+				<input type="text" name="description"/>
+			{% elif edit %}
+				<input type="text" name="description" value="{{role.Description}}"/>
+            {% else %}
+                {{role.Description}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>{% if create %}Add users
+            {% elif edit %}Add/remove users
+            {% else %}Users
+            {% endif %}
+        </th>
+		<td><script type="text/javascript">
+                var checkboxes=[];
+            </script>
+            {% if create %}
+                <input type="checkbox" onchange="javascript:toggle_all(this)"/>(all)<br/>
+                {% for u in all_users %}
+                    <input type="checkbox" name="member:{{u.Username}}" id="member:{{u.Username}}"/>{{u.Username}}&nbsp;({{u.Name}})<br/>
+                    <script type="text/javascript">checkboxes.push(document.getElementById("member:{{u.Username}}"));</script>
+                {% endfor %}
+            {% elif edit %}
+                <input type="checkbox" onchange="javascript:toggle_all(this)"/>(all)<br/>
+                {% for u in all_users %}
+                    <input type="checkbox" name="member:{{u.Username}}" id="member:{{u.Username}}" {% if u.Username in role %}checked="checked"{% endif %}/>{{u.Username}}&nbsp;({{u.Name}})<br/>
+                    <script type="text/javascript">checkboxes.push(document.getElementById("member:{{u.Username}}"));</script>
+                {% endfor %}
+            {% else %}
+                {% for u in role.Users %}{{u.Username}}&nbsp;{% endfor %}
+            {% endif %}
+            <script type="text/javascript">
+                function toggle_all(c)
+                {
+                        checkboxes.forEach( x => {
+                            x.checked = c.checked;
+                        });
+                        return true;
+                }
+            </script> 
+		</td>
+	</tr>
+	{% if edit or create %}
+		<tr><td></td><td><input type="submit" value="Save"/></td>
+		</tr>
+	{% endif %}
+</table>
+
+</form>
+
+{% endblock %}
+	

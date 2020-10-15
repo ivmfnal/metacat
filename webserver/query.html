@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block headline %}Metadata Query{% endblock %}
+
+{% block content %}
+
+<form method="post" action="">
+    <table class="form">
+		<tr>
+			<th>Load:</th>
+            <td>
+                {% if named_queries %}
+                    <select name="query_to_load">
+    				{% for q in named_queries %}
+    					<option value="{{q.Namespace}}:{{q.Name}}">{{q.Namespace}}:{{q.Name}}</option>
+    				{% endfor %}
+    				</select>&nbsp;&nbsp;<input type="submit" name="action" value="load"/></td>
+                {% else %}
+                    no saved queries
+                {% endif %}
+            <td></td>
+		</tr>
+        <tr><td colspan=3>&nbsp;</td></tr>
+        <tr>
+            <th>Default namespace:</th><td><input type="text" name="default_namespace"
+                    value="{{namespace or 'test'}}"/></td>
+            <td></td>
+        </tr>
+        <tr>
+            <th>Query:</th>
+            <td colspan=3>
+                <p style="width:100%; text-align:right">
+					<!-- <a href="https://metadatadb.readthedocs.io/en/latest/query_language.html" target="_new">MQL documentation</a> -->
+					<a href="{{GLOBAL_AppTopPath}}/static/docs/html/mql.html" target="_new">MQL documentation</a>
+				</p>
+                <textarea name="query" cols=80 rows=10>{{query}}</textarea>
+            </td>
+            <td></td>
+
+        </tr>
+        {% if allow_save_query %}
+		    <tr>
+			    <th>Save query as:</th><td>Namespace:&nbsp;<select name="save_namespace">
+                    {%- for ns in namespaces %}
+                        <option value="{{ns.Name}}" {{'selected="selected"' if ns.Name == namespace }}>{{ns.Name}}</option>
+                    {% endfor -%}
+                    </select>&nbsp;&nbsp;
+                {{- '' -}}
+                Name:&nbsp<input type="text" name="save_name"/>&nbsp;&nbsp
+                {{- '' -}}
+                <input type="submit" name="action" value="save"/></td>
+                <td></td>
+		    </tr>
+        {% endif %}
+        <tr><td colspan=3>&nbsp;</td></tr>
+        <tr>
+            <th>Include metadata:</th>
+            <td><input type="checkbox" name="with_meta" {% if with_meta %}checked="checked"{% endif %}>
+        </tr>
+        {% if allow_save_as_dataset %}
+            <tr>
+                <th>{{"Run" if not show_files else "Re-run"}} and save results as dataset:</th>
+                <td><input type=checkbox name="save_as_dataset"/>&nbsp;&nbsp;&nbsp;Namespace:&nbsp;<select name="save_as_dataset_namespace">
+                                    {% for ns in namespaces %}
+                                        <option value="{{ns.Name}}">{{ns.Name}}</option>
+                                    {% endfor %}
+                                </select>&nbsp;&nbsp;&nbsp;Name:&nbsp;<input type=text name="save_as_dataset_name"/></td>
+                </td>
+            </tr>
+        {% endif %}
+        <tr>
+            <td></td>
+            <td><input type="submit" name="action" value="run"/></td>
+        </tr>
+    </table>
+</form>
+
+{% if show_datasets %}
+    <div class=headline>Query results</div>
+    <p>Runtime: {{"%.3f"|format(runtime)}} seconds<br/>
+        Datasets: {{datasets|length}} (results in GUI are always limited to 1000 results)<br/>
+        JSON:&nbsp;<a href="{{GLOBAL_AppTopPath}}/data/query?with_meta=yes&query={{url_query}}">with</a> 
+        <a href="{{GLOBAL_AppTopPath}}/data/query?with_meta=no&query={{url_query}}">without</a> metadata
+    </p>
+
+    <h3>Datasets</h3>
+    <table class="data">
+        <tr>
+            <th>Dataset</th>{% if attr_names %}<th>Metadata</th>{% endif %}
+        </tr>
+        {% for d in datasets|sort(attribute="Name") %}
+            <tr>
+                <td>{{d.Namespace}}:{{d.Name}}</a></td>
+                {#
+					{% if attr_names %}
+                    <td>
+                        {% if f.Metadata %}
+                            {% for n in attr_names %}
+                                {% if f.Metadata[n] is not none %}
+                                    {{n}}:&nbsp;{{f.Metadata[n]}}<br/>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    </td>
+                	{% endif %}
+				#}
+            </tr>
+        {% endfor %}
+    </table>
+    
+{% elif show_files %}
+    <div class=headline>Query results</div>
+    <p>Runtime: {{"%.3f"|format(runtime)}} seconds<br/>
+        Files: {{files|length}} (results in GUI are always limited to 1000 results)<br/>
+        JSON:&nbsp;<a href="{{GLOBAL_AppTopPath}}/data/query?with_meta=yes&query={{url_query}}">with</a> 
+        <a href="{{GLOBAL_AppTopPath}}/data/query?with_meta=no&query={{url_query}}">without</a> metadata
+    </p>
+
+    {% if meta_stats %}
+        <h3><a href="javascript:toggle_meta_stats()" id="meta_stats_toggle" class="button">+</a>&nbsp;&nbsp;&nbsp;Metadata values distribution</h3>
+        <table class="file_metadata" id="meta_stats_table" style="display:none; visibility:hidden">
+            <tr>
+                <th>Attribute</th><th>Value</th><th>Count</th>
+            </tr>
+            {% for name, counts in meta_stats %}
+                {% for v, c in counts %}
+                    <tr>
+                        {% if loop.first %}<td  class="attr_name" rowspan="{{counts|length}}">{{name}}</td>{% endif %}
+                        <td class="attr_value">{{v}}</td><td>{{c}}</td>
+                    </tr>
+                {% endfor %}
+            {% endfor %}
+        </table>
+        
+        <script type="text/javascript">
+            var meta_stats_shown=false;
+            
+            function toggle_meta_stats()
+            {
+                var t = document.getElementById("meta_stats_table");
+                var b = document.getElementById("meta_stats_toggle");
+                if (meta_stats_shown)
+                {
+                    t.style.visibility = "hidden";
+                    t.style.display = "none";
+                    b.innerHTML = "+";
+                    meta_stats_shown=false;
+                }
+                else
+                {
+                    t.style.visibility = "visible";
+                    t.style.display = "";
+                    b.innerHTML = "-";
+                    meta_stats_shown=true;
+                }
+            }
+        </script>
+                
+                    
+        
+    {% endif %}
+
+    <h3>Files</h3>
+    <table class="file_metadata">
+        {#
+            <tr>
+            <th>File name</th>{% if attr_names %}<th>Metadata</th>{% endif %}
+        </tr>
+        #}
+        {% for f in files|sort(attribute="Name") %}
+            <tr>
+                <td colspan=2 class="filename">{{f.Namespace}}:{{f.Name}} (<a href="./show_file?fid={{f.FID}}">{{f.FID}}</a>)</td>
+            </tr>
+            {% if attr_names and f.Metadata %}
+                {% for n in attr_names %}
+                    {% if n in f.Metadata -%}
+                        <tr>
+                            <td class="attr_name">{{n}}</td>
+                            <td class="attr_value">{{f.Metadata[n]}}</td>
+                        </tr>
+                    {%- endif %}
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+    </table>
+{% endif %}
+
+    
+    
+
+        
+
+{% endblock %}
+

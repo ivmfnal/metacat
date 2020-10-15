@@ -1,0 +1,4 @@
+		join (
+			dataset A, dataset B, dataset C
+		)
+        where a > 3 and b < 4

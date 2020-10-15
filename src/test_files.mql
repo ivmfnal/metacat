@@ -1,0 +1,8 @@
+files from  test-data 
+  where  
+       "rce14" in lbne_data.detector_type_array 
+       and "rce03" in lbne_data.detector_type_array
+       and (
+            "ssp07" in lbne_data.detector_type_array
+            or "rce10" in lbne_data.detector_type_array
+       )

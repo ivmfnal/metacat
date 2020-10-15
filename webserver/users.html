@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block headline %}Users{% endblock %}
+
+{% block content %}
+
+{% if admin %}<p><a href="./create_user">create</a></p>{% endif %}
+
+<table class="data">
+	<tr>
+		<th>Username</th>
+		<th>Name</th>
+		<th>Email address</th>
+        <th>Flags</th>
+        <th>Roles</th>
+	</tr>
+	{% for u in users %}
+		<tr>
+				<td><a href="./user?username={{u.Username}}">{{u.Username}}</a></td>
+				<td>{{u.Name or ""}}</td>
+				<td>{{u.EMail or ""}}</td>
+                <td>{{u.Flags or ""}}</td>
+                <td>{% for r in u.roles() %}<a href="./role?name={{r.Name}}">{{r.Name}}</a> {% endfor %}</td>
+	    </tr>
+	{% endfor %}
+</table>
+
+
+{% endblock %}

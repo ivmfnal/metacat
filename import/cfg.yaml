@@ -1,0 +1,2 @@
+out: "host=ifdb02.fnal.gov port=5433 user=ivm dbname=dune_metadata"
+in: "host=sampgsdb03.fnal.gov port=5435 user=samread dbname=sam_dune_prd"

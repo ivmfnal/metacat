@@ -1,0 +1,38 @@
+[
+	{
+		"name":	"ff1.dat",
+		"fid":	"fid.ff1.dat",
+		"parents":	["60c5ca090a564164a4d7dac5cda9b816"],
+		"metadata": {
+			"filename":"ff1.dat",
+			"sequence":1
+		}
+	},
+
+	{
+		"name":	"ff2.dat",
+		"metadata": {
+			"filename":"ff2.dat",
+			"sequence":2
+		}
+	},
+
+	{
+		"name":	"ff3.dat",
+		"fid":	"fid.ff3.dat",
+		"metadata": {
+			"filename":"ff3.dat",
+			"sequence":3
+		}
+	},
+
+	{
+		"name":	"ff4.dat",
+		"fid":	"fid.ff4.dat",
+		"metadata": {
+			"filename":"ff4.dat",
+			"sequence":4.5
+		}
+	}
+
+]

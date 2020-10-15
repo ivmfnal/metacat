@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block headline %}Namespaces{% endblock %}
+
+{% block content %}
+
+<p><a href="./create_namespace">create</a></p>
+
+<table class="data">
+	<tr>
+		<th>Name</th>
+		<th>Owner</th>
+	</tr>
+	{% for ns in namespaces %}
+		<tr>
+				<td><a href="./namespace?name={{ns.Name}}">{{ns.Name}}</a></td>
+				<td><a href="./role?name={{ns.Owner.Name}}">{{ns.Owner.Name}}<a></td>
+	    </tr>
+	{% endfor %}
+</table>
+
+
+{% endblock %}

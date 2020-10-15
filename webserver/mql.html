@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block headline %}Metadata Query{% endblock %}
+
+{% block content %}
+
+<p><i>Warning: this page is used for debugging purposes and will be removed in production</i></p>
+
+<form method="post" action="">
+    <table class="form">
+        <tr>
+            <th>Default namespace:</th><td><input type="text" name="namespace"
+                    value="{{namespace or 'test'}}"/></td>
+            <td></td>
+        </tr>
+        <tr>
+            <th>Query:</th><td colspan=3><textarea name="query" cols=80 rows=10>{{query_text}}</textarea></td>
+            <td></td>
+        </tr>
+        <tr>
+            <th></th>
+            <td><input type="submit" name="action" value="run"/></td>
+        </tr>
+    </table>
+</form>
+
+
+    
+{% if show_results %}
+            <h3>Parsed</h3>
+                <pre class=code>{{parsed}}</pre>
+            <h3>Assembled</h3>
+                <pre class=code>{{assembled}}</pre>
+            <h3>Optimized</h3>
+                <pre class=code>{{optimized}}</pre>
+            <h3>SQL generated</h3>
+                <pre class=code>{{with_sql}}</pre>
+{% endif %}
+
+    
+    
+
+        
+
+{% endblock %}

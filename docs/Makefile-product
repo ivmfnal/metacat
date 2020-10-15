@@ -1,0 +1,18 @@
+
+build:	docs server_static
+
+docs:	$(DOCSDIR)
+	#make html
+	cp -R _build/html $(DOCSDIR)
+	
+server_static: $(SERVER_DIR)
+	mkdir -p $(SERVER_DIR)/static/docs
+	ln -s ../../../docs/html $(SERVER_DIR)/static/docs
+	
+$(SERVER_DIR):
+	mkdir -p $@
+	
+$(DOCSDIR):
+	mkdir -p $@
+	
+	

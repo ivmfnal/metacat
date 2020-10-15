@@ -1,0 +1,5 @@
+union(
+	files from test:A,
+	files from test:B where i > 3
+) where b=true and i < 10 limit 10
+
