@@ -17,6 +17,19 @@
 	                <th>Name</th><td>{{f.Name}}</td>
                 </tr>
                 <tr>
+	                <th>Size</th><td>{{f.Size}}</td>
+                </tr>
+                <tr>
+	                <th>Checksums</th>
+                    <td>
+	                        <table>
+                                {% for ckn, ckv in f.Checksums.items() %}
+                                    <tr><td>{{ckn}}</td><td>{{ckv}}</td></tr>
+                                {% endfor %}
+                            </table>
+	                </td>
+                </tr>
+                <tr>
 	                <th>Parents</th>
                     <td>
 		                {% for p in f.parents() -%}

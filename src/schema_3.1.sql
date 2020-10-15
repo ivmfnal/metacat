@@ -42,6 +42,7 @@ create table files
     metadata    jsonb,
     creator text references users(username),
     size        bigint,
+    checksums   jsonb,
     created_timestamp   timestamp with time zone    default now()
 );
 

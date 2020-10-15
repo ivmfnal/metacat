@@ -18,56 +18,68 @@ echo Starting parallel preloading at `date` ...
 
 (
 echo
-echo --- preloading attributes ...
+echo -1- preloading attributes ...
 ./preload_attrs.sh
 
 echo
-echo --- splitting DUNE_data.detector_config values into lists ...
+echo -1- splitting DUNE_data.detector_config values into lists ...
 ./preload_detector_config.sh
 
 echo
-echo --- preload runs/subruns ...
+echo -1- preload runs/subruns ...
 ./preload_runs_subruns.sh
 
-echo
-echo --- splitting lbne_data.detector_type values into lists ...
-./preload_detector_type.sh
+echo -1- DONE
 
-echo
-echo --- preloading data streams ...
-./preload_data_streams.sh
-
-echo
-echo --- preloading event numbers
-./preload_event_numbers.sh
 )&
-
 
 (
 echo
-echo --- preloading content sratus ...
+echo -2- preloading app families ...
+./preload_app_families.sh
+
+echo
+echo -2- preloading event numbers
+./preload_event_numbers.sh
+
+echo
+echo -2- splitting lbne_data.detector_type values into lists ...
+./preload_detector_type.sh
+
+echo -2- DONE
+
+)&
+
+(
+echo
+echo -3- preloading data streams ...
+./preload_data_streams.sh
+
+echo
+echo -3- preloading content sratus ...
 ./preload_content_status.sh
 
 echo
-echo --- preloading file formats ...
+echo -3- preloading file formats ...
 ./preload_formats.sh
 
 echo
-echo --- preloading file types ...
+echo -3- preloading file types ...
 ./preload_file_types.sh
 
 echo
-echo --- preloading run types ...
+echo -3- preloading run types ...
 ./preload_run_types.sh
 
 echo
-echo --- preloading data tiers ...
+echo -3- preloading data tiers ...
 ./preload_data_tiers.sh
 
-echo
-echo --- preloading app families ...
-./preload_app_families.sh
+echo -3- DONE
+
 )&
+
+
 
 echo Waiting for parallel paths to join ...
 

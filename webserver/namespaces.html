@@ -10,12 +10,24 @@
 	<tr>
 		<th>Name</th>
 		<th>Owner</th>
+        <th>Files</th>
+        <th>Datasets</th>
+        <th>Queries</th>
 	</tr>
 	{% for ns in namespaces %}
 		<tr>
 				<td><a href="./namespace?name={{ns.Name}}">{{ns.Name}}</a></td>
 				<td><a href="./role?name={{ns.Owner.Name}}">{{ns.Owner.Name}}<a></td>
+				<td id="file_count:{{ns}}"></td>
+				<td id="dataset_count:{{ns}}">{{ns.dataset_count()}}</td>
+				<td id="query_count:{{ns}}">{{ns.query_count()}}</td>
 	    </tr>
+            <script>
+		        var out = document.getElementById("file_count:{{ns}}");
+		        out.data_received = function(data, param) { this.innerHTML = "" + data.nfiles; };
+                HTTPRequest("{{GLOBAL_AppTopPath}}/data/namespace_counts?namespace={{ns}}", 
+			        out, null, "json");
+            </script>
 	{% endfor %}
 </table>
 

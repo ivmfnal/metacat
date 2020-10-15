@@ -222,7 +222,7 @@ class DBFileSet(object):
         
 class DBFile(object):
 
-    def __init__(self, db, namespace = None, name = None, metadata = None, fid = None):
+    def __init__(self, db, namespace = None, name = None, metadata = None, fid = None, size=None, checksums=None):
         assert (namespace is None) == (name is None)
         self.DB = db
         self.FID = fid or uuid.uuid4().hex
@@ -232,6 +232,8 @@ class DBFile(object):
         self.Metadata = metadata or {}
         self.Creator = None
         self.CreatedTimestamp = None
+        self.Cehcksums = checksums or {}
+        self.Size = size
     
     ID_BITS = 64
     ID_NHEX = ID_BITS/4
@@ -256,10 +258,11 @@ class DBFile(object):
         c = self.DB.cursor()
         try:
             meta = json.dumps(self.Metadata or {})
+            checksums = json.dumps(self.Checksums or {})
             c.execute("""
-                insert into files(id, namespace, name, metadata) values(%s, %s, %s, %s)
+                insert into files(id, namespace, name, metadata, size, checksums) values(%s, %s, %s, %s, %s, %s)
                 """,
-                (self.FID, self.Namespace, self.Name, meta))
+                (self.FID, self.Namespace, self.Name, meta, self.Size, checksums))
             if do_commit:   c.execute("commit")
         except IntegrityError:
             c.execute("rollback")
@@ -274,7 +277,7 @@ class DBFile(object):
     def create_many(db, files, do_commit=True):
         from psycopg2 import IntegrityError
         tuples = [
-            (f.FID, f.Namespace, f.Name, json.dumps(f.Metadata or {}))
+            (f.FID, f.Namespace, f.Name, json.dumps(f.Metadata or {}), f.Size, json.dumps(f.Checksums or {}))
             for f in files
         ]
         #print("tuples:", tuples)
@@ -282,8 +285,8 @@ class DBFile(object):
         try:
             c.executemany("""
                 insert 
-                    into files(id, namespace, name, metadata) 
-                    values(%s, %s, %s, %s)
+                    into files(id, namespace, name, metadata, size, checksums) 
+                    values(%s, %s, %s, %s, %s, %s)
                 """,
                 tuples)
             if do_commit:   c.execute("commit")
@@ -301,10 +304,11 @@ class DBFile(object):
         from psycopg2 import IntegrityError
         c = self.DB.cursor()
         meta = json.dumps(self.Metadata or {})
+        checksums = json.dumps(self.Checksums or {})
         try:
             c.execute("""
-                update files set namespace=%s, name=%s, metadata=%s where id = %s
-                """, (self.Namespace, self.Name, meta, self.FID)
+                update files set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s where id = %s
+                """, (self.Namespace, self.Name, meta, self.Size, checksums, self.FID)
             )
             if do_commit:   c.execute("commit")
         except:
@@ -316,7 +320,7 @@ class DBFile(object):
     def update_many(db, files, do_commit=True):
         from psycopg2 import IntegrityError
         tuples = [
-            (f.Namespace, f.Name, json.dumps(f.Metadata or {}), f.FID)
+            (f.Namespace, f.Name, json.dumps(f.Metadata or {}), f.Size, json.dumps(f.Checksums or {}), f.FID)
             for f in files
         ]
         #print("tuples:", tuples)
@@ -324,7 +328,7 @@ class DBFile(object):
         try:
             c.executemany("""
                 update files
-                    set namespace=%s, name=%s, metadata=%s
+                    set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s
                     where id=%s
                 """,
                 tuples)
@@ -340,17 +344,19 @@ class DBFile(object):
         assert (namespace is None) == (name is None)
         c = db.cursor()
         if fid is not None:
-            c.execute("""select id, namespace, name, metadata from files
+            c.execute("""select id, namespace, name, metadata, size, checksums 
+                    from files
                     where id = %s""", (fid,))
         else:
-            c.execute("""select id, namespace, name, metadata 
+            c.execute("""select id, namespace, name, metadata, size, checksums 
                     from files
                     where namespace = %s and name=%s""", (namespace, name))
         tup = c.fetchone()
         if not tup: return None
-        fid, namespace, name, meta = tup
+        fid, namespace, name, meta, size, checksums = tup
         meta = meta or {}
-        return DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta)
+        checksums = checksums or {}
+        return DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums)
             
     @staticmethod
     def exists(db, fid = None, namespace = None, name = None):
@@ -414,7 +420,9 @@ class DBFile(object):
             namespace = self.Namespace,
             name = self.Name,
             children = [c.FID for c in self.children()],
-            parents = [p.FID for p in self.parents()]
+            parents = [p.FID for p in self.parents()],
+            checksums = self.Checksums,
+            size = self.Size
         )
         if with_metadata:
             data["metadata"] = self.metadata()
@@ -1157,6 +1165,29 @@ class DBNamespace(object):
     @staticmethod
     def exists(db, name):
         return DBNamespace.get(db, name) != None
+        
+        
+    def file_count(self):
+        c = self.DB.cursor()
+        c.execute("""select count(*) from files where namespace=%s""", (self.Name,))
+        tup = c.fetchone()
+        if not tup: return 0
+        else:       return tup[0]
+        
+    def datasets_count(self):
+        c = self.DB.cursor()
+        c.execute("""select count(*) from datasets where namespace=%s""", (self.Name,))
+        tup = c.fetchone()
+        if not tup: return 0
+        else:       return tup[0]
+        
+    def query_count(self):
+        c = self.DB.cursor()
+        c.execute("""select count(*) from queries where namespace=%s""", (self.Name,))
+        tup = c.fetchone()
+        if not tup: return 0
+        else:       return tup[0]
+        
 
 class DBRole(object):
 

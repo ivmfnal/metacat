@@ -689,8 +689,21 @@ class DataHandler(BaseHandler):
         return '{"nfiles":%d}\n' % (nfiles,), {"Content-Type":"text/json",
             "Access-Control-Allow-Origin":"*"
         } 
+
+    def namespace_counts(self, request, relpath, namespace=None, **args):
+        db = self.App.connect()
+        ns = DBNamespace(db, namespace)
+        out = json.dumps(
+            dict(
+                nfiles = ns.file_count(),
+                ndatasets = ns.dataset_count(),
+                nqueries = ns.query_count()
+            )
+        )
+        return out, {"Content-Type":"text/json",
+            "Access-Control-Allow-Origin":"*"
+        } 
         
-            
     def create_dataset(self, request, relpath, dataset=None, parent=None, **args):
         user = self.authenticated_user()
         if user is None:
