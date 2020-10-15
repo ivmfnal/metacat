@@ -16,6 +16,7 @@ create table files
         creator         text,
         created_timestamp        timestamp with time zone,
         size            bigint,
+        checksums       jsonb,
         metadata        jsonb
 );
 
@@ -27,9 +28,9 @@ create temp view combined_meta as
 
 -- create index meta_file_id_inx on meta(file_id);
 
-insert into files(id, namespace, name, creator, created_timestamp, size, metadata)
+insert into files(id, namespace, name, creator, created_timestamp, size, checksums, metadata)
 (
-	select r.file_id, 'dune', r.name, r.create_user, to_timestamp(r.create_timestamp), r.size, m.metadata  
+	select r.file_id, 'dune', r.name, r.create_user, to_timestamp(r.create_timestamp), r.size, r.checksums, m.metadata  
 		from raw_files r
 			left outer join combined_meta m on (m.file_id = r.file_id)
 );

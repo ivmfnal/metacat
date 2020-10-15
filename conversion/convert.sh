@@ -24,10 +24,7 @@ echo --- preloading attributes ...
 echo
 echo --- splitting DUNE_data.detector_config values into lists ...
 ./preload_detector_config.sh
-)&
 
-
-(
 echo
 echo --- preload runs/subruns ...
 ./preload_runs_subruns.sh
@@ -43,7 +40,8 @@ echo --- preloading data streams ...
 echo
 echo --- preloading event numbers
 ./preload_event_numbers.sh
-) &
+)&
+
 
 (
 echo
@@ -58,9 +56,6 @@ echo
 echo --- preloading file types ...
 ./preload_file_types.sh
 
-) &
-
-(
 echo
 echo --- preloading run types ...
 ./preload_run_types.sh
@@ -88,12 +83,12 @@ echo --- loading lineages ...
 time ./load_lineages.sh
 
 echo
-echo --- building indexes ...
-time ./build_indexes.sh
-
-echo
 echo --- creating other tables ...
 time ./create_other_tables.sh
+
+echo
+echo --- building indexes ...
+time ./build_indexes.sh
 
 echo
 echo --- building foreign keys ...
