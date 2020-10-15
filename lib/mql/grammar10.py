@@ -83,7 +83,7 @@ FNAME: LETTER ("_"|"-"|"."|LETTER|DIGIT)*
 
 WORD: LETTER ("_"|LETTER|DIGIT)*
 
-CMPOP:  "<" "="? | "!"? "=" "="? | "!"? "~" "*"? | ">" "="? 
+CMPOP:  "<" "="? | "!"? "=" "="? | "!"? "~" "*"? | ">" "="? | "like"            # like is not implemented yet
 
 BOOL: "true"i | "false"i
 

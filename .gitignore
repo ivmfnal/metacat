@@ -1,0 +1,10 @@
+cookie.jar
+token
+.*
+*.bak
+*.bck
+!.gitignore
+*.tabs
+__pycache__
+!.readthedocs.yml
+*-hide

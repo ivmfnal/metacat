@@ -127,8 +127,6 @@ Although is it not necessary in this example, you can use parethesis and white s
         (files from MC:Beam where e1 > 10) 
         - (files from MC:Exotics where type = "abcd")
         
-        files - files where data_type="mc"
-
 Also, you can use square and curly brackets as an alternative to using explicit words "union" and "join" respectively.
 The following two queries are equivalent:
 
@@ -264,6 +262,87 @@ Of course, explicit namespace specification overrides the one specified using "w
                 
 
 This will return union of datasets "x:A", "y:B" and "x:C".
+
+Metadata Comparison
+~~~~~~~~~~~~~~~~~~~
+
+MQL supports the following comparison operators: <, <=, >, >=, ==, !=
+The following operators can be used for string matching using regular expressions:
+    
+    * metatada_name ~ "pattern" - parameter matches the pattern
+    * ~* - match ignoring case
+    * !~ - no match
+    * !~* - no match ignoring case
+    
+Ranges and Sets
+~~~~~~~~~~~~~~~
+
+If you want to use a range of values:
+
+.. code-block:: sql
+
+     files from test:test
+         where x in 3:5             # equivalent to (x >= 3 and x <= 5)
+           and y in (4,5,7)         # same as (y == 3 or y == 5 or y == 7)
+           
+Note that due to the way the underlying database works, using explicit sets of values is faster than ranges or comparison with
+"less than" or "greather than" operators.
+
+So this query will generally run faster:
+
+.. code-block:: sql
+
+     files from test:test where y in (1,2,3,4)
+         
+than this:
+
+.. code-block:: sql
+
+     files from test:test where y in 1:4
+         
+or this:
+
+.. code-block:: sql
+
+     files from test:test where y >= 1 and y <= 4
+         
+
+
+
+Array or Dictionary Elements Access
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the metadata parameter is an array or a dictionary, you can refer to its specific element using square brackets:
+
+Assume the file metadata has the following parameters:
+
+.. code-block:: json
+    
+    {
+        "run_type":   "calibration",
+        "trigger_mask":   [0,1,0,0,1],
+        "trigger_bits":   {
+            "muon":     1,
+            "electron": 0
+        }
+    }
+
+
+Then:
+
+    * trigger_bits["muon"] == 1 - will match
+    * trigger_bits["proton"] == 1 - will not match
+    * trigger_mask[3] == 0 - will match
+
+Also, you can use `[*]` as "any element of" the dictionary or the array:
+
+    * trigger_bits[*] == 1 - will match
+    * trigger_mask[*] == 0 - will match
+    * trigger_mask[*] > 0  - will match
+    * trigger_mask[*] == 2 - will not match
+    * trigger_bits[*] == 1 - will match
+    * trigger_bits[*] == 3 - will not match
+
 
 
 Dataset Queries

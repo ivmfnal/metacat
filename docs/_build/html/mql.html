@@ -125,8 +125,6 @@ result set from the first:</p>
 <p>Although is it not necessary in this example, you can use parethesis and white space to make the query more readable:</p>
 <div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">files</span> <span class="k">from</span> <span class="n">MC</span><span class="p">:</span><span class="n">Beam</span> <span class="k">where</span> <span class="n">e1</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">)</span>
 <span class="o">-</span> <span class="p">(</span><span class="n">files</span> <span class="k">from</span> <span class="n">MC</span><span class="p">:</span><span class="n">Exotics</span> <span class="k">where</span> <span class="k">type</span> <span class="o">=</span> <span class="ss">&quot;abcd&quot;</span><span class="p">)</span>
-
-<span class="n">files</span> <span class="o">-</span> <span class="n">files</span> <span class="k">where</span> <span class="n">data_type</span><span class="o">=</span><span class="ss">&quot;mc&quot;</span>
 </pre></div>
 </div>
 <p>Also, you can use square and curly brackets as an alternative to using explicit words “union” and “join” respectively.
@@ -239,6 +237,76 @@ namespace “y”.</p>
 <p>This will return union of datasets “x:A”, “y:B” and “x:C”.</p>
 </div>
 </div>
+<div class="section" id="metadata-comparison">
+<h2>Metadata Comparison<a class="headerlink" href="#metadata-comparison" title="Permalink to this headline">¶</a></h2>
+<p>MQL supports the following comparison operators: &lt;, &lt;=, &gt;, &gt;=, ==, !=
+The following operators can be used for string matching using regular expressions:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>metatada_name ~ “pattern” - parameter matches the pattern</p></li>
+<li><p>~* - match ignoring case</p></li>
+<li><p>!~ - no match</p></li>
+<li><p>!~* - no match ignoring case</p></li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="ranges-and-sets">
+<h2>Ranges and Sets<a class="headerlink" href="#ranges-and-sets" title="Permalink to this headline">¶</a></h2>
+<p>If you want to use a range of values:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">test</span><span class="p">:</span><span class="n">test</span>
+    <span class="k">where</span> <span class="n">x</span> <span class="k">in</span> <span class="mi">3</span><span class="p">:</span><span class="mi">5</span>             <span class="o">#</span> <span class="n">equivalent</span> <span class="k">to</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">3</span> <span class="k">and</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="mi">5</span><span class="p">)</span>
+      <span class="k">and</span> <span class="n">y</span> <span class="k">in</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">7</span><span class="p">)</span>         <span class="o">#</span> <span class="n">same</span> <span class="k">as</span> <span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">3</span> <span class="k">or</span> <span class="n">y</span> <span class="o">==</span> <span class="mi">5</span> <span class="k">or</span> <span class="n">y</span> <span class="o">==</span> <span class="mi">7</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Note that due to the way the underlying database works, using explicit sets of values is faster than ranges or comparison with
+“less than” or “greather than” operators.</p>
+<p>So this query will generally run faster:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">test</span><span class="p">:</span><span class="n">test</span> <span class="k">where</span> <span class="n">y</span> <span class="k">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>than this:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">test</span><span class="p">:</span><span class="n">test</span> <span class="k">where</span> <span class="n">y</span> <span class="k">in</span> <span class="mi">1</span><span class="p">:</span><span class="mi">4</span>
+</pre></div>
+</div>
+<p>or this:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">test</span><span class="p">:</span><span class="n">test</span> <span class="k">where</span> <span class="n">y</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="k">and</span> <span class="n">y</span> <span class="o">&lt;=</span> <span class="mi">4</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="array-or-dictionary-elements-access">
+<h2>Array or Dictionary Elements Access<a class="headerlink" href="#array-or-dictionary-elements-access" title="Permalink to this headline">¶</a></h2>
+<p>If the metadata parameter is an array or a dictionary, you can refer to its specific element using square brackets:</p>
+<p>Assume the file metadata has the following parameters:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="nt">&quot;run_type&quot;</span><span class="p">:</span>   <span class="s2">&quot;calibration&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;trigger_mask&quot;</span><span class="p">:</span>   <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span>
+    <span class="nt">&quot;trigger_bits&quot;</span><span class="p">:</span>   <span class="p">{</span>
+        <span class="nt">&quot;muon&quot;</span><span class="p">:</span>     <span class="mi">1</span><span class="p">,</span>
+        <span class="nt">&quot;electron&quot;</span><span class="p">:</span> <span class="mi">0</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Then:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>trigger_bits[“muon”] == 1 - will match</p></li>
+<li><p>trigger_bits[“proton”] == 1 - will not match</p></li>
+<li><p>trigger_mask[3] == 0 - will match</p></li>
+</ul>
+</div></blockquote>
+<p>Also, you can use <cite>[*]</cite> as “any element of” the dictionary or the array:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>trigger_bits[*] == 1 - will match</p></li>
+<li><p>trigger_mask[*] == 0 - will match</p></li>
+<li><p>trigger_mask[*] &gt; 0  - will match</p></li>
+<li><p>trigger_mask[*] == 2 - will not match</p></li>
+<li><p>trigger_bits[*] == 1 - will match</p></li>
+<li><p>trigger_bits[*] == 3 - will not match</p></li>
+</ul>
+</div></blockquote>
+</div>
 <div class="section" id="dataset-queries">
 <h2>Dataset Queries<a class="headerlink" href="#dataset-queries" title="Permalink to this headline">¶</a></h2>
 <p>Simplest dataset query looks like this:</p>
@@ -294,6 +362,9 @@ namespace “y”.</p>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">MQL - Metadata Query Language</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#file-queries">File Queries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#metadata-comparison">Metadata Comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ranges-and-sets">Ranges and Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#array-or-dictionary-elements-access">Array or Dictionary Elements Access</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#dataset-queries">Dataset Queries</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#combining-file-and-dataset-metadata-filtering">Combining File and Dataset Metadata Filtering</a></li>
 </ul>

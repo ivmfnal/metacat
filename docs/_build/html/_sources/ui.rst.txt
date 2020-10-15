@@ -10,12 +10,12 @@ To install the client side components:
 
   .. code-block:: shell
 
-      git clone https://github.com/ivmfnal/metadata.git
+      git clone https://github.com/ivmfnal/metacat.git
       mkdir ~/build
-      cd metadata
+      cd metacat
       make # this will create ~/build/metadata and 
            # a tar file with contents of ~/build/metadata
-      pip install --user requests 
+      pip install --user requests pyyaml
 
 
 You can use the client components from ~/metadata/build or from some other location where you untar the tar file created by make
@@ -77,7 +77,7 @@ Create JSON file with metadata::
             "name":"namespace:name",    # required
             "fid":"...",                # optional - will fail if already exists
             "metadata": { ... },        # optional
-            "parents":  [ "fid1", "fid2", ... ]     # optional         
+            "parents":  [ "fid1", "fid2", ... ]     # optional, must be file ids         
         },
         ...
     ]
@@ -101,10 +101,14 @@ Adding files to dataset
 
 .. code-block:: shell
     
-    metacat add -N <namespace>:<name>[,...] <dataset namespace>:<dataset name>
+    metacat add -n <namespace>:<name>[,...] <dataset namespace>:<dataset name>
     metacat add -n @<file with names> <dataset namespace>:<dataset name>
+    metacat add -n - <dataset namespace>:<dataset name>             # read file namesspace:name's from stdin 
+
     metacat add -i <file id>[,...] <dataset namespace>:<dataset name>
     metacat add -i @<file with ids> <dataset namespace>:<dataset name>
+    metacat add -i - <dataset namespace>:<dataset name>             # read file ids from stdin 
+
     metacat add -j <JSON file> <dataset namespace>:<dataset name>
         
 JSON file structure::
@@ -132,8 +136,6 @@ Get a sample of the JSON file:
     $ metacat query -i -N test "files from A - files from B" > file_ids.txt
     $ metacat file add -i @file_ids.txt test:C
 
-
-        
 File Metadata
 -------------
 
@@ -141,33 +143,30 @@ File Metadata
 Updating
 ~~~~~~~~
 
-Create JSON file with (new) metadata::
+Create JSON file with metadata values::
 
-    [
-        {   
-            "name":"name:namespace",        # optional  - the file will be renamed
-            "fid":"...",                    # required
-            "metadata": { ... },            # optional - metadata will be updated
-            "parents":  [ "fid1", "fid2", ... ]     # parents will be updated
-        },
-        ...
-    ]
-
-Get a sample of the JSON file:
-
-.. code-block:: shell
-    
-    metacat file update --sample
-        
-
+    {
+        "x": 3.14,
+        "run_type": "calibration"
+    }
 
 Update metadata:
 
 .. code-block:: shell
     
-    metacat file update [-N <default namespace>] metadata.json
-        
+    metacat update -n <namespace>:<name>[,...] @metadata.json
+    metacat update -n @<file with names> @metadata.json
+    metacat update -n - @metadata.json             # read file namesspace:name's from stdin 
 
+    metacat update -i <file id>[,...] @metadata.json
+    metacat update -i @<file with ids> @metadata.json
+    metacat update -i - @metadata.json             # read file ids from stdin 
+    
+    or you can put new metadata inline:
+    
+    metacat update -n <namespace>:<name>[,...] '{"x": 3.14, "run_type": "calibration"}'
+    ...
+    
         
 Retrieving
 ~~~~~~~~~~
@@ -177,10 +176,10 @@ Retrieving
     metacat file show <namespace>:<name>            # - by namespace/name
     metacat file show -i <fid>                      # - by file id
 
-        
-
 Query
 -----
+
+:doc:`/mql`
 
 .. code-block:: shell
 
