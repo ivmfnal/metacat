@@ -3,13 +3,25 @@ from metacat.util import to_str, to_bytes, TokenLib
 
 class ServerError(Exception):
     
-    def __init__(self, url, status_code, message):
+    def __init__(self, url, status_code, message, body=""):
         self.URL = url
         self.StatusCode = status_code
         self.Message = message
+        self.Body = to_str(body)
         
     def __str__(self):
-        return f"MetaCatServer error:\n  URL: {self.URL}\n  HTTP status code: {self.StatusCode}\n  Message: {self.Message}"
+        msg = f"MetaCatServer error:\n  URL: {self.URL}\n  HTTP status code: {self.StatusCode}\n  Message: {self.Message}"
+        if self.Body:
+            msg += "\nMessage from the server:\n"+self.Body
+        return msg
+        
+class AuthenticationError(Exception):
+    def __init__(self, message):
+        self.Message = message
+        
+    def __str__(self):
+        return f"Authentication error: {self.Message}"
+    
 
 class HTTPClient(object):
 
@@ -146,10 +158,10 @@ class MetaCatClient(HTTPClient):
     def login_password(self, username, password):
         from requests.auth import HTTPDigestAuth
         server_url = self.ServerURL
-        url = "%s/%s" % (server_url, "/auth/auth")
+        url = "%s/%s" % (server_url, "auth/auth")
         response = requests.get(url, auth=HTTPDigestAuth(username, password))
         if response.status_code != 200:
-            raise ServerError(url, response.status_code, "Authentication failed")
+            raise ServerError(url, response.status_code, "Authentication failed", response.text)
         #print(response)
         #print(response.headers)
         token = response.headers["X-Authentication-Token"]
@@ -161,7 +173,7 @@ class MetaCatClient(HTTPClient):
         server_url = self.ServerURL
         token = self.TL.get(server_url)
         if not token:
-            raise ValueError("No token found for server %s" % (server_url,))
+            raise AuthenticationError("No token found for server %s" % (server_url,))
         url = server_url + "/auth/verify"
         response = requests.get(url, headers={
                 "X-Authentication-Token":token.encode()

@@ -1105,7 +1105,7 @@ class AuthHandler(WPHandler):
         return self.App.encoded_token_from_request(request)+"\n"
         
     def auth(self, request, relpath, redirect=None, **args):
-        from rfc2617 import digest_server
+        from metacat.util import digest_server
         # give them cookie with the signed token
         
         ok, data = digest_server("metadata", request.environ, self.App.get_password)

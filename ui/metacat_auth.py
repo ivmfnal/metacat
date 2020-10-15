@@ -2,7 +2,7 @@ import sys, getopt, os, json, pickle, time
 from urllib.request import urlopen, Request
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str, SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, TokenLib
-from metacat.webapi import MetaCatClient
+from metacat.webapi import MetaCatClient, MCAuthenticationError
 import getpass
 
 Usage = """
@@ -21,9 +21,12 @@ def do_list(config, client, args):
             print("%s %s %s %s" % (token.TID, url, token["user"], time.ctime(token.Expiration)))
 
 def do_whoami(config, client, args):
-    user, expiration = client.auth_info()
-    print ("User:   ", user)
-    print ("Expires:", time.ctime(expiration))
+    try:    user, expiration = client.auth_info()
+    except MCAuthenticationError as e:
+        print(e)
+    else:
+        print ("User:   ", user)
+        print ("Expires:", time.ctime(expiration))
 
 def do_login(config, client, args):
     username = args[0]
