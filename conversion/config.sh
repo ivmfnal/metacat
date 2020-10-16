@@ -17,9 +17,11 @@ function create_meta_table () {
 _EOF_
 }
 
-function drop_meta_table () {
+function drop_tables () {
     $OUT_DB_PSQL << _EOF_
-    drop table meta;
+    drop table if exists meta;
+    drop table if exists raw_files;
+    drop table if exists files cascade;
 _EOF_
 }
 

@@ -3,21 +3,23 @@
 source ./config.sh
 
 rm  data/*.csv
-
-echo
-echo --- loading users ...
-time ./load_users.sh
-
-echo
-echo --- loading raw files ...
-time ./load_files.sh
-
-drop_meta_table
+drop_tables
 
 echo Starting parallel preloading at `date` ...
 
 (
+    echo
+    echo -0- loading users ...
+    time ./load_users.sh
 
+    echo
+    echo -0- loading raw files ...
+    time ./load_files.sh
+
+    echo -0- DONE
+)&
+
+(
     echo
     echo -1- preloading attributes ...
     ./preload_attrs.sh
@@ -79,8 +81,6 @@ echo Starting parallel preloading at `date` ...
     echo -3- DONE
 
 )&
-
-
 
 echo Waiting for parallel paths to join ...
 

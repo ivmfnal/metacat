@@ -71,7 +71,6 @@ create table datasets
 insert into datasets(namespace, name, creator, description)
 	values('dune','all','admin','All files imported during conversion from SAM');
 
-create index datasets_meta_index on datasets using gin (metadata);
 
 create table files_datasets
 (
@@ -87,9 +86,6 @@ insert into files_datasets(file_id, dataset_namespace, dataset_name)
 	select f.id, 'dune','all'
 		from files f
 );
-
-alter table files_datasets add primary key (dataset_namespace, dataset_name, file_id);
-create index files_datasets_file_id on files_datasets(file_id);
 
 create table queries
 (
@@ -135,18 +131,6 @@ create table parameter_definitions
     created_timestamp   timestamp with time zone        default now(),
     primary key(category, name)
 );
-
-create table authenticators
-(
-    username    text    references users(username) on delete cascade,
-    type        text
-        constraint authenticator_types check ( 
-            type in ('x509','password','ssh')
-            ),
-    secrets      text[],
-    primary key(username, type)
-);
-
 
     
 

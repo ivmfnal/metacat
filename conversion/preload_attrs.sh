@@ -96,12 +96,12 @@ _EOF_
 
 $OUT_DB_PSQL <<_EOF_
 
-drop table if exists parameter_categories;
+drop table if exists parameter_categories cascade;
 create table parameter_categories
 (
-    path        text    primary key,
-    owner       text,
-    restricted  boolean default 'false',
+    path                text    primary key,
+    owner               text,
+    restricted          boolean default 'false',
     creator             text,
     created_timestamp   timestamp with time zone     default now(),
     definitions         jsonb
