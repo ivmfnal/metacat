@@ -40,6 +40,7 @@ copy (
                 where df.end_time is not null
 ) to stdout;
 
+-- int attrs
 copy (
 	select f.file_id, pc.param_category || '.' || pt.param_type, param_value, null, null, null, null
                 from active_files f

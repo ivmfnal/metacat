@@ -28,14 +28,13 @@ _EOF_
 function preload_meta() {
 
     input=$1
-
     create_meta_table
 
     $OUT_DB_PSQL << _EOF_
 
     \echo imporing metadata from ${input} ...
 
-    \copy meta (file_id, name, i, f, t, ia, ta) from '${input}';
+    \copy meta (file_id, name, type, i, f, t, ia, ta) from '${input}';
 
 _EOF_
 

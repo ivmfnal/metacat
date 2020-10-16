@@ -36,7 +36,7 @@ copy
 
 copy
 ( 
-    select file_id, 'SAM.runs_subruns' null, null, null, array_agg(run::bigint*100000+subrun::bigint), null 
+    select file_id, 'SAM.runs_subruns', null, null, null, array_agg(run::bigint*100000+subrun::bigint), null 
         from temp_runs_subruns where subrun is not null 
         group by file_id 
 ) to stdout;
