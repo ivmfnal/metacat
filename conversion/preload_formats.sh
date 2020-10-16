@@ -10,7 +10,7 @@ create temp view active_files as
 
 copy (
 
-	select f.file_id, 'SAM.file_format', null, null, ff.file_format, null, null
+	select f.file_id, 'file_format', null, null, ff.file_format, null, null
 		from active_files f, file_formats ff
 		where f.file_format_id = ff.file_format_id
 ) to stdout;

@@ -30,7 +30,7 @@ create temp view combined_meta as
 
 insert into files(id, namespace, name, creator, created_timestamp, size, checksums, metadata)
 (
-	select r.file_id, 'dune', r.name, r.create_user, to_timestamp(r.create_timestamp), r.size, r.checksums, m.metadata  
+	select r.file_id, r.namespace, r.name, r.create_user, to_timestamp(r.create_timestamp), r.size, r.checksums, m.metadata  
 		from raw_files r
 			left outer join combined_meta m on (m.file_id = r.file_id)
 );
