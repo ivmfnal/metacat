@@ -10,14 +10,13 @@ create temp view active_files as
 
 copy (
 
-	select f.file_id, 'SAM.file_format', ff.file_format
+	select f.file_id, 'SAM.file_format', null, null, ff.file_format, null, null
 		from active_files f, file_formats ff
 		where f.file_format_id = ff.file_format_id
-		order by f.file_id
 ) to stdout;
 
 
 
 _EOF_
 
-preload_meta ./data/file_formats.csv text
+preload_meta ./data/file_formats.csv

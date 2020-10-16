@@ -17,17 +17,10 @@ drop_meta_table
 echo Starting parallel preloading at `date` ...
 
 (
+
 echo
 echo -1- preloading attributes ...
 ./preload_attrs.sh
-
-echo
-echo -1- splitting DUNE_data.detector_config values into lists ...
-./preload_detector_config.sh
-
-echo
-echo -1- preload runs/subruns ...
-./preload_runs_subruns.sh
 
 echo -1- DONE
 
@@ -45,6 +38,10 @@ echo -2- preloading event numbers
 echo
 echo -2- splitting lbne_data.detector_type values into lists ...
 ./preload_detector_type.sh
+
+echo
+echo -2- splitting DUNE_data.detector_config values into lists ...
+./preload_detector_config.sh
 
 echo -2- DONE
 
@@ -74,6 +71,10 @@ echo -3- preloading run types ...
 echo
 echo -3- preloading data tiers ...
 ./preload_data_tiers.sh
+
+echo
+echo -3- preload runs/subruns ...
+./preload_runs_subruns.sh
 
 echo -3- DONE
 

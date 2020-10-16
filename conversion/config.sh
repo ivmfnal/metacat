@@ -29,48 +29,13 @@ function preload_meta() {
 
     input=$1
 
-    wc -l $input
-    
-    case $2 in
-        text)   c=t
-                t=text 
-                ;;
-        int)    c="i"
-                t=bigint
-                ;;
-        float)  c="f"
-                t="double precision"
-                ;;
-        int_a)  c="ia"
-                t="bigint[]"
-                ;;
-        text_a) c="ta"
-                t="text[]"
-                ;;
-    esac
-
     create_meta_table
 
     $OUT_DB_PSQL << _EOF_
 
-    create temp table meta_csv (
-    	file_id	text,
-    	name	text,
-    	value	${t}
-    );
-
     \echo imporing metadata from ${input} ...
 
-    \copy meta_csv(file_id, name, value) from '${input}';
-
-    \echo inserting into meta table ...
-    
-    insert into meta (file_id, name, type, ${c})
-    (
-        select f.file_id, m.name, '${c}', m.value
-            from meta_csv m, raw_files f
-            where f.file_id = m.file_id
-    );
+    \copy meta (file_id, name, i, f, t, ia, ta) from '${input}';
 
 _EOF_
 

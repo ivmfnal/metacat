@@ -9,14 +9,13 @@ create temp view active_files as
                 where retired_date is null;
 
 copy (
-    select f.file_id, 'SAM.file_content_status', fcs.file_content_status
+    select f.file_id, 'SAM.file_content_status', null, null, fcs.file_content_status, null, null
         		from active_files f, file_content_statuses fcs
         		where f.file_content_status_id = fcs.file_content_status_id
-        
 ) to stdout;
 
 
 
 _EOF_
 
-preload_meta ./data/file_content_status.csv text
+preload_meta ./data/file_content_status.csv

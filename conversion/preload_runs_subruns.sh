@@ -26,32 +26,19 @@ create temp view temp_runs as
 		where r.run_number is not null
 ;
 
-create temp table temp_run_subrun_arrays
-(
-	file_id 	bigint,
-	name		text,
-	value		bigint[]
-);
+copy
+( 
+    select file_id, 'SAM.runs', null, null, null, array_agg(run), null
+        from temp_runs 
+        group by file_id 
+) to stdout;
 
-insert into temp_run_subrun_arrays(file_id, name, value)
-        ( select file_id, 'SAM.runs', array_agg(run) 
-		from temp_runs 
-		group by file_id 
-	)
-;
 
-insert into temp_run_subrun_arrays(file_id, name, value)
-        ( 
-            select file_id, 'SAM.runs_subruns', array_agg(run::bigint*100000+subrun::bigint) 
-		        from temp_runs_subruns where subrun is not null 
-		        group by file_id 
-	    )
-;
-
-copy (
-	select file_id, name, value
-	from temp_run_subrun_arrays
-	order by file_id
+copy
+( 
+    select file_id, 'SAM.runs_subruns' null, null, null, array_agg(run::bigint*100000+subrun::bigint), null 
+        from temp_runs_subruns where subrun is not null 
+        group by file_id 
 ) to stdout;
 
 _EOF_

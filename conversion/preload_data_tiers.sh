@@ -9,14 +9,13 @@ create temp view active_files as
                 where retired_date is null;
 
 copy (
-	select f.file_id, 'SAM.data_tier', dt.data_tier 
+	select f.file_id, 'SAM.data_tier', null, null, dt.data_tier, null, null
 		from active_files f, data_tiers dt 
 		where f.data_tier_id = dt.data_tier_id
-		order by f.file_id
 ) to stdout;
 
 
 
 _EOF_
 
-preload_meta ./data/data_tiers.csv text
+preload_meta ./data/data_tiers.csv

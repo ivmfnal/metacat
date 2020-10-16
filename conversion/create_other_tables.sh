@@ -43,7 +43,6 @@ create table namespaces
 
 insert into roles(name, description, users) values ('admin','Admin user','{"admin"}');
 
-insert into namespaces(name, owner, creator) values ('dune','admin','admin');
 insert into namespaces(name, owner, creator)
 (
     select distinct namespace, 'admin', 'admin' from files

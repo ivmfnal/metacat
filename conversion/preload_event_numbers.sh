@@ -9,7 +9,7 @@ create temp view active_files as
                 where retired_date is null;
 
 copy (
-    select f.file_id, 'events', e.event_numbers
+    select f.file_id, 'events', null, null, null, e.event_numbers, null
         		from active_files f, dune.events e
         		where f.file_id = e.file_id
         
@@ -19,4 +19,4 @@ copy (
 
 _EOF_
 
-preload_meta ./data/event_numbers.csv int_a
+preload_meta ./data/event_numbers.csv
