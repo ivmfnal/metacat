@@ -11,31 +11,31 @@ create temp view active_files as
                 where retired_date is null;
 
 copy ( 
-    select df.file_id, 'SAM.event_count', df.event_count, null, null, null, null
+    select df.file_id, 'event_count', df.event_count, null, null, null, null
                 from active_files df
                 where df.event_count is not null
 ) to stdout;
 
 copy ( 
-    select df.file_id, 'SAM.first_event_number', df.first_event_number, null, null, null, null
+    select df.file_id, 'first_event_number', df.first_event_number, null, null, null, null
                 from active_files df
                 where df.first_event_number is not null
 ) to stdout;
 
 copy ( 
-    select df.file_id, 'SAM.last_event_number', df.last_event_number, null, null, null, null
+    select df.file_id, 'last_event_number', df.last_event_number, null, null, null, null
                 from active_files df
                 where df.last_event_number is not null
 ) to stdout;
 
 copy (
-   select df.file_id, 'SAM.start_time', null, extract(epoch from df.start_time), null, null, null
+   select df.file_id, 'start_time', null, extract(epoch from df.start_time), null, null, null
                 from active_files df
                 where df.start_time is not null
 ) to stdout;
 
 copy (
-   select df.file_id, 'SAM.end_time', null, extract(epoch from df.end_time), null, null, null
+   select df.file_id, 'end_time', null, extract(epoch from df.end_time), null, null, null
                 from active_files df
                 where df.end_time is not null
 ) to stdout;
@@ -83,6 +83,39 @@ copy (
 _EOF_
 
 preload_meta ./data/app_families.csv
+
+$IN_DB_PSQL -q \
+	> ./data/param_categories.csv \
+	<< _EOF_
+
+copy (
+    select pc.param_category, 'admin', 'admin', '{}'
+        from param_categories pc
+) to stdout;
+_EOF_
+
+$OUT_DB_PSQL <<_EOF_
+
+drop table if exists parameter_categories;
+create table parameter_categories
+(
+    path        text    primary key,
+    owner       text,
+    restricted  boolean default 'false',
+    creator             text,
+    created_timestamp   timestamp with time zone     default now(),
+    definitions         jsonb
+);
+
+\echo imporing parameter categories ...
+
+\copy parameter_categories(path, owner, creator, definitions) from './data/param_categories.csv';
+
+insert into parameter_categories(path, owner, creator, definitions)
+    values('', 'admin', 'admin', '{}'::jsonb);
+    
+_EOF_
+
 
 
 

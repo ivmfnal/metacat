@@ -22,6 +22,10 @@ echo Starting parallel preloading at `date` ...
     echo -1- preloading attributes ...
     ./preload_attrs.sh
 
+    echo
+    echo -1- preloading event numbers
+    ./preload_event_numbers.sh
+
     echo -1- DONE
 
 )&
@@ -35,15 +39,15 @@ echo Starting parallel preloading at `date` ...
     echo -2- splitting lbne_data.detector_type values into lists ...
     ./preload_detector_type.sh
 
+    echo
+    echo -2- preload runs/subruns ...
+    ./preload_runs_subruns.sh
+
     echo -2- DONE
 
 )&
 
 (
-    echo
-    echo -3- preloading event numbers
-    ./preload_event_numbers.sh
-
     echo
     echo -3- preloading app families ...
     ./preload_app_families.sh
@@ -53,7 +57,7 @@ echo Starting parallel preloading at `date` ...
     ./preload_data_streams.sh
 
     echo
-    echo -3- preloading content sratus ...
+    echo -3- preloading content status ...
     ./preload_content_status.sh
 
     echo
@@ -71,10 +75,6 @@ echo Starting parallel preloading at `date` ...
     echo
     echo -3- preloading data tiers ...
     ./preload_data_tiers.sh
-
-    echo
-    echo -3- preload runs/subruns ...
-    ./preload_runs_subruns.sh
 
     echo -3- DONE
 

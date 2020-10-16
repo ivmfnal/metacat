@@ -48,6 +48,8 @@ insert into namespaces(name, owner, creator)
     select distinct namespace, 'admin', 'admin' from files
 );
 
+insert into namespaces(name, owner, creator) values('dune', 'admin', 'admin');
+
 create table datasets
 (
     namespace           text references namespaces(name),
