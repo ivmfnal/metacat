@@ -39,10 +39,10 @@ create table files
     id          text    primary key,
     namespace   text 	references namespaces(name),
     name        text,
-    metadata    jsonb,
+    metadata    jsonb   default '{}',
     creator text references users(username),
     size        bigint,
-    checksums   jsonb,
+    checksums   jsonb   default '{}',
     created_timestamp   timestamp with time zone    default now()
 );
 

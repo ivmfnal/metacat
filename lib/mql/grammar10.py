@@ -77,7 +77,8 @@ constant : SIGNED_FLOAT                             -> float_constant
 index:  STRING
     | SIGNED_INT
 
-ANAME: WORD ("." WORD)*
+ANAME: "." WORD
+    | WORD ("." WORD)*
 
 FNAME: LETTER ("_"|"-"|"."|LETTER|DIGIT)*
 
