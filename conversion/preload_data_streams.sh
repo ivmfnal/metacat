@@ -9,7 +9,7 @@ create temp view active_files as
                 where retired_date is null;
 
 copy (
-    select f.file_id, 'data_stream', null, null, ds.datastream_name, null, null
+    select f.file_id, '.data_stream', null, null, ds.datastream_name, null, null
         		from active_files f, datastreams ds
         		where f.stream_id = ds.stream_id
 ) to stdout;

@@ -14,10 +14,10 @@ create table files
         namespace       text,
         name            text,
         creator         text,
-        created_timestamp        timestamp with time zone,
-        size            bigint,
-        checksums       jsonb,
-        metadata        jsonb
+        created_timestamp        timestamp with time zone   default now(),
+        size            bigint  default 0,
+        checksums       jsonb   default '{}',
+        metadata        jsonb   default '{}'
 );
 
 create temp view combined_meta as
