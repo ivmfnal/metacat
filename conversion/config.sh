@@ -8,7 +8,6 @@ function create_meta_table () {
     create table if not exists meta (
         file_id text,
         name    text,
-        type    text,
         i       bigint,
         t       text,
         f       double precision,
@@ -34,7 +33,7 @@ function preload_meta() {
 
     \echo imporing metadata from ${input} ...
 
-    \copy meta (file_id, name, type, i, f, t, ia, ta) from '${input}';
+    \copy meta (file_id, name, i, f, t, ia, ta) from '${input}';
 
 _EOF_
 
