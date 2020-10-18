@@ -1174,7 +1174,7 @@ class DBNamespace(object):
         if not tup: return 0
         else:       return tup[0]
         
-    def datasets_count(self):
+    def dataset_count(self):
         c = self.DB.cursor()
         c.execute("""select count(*) from datasets where namespace=%s""", (self.Name,))
         tup = c.fetchone()
