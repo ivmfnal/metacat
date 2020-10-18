@@ -106,6 +106,7 @@ _declare_smaple = [
 def do_declare(config, client, args):
     opts, args = getopt.getopt(args, "N:", ["namespace=", "sample"])
     opts = dict(opts)
+    namespace = opts.get("-N") or opts.get("--namespace")
 
     if "--sample" in opts:
         print(json.dumps(_declare_smaple, sort_keys=True, indent=4, separators=(',', ': ')))
@@ -117,7 +118,7 @@ def do_declare(config, client, args):
     
     file_list = json.load(open(args[0], "r"))       # parse to validate JSON
     
-    resonse = client.declare_files(args[1], file_list, namespace = namespace)    
+    response = client.declare_files(args[1], file_list, namespace = namespace)    
     print(response)
                 
 

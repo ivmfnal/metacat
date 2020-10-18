@@ -98,7 +98,7 @@ class MetaCatClient(HTTPClient):
         return out
 
     def declare_files(self, dataset, file_list, namespace=None):
-        url = f"data/declare?dataset={dataset}"
+        url = f"data/declare_files?dataset={dataset}"
         if namespace:
             url += f"&namespace={namespace}"
         out = self.post_json(url, file_list)

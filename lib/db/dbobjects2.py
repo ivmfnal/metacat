@@ -232,7 +232,7 @@ class DBFile(object):
         self.Metadata = metadata or {}
         self.Creator = None
         self.CreatedTimestamp = None
-        self.Cehcksums = checksums or {}
+        self.Checksums = checksums or {}
         self.Size = size
     
     ID_BITS = 64
@@ -360,7 +360,7 @@ class DBFile(object):
             
     @staticmethod
     def exists(db, fid = None, namespace = None, name = None):
-        print("DBFile.exists:", fid, namespace, name)
+        #print("DBFile.exists:", fid, namespace, name)
         if fid is not None:
             assert (namespace is None) and (name is None),  "If FID is specified, namespace and name must be null"
         else:
@@ -805,8 +805,7 @@ class DBDataset(object):
                         {limit}
                         """
             
-        if Debug:
-            print("DBDataset.list_files: sql:", sql)
+        debug("DBDataset.list_files: sql:", sql)
         self.SQL = sql 
         c = self.DB.cursor()
         c.execute(sql)
@@ -908,7 +907,7 @@ class DBNamedQuery(object):
     @staticmethod
     def get(db, namespace, name):
         c = db.cursor()
-        print("DBNamedQuery:get():", namespace, name)
+        debug("DBNamedQuery:get():", namespace, name)
         c.execute("""select source, parameters
                         from queries
                         where namespace=%s and name=%s""",

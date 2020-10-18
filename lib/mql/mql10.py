@@ -670,7 +670,7 @@ class _MetaExpPusher(Descender):
     
     def meta_filter(self, node, meta_exp):
         child = node["query"]
-        exp = node["exp"]
+        node_exp = node["meta_exp"]
         if node_exp is None:
             new_exp = meta_exp
         elif meta_exp is None:
@@ -733,7 +733,7 @@ class _FileEvaluator(Ascender):
             
     def basic_file_query(self, node, *args, query=None):
         assert isinstance(query, BasicFileQuery)
-        print("_FileEvaluator:basic_file_query: query:", query)
+        #print("_FileEvaluator:basic_file_query: query:", query)
         return DBFileSet.from_basic_query(self.DB, query, self.WithMeta or query.WithMeta, self.Limit)
         
     def union(self, node, *args):

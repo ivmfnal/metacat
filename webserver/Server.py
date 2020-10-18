@@ -422,10 +422,10 @@ class GUIHandler(BaseHandler):
                 # update roles
                 all_roles = {r.Name:r for r in DBRole.list(db)}
                 old_roles = set(r.Name for r in DBRole.list(db, u))
-                print("old roles:", old_roles)
+                #print("old roles:", old_roles)
                 new_roles = set()
                 for k, v in request.POST.items():
-                    print("POST:", k, v)
+                    #print("POST:", k, v)
                     if k.startswith("member:"):
                         r = k[len("member:"):]
                         if v == "on":
@@ -433,7 +433,7 @@ class GUIHandler(BaseHandler):
                 for rn in old_roles - new_roles:
                     r = all_roles[rn]
                     r.remove_user(u)
-                    print("removing %s from %s" % (u.Username, r.Name))
+                    #print("removing %s from %s" % (u.Username, r.Name))
                     r.save()
                 for rn in new_roles - old_roles:
                     r = all_roles[rn]
@@ -593,7 +593,7 @@ class GUIHandler(BaseHandler):
             if k.startswith("member:"):
                 username = k.split(":", 1)[-1]
                 members.add(username)
-        print("save_role: members:", members)
+        #print("save_role: members:", members)
         role.Usernames = sorted(list(members))
         role.save()
         self.redirect("./role?name=%s" % (rname,))
@@ -791,6 +791,9 @@ class DataHandler(BaseHandler):
         #               fid: "fid",               // optional
         #               parents:        [fid,...],              // optional
         #               metadata: { ... }       // optional
+        #               checksums: {            // optional
+        #                 "method":"value", ...
+        #               }
         #       },...
         # ]
         #               
@@ -838,6 +841,8 @@ class DataHandler(BaseHandler):
                 return f"Permission to declare files to namespace {namespace} denied", 403
             
             f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=file_item.get("metadata"))
+            if "checksums" in file_item:
+                f.Checksums = file_item["checksums"]
             f.create(do_commit=False)
             
             parents = file_item.get("parents")
@@ -1283,11 +1288,9 @@ static_location = os.environ.get("METACAT_SERVER_STATIC_DIR", "./static")
 static_location = config.get("static_location", static_location)
 application=App(config, RootHandler, static_location=static_location)
 
-templdir = config.get("templates", ".")
+templdir = config.get("templates", "")
 if templdir.startswith("$"):
     templdir = os.environ[templdir[1:]]
-
-print("templdir=", templdir)
 
 application.initJinjaEnvironment(
     tempdirs=[templdir, "."],
