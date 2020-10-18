@@ -19,6 +19,38 @@ database:
     dbname: ...
 """
 
+def sample(inputs, params):
+    inp = inputs[0]
+    fraction = params[0]
+    #print("sample: inp:", inp, "  fraction:", fraction)
+    x = 0.0
+    for f in inp:
+        x += fraction
+        if x >= 1.0:
+            x -= 1.0
+            yield f
+            
+def limit(inputs, params):
+    inp = inputs[0]
+    n = params[0]
+    if n is None:
+        yield from inp
+    elif n > 0:
+        for f in inp:
+            yield f
+            n -= 1
+            if n <= 0:
+                break
+                
+def print_meta(inputs, params):
+    for f in inputs[0]:
+        meta = f.metadata()
+        lst = ["%s=%s" % (name, repr(meta.get(name))) for name in params]
+        print(f"{f.FID} {f.Namespace}:{f.Name}  " + " ".join(lst))
+        yield f
+            
+filters = dict(sample = sample, limit = limit, print_meta=print_meta)
+
 if not sys.argv[1:] or sys.argv[1] in ("help", "--help", "-?"):
     print(Usage)
     sys.exit(2)
@@ -57,7 +89,7 @@ elif cmd == "run":
     #print("connecting to db...")
     db = connect(config)
     #print("connected to db")
-    results = q.run(db, debug=True)
+    results = q.run(db, debug=True, filters=filters)
     print("Query results:")
     for r in results:
         print(r)

@@ -1,5 +1,5 @@
 from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet, limited
-from .trees import Node, pass_node, Ascender, Descender, Visitor, PostParser
+from .trees import Node, pass_node, Ascender, Descender, Visitor, LarkToNodes
 import json, time
 
 from lark import Lark
@@ -28,7 +28,7 @@ class _MetaRegularizer(Ascender):
         #print("_flatten_bool: output:", new_nodes)
         return new_nodes
 
-    def meta_or(self, *children):
+    def meta_or(self, node, *children):
         children = [x if x.T == "meta_and" else Node("meta_and", [x]) for x in self._flatten_bool("meta_or", children)]
         out = Node("meta_or", children)
         return out
@@ -47,7 +47,7 @@ class _MetaRegularizer(Ascender):
                 for p in self._generate_and_terms(path + [node], rest):
                     yield p
 
-    def meta_and(self, *children):
+    def meta_and(self, node, *children):
         children = self._flatten_bool("meta_and", children)
         or_present = False
         for c in children:
@@ -93,7 +93,8 @@ class BasicFileQuery(object):
         self.WithMeta = False       # this is set to True if the query has "where" clouse
         
     def __str__(self):
-        return "BasicFileQuery(selector:%s, limit:%s, rel:%s)" % (self.DatasetSelector, self.Limit, self.Relationship or "")
+        return "BasicFileQuery(selector:%s, limit:%s, rel:%s, %s meta)" % (self.DatasetSelector, self.Limit, self.Relationship or "",
+            "with" if self.WithMeta else "without")
         
     def _pretty(self, indent="", headline_indent=None):
         #print(f"BasicFileQuery._pretty(indent='{indent}', headline_indent='{headline_indent}')")
@@ -176,12 +177,11 @@ class _ParamsApplier(Descender):
         #print("_ParamsApplier:named_query %s %s" % (node, params))
         if params is not None:
             assert isinstance(params, dict)
-            assert len(node.M) == 2
-            if node.M[0] is None:
-                node.M[0] = params.get("namespace")
-        return node
+            if node["namespace"] is None:
+                node["namespace"] = params.get("namespace")
+        return self.visit_children(node, params)
 
-    def query(self, node, params):
+    def ______query(self, node, params):        # done by the Converter
         if len(node.C) == 2:
             p, q = args
             new_params = params.copy()
@@ -193,9 +193,7 @@ class _ParamsApplier(Descender):
     def qualified_name(self, node, params):
         if params is not None:
             assert isinstance(params, dict)
-            assert len(node.M) == 2
-            if node.M[0] is None:
-                node.M[0] = params.get("namespace")
+            if node["namespace"] is None:   node["namespace"] = params.get("namespace")
         return node
         
 class DatasetQuery(object):
@@ -274,8 +272,12 @@ class FileQuery(object):
         out = _FileEvaluator(db, filters, with_meta, None).walk(optimized)
         #print ("run: out:", out)
         return out
-        
+
 class _Converter(Transformer):
+    
+    #
+    # converts from Lark tree structure to my own Node
+    #
     
     def query(self, args):
         if len(args) == 2:
@@ -317,7 +319,7 @@ class _Converter(Transformer):
 
     def meta_filter(self, args):
         q, meta_exp = args
-        return Node("meta_filter", [q, _make_DNF(meta_exp)])
+        return Node("meta_filter", query=q, meta_exp=_make_DNF(meta_exp))
         
     def datasets_selector(self, args):
         spec_list = args[0]["specs"]
@@ -385,8 +387,7 @@ class _Converter(Transformer):
         
     def named_query(self, args):
         (q,) = args
-        out = Node("named_query", **q.D)       # value = (namespace, name) - tuple
-        #print("Converter.named_query(%s): returning %s" % (args, out))
+        out = Node("named_query", **q.D)        # copy namespace, name from the qualified name
         return out
         
     def param_def_list(self, args):
@@ -457,7 +458,11 @@ class _Converter(Transformer):
 
     def filter(self, args):
         name, params, queries = args
-        return Node("filter", queries = query_list.C, name = name.value, args=params.C)
+        queries = queries.C
+        for q in queries:
+            for bfq in q.find_all("basic_file_query"):
+                bfq["query"].WithMeta = True
+        return Node("filter", queries, name = name.value, params=params)
         
     def scalar(self, args):
         (t,) = args
@@ -562,9 +567,7 @@ class _Assembler(Ascender):
         #print("_Assembler.walk(): out:", out.pretty() if isinstance(out, Node) else repr(out))
         return out
         
-    def named_query(self, *children, name=None, namespace=None):
-        #print("_Assembler.named_query()")
-        namespace, name = query_name
+    def named_query(self, node, name=None, namespace=None):
         namespace = namespace or self.DefaultNamespace
         parsed = MQLQuery.from_db(self.DB, namespace, name)
         assert parsed.Type == "file"
@@ -627,9 +630,7 @@ class _LimitApplier(Descender):
     def _default(self, node, limit):
         #print("_LimitApplier._default: node:", node.pretty())
         if limit is not None:
-            new_node = Node(node.T, node.C, node.M)
-            self.visit_children(new_node, None)
-            return Node("limit", [new_node], limit=limit)
+            return Node("limit", [self.visit_children(node, None)], limit=limit)
         else:
             return self.visit_children(node, None)
             
@@ -663,13 +664,13 @@ class _MetaExpPusher(Descender):
             #
             # meta_filter node is created when we can not push the meta_exp down any further
             #
-            return Node("meta_filter", [self.visit_children(node, None), meta_exp])
+            return Node("meta_filter", query=self.visit_children(node, None), meta_exp=meta_exp)
         
     parents_of = children_of
     
     def meta_filter(self, node, meta_exp):
-        assert len(node.C) == 2
-        child, node_exp = node.C
+        child = node["query"]
+        exp = node["exp"]
         if node_exp is None:
             new_exp = meta_exp
         elif meta_exp is None:
@@ -677,7 +678,7 @@ class _MetaExpPusher(Descender):
         else:
             new_exp = _make_DNF(Node("meta_and", [meta_exp, node_exp]))
         return self.walk(child, new_exp)
-
+        
 class _DatasetEvaluator(Ascender):
     
     def __init__(self, db, with_meta, limit):
@@ -686,10 +687,10 @@ class _DatasetEvaluator(Ascender):
         self.WithMeta = with_meta
         self.Limit = limit
         
-    def dataset_query(self, datasets_selector):
+    def dataset_query(self, node, datasets_selector):
         return dataset_selector
     
-    def datasets_selector(self, *args, selector = None):
+    def datasets_selector(self, node, *args, selector = None):
         assert isinstance(selector, DatasetSelector)
         out = limited(selector.datasets(self.DB, self.Limit), self.Limit)
         #print("_DatasetEvaluator.datasets_selector: out:", out)
@@ -704,15 +705,14 @@ class _FileEvaluator(Ascender):
         self.WithMeta = with_meta
         self.Limit = limit
         
-    def file_query(self, query, limit=None):
+    def file_query(self, node, query, limit=None):
         return query if limit is None else limited(query, limit)
         
-    def meta_filter(self, files, meta_exp):
+    def meta_filter(self, node, files=None, meta_exp=None):
         #print("meta_filter: args:", args)
         if meta_exp is not None:
             out = []
             for f in files:
-                #print("_FileEvaluator.meta_filter: f:", f, f.Metadata)
                 if self.evaluate_meta_expression(f, meta_exp):
                     out.append(f)
             return DBFileSet(self.DB, out)
@@ -720,39 +720,39 @@ class _FileEvaluator(Ascender):
         else:
             return files
 
-    def parents_of(self, files):
+    def parents_of(self, node, files):
         return files.parents(with_metadata=True)
 
-    def children_of(self, files,):
+    def children_of(self, node, files):
         return files.children(with_metadata=True)
 
-    def limit(self, files, limit=None):
+    def limit(self, node, files, limit=None):
         #print("FileEvaluator.limit(): args:", args)
         assert isinstance(files, DBFileSet)
         return files if limit is None else files.limit(limit)
             
-    def basic_file_query(self, *args, query=None):
+    def basic_file_query(self, node, *args, query=None):
         assert isinstance(query, BasicFileQuery)
-        #print("_FileEvaluator:basic_file_query: q.WithMeta:", meta.WithMeta)
+        print("_FileEvaluator:basic_file_query: query:", query)
         return DBFileSet.from_basic_query(self.DB, query, self.WithMeta or query.WithMeta, self.Limit)
         
-    def union(self, *args):
+    def union(self, node, *args):
         #print("Evaluator.union: args:", args)
         return DBFileSet.union(self.DB, args)
         
-    def join(self, *args):
+    def join(self, node, *args):
         return DBFileSet.join(self.DB, args)
         
-    def minus(self, left, right):
+    def minus(self, node, left, right):
         assert isinstance(left, DBFileSet)
         assert isinstance(right, DBFileSet)
         return left - right
 
-    def filter(self, *inputs, name=None, params=[]):
+    def filter(self, node, *queries, name=None, params=[]):
         #print("Evaluator.filter: inputs:", inputs)
         assert name is not None
         filter_function = self.Filters[name]
-        return DBFileSet(self.DB, filter_function(inputs, params))
+        return DBFileSet(self.DB, filter_function(queries, params))
         
     def _eval_meta_bool(self, f, bool_op, parts):
         assert len(parts) > 0
@@ -906,7 +906,7 @@ def parse_query(text, debug=False):
     
     parsed = _Parser.parse(text)
     if debug:
-        print("--- parsed ---\n", PostParser().transform(parsed).pretty())
+        print("--- parsed ---\n", LarkToNodes().transform(parsed).pretty())
     converted = _Converter().convert(parsed)
     if debug:
         print("--- converted ---\n", converted)
@@ -923,7 +923,6 @@ class MQLQuery(object):
         text = '\n'.join(out)
     
         parsed = _Parser.parse(text)
-        #print("parsed:---\n", parsed)
         return _Converter().convert(parsed)
         
     @staticmethod

@@ -60,6 +60,9 @@ class Node(object):
     
     def __getitem__(self, name):
         return self.D[name]
+
+    def clone(self):
+        return Node(self.T, self.C, _data=self.D, _meta=self.M)
         
     def get(self, name, default=None):
         return self.D.get(name, default)
@@ -220,32 +223,35 @@ class Descender(object):
         
 class Ascender(object):
 
-    def __init__(self):
-        self.Indent = ""
-
     def walk(self, node):
         if not isinstance(node, Node):
             return node
         node_type, children = node.T, node.C
         assert isinstance(node_type, str)
-        saved = self.Indent 
-        self.Indent += "  "
-        children = [self.walk(c) for c in children]
-        self.Indent = saved
+
+        method = self._default
+        pass_node = False
+
         if hasattr(self, node_type):
             method = getattr(self, node_type)
             if hasattr(method, "__pass_node__") and getattr(method, "__pass_node__"):
-                out = method(node)
-            else:
-                out = method(*children, **node.D)
+                pass_node = True
+        
+        if pass_node:
+            out = method(node)
         else:
-            out = self._default(node, children)
+            named_children = {
+                name:(self.walk(c) if isinstance(c, Node) else c) 
+                for name, c in node.D.items()
+            }
+            children = [self.walk(c) for c in children]
+            out = method(node, *children, **named_children)
         return out
         
-    def _default(self, node, children):
-        return Node(node.T, children, _meta=node.M, _data=node.D)
+    def _default(self, node, *children, **named):
+        return Node(node.T, children, _meta=node.M, _data=named)
         
-class PostParser(Transformer):
+class LarkToNodes(Transformer):
     
     #
     # Converts from Tree structure returned by Lark to Nodes

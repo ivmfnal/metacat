@@ -47,7 +47,7 @@ create table files
 );
 
 create unique index file_names_unique on files(namespace, name);
-create index files_meta_index on files using gin (metadata);
+create index files_meta_path_ops_index on files using gin (metadata jsonb_path_ops);
 
 create table parent_child
 (
