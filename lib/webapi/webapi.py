@@ -104,10 +104,10 @@ class MetaCatClient(HTTPClient):
         out = self.post_json(url, file_list)
         return out
 
-    def update_meta(self, metadata, names=None, fids=None, mode="update", namespace=None):
+    def update_file_meta(self, metadata, names=None, fids=None, mode="update", namespace=None):
         if (fids is None) == (names is None):
             raise ValueError("File list must be specified either as list or names or list of ids, but not both")
-        url = f"data/update_meta?mode={mode}"
+        url = f"data/update_file_meta?mode={mode}"
         if namespace:
             url += f"&namespace={namespace}"
         data = {
@@ -118,6 +118,11 @@ class MetaCatClient(HTTPClient):
         else:
             data["fids"] = fids
         out = self.post_json(url, data)
+        return out
+        
+    def update_dataset_meta(self, metadata, dataset, mode="update"):   
+        url = f"data/update_dataset_meta?mode={mode}&dataset={dataset}"
+        out = self.post_json(url, metadata)
         return out
         
     def get_file(self, fid=None, name=None, with_metadata = True, with_relations=True):

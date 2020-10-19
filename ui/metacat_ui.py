@@ -12,7 +12,7 @@ Usage:
     Commands are:
         admin      create, password, add, remove, list     -- requires direct connection to the database 
         auth       login, whoami, list
-        dataset    create, list, show
+        dataset    create, update, list, show
         namespace  create, list, show
         file       declare, update, show, add
         query

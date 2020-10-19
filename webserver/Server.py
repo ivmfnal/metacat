@@ -597,20 +597,32 @@ class GUIHandler(BaseHandler):
         role.Usernames = sorted(list(members))
         role.save()
         self.redirect("./role?name=%s" % (rname,))
-            
+        
 class DataHandler(BaseHandler):
     
     def __init__(self, request, app):
         BaseHandler.__init__(self, request, app)
-        self.NamespaceAuthorization = {}                # namespace -> True/False
+        self.NamespaceCache = {}                # namespace -> True/False
+        
+    def _cached_namespace(self, db, namespace):
+        ns = self.NamespaceCache.get(namespace)
+        if ns is None:
+            ns = DBNamespace.get(db, namespace)
+            if ns is None:
+                raise KeyError("Namespace %s does not exist")
+            self.NamespaceCache[namespace] = ns
+        return ns
         
     def _namespace_authorized(self, db, user, namespace):
-        auth = self.NamespaceAuthorization.get(namespace)
-        if auth is None:
-            ns = DBNamespace.get(db, namespace)
-            self.NamespaceAuthorization[namespace] = auth = (user in ns.Owner)
-        return auth
-
+        return user in self._cached_namespace(db, namespace).Owner
+        
+    def _namespace_exists(self, db, namespace):
+        try:    
+            self._cached_namespace(db, namespace)
+            return True
+        except KeyError:
+            return False
+        
     def json_generator(self, lst):
         from collections.abc import Iterable
         assert isinstance(lst, Iterable)
@@ -805,18 +817,14 @@ class DataHandler(BaseHandler):
         if dataset is None:
             return "Dataset not specified", 400
             
-        verified_namespaces = set()
-
         db = self.App.connect()
 
         ds_namespace, ds_name = parse_name(dataset, default_namespace)
-        if not ds_namespace in verified_namespaces:
-            ns = DBNamespace.get(db, ds_namespace)
-            if ns is None:
-                return f"Namespace {ds_namespace} does not exist", 404
-            if not user in ns.Owner:
+        try:
+            if not self._namespace_authorized(db, user, ds_namespace):
                 return f"Permission to declare files in namespace {namespace} denied", 403
-            verified_namespaces.add(namespace)
+        except KeyError:
+            return f"Namespace {ds_namespace} does not exist", 404
 
         ds = DBDataset.get(db, namespace=ds_namespace, name=ds_name)
         if ds is None:
@@ -837,8 +845,11 @@ class DataHandler(BaseHandler):
             if fid is not None and DBFile.exists(db, fid=fid):
                 return "File with fid %s already exists" % (fid,), 400
                 
-            if not self._namespace_authorized(db, user, namespace):
-                return f"Permission to declare files to namespace {namespace} denied", 403
+            try:
+                if not self._namespace_authorized(db, user, namespace):
+                    return f"Permission to declare files to namespace {namespace} denied", 403
+            except KeyError:
+                return f"Namespace {namespace} does not exist", 404
             
             f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=file_item.get("metadata"))
             if "checksums" in file_item:
@@ -874,16 +885,15 @@ class DataHandler(BaseHandler):
         else:
             file_set = DBFileSet.from_name_list(db, names, default_namespace=default_namespace)
         file_set = list(file_set)
-        verified_namespaces = set()
         out = []
         for f in file_set:
             namespace = f.Namespace
-            if not namespace in verified_namespaces:
-                ns = DBNamespace.get(db, namespace)
-                if not user in ns.Owner:
-                    return f"Permission to declare files to namespace {namespace} denied", 403
-                verified_namespaces.add(namespace)
-
+            try:
+                if not self._namespace_authorized(db, user, namespace):
+                    return f"Permission to update files in namespace {namespace} denied", 403
+            except KeyError:
+                return f"Namespace {namespace} does not exist", 404
+            
             meta = new_meta
             if mode == "update":
                 meta = {}
@@ -903,8 +913,8 @@ class DataHandler(BaseHandler):
         return json.dumps(out), 200
         
                 
-    def update_meta(self, request, relpath, namespace=None, mode="update", **args):
-        # mode dan be "update" - add/pdate metadata with new values
+    def update_file_meta(self, request, relpath, namespace=None, mode="update", **args):
+        # mode can be "update" - add/pdate metadata with new values
         #             "replace" - discard old metadata and update with new values
         # 
         # Update metadata for existing files
@@ -932,15 +942,12 @@ class DataHandler(BaseHandler):
             return 403
         db = self.App.connect()
         data = json.loads(request.body)
-        verified_namespaces = set()
 
         if isinstance(data, dict):
             return self.update_meta_bulk(db, user, data, mode, default_namespace)
         else:
             return "Not implemented", 400
             
-        
-
         file_list = json.loads(request.body) if request.body else []
         if not file_list:
                 return "Empty file list", 400
@@ -959,11 +966,12 @@ class DataHandler(BaseHandler):
             if f is None:
                 return "File %s not found" % (fid or spec,), 404
             namespace = f.Namespace
-            if not namespace in verified_namespaces:
-                ns = DBNamespace.get(db, namespace)
-                if not user in ns.Owner:
-                    return f"Permission to declare files to namespace {namespace} denied", 403
-                verified_namespaces.add(namespace)
+            try:
+                if not self._namespace_authorized(db, user, namespace):
+                    return f"Permission to update files in namespace {namespace} denied", 403
+            except KeyError:
+                return f"Namespace {namespace} does not exist", 404
+            
             if "metadata" in file_item:
                 f.Metadata = file_item["metadata"]
             files.append((f, file_item.get("parents")))
@@ -986,8 +994,38 @@ class DataHandler(BaseHandler):
                     for f in files
         ]
         return json.dumps(out), "text/json"
+        
+    def update_dataset_meta(self, request, relapth, mode="update", dataset=None):
+        #
+        # update or replace single dataset metadata
+        #
+        if not mode in ("update","replace"):
+            return "Invalid mode {mode}", 400
+        namespace, name = parse_name(dataset, None)
+        if not namespace:
+            return "Namespace is not specfied", 400
+
+        user = self.authenticated_user()
+        if user is None:
+            return 403
+        db = self.App.connect()
+        meta = json.loads(request.body)
+
+        try:
+            if not self._namespace_authorized(db, user, namespace):
+                return f"Permission to update files in namespace {namespace} denied", 403
+        except KeyError:
+            return f"Namespace {namespace} does not exist", 404
                 
-            
+        ds = DBDataset.get(db, namespace, name)
+        if mode == "update":
+            ds.Metadata.update(meta)
+        else:
+            ds.Metadata = meta
+        
+        ds.save()
+        return json.dumps(ds.Metadata), "text/json"
+                
     def file(self, request, relpath, name=None, fid=None, with_metadata="yes", with_relations="yes", **args):
         if name:
             namespace, name = parse_name(name, None)
@@ -1102,7 +1140,7 @@ class DataHandler(BaseHandler):
                     { 
                         "name":"%s:%s" % (d.Namespace, d.Name),
                         "parent":   None if not d.ParentName else "%s:%s" % (d.ParentNamespace, d.ParentName),
-                        "metadata": {}
+                        "metadata": d.Metadata if with_meta else {}
                     } for d in results 
             )
             

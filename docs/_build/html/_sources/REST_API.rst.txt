@@ -135,19 +135,5 @@ Update multiple file metadata (authentication required):
 
     .. code-block::
     
-        POST (with the JSON file as the body) /data/update_files 
-    
-Update single file metadata (authentication required):
-
-    Create a JSON file with new metadata:
-    
-    .. code-block:: json
-    
-        { "i":3, "x":3.14, "type":"data" }      
-
-
-    .. code-block::
-    
-        POST (with the JSON file as the body) /data/update_file?spec=<namespace>:<name>
-                                           or /data/update_file?fid=<file id>
+        POST (with the JSON file as the body) /data/update_file_meta 
     

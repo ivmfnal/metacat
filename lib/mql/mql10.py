@@ -127,6 +127,9 @@ class BasicFileQuery(object):
         
     def apply_params(self, params):
         self.DatasetSelector.apply_params(params)
+        
+    def filter_by_having(self, dataset_generator):
+        return self.DatasetSelector.filter_by_having(dataset_generator)
 
 class DatasetSelector(object):
 
@@ -155,6 +158,14 @@ class DatasetSelector(object):
         if default_namespace:
             for p in self.Patterns:
                 p["namespace"] = p["namespace"] or default_namespace
+                
+    def filter_by_having(self, datasets):
+        if self.Having is None:
+            yield from datasets
+        evaluator = _MetaEvaluator()
+        for ds in datasets:
+            if evaluator(ds.Metadata, self.Having):
+                yield ds
         
 class _ParamsApplier(Descender):
     
@@ -203,7 +214,7 @@ class DatasetQuery(object):
     def __init__(self, tree):
         self.Tree = tree
 
-    def run(self, db, limit=None, with_meta=True, filters={}, default_namespace=None):
+    def run(self, db, limit=None, with_meta=True, filters={}, default_namespace=None, debug=False):
         return _DatasetEvaluator(db, with_meta, limit).walk(self.Tree)
         
 class FileQuery(object):
@@ -325,16 +336,20 @@ class _Converter(Transformer):
         spec_list = args[0]["specs"]
         with_children = False
         recursively = False
-        having = None
+        having_exp = None
         args_ = args[1:]
         for i, a in enumerate(args_):
-            if a.value == "children":
+            #print(i, a)
+            if a.value == "with":
+                continue
+            elif a.value == "children":
                 with_children = True
             elif a.value == "recursively":
                 recursively = True
             elif a.value == "having":
-                having = args_[i+1]
-        ds = DatasetSelector(spec_list, with_children, recursively, having)
+                having_exp = args_[i+1]
+                break
+        ds = DatasetSelector(spec_list, with_children, recursively, having_exp)
         return Node("datasets_selector", selector = ds)
 
     def basic_file_query(self, args):
@@ -383,7 +398,8 @@ class _Converter(Transformer):
         else:
             name_pattern = args[1].value
             namespace = args[0].value
-        return Node("dataset_pattern", name_pattern=name_pattern, namespace=namespace)
+        name_pattern = name_pattern[1:-1]       # remove the surrouning quotes
+        return Node("dataset_pattern", name=name_pattern, namespace=namespace)
         
     def named_query(self, args):
         (q,) = args
@@ -678,133 +694,24 @@ class _MetaExpPusher(Descender):
         else:
             new_exp = _make_DNF(Node("meta_and", [meta_exp, node_exp]))
         return self.walk(child, new_exp)
-        
-class _DatasetEvaluator(Ascender):
-    
-    def __init__(self, db, with_meta, limit):
-        Ascender.__init__(self)
-        self.DB = db
-        self.WithMeta = with_meta
-        self.Limit = limit
-        
-    def dataset_query(self, node, datasets_selector):
-        return dataset_selector
-    
-    def datasets_selector(self, node, *args, selector = None):
-        assert isinstance(selector, DatasetSelector)
-        out = limited(selector.datasets(self.DB, self.Limit), self.Limit)
-        #print("_DatasetEvaluator.datasets_selector: out:", out)
-        return out
-        
-class _FileEvaluator(Ascender):
 
-    def __init__(self, db, filters, with_meta, limit):
-        Ascender.__init__(self)
-        self.Filters = filters
-        self.DB = db
-        self.WithMeta = with_meta
-        self.Limit = limit
-        
-    def file_query(self, node, query, limit=None):
-        return query if limit is None else limited(query, limit)
-        
-    def meta_filter(self, node, files=None, meta_exp=None):
-        #print("meta_filter: args:", args)
-        if meta_exp is not None:
-            out = []
-            for f in files:
-                if self.evaluate_meta_expression(f, meta_exp):
-                    out.append(f)
-            return DBFileSet(self.DB, out)
-            return DBFileSet(self.DB, (f for f in files if self.evaluate_meta_expression(f, meta_exp)))
-        else:
-            return files
+class _MetaEvaluator(object):
 
-    def parents_of(self, node, files):
-        return files.parents(with_metadata=True)
-
-    def children_of(self, node, files):
-        return files.children(with_metadata=True)
-
-    def limit(self, node, files, limit=None):
-        #print("FileEvaluator.limit(): args:", args)
-        assert isinstance(files, DBFileSet)
-        return files if limit is None else files.limit(limit)
-            
-    def basic_file_query(self, node, *args, query=None):
-        assert isinstance(query, BasicFileQuery)
-        #print("_FileEvaluator:basic_file_query: query:", query)
-        return DBFileSet.from_basic_query(self.DB, query, self.WithMeta or query.WithMeta, self.Limit)
-        
-    def union(self, node, *args):
-        #print("Evaluator.union: args:", args)
-        return DBFileSet.union(self.DB, args)
-        
-    def join(self, node, *args):
-        return DBFileSet.join(self.DB, args)
-        
-    def minus(self, node, left, right):
-        assert isinstance(left, DBFileSet)
-        assert isinstance(right, DBFileSet)
-        return left - right
-
-    def filter(self, node, *queries, name=None, params=[]):
-        #print("Evaluator.filter: inputs:", inputs)
-        assert name is not None
-        filter_function = self.Filters[name]
-        return DBFileSet(self.DB, filter_function(queries, params))
-        
-    def _eval_meta_bool(self, f, bool_op, parts):
-        assert len(parts) > 0
-        p0 = parts[0]
-        rest = parts[1:]
-        ok = self.evaluate_meta_expression(f, p0)
-        if bool_op in ("and", "meta_and"):
-            if len(rest) and ok:
-                ok = self._eval_meta_bool(f, bool_op, rest)
-            return ok
-        elif bool_op in ("or", "meta_or"):
-            if len(rest) and not ok:
-                ok = self._eval_meta_bool(f, bool_op, rest)
-            return ok
-        elif bool_op == "not":
-            assert len(rest) == 0
-            return not ok
-        else:
-            raise ValueError("Unrecognized boolean operation '%s'" % (op,))
-    
-    @staticmethod
-    def do_cmp_op(x, op, y):
-        if op == "<":          return x < y
-        elif op == ">":    
-            #print("evaluate_meta_expression: > :", attr_value, value)    
-            return x > y
-        elif op == "<=":       return x <= y
-        elif op == ">=":       return x >= y
-        elif op in ("==",'='): 
-            #print("evaluate_meta_expression:", repr(attr_value), repr(value))
-            return x == y
-        elif op == "!=":       return x != y
-        # - fix elif op == "in":       return value in attr_value       # exception, e.g.   123 in event_list
-        else:
-            raise ValueError("Invalid comparison operator '%s'" % (op,))
-        
     BOOL_OPS = ("and", "or", "not")
 
-    def evaluate_meta_expression(self, f, meta_expression):
+    def evaluate_meta_expression(self, metadata, meta_expression):
         #print("evaluate_meta_expression: meta_expression:", meta_expression.pretty())
-        metadata = f.metadata()
         #print("    meta:", metadata)
         op, args = meta_expression.T, meta_expression.C
         #print("evaluate_meta_expression:", op, args)
         if op in ("meta_and", "meta_or") and len(args) == 1:
-            return self.evaluate_meta_expression(f, args[0])
+            return self.evaluate_meta_expression(metadata, args[0])
         if op == "meta_and":    op = "and"
         if op == "meta_or":     op = "or"
         if op in self.BOOL_OPS:
-            return self._eval_meta_bool(f, op, args)
+            return self.eval_meta_bool(metadata, op, args)
         elif op == "present":
-            return args[0] in metadata
+            return meta_expression["name"] in metadata
         elif op == "in_set":
             left, right = args
             vset = set(list(right))
@@ -837,7 +744,7 @@ class _FileEvaluator(Ascender):
                 except: return False
             elif left.T == "array_any":
                 aname = left["name"]
-                if not aname in f:  return False
+                if not aname in metadata:  return False
                 lst = metadata[aname]
                 if isinstance(lst, dict):
                     attr_values = lst.values()
@@ -895,6 +802,130 @@ class _FileEvaluator(Ascender):
                 except: return False
                 return  self.do_cmp_op(av, cmp_op, value)                
         raise ValueError("Invalid expression:\n"+meta_expression.pretty())
+        
+    __call__ = evaluate_meta_expression
+
+    def eval_meta_bool(self, f, bool_op, parts):
+        assert len(parts) > 0
+        p0 = parts[0]
+        rest = parts[1:]
+        ok = self.evaluate_meta_expression(f, p0)
+        if bool_op in ("and", "meta_and"):
+            if len(rest) and ok:
+                ok = self._eval_meta_bool(f, bool_op, rest)
+            return ok
+        elif bool_op in ("or", "meta_or"):
+            if len(rest) and not ok:
+                ok = self._eval_meta_bool(f, bool_op, rest)
+            return ok
+        elif bool_op == "not":
+            assert len(rest) == 0
+            return not ok
+        else:
+            raise ValueError("Unrecognized boolean operation '%s'" % (op,))
+    
+    def do_cmp_op(self, x, op, y):
+        if op == "<":          return x < y
+        elif op == ">":    
+            #print("evaluate_meta_expression: > :", attr_value, value)    
+            return x > y
+        elif op == "<=":       return x <= y
+        elif op == ">=":       return x >= y
+        elif op in ("==",'='): 
+            #print("evaluate_meta_expression:", repr(attr_value), repr(value))
+            return x == y
+        elif op == "!=":       return x != y
+        # - fix elif op == "in":       return value in attr_value       # exception, e.g.   123 in event_list
+        else:
+            raise ValueError("Invalid comparison operator '%s'" % (op,))
+        
+    @staticmethod
+    def evaluate(meta, exp):
+        return _MetaEvaluator().evaluate_meta_expression(meta, exp)
+    
+class _DatasetEvaluator(Ascender):
+    
+    def __init__(self, db, with_meta, limit):
+        Ascender.__init__(self)
+        self.DB = db
+        self.WithMeta = with_meta
+        self.Limit = limit
+        
+    def dataset_query(self, node, dataset_selector):
+        return dataset_selector
+    
+    def datasets_selector(self, node, *args, selector = None):
+        assert isinstance(selector, DatasetSelector)
+        evaluator = _MetaEvaluator()
+        out = limited(
+            (x for x in selector.datasets(self.DB, self.Limit)
+                if selector.Having is None or evaluator(x.Metadata, selector.Having)
+            ), 
+            self.Limit
+        )
+        #print("_DatasetEvaluator.datasets_selector: out:", out)
+        return out
+        
+class _FileEvaluator(Ascender):
+
+    def __init__(self, db, filters, with_meta, limit):
+        Ascender.__init__(self)
+        self.Filters = filters
+        self.DB = db
+        self.WithMeta = with_meta
+        self.Limit = limit
+        
+    def file_query(self, node, query, limit=None):
+        return query if limit is None else limited(query, limit)
+        
+    def meta_filter(self, node, files=None, meta_exp=None):
+        #print("meta_filter: args:", args)
+        evaluator = _MetaEvaluator()
+        if meta_exp is not None:
+            out = []
+            for f in files:
+                if evaluator(f.metadata(), meta_exp):
+                    out.append(f)
+            return DBFileSet(self.DB, out)
+            return DBFileSet(self.DB, (f for f in files if evaluator(f.metadata(), meta_exp)))
+        else:
+            return files
+
+    def parents_of(self, node, files):
+        return files.parents(with_metadata=True)
+
+    def children_of(self, node, files):
+        return files.children(with_metadata=True)
+
+    def limit(self, node, files, limit=None):
+        #print("FileEvaluator.limit(): args:", args)
+        assert isinstance(files, DBFileSet)
+        return files if limit is None else files.limit(limit)
+            
+    def basic_file_query(self, node, *args, query=None):
+        assert isinstance(query, BasicFileQuery)
+        #print("_FileEvaluator:basic_file_query: query:", query)
+        return DBFileSet.from_basic_query(self.DB, query, self.WithMeta or query.WithMeta, self.Limit)
+        
+    def union(self, node, *args):
+        #print("Evaluator.union: args:", args)
+        return DBFileSet.union(self.DB, args)
+        
+    def join(self, node, *args):
+        return DBFileSet.join(self.DB, args)
+        
+    def minus(self, node, left, right):
+        assert isinstance(left, DBFileSet)
+        assert isinstance(right, DBFileSet)
+        return left - right
+
+    def filter(self, node, *queries, name=None, params=[]):
+        #print("Evaluator.filter: inputs:", inputs)
+        assert name is not None
+        filter_function = self.Filters[name]
+        return DBFileSet(self.DB, filter_function(queries, params))
+        
+
 
 def parse_query(text, debug=False):
     # remove comments

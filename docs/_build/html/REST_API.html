@@ -149,18 +149,7 @@ POST (with query as text file) /data/query?namespace=&lt;default namespace&gt;&a
 <span class="p">]</span>
 </pre></div>
 </div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">POST</span> <span class="p">(</span><span class="k">with</span> <span class="n">the</span> <span class="n">JSON</span> <span class="n">file</span> <span class="k">as</span> <span class="n">the</span> <span class="n">body</span><span class="p">)</span> <span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">update_files</span>
-</pre></div>
-</div>
-</div></blockquote>
-<p>Update single file metadata (authentication required):</p>
-<blockquote>
-<div><p>Create a JSON file with new metadata:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span> <span class="nt">&quot;i&quot;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="nt">&quot;x&quot;</span><span class="p">:</span><span class="mf">3.14</span><span class="p">,</span> <span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="s2">&quot;data&quot;</span> <span class="p">}</span>
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>POST (with the JSON file as the body) /data/update_file?spec=&lt;namespace&gt;:&lt;name&gt;
-                                   or /data/update_file?fid=&lt;file id&gt;
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">POST</span> <span class="p">(</span><span class="k">with</span> <span class="n">the</span> <span class="n">JSON</span> <span class="n">file</span> <span class="k">as</span> <span class="n">the</span> <span class="n">body</span><span class="p">)</span> <span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">update_file_meta</span>
 </pre></div>
 </div>
 </div></blockquote>

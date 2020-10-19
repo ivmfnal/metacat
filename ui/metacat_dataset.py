@@ -16,6 +16,10 @@ Usage:
             -p|--parent <parent namespace>:<parent name>
         
         show [<options>] <namespace>:<name>
+        
+        update <options> @<JSON file with metadata> <namespace>:<name>
+        update <options> '<JSON expression>' <namespace>:<name>
+            -r|--replace          - replace metadata, otherwise update
 """
 
 def do_list(config, client, args):
@@ -59,6 +63,27 @@ def do_create(config, client, args):
     out = client.create_dataset(dataset_spec, parent = parent_spec)
     print(out)
     
+def do_update(config, client, args):
+    opts, args = getopt.getopt(args, "r", ["replace"])
+    opts = dict(opts)
+
+    mode = "replace" if ("-r" in opts or "--replace" in opts) else "update"
+
+    if not args or args[0] == "help":
+        print(Usage)
+        sys.exit(2)
+    
+    meta = args[0]
+    if meta.startswith('@'):
+        meta = json.load(open(meta[1:], "r"))
+    else:
+        meta = json.loads(meta)
+
+    dataset = args[1]
+
+    response = client.update_dataset_meta(meta, dataset, mode=mode)
+    print(response)
+
 def do_dataset(config, server_url, args):
     if not args:
         print(Usage)
@@ -69,6 +94,7 @@ def do_dataset(config, server_url, args):
     command = args[0]
     return {
         "list":     do_list,
+        "update":   do_update,
         "create":   do_create,
         "show":     do_show
     }[command](config, client, args[1:])

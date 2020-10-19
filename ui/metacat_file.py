@@ -223,9 +223,9 @@ def do_update(config, client, args):
     elif meta == "-":
         meta = json.load(sys.stdin)
     else:
-        meta = json.loads(" ".join(args))
+        meta = json.loads(meta)
 
-    response = client.update_meta(meta, names=names, fids=fids, mode=mode, namespace=namespace)
+    response = client.update_file_meta(meta, names=names, fids=fids, mode=mode, namespace=namespace)
     print(response)
 
 _add_smaple = [
