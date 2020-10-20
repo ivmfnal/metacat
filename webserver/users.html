@@ -23,30 +23,18 @@
         <th>Flags</th>
         <th>Roles</th>
 	</tr>
-    {% if GLOBAL_User %}
-		<tr>
-                {% set u = GLOBAL_User %}
-				<td><a href="./user?username={{u.Username}}">{{u.Username}}</a></td>
-				<td>{{u.Name or ""}}</td>
-				<td>{{u.EMail or ""}}</td>
-                <td>{{u.Flags or ""}}</td>
-                <td>{% for r in u.roles() %}<a href="./role?name={{r.Name}}">{{r.Name}}</a> {% endfor %}</td>
-	    </tr>
-    {% endif %}
-    
 	{% for u in users %}
-        {% if GLOBAL_User and GLOBAL_User.Username != u.Username %}
             {% set a=u.Username[0] %}
     		<tr>
     				<td>
                         {%- if index and u.Username == index[a] %}<a id="letter_{{a}}"></a>{% endif -%}
-                        <a href="./user?username={{u.Username}}">{{u.Username}}</a></td>
+                        <a href="./user?username={{u.Username}}">{{u.Username}}</a>
+                    </td>
     				<td>{{u.Name or ""}}</td>
     				<td>{{u.EMail or ""}}</td>
                     <td>{{u.Flags or ""}}</td>
                     <td>{% for r in u.roles() %}<a href="./role?name={{r.Name}}">{{r.Name}}</a> {% endfor %}</td>
     	    </tr>
-        {% endif %}
 	{% endfor %}
 </table>
 

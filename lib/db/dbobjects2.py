@@ -1099,7 +1099,7 @@ class DBUser(object):
                 if r is None:
                     r = DBRole.get(db, rn)
                     rolesdict[rn] = r
-                user_roles.append(user_roles)
+                user_roles.append(r)
             u = DBUser(db, username, name, email, flags)
             u.Roles = user_roles
             #print("DBUser.list: yielding:", u)
