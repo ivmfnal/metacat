@@ -8,8 +8,8 @@
 
 {% if index %}
 
-<p>{%- for a in index.keys()|sort -%}
-        <a href="#letter_{{a}}">{{a}}</a>&nbsp;
+<p>index:&nbsp;{%- for a in index.keys()|sort -%}
+        <a href="#letter_{{a}}">{{a}}</a>&nbsp;{% if not loop.last %}-&nbsp;{% endif %}
     {%- endfor -%}
 </p>
 
