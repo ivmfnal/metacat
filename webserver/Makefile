@@ -8,6 +8,7 @@ build:	$(SERVER_DIR)
 	cp $(FILES) $(SERVER_DIR)
 	mkdir -p $(SERVER_DIR)/static/js
 	cp static/js/*.js $(SERVER_DIR)/static/js
+	cp -R static/fonts $(SERVER_DIR)/static
 	
 $(SERVER_DIR):
 	mkdir -p $@

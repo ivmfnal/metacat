@@ -2,6 +2,14 @@
 
 <head>
     <style type="text/css">
+
+        @font-face {
+          font-family: source_code;
+          src: url({{GLOBAL_AppTopPath}}/static/fonts/source-code-pro/SourceCodePro-Regular.ttf.woff);
+        }
+
+
+
         body, td, th, p, div {
             font: 14px arial;
         }
@@ -153,13 +161,12 @@
     }
     
     .file_metadata td.attr_name, .file_metadata td.attr_value {
-        font-family:  Courier, monospace, "Lucida Console";
+        font-family:  source_code, Courier, monospace;
         font-size: 12px;
     }
     
     .file_metadata td.fid, .file_metadata td.filename {
-        /*padding-top: 15px;*/
-        font-family:  arial;
+        font-family:  source_code, Courier, monospace;
         font-size: 14px;
     }
     
@@ -170,6 +177,11 @@
     
     #meta_stats_toggle {
         font: 16px monospace;
+    }
+    
+    .query_text {
+        font-family:  source_code, Courier, monospace;
+        
     }
     
     </style>
