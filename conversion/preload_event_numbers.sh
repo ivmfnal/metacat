@@ -9,7 +9,7 @@ create temp view active_files as
                 where retired_date is null;
 
 copy (
-    select f.file_id, '${core}.events', null, null, null, e.event_numbers, null
+    select f.file_id, '${core_category}.events', null, null, null, e.event_numbers, null
         		from active_files f, dune.events e
         		where f.file_id = e.file_id
         
