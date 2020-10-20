@@ -1028,7 +1028,7 @@ class DBUser(object):
         self.Flags = flags
         self.DB = db
         self.Authenticators = {}        # type -> [secret,...]
-        self.Roles = None
+        self.Roles = []                 # list of roles as DBRole objects
         
     def __str__(self):
         return "DBUser(%s, %s, %s, %s)" % (self.Username, self.Name, self.EMail, self.Flags)
@@ -1047,6 +1047,13 @@ class DBUser(object):
         c.execute("delete from authenticators where username=%s", (self.Username,))
         c.executemany("insert into authenticators(username, type, secrets) values(%s, %s, %s)",
             [(self.Username, typ, a.Secrets) for typ, a in self.Authenticators.items()])
+
+        c.execute("delete from users_roles where username=%s", (self.Username,))
+        c.executemany("insert into users_roles(username, role_name) values(%s, %s)", [
+                (self.Name, role.Name) for role in self.Roles
+            ]
+        )
+
         if do_commit:
             c.execute("commit")
         return self
@@ -1066,14 +1073,15 @@ class DBUser(object):
     @staticmethod
     def get(db, username):
         c = db.cursor()
-        c.execute("""select name, email, flags
-                        from users
-                        where username=%s""",
+        c.execute("""select u.name, u.email, u.flags, array(select ur.role_name from users_roles ur where ur.username=u.username)
+                        from users u
+                        where u.username=%s""",
                 (username,))
         tup = c.fetchone()
         if not tup: return None
-        (name, email, flags) = tup
+        (name, email, flags, roles) = tup
         u = DBUser(db, username, name, email, flags)
+        u.Roles = [DBRole.get(db, rn) for rn in sorted(roles)]
         c.execute("""select type, secrets from authenticators where username=%s""", (username,))
         u.Authenticators = {typ:Authenticator.from_db(username, typ, secrets) for typ, secrets in c.fetchall()}
         return u
@@ -1085,13 +1093,12 @@ class DBUser(object):
     def list(db):
         rolesdict = {}
         c = db.cursor()
-        c.execute("""select u.username, u.name, u.email, u.flags, array_agg(r.name)
-                from users u 
-                    left outer join roles r on (u.username = any(r.users)) 
-                group by u.username, u.name, u.email, u.flags
+        c.execute("""select u.username, u.name, u.email, u.flags, 
+                                array(select ur.role_name from users_roles ur where ur.username=u.username)
+                            from users u 
         """)
         for username, name, email, flags, roles in c.fetchall():
-            if roles == [None]: roles = []
+            roles = [r for r in roles if r is not None]
             roles = sorted(roles)
             user_roles = []
             for rn in roles:

@@ -9,7 +9,7 @@ create temp view active_files as
                 where retired_date is null;
 
 copy (
-	select f.file_id, '.file_type', null, null, ft.file_type_desc, null, null
+	select f.file_id, '${core}.file_type', null, null, ft.file_type_desc, null, null
 		from active_files f, file_types ft
 		where f.file_type_id = ft.file_type_id
 ) to stdout;

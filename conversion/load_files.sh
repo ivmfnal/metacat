@@ -44,7 +44,7 @@ create temp view file_checksums as
 ;
 
 copy (	
-    select df.file_id, coalesce(s.scope, 'default'), df.file_name, extract(epoch from df.create_date), p.username, df.file_size_in_bytes,
+    select df.file_id, coalesce(s.scope, '${default_namespace}'), df.file_name, extract(epoch from df.create_date), p.username, df.file_size_in_bytes,
                 coalesce(fck.checksums, '{}'::jsonb)
         from active_files df
             left outer join persons p on p.person_id = df.create_user_id
