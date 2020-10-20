@@ -9,8 +9,14 @@ create table users
 create table roles
 (
     name        text    primary key,
-    description text,
-    users       text[]  default '{}'::text[]
+    description text
+);
+
+create table users_roles
+(
+    username    text    references users(username),
+    role_name   text    references roles(name),
+    primary key(username, role_name)
 );
 
 --insert into roles(name, description) values ('admin', 'Administrator');

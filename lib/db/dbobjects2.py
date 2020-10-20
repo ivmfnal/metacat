@@ -700,7 +700,7 @@ class DBDataset(object):
         c.execute("""
             insert into datasets(namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp,
                         description) 
-                values(%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 on conflict(namespace, name) 
                     do update set parent_namespace=%s, parent_name=%s, frozen=%s, monotonic=%s, metadata=%s, description=%s
             """,
