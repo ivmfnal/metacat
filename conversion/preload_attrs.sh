@@ -82,7 +82,7 @@ copy (
 
 _EOF_
 
-preload_meta ./data/app_families.csv
+preload_meta ./data/attrs.csv
 
 $IN_DB_PSQL -q \
 	> ./data/param_categories.csv \
