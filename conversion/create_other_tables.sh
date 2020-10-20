@@ -15,13 +15,6 @@ drop table if exists
     ,roles
 ;
 
-create table roles
-(
-    name        text    primary key,
-    description text,
-    users       text[]  default '{}'::text[]
-);
-
 create table authenticators
 (
     username    text    references users(username) on delete cascade,
