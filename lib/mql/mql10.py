@@ -925,8 +925,6 @@ class _FileEvaluator(Ascender):
         filter_function = self.Filters[name]
         return DBFileSet(self.DB, filter_function(queries, params))
         
-
-
 def parse_query(text, debug=False):
     # remove comments
     out = []

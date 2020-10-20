@@ -1,7 +1,10 @@
 import sys, getopt, os, json, fnmatch
 #from urllib.request import urlopen, Request
-from metacat.util import to_bytes, to_str, TokenLib
+from metacat.util import to_bytes, to_str, TokenLib, epoch
 from metacat.webapi import MetaCatClient
+
+import datetime
+
 
 Usage = """
 Usage: 
@@ -10,7 +13,7 @@ Usage:
     Commands and options:
     
         list [<options>] [[<namespace pattern>:]<name pattern>]
-            -v|--verbose
+            -l|--long -- detailed output
             
         create [<options>] <namespace>:<name>
             -p|--parent <parent namespace>:<parent name>
@@ -23,31 +26,46 @@ Usage:
 """
 
 def do_list(config, client, args):
-    opts, args = getopt.getopt(args, "v", ["--verbose"])
+    opts, args = getopt.getopt(args, "l", ["--long"])
     if args:
         patterns = args
     else:
         patterns = ["*"]
     opts = dict(opts)
-    verbose = "-v" in opts or "--verbose" in opts
+    verbose = "-l" in opts or "--long" in opts
     output = client.list_datasets(with_file_counts=verbose)
+    
+    verbose_format = "%-16s %-19s %s"
+    
+    if verbose:
+        print(verbose_format % (
+            "creator", "created", "name/parent"
+        ))
+        print("-"*16, "-"*19, "-"*40)
+    
     for item in output:
         match = False
+        namespace, name = item["namespace"], item["name"]
         for p in patterns:
             pns = None
             if ":" in p:
                 pns, pn = p.split(":", 1)
             else:
                 pn = p
-            namespace, name = item["namespace"], item["name"]
             if fnmatch.fnmatch(name, pn) and (pns is None or fnmatch.fnmatch(namespace, pns)):
                 match = True
                 break
         if match:
-            print("%s:%s" % (namespace, name))
             if verbose:
-                print("    Parent:     %s:%s" % (item.get("parent_namespace") or "", item.get("parent_name") or ""))
-                print("    File count: %d" % (item["file_count"],))
+                parent = "" if not item.get("parent_namespace") else ("/" + item["parent_namespace"] + ":" + item["parent_name"])
+                ct = datetime.datetime.fromtimestamp(item.get("created_timestamp", 0))
+                print(verbose_format % (
+                    item.get("creator",""),
+                    ct.strftime("%Y-%m-%d %H:%M:%S"),
+                    namespace + ":" + name + parent
+                ))
+            else:
+                print("%s:%s" % (namespace, name))
                     
                 
     

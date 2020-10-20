@@ -369,17 +369,28 @@ class GUIHandler(BaseHandler):
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/users")
         db = self.App.connect()
-        users = DBUser.list(db)
+        users = sorted(list(DBUser.list(db)), key=lambda u: u.Username)
         #print("Server.users: users:", users)
-        return self.render_to_response("users.html", users=users, error=unquote_plus(error), admin = me.is_admin())
         
-    def user(self, request, relpath, username=None, error="", **args):
+        index = None
+        if len(users) > 30:
+            alphabet = set(u.Username[0] for u in users)
+            index = {}
+            for u in users:
+                a = u.Username[0]
+                if not a in index:
+                    index[a] = u.Username
+
+        return self.render_to_response("users.html", users=users, error=unquote_plus(error), admin = me.is_admin(),
+                index = index)
+        
+    def user(self, request, relpath, username=None, error="", message="", **args):
         db = self.App.connect()
         user = DBUser.get(db, username)
         me = self.authenticated_user()
         all_roles = DBRole.list(db)
         return self.render_to_response("user.html", all_roles=all_roles, user=user, 
-            error = unquote_plus(error),
+            error = unquote_plus(error), message=unquote_plus(message),
             mode = "edit" if (me.is_admin() or me.Username==username) else "view", 
             admin=me.is_admin())
         
@@ -414,7 +425,7 @@ class GUIHandler(BaseHandler):
                     if new_user:
                         self.redirect("./create_user?error=%s" % (quote_plus("Password mismatch")))
                     else:
-                        self.redirect("./user&error=%s" % (quote_plus("Password mismatch")))
+                        self.redirect("./user?username=%s&error=%s" % (username, quote_plus("Password mismatch")))
                         
                 u.set_password(request.POST["password1"])
                     
@@ -441,9 +452,8 @@ class GUIHandler(BaseHandler):
                     r.save()
                 
             u.save()
-                    
-                    
-        self.redirect("./users")
+                                        
+        self.redirect(f"./user?username={username}&message="+quote_plus("User updated"))
         
     def namespaces(self, request, relpath, **args):
         db = self.App.connect()
@@ -453,10 +463,13 @@ class GUIHandler(BaseHandler):
     def namespace(self, request, relpath, name=None, **args):
         db = self.App.connect()
         ns = DBNamespace.get(db, name)
+        roles = []
+        edit = False
         me = self.authenticated_user()
-        admin = me.is_admin()
-        edit = me is not None and (me in ns.Owner or admin)
-        roles = list(DBRole.list(db) if admin else me.roles())
+        if me is not None:
+            admin = me.is_admin()
+            edit = me in ns.Owner or admin
+            roles = list(DBRole.list(db) if admin else me.roles())
         #print("namespace: roles", roles)
         return self.render_to_response("namespace.html", namespace=ns, edit=edit, create=False, roles=roles)
         
@@ -540,10 +553,22 @@ class GUIHandler(BaseHandler):
         
     def save_dataset(self, request, relpath, **args):
         db = self.App.connect()
+        user = self.authenticated_user()
+        if not user:
+            self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/datasets")
+        admin = user.is_admin()
+        namespace = request.POST["namespace"]
+        if not admin:
+            ns = DBNamespace.get(db, namespace)
+            if not user in ns.Owner:
+                self.redirect("./datasets?error=%s" % (quote_plus(f"No permission to modify namespace {namespace}"),))
+
         if request.POST["create"] == "yes":
-            ds = DBDataset(db, request.POST["namespace"], request.POST["name"]) # no parent dataset for now
+            ds = DBDataset(db, request.POST["namespace"], request.POST["name"])
+            ds.Creator = user.Username
         else:
             ds = DBDataset.get(db, request.POST["namespace"], request.POST["name"])
+
         ds.Monotonic = "monotonic" in request.POST
         ds.Frozen = "frozen" in request.POST
         ds.save()
@@ -664,7 +689,7 @@ class DataHandler(BaseHandler):
                 return "Owner role must be specified", 400
         else:
             owner_role = DBRole.get(db, owner)
-            if not user in owner_role:
+            if not user.is_admin() and not user in owner_role:
                 return 403
 
         if DBNamespace.exists(db, name):
@@ -716,14 +741,16 @@ class DataHandler(BaseHandler):
             "Access-Control-Allow-Origin":"*"
         } 
         
-    def create_dataset(self, request, relpath, dataset=None, parent=None, **args):
+    def create_dataset(self, request, relpath, dataset=None, parent=None, frozen="no", monotonic="no", description="", **args):
+        frozen = frozen == "yes"
+        monotonic = monotonic == "yes"
         user = self.authenticated_user()
         if user is None:
             return 401
         db = self.App.connect()
         namespace, name = dataset.split(":",1)
         namespace = DBNamespace.get(db, namespace)
-        if not user in namespace.Owner:
+        if not user.is_admin() and not user in namespace.Owner:
             return 403
         if DBDataset.get(db, namespace, name) is not None:
             return "Already exists", 409
@@ -731,19 +758,20 @@ class DataHandler(BaseHandler):
         if parent:
                 parent_namespace, parent_name = parent.split(":",1)
                 parent_ns = DBNamespace.get(db, parent_namespace)
-                if not user in parent_ns.Owner:
+                if not user.is_admin() and not user in parent_ns.Owner:
                         return 403
                 parent_ds = DBDataset.get(db, parent_namespace, parent_name)
                 if parent_ds is None:
                         return "Parent dataset not found", 404
                 dataset = DBDataset(db, namespace, name, 
-                        parent_namespace=parent_namespace, parent_name=parent_name).save()
+                        parent_namespace=parent_namespace, parent_name=parent_name)
         else:
-                dataset = DBDataset(db, namespace, name).save()
-        try:    out = dataset.to_json(), "text/json" 
-        except Exception as e:
-            print (e)
-         
+                dataset = DBDataset(db, namespace, name)
+        dataset.Creator = user.Username
+        dataset.Frozen = frozen
+        dataset.Monotonic = monotonic
+        dataset.Description = description
+        dataset.save()
         return dataset.to_json(), "text/json"  
         
     def add_files(self, request, relpath, namespace=None, dataset=None, **args):

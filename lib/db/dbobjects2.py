@@ -1,5 +1,5 @@
 import uuid, json, hashlib, re
-from metacat.util import to_bytes, to_str
+from metacat.util import to_bytes, to_str, epoch
 from psycopg2 import IntegrityError
 
 Debug = False
@@ -687,6 +687,7 @@ class DBDataset(object):
         self.Creator = None
         self.CreatedTimestamp = None
         self.Metadata = metadata
+        self.Description = None
     
     def __str__(self):
         return "DBDataset(%s:%s)" % (self.Namespace, self.Name)
@@ -697,13 +698,17 @@ class DBDataset(object):
         parent_namespace = self.ParentNamespace.Name if isinstance(self.ParentNamespace, DBNamespace) else self.ParentNamespace
         meta = json.dumps(self.Metadata or {})
         c.execute("""
-            insert into datasets(namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata) 
-                values(%s, %s, %s, %s, %s, %s, %s)
+            insert into datasets(namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp,
+                        description) 
+                values(%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 on conflict(namespace, name) 
-                    do update set parent_namespace=%s, parent_name=%s, frozen=%s, monotonic=%s, metadata=%s
+                    do update set parent_namespace=%s, parent_name=%s, frozen=%s, monotonic=%s, metadata=%s, description=%s
             """,
-            (namespace, self.Name, parent_namespace, self.ParentName, self.Frozen, self.Monotonic, meta,
-                    parent_namespace, self.ParentName, self.Frozen, self.Monotonic, meta))
+            (namespace, self.Name, parent_namespace, self.ParentName, self.Frozen, self.Monotonic, meta, self.Creator, self.CreatedTimestamp,
+                    self.Description, 
+                    parent_namespace, self.ParentName, self.Frozen, self.Monotonic, meta, self.Description
+            )
+        )
         if do_commit:   c.execute("commit")
         return self
             
@@ -732,17 +737,19 @@ class DBDataset(object):
         c = db.cursor()
         namespace = namespace.Name if isinstance(namespace, DBNamespace) else namespace
         #print(namespace, name)
-        c.execute("""select parent_namespace, parent_name, frozen, monotonic, metadata
+        c.execute("""select parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp, description
                         from datasets
                         where namespace=%s and name=%s""",
                 (namespace, name))
         tup = c.fetchone()
         if tup is None: return None
-        parent_namespace, parent_name, frozen, monotonic, meta = tup
+        parent_namespace, parent_name, frozen, monotonic, meta, creator, created_timestamp, description = tup
         dataset = DBDataset(db, namespace, name, parent_namespace, parent_name)
         dataset.Frozen = frozen
         dataset.Monotonic = monotonic
         dataset.Metadata = meta or {}
+        dataset.Creator = creator
+        dataset.CreatedTimestamp = created_timestamp
         return dataset
 
     @staticmethod
@@ -750,9 +757,10 @@ class DBDataset(object):
         return DBDataset.get(db, namespace, name) is not None
 
     @staticmethod
-    def list(db, namespace=None, parent_namespace=None, parent_name=None):
+    def list(db, namespace=None, parent_namespace=None, parent_name=None, creator=None):
         namespace = namespace.Name if isinstance(namespace, DBNamespace) else namespace
         parent_namespace = parent_namespace.Name if isinstance(parent_namespace, DBNamespace) else parent_namespace
+        creator = creator.Username if isinstance(creator, DBUser) else creator
         wheres = []
         if namespace is not None:
             wheres.append("namespace = '%s'" % (namespace,))
@@ -760,12 +768,18 @@ class DBDataset(object):
             wheres.append("parent_namespace = '%s'" % (parent_namespace,))
         if parent_name is not None:
             wheres.append("parent_name = '%s'" % (parent_name,))
+        if creator is not None:
+            wheres.append("creator = '%s'" % (creator,))
         wheres = "" if not wheres else "where " + " and ".join(wheres)
         c=db.cursor()
-        c.execute("""select namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata
+        c.execute("""select namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata,
+                            creator, created_timestamp
                 from datasets %s""" % (wheres,))
-        return (DBDataset(db, namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata=meta) for
-                namespace, name, parent_namespace, parent_name, frozen, monotonic, meta in fetch_generator(c))
+        for namespace, name, parent_namespace, parent_name, frozen, monotonic, meta, creator, created_timestamp in fetch_generator(c):
+            ds = DBDataset(db, namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata=meta)
+            ds.Creator = creator
+            ds.CreatedTimestamp = created_timestamp
+            yield ds
 
     def list_files(self, recursive=False, with_metadata = False, condition=None, relationship=None,
                 limit=None):
@@ -829,7 +843,9 @@ class DBDataset(object):
             name = self.Name,
             parent_namespace = self.ParentNamespace.Name if isinstance(self.ParentNamespace, DBNamespace) else self.ParentNamespace,
             parent_name = self.ParentName,
-            metadata = self.Metadata or {}
+            metadata = self.Metadata or {},
+            creator = self.Creator,
+            created_timestamp = epoch(self.CreatedTimestamp)
         )
     
     def to_json(self):

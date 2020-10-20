@@ -6,6 +6,15 @@
 
 {% if admin %}<p><a href="./create_user">create</a></p>{% endif %}
 
+{% if index %}
+
+<p>{%- for a in index.keys()|sort -%}
+        <a href="#letter_{{a}}">{{a}}</a>&nbsp;
+    {%- endfor -%}
+</p>
+
+{% endif %}
+
 <table class="data">
 	<tr>
 		<th>Username</th>
@@ -27,8 +36,11 @@
     
 	{% for u in users %}
         {% if GLOBAL_User and GLOBAL_User.Username != u.Username %}
+            {% set a=u.Username[0] %}
     		<tr>
-    				<td><a href="./user?username={{u.Username}}">{{u.Username}}</a></td>
+    				<td>
+                        {%- if index and u.Username == index[a] %}<a id="letter_{{a}}"></a>{% endif -%}
+                        <a href="./user?username={{u.Username}}">{{u.Username}}</a></td>
     				<td>{{u.Name or ""}}</td>
     				<td>{{u.EMail or ""}}</td>
                     <td>{{u.Flags or ""}}</td>

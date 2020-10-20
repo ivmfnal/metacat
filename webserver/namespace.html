@@ -42,6 +42,18 @@
             {% endif %}    
         </td>
 	</tr>
+    <tr>
+        <th>Files</th>
+        <td>{{namespace.file_count()}}</td>
+    </tr>
+    <tr>
+        <th>Datasets</th>
+        <td>{{namespace.dataset_count()}}</td>
+    </tr>
+    <tr>
+        <th>Queries</th>
+        <td>{{namespace.query_count()}}</td>
+    </tr>
 	{% if edit or create %}
 		<tr><td></td><td><input type="submit" value="Save"/></td>
 		</tr>
