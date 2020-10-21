@@ -12,7 +12,6 @@ drop table if exists
     ,parameter_definitions
     ,parameter_categories
     ,namespaces
-    ,roles
 ;
 
 create table authenticators
@@ -33,8 +32,6 @@ create table namespaces
     creator        text references users(username),
     created_timestamp   timestamp with time zone        default now()
 );
-
-insert into roles(name, description, users) values ('admin','Admin user','{"admin"}');
 
 insert into namespaces(name, owner, creator)
 (

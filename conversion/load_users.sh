@@ -16,16 +16,18 @@ copy (	select work_grp_name from working_groups) to stdout;
 
 _EOF_
 
-$IN_DB_PQSL -q > ./data/users_roles.csv << _EOF_
+$IN_DB_PSQL -q > ./data/users_roles.csv << _EOF_
 
 copy (
-    select p.username, wg.work_group_name
+    select p.username, wg.work_grp_name
         from persons_working_groups pwg
             inner join persons p on p.person_id = pwg.person_id
             inner join working_groups wg on wg.work_grp_id = pwg.work_grp_id
 ) to stdout;
 
 _EOF_
+
+wc -l ./data/users_roles.csv
 
 $OUT_DB_PSQL << _EOF_
 
@@ -62,6 +64,8 @@ create table users_roles
 
 insert into users(username, name, flags)
 	values('admin','Admin user', 'a');
+insert into roles(name, description) values ('admin','Admin role');
+insert into users_roles(username, role_name) values ('admin','admin');
 
 
 
