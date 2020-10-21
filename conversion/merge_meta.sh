@@ -20,8 +20,6 @@ create table files
         metadata        jsonb   default '{}'
 );
 
--- create index meta_file_id on meta(file_id);
-
 create temp view combined_meta as
 	select m.file_id, jsonb_object_agg(m.name, coalesce(to_jsonb(m.t), to_jsonb(m.f),to_jsonb(m.i),to_jsonb(m.ta),to_jsonb(m.ia))) as metadata
 		from meta m
