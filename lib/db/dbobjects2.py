@@ -1181,7 +1181,7 @@ class DBNamespace(object):
         if not tup: return None
         return DBNamespace(db, name, tup[0])
         
-    @staticmethod 
+    @staticmethod
     def list(db, owned_by_user=None):
         c = db.cursor()
         c.execute("""select name, owner from namespaces order by name""")
@@ -1249,20 +1249,32 @@ class DBRole(object):
     @staticmethod
     def get(db, name):
         c = db.cursor()
-        c.execute("""select description, users from roles where name=%s""", (name,))
+        c.execute("""select r.name, r.description, array(select ur.username from users_roles ur where ur.role_name=r.name)
+                        from roles r
+                        where r.name=%s
+        """, (name,))
         tup = c.fetchone()
         if not tup: return None
-        return DBRole(db, name, tup[0], sorted(tup[1]))
+        _, desc, users = tup
+        return DBRole(db, name, desc, sorted(users))
         
     @staticmethod 
     def list(db, user=None):
         c = db.cursor()
-        c.execute("""select name, description, users from roles order by name""")
-        out = (DBRole(db, name, description, users) for  name, description, users in fetch_generator(c))
-        if user is not None:
-            if isinstance(user, DBUser):    user = user.Username
-            out = (r for r in out if user in r)
-        out = list(out)
+        
+        if user:
+            c.execute("""select r.name, r.description, array(select ur1.username from users_roles ur1 where ur1.role_name=r.name) 
+                        from roles r
+                            inner join users_roles ur on ur.role_name=r.name
+                    where ur.username = %s
+                    order by r.name
+            """, (user,))
+        else:
+            c.execute("""select r.name, r.description, array(select ur.username from users_roles ur where ur.role_name=r.name)
+                            from roles r
+                            order by r.name""")
+        
+        out = [DBRole(db, name, description, users) for  name, description, users in fetch_generator(c)]
         #print("DBRole.list:", out)
         return out
         

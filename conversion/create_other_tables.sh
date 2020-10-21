@@ -34,10 +34,10 @@ create table namespaces
 
 insert into namespaces(name, owner, creator)
 (
-    select distinct namespace, 'admin', 'admin' from files
+    select distinct namespace, 'admin_role', 'admin' from files
 );
 
-insert into namespaces(name, owner, creator) values('dune', 'admin', 'admin');
+insert into namespaces(name, owner, creator) values('dune', 'admin_role', 'admin');
 
 create table datasets
 (

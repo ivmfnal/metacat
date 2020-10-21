@@ -64,8 +64,7 @@ create table users_roles
 
 insert into users(username, name, flags)
 	values('admin','Admin user', 'a');
-insert into roles(name, description) values ('admin','Admin role');
-insert into users_roles(username, role_name) values ('admin','admin');
+insert into users_roles(username, role_name) values ('admin','admin_role');
 
 
 
