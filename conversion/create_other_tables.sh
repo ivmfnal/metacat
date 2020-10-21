@@ -10,7 +10,6 @@ drop table if exists
     ,datasets
     ,authenticators
     ,parameter_definitions
-    ,parameter_categories
     ,namespaces
 ;
 
@@ -86,16 +85,6 @@ create table queries
     primary key(namespace, name),
     creator             text references users(username),
     created_timestamp   timestamp with time zone     default now()
-);
-
-create table parameter_categories
-(
-    path        text    primary key,
-    owner       text    references  roles(name),
-    restricted  boolean default 'false',
-    creator             text references users(username),
-    created_timestamp   timestamp with time zone     default now(),
-    definitions         jsonb
 );
 
 create table parameter_definitions

@@ -1262,10 +1262,6 @@ class App(WPApp):
         self.Filters = {}
         if "filters" in cfg:
             import metacat.filters as filters_mod
-            #modname = cfg["filters"].get("module", "metacat.filters")
-            
-            #filters_mod = __import__(cfg["filters"].get("module", "metacat.filters"), 
-            #                    globals(), locals(), [], 0)
             for n in cfg["filters"].get("names", []):
                 self.Filters[n] = getattr(filters_mod, n)
                 
