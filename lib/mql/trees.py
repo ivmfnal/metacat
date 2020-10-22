@@ -61,8 +61,12 @@ class Node(object):
     def __getitem__(self, name):
         return self.D[name]
 
-    def clone(self):
-        return Node(self.T, self.C, _data=self.D, _meta=self.M)
+    def clone(self, children=None, **kw):
+        if children is None:    children = self.C[:]
+        d = {}
+        d.update(self.D)
+        d.update(kw)
+        return Node(self.T, children, _data=d, _meta=self.M)
         
     def get(self, name, default=None):
         return self.D.get(name, default)

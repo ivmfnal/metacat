@@ -25,7 +25,7 @@ create temp view string_attrs as
 copy ( 
     select file_id, 'DUNE_data.detector_config.list', null, null, null, null, regexp_split_to_array(value, ':')
         from string_attrs
-        where name = 'DUNE_data.detector_config'
+        where name = 'DUNE_data.detector_config' and substr(value, 1, 1) != '{'
     ) to stdout;
 _EOF_
 

@@ -488,6 +488,10 @@ class _Converter(Transformer):
         (n,) = args
         return Node("array_any", name=n.value)
         
+    def array_all(self, args):
+        (n,) = args
+        return Node("array_all", name=n.value)
+        
     def array_length(self, args):
         (n,) = args
         return Node("array_length", name=n.value)
@@ -502,11 +506,26 @@ class _Converter(Transformer):
     def in_range(self, args):
         assert len(args) == 3 and args[1].T in ("string", "int", "float") and args[2].T in ("string", "int", "float")
         assert args[1].T == args[2].T, "Range ends must be of the same type"
-        return Node("in_range", [args[0]], type=args[1].T, low=args[1]["value"], high=args[2]["value"])
-        
+        return Node("in_range", [args[0]], low=args[1]["value"], high=args[2]["value"], type=args[1].T)
+    
+    def not_in_range(self, args):
+        assert len(args) == 3 and args[1].T in ("string", "int", "float") and args[2].T in ("string", "int", "float")
+        assert args[1].T == args[2].T, "Range ends must be of the same type"
+        return Node("not_in_range", [args[0]], low=args[1]["value"], high=args[2]["value"], type=args[1].T)
+
     def in_set(self, args):
         assert len(args) == 2
         return Node("in_set", [args[0]], set=args[1])
+        
+    def not_in_set(self, args):
+        assert len(args) == 2
+        return Node("not_in_set", [args[0]], set=args[1])
+        
+    def ____contains(self, args):
+        return Node("contains", name=args[1].value, value=args[0])
+        
+    def ____not_contains(self, args):
+        return Node("not_contains", name=args[1].value, value=args[0])
         
     def index(self, args):
         return args[0].value
@@ -534,6 +553,18 @@ class _Converter(Transformer):
         return Node("present", name = args[0].value)
 
     def _apply_not(self, node):
+        
+        def reverse_array_wildcard(node):
+            if node.T == "array_any":
+                node = node.clone()
+                node.T = "array_all"
+            elif node.T == "array_all":
+                node = node.clone()
+                node.T = "node_any"
+            else:
+                pass
+            return node
+        
         if node.T in ("meta_and", "meta_or") and len(node.C) == 1:
             return self._apply_not(node.C[0])
         if node.T == "meta_and":
@@ -556,13 +587,41 @@ class _Converter(Transformer):
                 "==":    "!=",
                 "!=":    "=="
             }[node["op"]]
-            return Node("cmp_op", node.C, op=new_op)
+            return node.clone(op=new_op)
         elif node.T == "present":
             assert len(node.C) == 1 or (len(node.C) == 2 and node.C[1] is None)
             return Node("not_present", node.C)
         elif node.T == "not_present":
             assert len(node.C) == 1 or (len(node.C) == 2 and node.C[1] is None)
             return Node("present", node.C)
+        elif node.T == "in_range":
+            arg = reverse_array_wildcard(node.C[0])
+            node = node.clone([arg])
+            node.T = "not_in_range"
+            return node 
+        elif node.T == "not_in_range":
+            arg = reverse_array_wildcard(node.C[0])
+            node = node.clone([arg])
+            node.T = "in_range"
+            return node 
+        elif node.T == "in_set":
+            arg = reverse_array_wildcard(node.C[0])
+            node = node.clone([arg])
+            node.T = "not_in_set"
+            return node 
+        elif node.T == "not_in_set":
+            arg = reverse_array_wildcard(node.C[0])
+            node = node.clone([arg])
+            node.T = "in_set"
+            return node 
+        elif False and node.T == "contains":        # deprecated
+            node = node.clone()
+            node.T = "not_contains"
+            return node 
+        elif False and node.T == "not_contains":    # deprecated
+            node = node.clone()
+            node.T = "contains"
+            return node 
         else:
             raise ValueError("Unknown node type %s while trying to apply NOT operation" % (node.T,))
             
@@ -727,6 +786,15 @@ class _MetaEvaluator(object):
                     if x in vset:  return True
                 else:
                     return False
+            elif left.T == "array_all":
+                aname = left["name"]
+                if not aname in metadata:  return False
+                lst = metadata[aname]
+                if not isinstance(lst, list):   return False
+                for x in lst:
+                    if not x in vset:  return False
+                else:
+                    return True
             elif left.T == "array_subscript":
                 aname = left["name"]
                 inx = left["index"]
@@ -756,6 +824,20 @@ class _MetaEvaluator(object):
                     if x >= low and x <= high:  return True
                 else:
                     return False
+            elif left.T == "array_all":
+                aname = left["name"]
+                if not aname in metadata:  return False
+                lst = metadata[aname]
+                if isinstance(lst, dict):
+                    attr_values = lst.values()
+                elif isinstance(lst, list):
+                    attr_values = lst
+                else:
+                    return False
+                for x in attr_values:
+                    if not (x >= low and x <= high):  return False
+                else:
+                    return True
             elif left.T == "array_subscript":
                 aname = left["name"]
                 inx = left["index"]
@@ -793,6 +875,23 @@ class _MetaEvaluator(object):
                         return True
                 else:
                     return False
+            elif left.T == "array_all":
+                aname = left["name"]
+                lst = metadata.get(aname)
+                #print("lst:", lst)
+                if lst is None:  return False
+                if isinstance(lst, dict):
+                    attr_values = lst.values()
+                elif isinstance(lst, list):
+                    attr_values = lst
+                else:
+                    return False
+                for av in attr_values:
+                    #print("comparing", av, cmp_op, value)
+                    if not self.do_cmp_op(av, cmp_op, value):
+                        return False
+                else:
+                    return True
             elif left.T == "array_subscript":
                 aname = left["name"]
                 inx = left["index"]
@@ -904,7 +1003,7 @@ class _FileEvaluator(Ascender):
             
     def basic_file_query(self, node, *args, query=None):
         assert isinstance(query, BasicFileQuery)
-        #print("_FileEvaluator:basic_file_query: query:", query)
+        #print("_FileEvaluator:basic_file_query: query:", query.pretty())
         return DBFileSet.from_basic_query(self.DB, query, self.WithMeta or query.WithMeta, self.Limit)
         
     def union(self, node, *args):

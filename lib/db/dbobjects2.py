@@ -1,4 +1,4 @@
-import uuid, json, hashlib, re
+import uuid, json, hashlib, re, time
 from metacat.util import to_bytes, to_str, epoch
 from psycopg2 import IntegrityError
 
@@ -551,6 +551,7 @@ class MetaExpressionDNF(object):
     __repr__= __str__
     
     def sql_and(self, and_term, table_name):
+        
 
         def sql_literal(v):
             if isinstance(v, str):       v = "'%s'" % (v,)
@@ -601,11 +602,22 @@ class MetaExpressionDNF(object):
                 elif arg.T == "array_any":
                     aname = arg["name"]
                     subscript = "[*]"
-                else:
+                elif arg.T == "array_all":
                     aname = arg["name"]
                     subscript = ""
-            
-
+                elif arg.T == "scalar":
+                    aname = arg["name"]
+                    subscript = ""
+                elif arg.T == "array_length":
+                    aname = arg["name"]
+                else:
+                    raise ValueError(f"Unrecognozed argument type={arg.T}")
+                    
+                # - query time slows down significantly if this is addded
+                #if arg.T in ("array_subscript", "array_any", "array_all"):
+                #    # require that "aname" is an array, not just a scalar
+                #    parts.append(f"{table_name}.metadata @> '{{\"{aname}\":[]}}'")
+                
                 if op == "in_range":
                     assert len(args) == 1
                     typ, low, high = exp["type"], exp["low"], exp["high"]
@@ -616,40 +628,100 @@ class MetaExpressionDNF(object):
                         parts.append(f"{table_name}.metadata @@ '$.\"{aname}\"{subscript} >={low}'")
                         parts.append(f"{table_name}.metadata @@ '$.\"{aname}\"{subscript} <={high}'")
                     elif arg.T == "array_any":
-                        # a[*] in x:y
+                        # a[any] in x:y
                         parts.append(f"{table_name}.metadata @? '$.\"{aname}\"[*] ? (@ >= {low} && @ <= {high})'")
+                    elif arg.T == "array_all":
+                        # a[all] in x:y
+                        parts.append(f" not ({table_name}.metadata @? '$.\"{aname}\"[*] ? (@ < {low} || @ > {high})')")
                     elif arg.T == "array_length":
                         parts.append(f"jsonb_array_length({table_name}.metadata -> '{aname}') between {low} and {high}")
                         
-
+                elif op == "not_in_range":
+                    assert len(args) == 1
+                    typ, low, high = exp["type"], exp["low"], exp["high"]
+                    low = json_literal(low)
+                    high = json_literal(high)
+                    if arg.T == "array_subscript" or arg.T == "scalar":
+                        # a[i] not in x:y
+                        parts.append(f"""{table_name}.metadata @@ '$.\"{aname}\"{subscript} < {low} || $.\"{aname}\"{subscript} > {high}'""")
+                    elif arg.T == "array_any":
+                        # a[all] in x:y
+                        parts.append(f"{table_name}.metadata @? '$.\"{aname}\"[*] ? (@ < {low} || @ > {high})'")
+                    elif arg.T == "array_all":
+                        parts.append(f"not ({table_name}.metadata @? '$.\"{aname}\"[*] ? (@ >= {low} || @ <= {high})')")
+                    elif arg.T == "array_length":
+                        parts.append(f"not(jsonb_array_length({table_name}.metadata -> '{aname}') between {low} and {high})")
+                    
                 elif op == "in_set":
-                    if arg.T == "array_length":
-                        values = exp["set"]
-                        or_parts = [f"(jsonb_array_length({table_name}.metadata -> '{aname}') = {v})" for v in values]
-                    else:
+                    if arg.T == "array_all":
+                        for v in [json_literal(x) for x in exp["set"]]:
+                            contains_items.append(f'"{aname}":[{v}]')
+                    elif arg.T == "array_length":
+                        values = [sql_literal(v) for v in exp["set"]]
+                        value_list = ",".join(values)
+                        parts.append(f"jsonb_array_length({table_name}.metadata -> '{aname}') in ({value_list})")
+                    else:           # arg.T in ("array_any", "array_subscript","scalar")
                         values = [json_literal(x) for x in exp["set"]]
-                        or_parts = [f"({table_name}.metadata @@ '$.\"{aname}\"{subscript} == {v}')" for v in values]
-                    parts.append("(%s)" % (" or ".join(or_parts),))
+                        or_parts = [f"@ == {v}" for v in values]
+                        predicate = " || ".join(or_parts)
+                        parts.append(f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'")
+                        
+                    
+                elif op == "not_in_set":
+                    values = [json_literal(x) for x in exp["set"]]
+                    if arg.T == "array_length":
+                        values = [sql_literal(v) for v in exp["set"]]
+                        value_list = "(%s)" % (",".join(values),)
+                        parts.append(f"(jsonb_array_length({table_name}.metadata -> '{aname}') not in {value_list})")
+                    elif arg.T == "array_all":
+                        for v in values:
+                            parts.append(f"not ({table_name}.metadata @> '{{\"{aname}\":[{v}]}}')")
+                    else:
+                        # subscript or scalar or array_any
+                        predicate = ' || '.join([f"@ != {v}" for v in values])
+                        parts.append(f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'")
                     
                 elif op == "cmp_op":
                     cmp_op = exp["op"]
+                    if cmp_op == '=': cmp_op = "=="
+                    sql_cmp_op = "=" if cmp_op == "==" else cmp_op
                     value = args[1]
                     value_type, value = value.T, value["value"]
+                    value = json_literal(value)
+                    
+                    negate = False
+
+                    if cmp_op in ("~", "~*", "!~", "!~*"):
+                        negated = cmp_op.startswith('!')
+                        if negated: 
+                            cmp_op = cmp_op[1:]
+                            negate = not negate
+                        flags = ' flag "i"' if cmp_op.endswith("*") else ''
+                        cmp_op = "like_regex"
+                        value = f"{value}{flags}"
+
                     if arg.T == "array_length":
-                        parts.append(f"jsonb_array_length({table_name}.metadata -> '{aname}') {cmp_op} {value}")
+                        part = f"jsonb_array_length({table_name}.metadata -> '{aname}') {sql_cmp_op} {value}"
+                    elif arg.T == "array_all":
+                        negated_op = {
+                                "like_regex":   "like_regex",       # negation applied already 
+                                ">":    "<=",
+                                "<":    ">=",
+                                ">=":    "<",
+                                "<=":    ">",
+                                "=":    "!=",
+                                "==":    "!=",
+                                "!=":    "=="
+                            }[cmp_op]
+                        negate = not negate
+                        part = f"{table_name}.metadata @@ '$.\"{aname}\"[*] {negated_op} {value}'"
                     else:
-                        value = json_literal(value)
-                        if cmp_op in (">", ">=", "<", "<=", "=", "==", "!="):
-                            if cmp_op == '=': cmp_op = "=="
-                            parts.append(f"{table_name}.metadata @@ '$.\"{aname}\"{subscript} {cmp_op} {value}'")
-                        elif cmp_op in ("~", "~*", "!~", "!~*"):
-                            negated = cmp_op.startswith('!')
-                            if negated: cmp_op = cmp_op[1:]
-                            flags = ' flag "i"' if cmp_op.endswith("*") else ''
-                            part = f"{table_name}.metadata @@ '$.\"{aname}\"{subscript} like_regex {value}{flags}'"
-                            if negated:
-                                part = "not "+part
-                            parts.append(part)
+                        # scalar, array_subscript, array_any
+                        part = f"{table_name}.metadata @@ '$.\"{aname}\"{subscript} {cmp_op} {value}'"
+                    
+                    if not negate:  parts.append(f"{table_name}.metadata ? '{aname}'")
+                    if negate:  part = f"not ({part})"
+                    parts.append(part)
 
         if contains_items:
             parts.append("%s.metadata @> '{%s}'" % (table_name, ",".join(contains_items )))
@@ -824,7 +896,9 @@ class DBDataset(object):
         debug("DBDataset.list_files: sql:", sql)
         self.SQL = sql 
         c = self.DB.cursor()
+        t0 = time.time()
         c.execute(sql)
+        debug("SQL execution time:", time.time() - t0)
         return DBFileSet.from_tuples(self.DB, fetch_generator(c))
 
 
@@ -1049,10 +1123,11 @@ class DBUser(object):
             [(self.Username, typ, a.Secrets) for typ, a in self.Authenticators.items()])
 
         c.execute("delete from users_roles where username=%s", (self.Username,))
-        c.executemany("insert into users_roles(username, role_name) values(%s, %s)", [
-                (self.Name, role.Name) for role in self.Roles
-            ]
-        )
+        if self.Roles:
+            c.executemany("insert into users_roles(username, role_name) values(%s, %s)", [
+                    (self.Username, role.Name) for role in self.Roles
+                ]
+            )
 
         if do_commit:
             c.execute("commit")

@@ -54,16 +54,24 @@ meta_or:    meta_and ( "or" meta_and )*
 
 meta_and:   term_meta ( "and" term_meta )*
 
-?term_meta:  scalar CMPOP constant                   -> cmp_op
+?term_meta:  scalar CMPOP constant                  -> cmp_op
     | scalar "in" constant ":" constant             -> in_range
+    | scalar "not" "in" constant ":" constant       -> not_in_range
     | scalar "in" "(" constant_list ")"             -> in_set
-    | ANAME "present"?                              -> present_op                   //# new
+    | scalar "not" "in" "(" constant_list ")"       -> not_in_set
+    | ANAME "present"?                              -> present_op                   
     | "(" meta_exp ")"                              
     | "!" term_meta                                 -> meta_not
 
+    //| constant "in" ANAME                           -> contains
+    //| constant "not" "in" ANAME                     -> not_contains
+
+
 scalar:  ANAME
-        | ANAME "[" "*" "]"                         -> array_any
+        | ANAME "[" "all" "]"                              -> array_all
+        | ANAME "[" "any" "]"                              -> array_any
         | ANAME "[" SIGNED_INT "]"                  -> array_subscript
+        | ANAME "[" STRING "]"                      -> array_subscript
         | "len" "(" ANAME ")"                       -> array_length
 
     

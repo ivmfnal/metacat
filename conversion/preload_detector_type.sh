@@ -25,7 +25,7 @@ create temp view string_attrs as
 copy ( 
     select file_id, 'lbne_data.detector_type.list', null, null, null, null, regexp_split_to_array(value, ':')
         from string_attrs
-        where name = 'lbne_data.detector_type'
+        where name = 'lbne_data.detector_type' and substr(value, 1, 1) != '{'
     ) to stdout;
 _EOF_
 
