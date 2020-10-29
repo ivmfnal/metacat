@@ -1,5 +1,4 @@
 PRODUCT=metacat
-VERSION=1.9a
 BUILD_DIR=$(HOME)/build/$(PRODUCT)
 TARDIR=/tmp
 LIBDIR=$(BUILD_DIR)/lib
@@ -10,8 +9,16 @@ DOCSREL=$(BUILD_DIR)/docs
 UI_DIR=$(BUILD_DIR)/ui
 SERVER_TAR=$(TARDIR)/$(PRODUCT)_server_$(VERSION).tar
 
+all:
+	make VERSION=`python metacat/version.py` all_with_version_defined
+	
+clean:
+	make VERSION=`python metacat/version.py` clean_with_version_defined
 
-all:    tars
+clean_with_version_defined:
+	rm -rf $(BUILD_DIR) $(TAR_FILE)
+
+all_with_version_defined:	tars
 
 tars:   build $(TARDIR)
 	cd $(BUILD_DIR); tar cf $(SERVER_TAR) lib server docs
