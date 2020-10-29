@@ -1,3 +1,7 @@
+build
+dist
+metacat.egg-info
+
 cookie.jar
 token
 .*
