@@ -10,15 +10,22 @@ To install the client side components:
 
   .. code-block:: shell
 
-      git clone https://github.com/ivmfnal/metacat.git
-      mkdir ~/build
-      cd metacat
-      make # this will create ~/build/metadata and 
-           # a tar file with contents of ~/build/metadata
-      pip install --user requests pyyaml
+      $ git clone https://github.com/ivmfnal/metacat.git
+      $ cd metacat
+      $ python setup.py install --user
+      
+Make sure ~/.local/bin is in your PATH:
 
+  .. code-block:: shell
 
-You can use the client components from ~/metadata/build or from some other location where you untar the tar file created by make
+      $ export PATH=${HOME}/.local/bin:$HOME
+      
+If you use your own Python installation, e.g. Anaconda or Miniconda, then you can do this instead:
+
+  .. code-block:: shell
+
+      $ python setup.py install
+
 
 Environment
 -----------
@@ -30,14 +37,12 @@ To set the client environment:
       .. code-block:: yaml
       
           Server:
-              URL:    http://host.fnal.gov:8080
+              URL:    http://host.fnal.gov:8080/path_head
 
   2. Set environment:
   
       .. code-block:: shell
       
-          export PYTHONPATH=~/build/metadata/lib:~/build/metadata/ui:$PYTHONPATH
-          export PATH=~/build/metadata/ui:$PATH
           export METACAT_CONFIG=/path/to/config.yaml
 
 Authentication
@@ -51,8 +56,13 @@ Authentication
 Namespaces
 ----------
 
-Currently done via GUI only
+.. code-block:: shell
 
+    $ metacat namespace create my_namespace
+    $ metacat namespace create -o owner_role my_namespace
+    $ metacat namespace list "protodune*"
+    $ metacat namespace show protodune-sp
+    
 
 Datasets
 --------

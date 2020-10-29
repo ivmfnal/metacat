@@ -147,15 +147,6 @@ The following two queries are equivalent:</p>
 </pre></div>
 </div>
 </div>
-<div class="section" id="lists">
-<h3>Lists<a class="headerlink" href="#lists" title="Permalink to this headline">¶</a></h3>
-<p>MetaCat and MQL support lists and operations involving lists. For example, run numbers can be stored in
-the metadata as lists of integers and then selected like this:</p>
-<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="k">data</span><span class="p">:</span><span class="n">production</span> <span class="k">where</span> <span class="mi">1379</span> <span class="k">in</span> <span class="n">runs</span>
-</pre></div>
-</div>
-<p>This will select all files where 1379 is included in the list of runs for the file.</p>
-</div>
 <div class="section" id="external-filters">
 <h3>External Filters<a class="headerlink" href="#external-filters" title="Permalink to this headline">¶</a></h3>
 <p>The Meatadata Database Query Engine lets the user add custom Python code to be used as a more complicated
@@ -291,20 +282,73 @@ The following operators can be used for string matching using regular expression
 <p>Then:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>trigger_bits[“muon”] == 1 - will match</p></li>
-<li><p>trigger_bits[“proton”] == 1 - will not match</p></li>
-<li><p>trigger_mask[3] == 0 - will match</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trigger_bits[&quot;muon&quot;]</span> <span class="pre">==</span> <span class="pre">1</span></code> - will match</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trigger_bits[&quot;proton&quot;]</span> <span class="pre">==</span> <span class="pre">1</span></code> - will not match</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trigger_mask[3]</span> <span class="pre">==</span> <span class="pre">0</span></code> - will match</p></li>
 </ul>
 </div></blockquote>
-<p>Also, you can use <cite>[*]</cite> as “any element of” the dictionary or the array:</p>
+<p>Also, you can use subscripts <code class="docutils literal notranslate"><span class="pre">[any]</span></code> as “any element of” and <code class="docutils literal notranslate"><span class="pre">[all]</span></code> as “all elements of” a dictionary or an array:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>trigger_bits[*] == 1 - will match</p></li>
-<li><p>trigger_mask[*] == 0 - will match</p></li>
-<li><p>trigger_mask[*] &gt; 0  - will match</p></li>
-<li><p>trigger_mask[*] == 2 - will not match</p></li>
-<li><p>trigger_bits[*] == 1 - will match</p></li>
-<li><p>trigger_bits[*] == 3 - will not match</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trigger_bits[any]</span> <span class="pre">==</span> <span class="pre">1</span></code> - will match</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trigger_bits[any]</span> <span class="pre">!=</span> <span class="pre">1</span></code> - will match</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trigger_bits[all]</span> <span class="pre">==</span> <span class="pre">1</span></code> - will not match</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trigger_bits[all]</span> <span class="pre">!=</span> <span class="pre">1</span></code> - will not match</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trigger_bits[all]</span> <span class="pre">&lt;</span> <span class="pre">2</span></code> - will match</p></li>
+</ul>
+</div></blockquote>
+<p>Note that while <cite>trigger_bits[all] != 1</cite> will not match, <cite>!(trigger_bits[all] == 1)</cite> will match. In general, the following pairs of expressions are
+equal:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">array[all]</span> <span class="pre">!=</span> <span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">!(array[any]</span> <span class="pre">==</span> <span class="pre">x)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">array[any]</span> <span class="pre">!=</span> <span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">!(array[all]</span> <span class="pre">==</span> <span class="pre">x)</span></code></p></li>
+</ul>
+</div></blockquote>
+<p>To use size of the array in an expression, you len(): <code class="docutils literal notranslate"><span class="pre">len(trigger_mask)</span> <span class="pre">&gt;</span> <span class="pre">2</span></code></p>
+</div>
+<div class="section" id="id1">
+<h2>Ranges and Sets<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>Logical expressins can include ranges or sets of values. Here are some examples:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">in</span> <span class="pre">3:5</span></code> - if x is scalar, equivalent to <code class="docutils literal notranslate"><span class="pre">(x</span> <span class="pre">&gt;=3</span> <span class="pre">and</span> <span class="pre">x</span> <span class="pre">&lt;=</span> <span class="pre">5)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">in</span> <span class="pre">(3,4,5)</span></code> - if x is scalar, equivalent to <code class="docutils literal notranslate"><span class="pre">(x==3</span> <span class="pre">or</span> <span class="pre">x==4</span> <span class="pre">or</span> <span class="pre">x==5)</span></code></p></li>
+</ul>
+</div></blockquote>
+<p>Keep in mind that due to the way the underlying database works, queries with enumerated sets of allowed values work much faster than
+those with ranges.
+So while the two expressions above are mathematically equivalent for integer numbers, second one will run much faster.</p>
+<p>Sets and ranges can be expressed in terms of floating point numbers and strings:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">application.version</span> <span class="pre">in</span> <span class="pre">&quot;1.0&quot;:&quot;2.3&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pi</span> <span class="pre">in</span> <span class="pre">3.131:3.152</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">values[any]</span> <span class="pre">in</span> <span class="pre">3:5</span></code></p></li>
+</ul>
+</div></blockquote>
+<p>Note that <code class="docutils literal notranslate"><span class="pre">array[any]</span> <span class="pre">in</span> <span class="pre">low:high</span></code> is <cite>not</cite> equivalent to <code class="docutils literal notranslate"><span class="pre">(array[any]</span> <span class="pre">&gt;=</span> <span class="pre">low</span> <span class="pre">and</span> <span class="pre">array[any]</span> <span class="pre">&gt;=</span> <span class="pre">low)</span></code> because former expression means:
+“any element of the array is in the range” while the later one means “any element is greater or equal <cite>low</cite> and the same or another element
+of the array is less or equal <cite>high</cite>”. For example, consider this metadata:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="nt">&quot;run_type&quot;</span><span class="p">:</span>       <span class="s2">&quot;calibration&quot;</span><span class="p">,</span>
+    <span class="nt">&quot;sequence&quot;</span><span class="p">:</span>  <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">8</span><span class="p">,</span><span class="mi">13</span><span class="p">],</span>
+    <span class="nt">&quot;bits&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>In this case,</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">sequence[any]</span> <span class="pre">in</span> <span class="pre">6:7</span></code> will not match because there is no single element in the array between 6 and 7,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">(sequence[any]</span> <span class="pre">&gt;=</span> <span class="pre">6</span> <span class="pre">and</span> <span class="pre">sequence[any]</span> <span class="pre">&lt;=</span> <span class="pre">7)</span></code> will match because there are some elements below 7 and then some others above 6.</p></li>
+</ul>
+</div></blockquote>
+<p>Similarly, the following expressions are not equivalent:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">(bits[all]</span> <span class="pre">==</span> <span class="pre">0</span> <span class="pre">or</span> <span class="pre">bits[all]</span> <span class="pre">==</span> <span class="pre">1)</span></code> - is false for the metadata above</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bits[all]</span> <span class="pre">in</span> <span class="pre">(0,1)</span></code> - is true</p></li>
 </ul>
 </div></blockquote>
 </div>
@@ -366,6 +410,7 @@ The following operators can be used for string matching using regular expression
 <li class="toctree-l2"><a class="reference internal" href="#metadata-comparison">Metadata Comparison</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#ranges-and-sets">Ranges and Sets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#array-or-dictionary-elements-access">Array or Dictionary Elements Access</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id1">Ranges and Sets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#dataset-queries">Dataset Queries</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#combining-file-and-dataset-metadata-filtering">Combining File and Dataset Metadata Filtering</a></li>
 </ul>

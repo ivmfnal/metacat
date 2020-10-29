@@ -10,7 +10,7 @@ def read(fname):
 
 def get_version():
     g = {}
-    exec(open(os.path.join("src", "version.py"), "r").read(), g)
+    exec(open(os.path.join("metacat", "version.py"), "r").read(), g)
     return g["Version"]
 
 
@@ -23,15 +23,15 @@ setup(
     license = "BSD 3-clause",
     keywords = "metadata, data management, database, web service",
     url = "https://github.com/ivmfnal/metacat",
-    packages=['lib', 'ui'],
+    packages=['metacat', 'metacat.mql', 'metacat.db', 'metacat.util', 'metacat.webapi','metacat.ui'],
     long_description=read('README.rst'),
-    install_requires=["webpie","pythreader"],
+    install_requires=["pyyaml"],
     zip_safe = False,
     classifiers=[
     ],
     entry_points = {
             "console_scripts": [
-                "metacat = ui.metacat_ui:main",
+                "metacat = metacat.ui.metacat_ui:main",
             ]
         }
 )

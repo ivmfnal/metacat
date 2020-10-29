@@ -3,6 +3,7 @@ VERSION=1.9a
 BUILD_DIR=$(HOME)/build/$(PRODUCT)
 TARDIR=/tmp
 LIBDIR=$(BUILD_DIR)/lib
+MODULEDIR=$(LIBDIR)/metacat
 SERVER_DIR=$(BUILD_DIR)/server
 DOCSDIR=$(BUILD_DIR)/docs
 DOCSREL=$(BUILD_DIR)/docs
@@ -21,10 +22,9 @@ tars:   build $(TARDIR)
 
 build:  clean $(BUILD_DIR) 
 	cd src; make LIBDIR=$(LIBDIR) VERSION=$(VERSION) build
-	cd lib; make LIBDIR=$(LIBDIR) VERSION=$(VERSION) build
+	cd metacat; make LIBDIR=$(LIBDIR) VERSION=$(VERSION) BINDIR=$(UI_DIR) build
 	cd webserver; make SERVER_DIR=$(SERVER_DIR) LIBDIR=$(LIBDIR) VERSION=$(VERSION) build
 	cd docs; make SERVER_DIR=$(SERVER_DIR) DOCSDIR=$(DOCSDIR) -f Makefile-product build
-	cd ui; make UI_DIR=$(UI_DIR) build
 	
 clean:
 	rm -rf $(BUILD_DIR) $(SERVER_TAR)

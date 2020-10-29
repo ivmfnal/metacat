@@ -148,17 +148,6 @@ The following two queries are equivalent:
                 }
         ]
 
-Lists
------
-MetaCat and MQL support lists and operations involving lists. For example, run numbers can be stored in
-the metadata as lists of integers and then selected like this:
-
-.. code-block:: sql
-
-        files from data:production where 1379 in runs
-        
-This will select all files where 1379 is included in the list of runs for the file.
-
         
 External Filters
 ----------------
@@ -331,20 +320,65 @@ Assume the file metadata has the following parameters:
 
 Then:
 
-    * trigger_bits["muon"] == 1 - will match
-    * trigger_bits["proton"] == 1 - will not match
-    * trigger_mask[3] == 0 - will match
+    * ``trigger_bits["muon"] == 1`` - will match
+    * ``trigger_bits["proton"] == 1`` - will not match
+    * ``trigger_mask[3] == 0`` - will match
 
-Also, you can use `[*]` as "any element of" the dictionary or the array:
+Also, you can use subscripts ``[any]`` as "any element of" and ``[all]`` as "all elements of" a dictionary or an array:
 
-    * trigger_bits[*] == 1 - will match
-    * trigger_mask[*] == 0 - will match
-    * trigger_mask[*] > 0  - will match
-    * trigger_mask[*] == 2 - will not match
-    * trigger_bits[*] == 1 - will match
-    * trigger_bits[*] == 3 - will not match
+    * ``trigger_bits[any] == 1`` - will match
+    * ``trigger_bits[any] != 1`` - will match
+    * ``trigger_bits[all] == 1`` - will not match
+    * ``trigger_bits[all] != 1`` - will not match
+    * ``trigger_bits[all] < 2`` - will match
+    
+Note that while `trigger_bits[all] != 1` will not match, `!(trigger_bits[all] == 1)` will match. In general, the following pairs of expressions are
+equal:
 
+    * ``array[all] != x`` and ``!(array[any] == x)``
+    * ``array[any] != x`` and ``!(array[all] == x)``
+    
+To use size of the array in an expression, you len(): ``len(trigger_mask) > 2``
+    
+Ranges and Sets
+~~~~~~~~~~~~~~~
 
+Logical expressins can include ranges or sets of values. Here are some examples:
+
+    * ``x in 3:5`` - if x is scalar, equivalent to ``(x >=3 and x <= 5)``
+    * ``x in (3,4,5)`` - if x is scalar, equivalent to ``(x==3 or x==4 or x==5)``
+    
+Keep in mind that due to the way the underlying database works, queries with enumerated sets of allowed values work much faster than 
+those with ranges.
+So while the two expressions above are mathematically equivalent for integer numbers, second one will run much faster.
+
+Sets and ranges can be expressed in terms of floating point numbers and strings:
+
+    * ``application.version in "1.0":"2.3"``
+    * ``pi in 3.131:3.152``
+    * ``values[any] in 3:5``
+
+Note that ``array[any] in low:high`` is `not` equivalent to ``(array[any] >= low and array[any] >= low)`` because former expression means:
+"any element of the array is in the range" while the later one means "any element is greater or equal `low` and the same or another element 
+of the array is less or equal `high`". For example, consider this metadata:
+
+.. code-block:: json
+
+    {
+        "run_type":       "calibration",
+        "sequence":  [1,1,2,3,5,8,13],
+        "bits": [0,1,1,0,0]
+    }
+
+In this case,
+
+    * ``sequence[any] in 6:7`` will not match because there is no single element in the array between 6 and 7,
+    * ``(sequence[any] >= 6 and sequence[any] <= 7)`` will match because there are some elements below 7 and then some others above 6.
+    
+Similarly, the following expressions are not equivalent:
+
+    * ``(bits[all] == 0 or bits[all] == 1)`` - is false for the metadata above
+    * ``bits[all] in (0,1)`` - is true
 
 Dataset Queries
 ~~~~~~~~~~~~~~~

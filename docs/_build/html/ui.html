@@ -38,16 +38,24 @@
 <p>You will need Python 3.7 or newer.</p>
 <p>To install the client side components:</p>
 <blockquote>
-<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/ivmfnal/metacat.git
-mkdir ~/build
-<span class="nb">cd</span> metacat
-make <span class="c1"># this will create ~/build/metadata and</span>
-     <span class="c1"># a tar file with contents of ~/build/metadata</span>
-pip install --user requests pyyaml
+<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/ivmfnal/metacat.git
+$ <span class="nb">cd</span> metacat
+$ python setup.py install --user
 </pre></div>
 </div>
 </div></blockquote>
-<p>You can use the client components from ~/metadata/build or from some other location where you untar the tar file created by make</p>
+<p>Make sure ~/.local/bin is in your PATH:</p>
+<blockquote>
+<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span><span class="si">${</span><span class="nv">HOME</span><span class="si">}</span>/.local/bin:<span class="nv">$HOME</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>If you use your own Python installation, e.g. Anaconda or Miniconda, then you can do this instead:</p>
+<blockquote>
+<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ python setup.py install
+</pre></div>
+</div>
+</div></blockquote>
 </div>
 <div class="section" id="environment">
 <h2>Environment<a class="headerlink" href="#environment" title="Permalink to this headline">¶</a></h2>
@@ -57,16 +65,14 @@ pip install --user requests pyyaml
 <li><p>Create config YAML file:</p>
 <blockquote>
 <div><div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">Server</span><span class="p">:</span>
-    <span class="nt">URL</span><span class="p">:</span>    <span class="l l-Scalar l-Scalar-Plain">http://host.fnal.gov:8080</span>
+    <span class="nt">URL</span><span class="p">:</span>    <span class="l l-Scalar l-Scalar-Plain">http://host.fnal.gov:8080/path_head</span>
 </pre></div>
 </div>
 </div></blockquote>
 </li>
 <li><p>Set environment:</p>
 <blockquote>
-<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">PYTHONPATH</span><span class="o">=</span>~/build/metadata/lib:~/build/metadata/ui:<span class="nv">$PYTHONPATH</span>
-<span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span>~/build/metadata/ui:<span class="nv">$PATH</span>
-<span class="nb">export</span> <span class="nv">METACAT_CONFIG</span><span class="o">=</span>/path/to/config.yaml
+<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">METACAT_CONFIG</span><span class="o">=</span>/path/to/config.yaml
 </pre></div>
 </div>
 </div></blockquote>
@@ -83,7 +89,12 @@ metacat auth whomi                      <span class="c1"># shows current token u
 </div>
 <div class="section" id="namespaces">
 <h2>Namespaces<a class="headerlink" href="#namespaces" title="Permalink to this headline">¶</a></h2>
-<p>Currently done via GUI only</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat namespace create my_namespace
+$ metacat namespace create -o owner_role my_namespace
+$ metacat namespace list <span class="s2">&quot;protodune*&quot;</span>
+$ metacat namespace show protodune-sp
+</pre></div>
+</div>
 </div>
 <div class="section" id="datasets">
 <h2>Datasets<a class="headerlink" href="#datasets" title="Permalink to this headline">¶</a></h2>
