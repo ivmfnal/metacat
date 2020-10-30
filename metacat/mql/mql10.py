@@ -765,12 +765,16 @@ class _MetaEvaluator(object):
         #print("evaluate_meta_expression:", op, args)
         if op in ("meta_and", "meta_or") and len(args) == 1:
             return self.evaluate_meta_expression(metadata, args[0])
+        if meta_expression["neg"]:
+            return not self.evaluate_meta_expression(metadata, meta_expression.clone(neg=False))
         if op == "meta_and":    op = "and"
         if op == "meta_or":     op = "or"
         if op in self.BOOL_OPS:
             return self.eval_meta_bool(metadata, op, args)
         elif op == "present":
             return meta_expression["name"] in metadata
+        elif op == "not_present":
+            return not meta_expression["name"] in metadata
         elif op == "in_set":
             left, right = args
             vset = set(list(right))
@@ -786,15 +790,6 @@ class _MetaEvaluator(object):
                     if x in vset:  return True
                 else:
                     return False
-            elif left.T == "array_all":
-                aname = left["name"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                if not isinstance(lst, list):   return False
-                for x in lst:
-                    if not x in vset:  return False
-                else:
-                    return True
             elif left.T == "array_subscript":
                 aname = left["name"]
                 inx = left["index"]
@@ -803,6 +798,29 @@ class _MetaEvaluator(object):
                 try:    v = lst[inx]
                 except: return False
                 return v in vset
+        elif op == "not_in_set":
+            left, right = args
+            vset = set(list(right))
+            if left.T == "scalar":
+                aname = left["name"]
+                return aname in metadata and not metadata[aname] in vset
+            elif left.T == "array_any":
+                aname = left["name"]
+                if not aname in metadata:  return False
+                lst = metadata[aname]
+                if not isinstance(lst, list):   return False
+                for x in lst:
+                    if not x in vset:  return True
+                else:
+                    return False
+            elif left.T == "array_subscript":
+                aname = left["name"]
+                inx = left["index"]
+                if not aname in metadata:  return False
+                lst = metadata[aname]
+                try:    v = lst[inx]
+                except: return False
+                return not v in vset
         elif op == "in_range":
             left, right = args
             low, high = right["low"], right["high"]
@@ -824,7 +842,22 @@ class _MetaEvaluator(object):
                     if x >= low and x <= high:  return True
                 else:
                     return False
-            elif left.T == "array_all":
+            elif left.T == "array_subscript":
+                aname = left["name"]
+                inx = left["index"]
+                if not aname in metadata:  return False
+                lst = metadata[aname]
+                try:    v = lst[inx]
+                except: return False
+                return v >= low and v <= high                    
+        elif op == "not_in_range":
+            left, right = args
+            low, high = right["low"], right["high"]
+            if left.T == "scalar":
+                aname = left["name"]
+                try:    return aname in metadata and metadata[aname] < low or metadata[aname] > high
+                except: return False
+            elif left.T == "array_any":
                 aname = left["name"]
                 if not aname in metadata:  return False
                 lst = metadata[aname]
@@ -835,9 +868,9 @@ class _MetaEvaluator(object):
                 else:
                     return False
                 for x in attr_values:
-                    if not (x >= low and x <= high):  return False
+                    if x < low or x > high:  return True
                 else:
-                    return True
+                    return False
             elif left.T == "array_subscript":
                 aname = left["name"]
                 inx = left["index"]
@@ -845,7 +878,7 @@ class _MetaEvaluator(object):
                 lst = metadata[aname]
                 try:    v = lst[inx]
                 except: return False
-                return v >= low and v <= high                    
+                return v < low or v > high                    
         elif op == "cmp_op":
             cmp_op = meta_expression["op"]
             left, right = args
@@ -875,23 +908,6 @@ class _MetaEvaluator(object):
                         return True
                 else:
                     return False
-            elif left.T == "array_all":
-                aname = left["name"]
-                lst = metadata.get(aname)
-                #print("lst:", lst)
-                if lst is None:  return False
-                if isinstance(lst, dict):
-                    attr_values = lst.values()
-                elif isinstance(lst, list):
-                    attr_values = lst
-                else:
-                    return False
-                for av in attr_values:
-                    #print("comparing", av, cmp_op, value)
-                    if not self.do_cmp_op(av, cmp_op, value):
-                        return False
-                else:
-                    return True
             elif left.T == "array_subscript":
                 aname = left["name"]
                 inx = left["index"]
@@ -935,6 +951,12 @@ class _MetaEvaluator(object):
             return x == y
         elif op == "!=":       return x != y
         # - fix elif op == "in":       return value in attr_value       # exception, e.g.   123 in event_list
+        elif op in ("~", "!~", "~*", "!~*"):
+            negated = op[0] == '!'
+            flags = re.IGNORECASE if op[-1] == '*' else 0
+            r = re.compile(y, flags)
+            match = r.search(x) is not None
+            return negated != match
         else:
             raise ValueError("Invalid comparison operator '%s'" % (op,))
         
