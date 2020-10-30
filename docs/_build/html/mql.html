@@ -240,27 +240,10 @@ The following operators can be used for string matching using regular expression
 <li><p>!~* - no match ignoring case</p></li>
 </ul>
 </div></blockquote>
-</div>
-<div class="section" id="ranges-and-sets">
-<h2>Ranges and Sets<a class="headerlink" href="#ranges-and-sets" title="Permalink to this headline">¶</a></h2>
-<p>If you want to use a range of values:</p>
-<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">test</span><span class="p">:</span><span class="n">test</span>
-    <span class="k">where</span> <span class="n">x</span> <span class="k">in</span> <span class="mi">3</span><span class="p">:</span><span class="mi">5</span>             <span class="o">#</span> <span class="n">equivalent</span> <span class="k">to</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">3</span> <span class="k">and</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="mi">5</span><span class="p">)</span>
-      <span class="k">and</span> <span class="n">y</span> <span class="k">in</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">7</span><span class="p">)</span>         <span class="o">#</span> <span class="n">same</span> <span class="k">as</span> <span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">3</span> <span class="k">or</span> <span class="n">y</span> <span class="o">==</span> <span class="mi">5</span> <span class="k">or</span> <span class="n">y</span> <span class="o">==</span> <span class="mi">7</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Note that due to the way the underlying database works, using explicit sets of values is faster than ranges or comparison with
-“less than” or “greather than” operators.</p>
-<p>So this query will generally run faster:</p>
-<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">test</span><span class="p">:</span><span class="n">test</span> <span class="k">where</span> <span class="n">y</span> <span class="k">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>than this:</p>
-<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">test</span><span class="p">:</span><span class="n">test</span> <span class="k">where</span> <span class="n">y</span> <span class="k">in</span> <span class="mi">1</span><span class="p">:</span><span class="mi">4</span>
-</pre></div>
-</div>
-<p>or this:</p>
-<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">test</span><span class="p">:</span><span class="n">test</span> <span class="k">where</span> <span class="n">y</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="k">and</span> <span class="n">y</span> <span class="o">&lt;=</span> <span class="mi">4</span>
+<p>For example:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">dune</span><span class="p">:</span><span class="k">all</span> <span class="k">where</span>
+    <span class="n">DUNE_data</span><span class="p">.</span><span class="k">comment</span> <span class="n">present</span>
+    <span class="k">and</span> <span class="n">DUNE_data</span><span class="p">.</span><span class="n">detector_config</span> <span class="o">~</span> <span class="ss">&quot;FELIX&quot;</span>
 </pre></div>
 </div>
 </div>
@@ -307,8 +290,8 @@ equal:</p>
 </div></blockquote>
 <p>To use size of the array in an expression, you len(): <code class="docutils literal notranslate"><span class="pre">len(trigger_mask)</span> <span class="pre">&gt;</span> <span class="pre">2</span></code></p>
 </div>
-<div class="section" id="id1">
-<h2>Ranges and Sets<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="ranges-and-sets">
+<h2>Ranges and Sets<a class="headerlink" href="#ranges-and-sets" title="Permalink to this headline">¶</a></h2>
 <p>Logical expressins can include ranges or sets of values. Here are some examples:</p>
 <blockquote>
 <div><ul class="simple">
@@ -352,6 +335,35 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
 </ul>
 </div></blockquote>
 </div>
+<div class="section" id="limiting-query-results">
+<h2>Limiting Query Results<a class="headerlink" href="#limiting-query-results" title="Permalink to this headline">¶</a></h2>
+<p>If you want to see only a portion of the resulting file set, add “limit &lt;n&gt;” to your query:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">dune</span><span class="p">:</span><span class="k">all</span> <span class="k">where</span>
+    <span class="n">DUNE_data</span><span class="p">.</span><span class="n">detector_config</span><span class="p">.</span><span class="n">list</span> <span class="n">present</span>
+    <span class="k">limit</span> <span class="mi">100</span>
+</pre></div>
+</div>
+<p>Limit clause can be added to results of any query:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="k">union</span> <span class="p">(</span>
+    <span class="n">files</span> <span class="k">from</span> <span class="n">dune</span><span class="p">:</span><span class="k">all</span> <span class="k">where</span>
+        <span class="n">DUNE_data</span><span class="p">.</span><span class="n">detector_config</span><span class="p">.</span><span class="n">list</span> <span class="n">present</span>
+        <span class="k">limit</span> <span class="mi">100</span>
+    <span class="p">,</span>
+    <span class="n">files</span> <span class="k">from</span> <span class="n">dune</span><span class="p">:</span><span class="n">mc</span> <span class="k">where</span>
+        <span class="n">len</span><span class="p">(</span><span class="n">core</span><span class="p">.</span><span class="n">events</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">10</span>
+<span class="p">)</span> <span class="k">limit</span> <span class="mi">200</span>
+</pre></div>
+</div>
+<p>Another way of limiting query results is to use built-in “sample” query:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">filter</span> <span class="n">sample</span><span class="p">(</span><span class="mi">0</span><span class="p">.</span><span class="mi">1</span><span class="p">)</span> <span class="p">(</span>
+    <span class="n">files</span> <span class="k">from</span> <span class="n">dune</span><span class="p">:</span><span class="k">all</span> <span class="k">where</span>
+        <span class="n">DUNE_data</span><span class="p">.</span><span class="n">detector_config</span><span class="p">.</span><span class="n">list</span> <span class="n">present</span>
+        <span class="k">limit</span> <span class="mi">10000</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The “sample” filter returns the given fraction of the input query results. In this case, the results will be limited to 1000 (=10000*0.1) files.</p>
+</div>
 <div class="section" id="dataset-queries">
 <h2>Dataset Queries<a class="headerlink" href="#dataset-queries" title="Permalink to this headline">¶</a></h2>
 <p>Simplest dataset query looks like this:</p>
@@ -359,7 +371,7 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
 </pre></div>
 </div>
 <p>This query will return all the datasets from the “test” namespace.</p>
-<p>To add some metadata filtering, add “having” clouse to the query:</p>
+<p>To add some metadata filtering, add “having” clause to the query:</p>
 <div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">datasets</span> <span class="n">test</span><span class="p">:</span><span class="ss">&quot;%&quot;</span>
     <span class="k">having</span> <span class="k">type</span><span class="o">=</span><span class="ss">&quot;mc&quot;</span> <span class="k">and</span> <span class="n">detector</span><span class="o">=</span><span class="ss">&quot;near&quot;</span>
 </pre></div>
@@ -408,9 +420,9 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
 <li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#file-queries">File Queries</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#metadata-comparison">Metadata Comparison</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#ranges-and-sets">Ranges and Sets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#array-or-dictionary-elements-access">Array or Dictionary Elements Access</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id1">Ranges and Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ranges-and-sets">Ranges and Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#limiting-query-results">Limiting Query Results</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#dataset-queries">Dataset Queries</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#combining-file-and-dataset-metadata-filtering">Combining File and Dataset Metadata Filtering</a></li>
 </ul>

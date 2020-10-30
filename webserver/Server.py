@@ -237,6 +237,7 @@ class GUIHandler(BaseHandler):
                             #print("with_meta=", with_meta)
                             parsed = MQLQuery.parse(query_text)
                             query_type = parsed.Type
+                            #print("Server.query: with_meta:", with_meta)
                             results = parsed.run(db, filters=self.App.filters(), 
                                     default_namespace=namespace or None,
                                     limit=1000 if not save_as_dataset else None, 

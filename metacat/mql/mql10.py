@@ -178,7 +178,7 @@ class _ParamsApplier(Descender):
         return node
 
     def dataset_selector(self, node, params):
-        print("_ParamsApplier.dataset_selector: applying params:", params)
+        #print("_ParamsApplier.dataset_selector: applying params:", params)
         selector = meta
         assert isinstance(selector, DatasetSelector)
         selector.apply_params(params)
@@ -483,6 +483,36 @@ class _Converter(Transformer):
     def scalar(self, args):
         (t,) = args
         return Node("scalar", name=t.value)
+
+    def _convert_array_all(self, node):
+        left = node.C[0]
+        if left.T == "array_all":
+            if node.T == "cmp_op":
+                new_op = {
+                    "~":   "!~",
+                    "!~":  "~",
+                    "~*":   "!~*",
+                    "!~*":  "~*",
+                    ">":    "<=",
+                    "<":    ">=",
+                    ">=":    "<",
+                    "<=":    ">",
+                    "=":    "!=",
+                    "==":    "!=",
+                    "!=":    "=="
+                }[node["op"]]
+                node["op"] = new_op
+            else:
+                node.T = {
+                    "in_set":"not_in_set",
+                    "in_range":"not_in_range",
+                    "not_in_set":"in_set",
+                    "not_in_range":"in_range",
+                }[node.T]
+            left.T = "array_any"
+            node["neg"] = not node["neg"]
+        #print("_convert_array_all: returning:", node.pretty())
+        return node
     
     def array_any(self, args):
         (n,) = args
@@ -501,31 +531,26 @@ class _Converter(Transformer):
         return Node("array_subscript", name=name.value, index=inx)
 
     def cmp_op(self, args):
-        return Node("cmp_op", [args[0], args[2]], op=args[1].value)
+        node = Node("cmp_op", [args[0], args[2]], op=args[1].value, neg=False)
+        return self._convert_array_all(node)
         
     def in_range(self, args):
         assert len(args) == 3 and args[1].T in ("string", "int", "float") and args[2].T in ("string", "int", "float")
         assert args[1].T == args[2].T, "Range ends must be of the same type"
-        return Node("in_range", [args[0]], low=args[1]["value"], high=args[2]["value"], type=args[1].T)
+        return self._convert_array_all(Node("in_range", [args[0]], low=args[1]["value"], high=args[2]["value"], neg=False, type=args[1].T))
     
     def not_in_range(self, args):
         assert len(args) == 3 and args[1].T in ("string", "int", "float") and args[2].T in ("string", "int", "float")
         assert args[1].T == args[2].T, "Range ends must be of the same type"
-        return Node("not_in_range", [args[0]], low=args[1]["value"], high=args[2]["value"], type=args[1].T)
+        return self._convert_array_all(Node("in_range", [args[0]], low=args[1]["value"], high=args[2]["value"], neg=True, type=args[1].T))
 
     def in_set(self, args):
         assert len(args) == 2
-        return Node("in_set", [args[0]], set=args[1])
+        return self._convert_array_all(Node("in_set", [args[0]], neg=False, set=args[1]))
         
     def not_in_set(self, args):
         assert len(args) == 2
-        return Node("not_in_set", [args[0]], set=args[1])
-        
-    def ____contains(self, args):
-        return Node("contains", name=args[1].value, value=args[0])
-        
-    def ____not_contains(self, args):
-        return Node("not_contains", name=args[1].value, value=args[0])
+        return self._convert_array_all(Node("in_set", [args[0]], neg=True, set=args[1]))
         
     def index(self, args):
         return args[0].value
@@ -573,12 +598,15 @@ class _Converter(Transformer):
             return Node("meta_and", [self._apply_not(c) for c in node.C])
         elif node.T == "meta_not":
             return node.C[0]
+        elif node.T in ("cmp_op", "in_set", "in_range"):
+            node["neg"] = not node["neg"]
+            return node
         elif node.T == "cmp_op":
             new_op = {
-                "~~":   "!~~",
-                "!~~":  "~~",
-                "~~*":   "!~~*",
-                "!~~*":  "~~*",
+                "~":   "!~",
+                "!~":  "~",
+                "~*":   "!~*",
+                "!~*":  "~*",
                 ">":    "<=",
                 "<":    ">=",
                 ">=":    "<",
@@ -594,34 +622,6 @@ class _Converter(Transformer):
         elif node.T == "not_present":
             assert len(node.C) == 1 or (len(node.C) == 2 and node.C[1] is None)
             return Node("present", node.C)
-        elif node.T == "in_range":
-            arg = reverse_array_wildcard(node.C[0])
-            node = node.clone([arg])
-            node.T = "not_in_range"
-            return node 
-        elif node.T == "not_in_range":
-            arg = reverse_array_wildcard(node.C[0])
-            node = node.clone([arg])
-            node.T = "in_range"
-            return node 
-        elif node.T == "in_set":
-            arg = reverse_array_wildcard(node.C[0])
-            node = node.clone([arg])
-            node.T = "not_in_set"
-            return node 
-        elif node.T == "not_in_set":
-            arg = reverse_array_wildcard(node.C[0])
-            node = node.clone([arg])
-            node.T = "in_set"
-            return node 
-        elif False and node.T == "contains":        # deprecated
-            node = node.clone()
-            node.T = "not_contains"
-            return node 
-        elif False and node.T == "not_contains":    # deprecated
-            node = node.clone()
-            node.T = "contains"
-            return node 
         else:
             raise ValueError("Unknown node type %s while trying to apply NOT operation" % (node.T,))
             
@@ -729,7 +729,7 @@ class _MetaExpPusher(Descender):
             assert isinstance(bfq, BasicFileQuery)
             assert bfq.Relationship is None             # this will be added by ProvenancePusher, as the next step of the optimization
             bfq.addWhere(meta_exp)
-            bfq.WithMeta = True
+            #bfq.WithMeta = True
         return node
         
     def children_of(self, node, meta_exp):
@@ -1004,6 +1004,7 @@ class _FileEvaluator(Ascender):
     def basic_file_query(self, node, *args, query=None):
         assert isinstance(query, BasicFileQuery)
         #print("_FileEvaluator:basic_file_query: query:", query.pretty())
+        #print("FileEvaluator.basic_file_query: query.WithMeta:", query.WithMeta)
         return DBFileSet.from_basic_query(self.DB, query, self.WithMeta or query.WithMeta, self.Limit)
         
     def union(self, node, *args):

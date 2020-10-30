@@ -263,39 +263,13 @@ The following operators can be used for string matching using regular expression
     * !~ - no match
     * !~* - no match ignoring case
     
-Ranges and Sets
-~~~~~~~~~~~~~~~
-
-If you want to use a range of values:
+For example:
 
 .. code-block:: sql
 
-     files from test:test
-         where x in 3:5             # equivalent to (x >= 3 and x <= 5)
-           and y in (4,5,7)         # same as (y == 3 or y == 5 or y == 7)
-           
-Note that due to the way the underlying database works, using explicit sets of values is faster than ranges or comparison with
-"less than" or "greather than" operators.
-
-So this query will generally run faster:
-
-.. code-block:: sql
-
-     files from test:test where y in (1,2,3,4)
-         
-than this:
-
-.. code-block:: sql
-
-     files from test:test where y in 1:4
-         
-or this:
-
-.. code-block:: sql
-
-     files from test:test where y >= 1 and y <= 4
-         
-
+    files from dune:all where 
+        DUNE_data.comment present 
+        and DUNE_data.detector_config ~ "FELIX"
 
 
 Array or Dictionary Elements Access
@@ -339,7 +313,7 @@ equal:
     * ``array[any] != x`` and ``!(array[all] == x)``
     
 To use size of the array in an expression, you len(): ``len(trigger_mask) > 2``
-    
+
 Ranges and Sets
 ~~~~~~~~~~~~~~~
 
@@ -379,6 +353,45 @@ Similarly, the following expressions are not equivalent:
 
     * ``(bits[all] == 0 or bits[all] == 1)`` - is false for the metadata above
     * ``bits[all] in (0,1)`` - is true
+    
+Limiting Query Results
+~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to see only a portion of the resulting file set, add "limit <n>" to your query:
+
+.. code-block:: sql
+
+    files from dune:all where 
+        DUNE_data.detector_config.list present 
+        limit 100
+    
+Limit clause can be added to results of any query:
+        
+.. code-block:: sql
+
+    union (
+        files from dune:all where 
+            DUNE_data.detector_config.list present 
+            limit 100
+        ,
+        files from dune:mc where 
+            len(core.events) > 10 
+    ) limit 200
+        
+        
+Another way of limiting query results is to use built-in "sample" query:
+
+.. code-block:: sql
+
+    filter sample(0.1) (
+        files from dune:all where 
+            DUNE_data.detector_config.list present 
+            limit 10000
+    )
+        
+The "sample" filter returns the given fraction of the input query results. In this case, the results will be limited to 1000 (=10000*0.1) files.
+
+
 
 Dataset Queries
 ~~~~~~~~~~~~~~~
@@ -391,7 +404,7 @@ Simplest dataset query looks like this:
     
 This query will return all the datasets from the "test" namespace.
 
-To add some metadata filtering, add "having" clouse to the query:
+To add some metadata filtering, add "having" clause to the query:
 
 .. code-block:: sql
 
