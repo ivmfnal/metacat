@@ -21,7 +21,7 @@ create temp view string_attrs as
                                 inner join param_categories pc on pc.param_category_id = pt.param_category_id
                                 where dt.data_type = 'string'
                                 
-                                        and category='DUNE_data' and name = 'detector_config'
+                                        and pc.param_category='DUNE_data' and pt.param_type = 'detector_config'
                                     
 ;
 
