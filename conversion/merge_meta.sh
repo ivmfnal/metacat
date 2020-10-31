@@ -8,6 +8,15 @@ $OUT_DB_PSQL << _EOF_
 
 drop table if exists files cascade;
 
+create temp table temp_detector_config
+(   
+    file_id text,
+    detector_config jsonb
+);
+
+\copy temp_detector_config from 'data/detector_config_json.csv';
+create index temp_detector_config_index on temp_detector_config(file_id);
+    
 create table files
 (
         id text,
@@ -21,7 +30,7 @@ create table files
 );
 
 create temp view combined_meta as
-	select m.file_id, jsonb_object_agg(m.name, coalesce(to_jsonb(m.t), to_jsonb(m.f),to_jsonb(m.i),to_jsonb(m.ta),to_jsonb(m.ia))) as metadata
+	select m.file_id, jsonb_object_agg(m.name, m.value) as metadata
 		from meta m
 		group by file_id
 ;
