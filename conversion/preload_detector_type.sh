@@ -26,7 +26,7 @@ copy (
     select file_id, category || '.' || name, 
             case 
                 when substr(value, 1, 1) != '{' then array_to_json(regexp_split_to_array(value, ':'))
-                else value
+                else value::json
             end
         from string_attrs
         where name = 'detector_type' and category = 'lbne_data'

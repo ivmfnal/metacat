@@ -28,7 +28,7 @@ copy (
     select file_id, 'DUNE_data.detector_config.object',
         case 
             when substr(value, 1, 1) != '{' then array_to_json(regexp_split_to_array(value, ':'))
-            else value
+            else value::json
         end
         from detector_configs
     ) 

@@ -68,5 +68,5 @@ function preload_json_meta() {
 
     \copy meta from '${input}';
 
-    _EOF_
+_EOF_
 }
