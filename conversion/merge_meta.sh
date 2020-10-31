@@ -8,15 +8,6 @@ $OUT_DB_PSQL << _EOF_
 
 drop table if exists files cascade;
 
-create temp table temp_detector_config
-(   
-    file_id text,
-    detector_config jsonb
-);
-
-\copy temp_detector_config from 'data/detector_config_json.csv';
-create index temp_detector_config_index on temp_detector_config(file_id);
-    
 create table files
 (
         id text,

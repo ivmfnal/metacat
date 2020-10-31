@@ -51,7 +51,7 @@ function preload_meta() {
         select file_id, name, coalesce(
                 to_jsonb(m.t), to_jsonb(m.f), to_jsonb(m.i), to_jsonb(m.ta), to_jsonb(m.ia)
             )
-        from meta_columns
+        from meta_columns m
     );
 
 _EOF_
