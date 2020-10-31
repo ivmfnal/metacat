@@ -3,7 +3,7 @@
 source ./config.sh
 
 $IN_DB_PSQL -q \
-	> ./data/detector_config_lists.csv \
+	> ./data/detector_config_json.csv \
 	<< _EOF_
 
 create temp view active_files as
@@ -23,10 +23,16 @@ create temp view string_attrs as
 ;
 
 copy ( 
-    select file_id, 'DUNE_data.detector_config.list', null, null, null, null, regexp_split_to_array(value, ':')
+    select file_id, array_to_json(regexp_split_to_array(value, ':'))::jsonb
         from string_attrs
         where name = 'DUNE_data.detector_config' and substr(value, 1, 1) != '{'
-    ) to stdout;
+    union
+    select file_id, value::jsonb
+        from string_attrs
+        where name = 'DUNE_data.detector_config' and substr(value, 1, 1) = '{'
+    ) 
+to stdout;
 _EOF_
 
-preload_meta ./data/detector_config_lists.csv
+
+
