@@ -10,7 +10,7 @@ create temp view active_files as
         select * from data_files
                 where retired_date is null;
 
-create temp view string_attrs as
+create temp view detector_configs as
     select f.file_id as file_id, pc.param_category as category, pt.param_type as name, pv.param_value as value
                                 from active_files f
                                 inner join data_files_param_values dfv on f.file_id = dfv.file_id
@@ -25,12 +25,12 @@ create temp view string_attrs as
 ;
 
 copy ( 
-    select file_id, 'DUNE_data.detector_config.object'
+    select file_id, 'DUNE_data.detector_config.object',
         case 
             when substr(value, 1, 1) != '{' then array_to_json(regexp_split_to_array(value, ':'))::jsonb
             else value::jsonb
         end
-        from string_attrs
+        from detector_configs
     ) 
 to stdout;
 _EOF_
