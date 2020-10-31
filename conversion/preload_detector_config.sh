@@ -30,6 +30,7 @@ copy (
         case 
             when substr(value, 1, 1) != '{' then array_to_json(regexp_split_to_array(value, ':'))::jsonb
             else value::jsonb
+        end
         from string_attrs
     ) 
 to stdout;
