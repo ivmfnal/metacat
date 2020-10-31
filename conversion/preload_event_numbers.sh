@@ -15,15 +15,8 @@ copy (
         
 ) to stdout;
 
-
-
 _EOF_
 
-create_meta_table
+preload_json_meta ./data/event_numbers.csv
 
-$OUT_DB_PSQL << _EOF_
-
-\copy meta from './data/event_numbers.csv';
-
-_EOF_
 

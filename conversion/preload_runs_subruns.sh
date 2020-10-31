@@ -26,7 +26,7 @@ create temp view temp_runs as
 
 copy
 ( 
-    select file_id, '${core_category}.runs', null, null, null, array_agg(run), null
+    select file_id, '${core_category}.runs', to_json(array_agg(run)::bigint[])
         from temp_runs 
         group by file_id 
 ) to stdout;
@@ -34,13 +34,13 @@ copy
 
 copy
 ( 
-    select file_id, '${core_category}.runs_subruns', null, null, null, array_agg(run::bigint*100000+subrun::bigint), null 
+    select file_id, '${core_category}.runs_subruns', to_json(array_agg(run::bigint*100000+subrun::bigint)::bigint[])
         from temp_runs_subruns where subrun is not null 
         group by file_id 
 ) to stdout;
 
 _EOF_
 
-preload_meta ./data/runs_subruns.csv int_a
+preload_json_meta ./data/runs_subruns.csv int_a
 
 

@@ -9,7 +9,7 @@ create temp view active_files as
                 where retired_date is null;
 
 copy (
-	select distinct df.file_id, '${core_category}.run_type', null, null, rt.run_type, null, null
+	select distinct df.file_id, '${core_category}.run_type', to_json(rt.run_type)
                         from active_files df
                                 inner join data_files_runs dfr on dfr.file_id=df.file_id
                                 inner join runs r on r.run_id=dfr.run_id
@@ -21,4 +21,4 @@ copy (
 
 _EOF_
 
-preload_meta ./data/run_types.csv
+preload_json_meta ./data/run_types.csv

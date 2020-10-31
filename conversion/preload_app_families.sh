@@ -14,25 +14,25 @@ create temp view active_files as
 
 copy
 (
-	select f.file_id, '${core_category}.application.version', null, null, a.version, null, null
+	select f.file_id, '${core_category}.application.version', to_json(a.version)
 	    from active_files f, application_families a where a.appl_family_id = f.appl_family_id
 ) to stdout;
 
 copy
 (
-	select f.file_id, '${core_category}.application.family', null, null, a.family, null, null
+	select f.file_id, '${core_category}.application.family', to_json(a.family)
 	    from active_files f, application_families a where a.appl_family_id = f.appl_family_id
 ) to stdout;
 
 copy
 (
-	select f.file_id, '${core_category}.application.name', null, null, a.appl_name, null, null
+	select f.file_id, '${core_category}.application.name', to_json(a.appl_name)
 	    from active_files f, application_families a where a.appl_family_id = f.appl_family_id
 ) to stdout;
 
 copy
 (
-	select f.file_id, '${core_category}.application', null, null, a.family || '.' || a.appl_name, null, null
+	select f.file_id, '${core_category}.application', to_json(a.family || '.' || a.appl_name)
 	    from active_files f, application_families a where a.appl_family_id = f.appl_family_id
 ) to stdout;
 

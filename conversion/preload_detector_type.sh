@@ -12,7 +12,7 @@ create temp view active_files as
 
 
 create temp view string_attrs as
-    select f.file_id as file_id, pc.param_category || '.' || pt.param_type as name, pv.param_value as value
+    select f.file_id as file_id, pc.param_category as category, pt.param_type as name, pv.param_value as value
                                 from active_files f
                                 inner join data_files_param_values dfv on f.file_id = dfv.file_id
                                 inner join param_values pv on pv.param_value_id = dfv.param_value_id
@@ -23,10 +23,14 @@ create temp view string_attrs as
 ;
 
 copy ( 
-    select file_id, 'lbne_data.detector_type.list', null, null, null, null, regexp_split_to_array(value, ':')
+    select file_id, category || '.' || name, 
+            case 
+                when substr(value, 1, 1) != '{' then array_to_json(regexp_split_to_array(value, ':'))
+                else value
+            end
         from string_attrs
-        where name = 'lbne_data.detector_type' and substr(value, 1, 1) != '{'
+        where name = 'detector_type' and category = 'lbne_data'
     ) to stdout;
 _EOF_
 
-preload_meta ./data/detector_type_lists.csv
+preload_json_meta ./data/detector_type_lists.csv

@@ -57,3 +57,16 @@ function preload_meta() {
 _EOF_
 
 }
+
+function preload_json_meta() {
+    
+    input=$1
+    create_meta_table
+    \echo loading JSON metadata from $input ... 
+    
+    $OUT_DB_PSQL << _EOF_
+
+    \copy meta from '${input}';
+
+    _EOF_
+}

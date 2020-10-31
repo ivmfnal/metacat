@@ -27,21 +27,15 @@ create temp view detector_configs as
 copy ( 
     select file_id, 'DUNE_data.detector_config.object',
         case 
-            when substr(value, 1, 1) != '{' then array_to_json(regexp_split_to_array(value, ':'))::jsonb
-            else value::jsonb
+            when substr(value, 1, 1) != '{' then array_to_json(regexp_split_to_array(value, ':'))
+            else value
         end
         from detector_configs
     ) 
 to stdout;
 _EOF_
 
-create_meta_table
-
-$OUT_DB_PSQL << _EOF_
-
-\copy meta from './data/detector_config_json.csv';
-
-_EOF_
+preload_json_data ./data/detector_config_json.csv';
 
 
 

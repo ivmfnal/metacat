@@ -11,38 +11,38 @@ create temp view active_files as
                 where retired_date is null;
 
 copy ( 
-    select df.file_id, '${core_category}.event_count', df.event_count, null, null, null, null
+    select df.file_id, '${core_category}.event_count', df.event_count
                 from active_files df
                 where df.event_count is not null
 ) to stdout;
 
 copy ( 
-    select df.file_id, '${core_category}.first_event_number', df.first_event_number, null, null, null, null
+    select df.file_id, '${core_category}.first_event_number', df.first_event_number
                 from active_files df
                 where df.first_event_number is not null
 ) to stdout;
 
 copy ( 
-    select df.file_id, '${core_category}.last_event_number', df.last_event_number, null, null, null, null
+    select df.file_id, '${core_category}.last_event_number', df.last_event_number
                 from active_files df
                 where df.last_event_number is not null
 ) to stdout;
 
 copy (
-   select df.file_id, '${core_category}.start_time', null, extract(epoch from df.start_time), null, null, null
+   select df.file_id, '${core_category}.start_time', extract(epoch from df.start_time)
                 from active_files df
                 where df.start_time is not null
 ) to stdout;
 
 copy (
-   select df.file_id, '${core_category}.end_time', null, extract(epoch from df.end_time), null, null, null
+   select df.file_id, '${core_category}.end_time', extract(epoch from df.end_time)
                 from active_files df
                 where df.end_time is not null
 ) to stdout;
 
 -- int attrs
 copy (
-	select f.file_id, pc.param_category || '.' || pt.param_type, param_value, null, null, null, null
+	select f.file_id, pc.param_category || '.' || pt.param_type, param_value
                 from active_files f
                 inner join num_data_files_param_values dfv on f.file_id = dfv.file_id
                 inner join param_types pt on pt.param_type_id = dfv.param_type_id
@@ -56,7 +56,7 @@ copy (
 
 -- float attrs
 copy (
-	select f.file_id, pc.param_category || '.' || pt.param_type, null, param_value, null, null, null
+	select f.file_id, pc.param_category || '.' || pt.param_type, param_value
                 from active_files f
                 inner join num_data_files_param_values dfv on f.file_id = dfv.file_id
                 inner join param_types pt on pt.param_type_id = dfv.param_type_id
@@ -68,7 +68,7 @@ copy (
 
 -- string attrs
 copy (
-   select f.file_id, pc.param_category || '.' || pt.param_type, null, null, pv.param_value, null, null
+   select f.file_id, pc.param_category || '.' || pt.param_type, to_json(pv.param_value)
                 from active_files f
                 inner join data_files_param_values dfv on f.file_id = dfv.file_id
                 inner join param_values pv on pv.param_value_id = dfv.param_value_id
@@ -82,7 +82,7 @@ copy (
 
 _EOF_
 
-preload_meta ./data/attrs.csv
+preload_json_meta ./data/attrs.csv
 
 $IN_DB_PSQL -q \
 	> ./data/param_categories.csv \

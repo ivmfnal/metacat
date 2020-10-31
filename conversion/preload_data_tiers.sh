@@ -9,7 +9,7 @@ create temp view active_files as
                 where retired_date is null;
 
 copy (
-	select f.file_id, '${core_category}.data_tier', null, null, dt.data_tier,  null, null 
+	select f.file_id, '${core_category}.data_tier', to_json(dt.data_tier)
 		from active_files f, data_tiers dt 
 		where f.data_tier_id = dt.data_tier_id
 		order by f.file_id
@@ -19,4 +19,4 @@ copy (
 
 _EOF_
 
-preload_meta ./data/data_tiers.csv
+preload_json_meta ./data/data_tiers.csv
