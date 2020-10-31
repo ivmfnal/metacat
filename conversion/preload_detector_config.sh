@@ -26,13 +26,11 @@ create temp view string_attrs as
 ;
 
 copy ( 
-    select file_id, array_to_json(regexp_split_to_array(value, ':'))::jsonb
+    select file_id, 
+        case 
+            when substr(value, 1, 1) != '{' then array_to_json(regexp_split_to_array(value, ':'))::jsonb
+            else value::jsonb
         from string_attrs
-        where substr(value, 1, 1) != '{'
-    union
-    select file_id, value::jsonb
-        from string_attrs
-        where substr(value, 1, 1) = '{'
     ) 
 to stdout;
 _EOF_
