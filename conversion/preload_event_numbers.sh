@@ -9,7 +9,7 @@ create temp view active_files as
                 where retired_date is null;
 
 copy (
-    select f.file_id, '${core_category}.events', null, null, null, e.event_numbers, null
+    select f.file_id, '${core_category}.events', to_json(e.event_numbers)
         		from active_files f, dune.events e
         		where f.file_id = e.file_id
         
@@ -19,4 +19,11 @@ copy (
 
 _EOF_
 
-preload_meta ./data/event_numbers.csv
+create_meta_table
+
+$OUT_DB_PSQL << _EOF_
+
+\copy meta from './data/event_numbers.csv';
+
+_EOF_
+
