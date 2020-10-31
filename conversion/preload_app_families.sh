@@ -39,5 +39,5 @@ copy
 _EOF_
 
 
-preload_meta ./data/app_families.csv
+preload_json_meta ./data/app_families.csv
 
