@@ -23,7 +23,7 @@ create temp view string_attrs as
 ;
 
 copy ( 
-    select file_id, category || '.' || name, 
+    select file_id, category || '.' || name || '.object', 
             case 
                 when substr(value, 1, 1) != '{' then array_to_json(regexp_split_to_array(value, ':'))
                 else value::json

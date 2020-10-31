@@ -35,7 +35,7 @@ copy (
 to stdout;
 _EOF_
 
-preload_json_data ./data/detector_config_json.csv';
+preload_json_data ./data/detector_config_json.csv
 
 
 
