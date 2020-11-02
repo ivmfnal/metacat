@@ -399,7 +399,7 @@ class _Converter(Transformer):
             name_pattern = args[1].value
             namespace = args[0].value
         name_pattern = name_pattern[1:-1]       # remove the surrouning quotes
-        return Node("dataset_pattern", name=name_pattern, namespace=namespace)
+        return Node("join", name=name_pattern, namespace=namespace)
         
     def named_query(self, args):
         (q,) = args

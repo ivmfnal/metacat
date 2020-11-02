@@ -7,6 +7,13 @@ Debug = False
 def debug(*parts):
     if Debug:
         print(*parts)
+        
+AliasID = 1
+def alias(prefix="t"):
+    global AliasID
+    i = AliasID
+    AliasID += 1
+    return f"{prefix}_{i}"
 
 class AlreadyExistsError(Exception):
     pass
@@ -202,6 +209,35 @@ class DBFileSet(object):
                         )
                         for ds in datasets
             )
+            
+    @staticmethod
+    def sql_for_basic_query(db, basic_file_query, with_metadata, limit):
+        if limit is None:
+            limit = basic_file_query.Limit
+        elif basic_file_query.Limit is not None:
+            limit = min(limit, basic_file_query.Limit)
+        if limit is not None: limit = f"limit {limit}"
+
+        dataset_selector = basic_file_query.DatasetSelector
+        
+        datasets_sql = DBDataset.sql_for_selector(dataset_selector)
+        
+        f = alias("f")
+        fd = alias("fd")
+        ds = alias("ds")
+        
+        meta = f"{f}.metadata" if with_metadata else "null as metadata"
+        meta_where_clause = MetaExpressionDNF(basic_file_query.Wheres).sql(f)
+        sql = f"""
+            select {f}.id, {f}.namespace, {f}.name, {meta}
+                from files {f}
+                    inner join files_datasets {fd} on {fd}.file_id = {f}.id
+                    inner join (
+                            {datasets_sql}
+                    ) as {ds} on {ds}.namespace = {fd}.dataset_namespace and {ds}.name = {fd}.dataset_name 
+                where {meta_where_clause}
+                {limit}
+        """
         
     @staticmethod
     def all_files(db, meta_exp, with_metadata, limit):
@@ -965,6 +1001,64 @@ class DBDataset(object):
         recursively = dataset_selector.Recursively
         datasets = DBDataset.list_datasets(db, patterns, with_children, recursively)
         return limited(dataset_selector.filter_by_having(datasets), limit)
+
+
+    """
+        Recursive query:
+        
+        with recursive subs as (
+                select manager_id, employee_id, full_name
+                        from employees
+                        where true
+                union
+                        select s.manager_id, e.employee_id, e.full_name
+                        from employees e
+                                inner join subs s on s.employee_id = e.manager_id
+        )
+        select * from subs
+        ;
+        
+        
+        
+        """
+
+    @staticmethod   
+    def sql_for_selector(db, selector):
+        self.Patterns = patterns
+        self.WithChildren = with_children
+        self.Recursively = recursively
+        self.Having = having
+
+        #
+        # Ignore Having for now
+        #
+
+        parts = []
+        for p in patterns:
+            namespace = p["namespace"]
+            name_pattern = p["name"]
+            
+            parts.append(f"""
+                select namespace, name from datasets where namespace='{namespace}' and name like '{name_pattern}'
+            """)
+            
+            if selector.WithChildren:
+                if selector.Recursively:
+                    sql = f"""
+                        with recursive subsets as (
+                            select namespace, name from datasets where parent_namespace='{namespace} and parent_name like '{name_pattern}'
+                            union
+                                select namespace, name from datasets d
+                                    inner join subsets s on s.namespace = d.parent_namespace and s.name = d.parent_name
+                        )
+                        select * from subsets"""
+                else:
+                    sql = f"""
+                    select namespace, name from datasets where parent_namespace='{namespace} and parent_name like '{name_pattern}'
+                    """
+                parts.append(sql)
+        return "\nuntion\n".join(parts)
+
         
 class DBNamedQuery(object):
 
