@@ -12,6 +12,7 @@ Usage:
     Options:
         -j|--json                           - print raw JSON output
         -p|--pretty                         - pretty-print metadata
+        -l|--line                           - print all metadata on single line (good for grepping, ignored with -j and -p)
         -i|--ids                            - print file ids instead of names
         -s|--summary                        - print only summary information
         -m|--metadata=[<field>,...]         - print metadata fields
@@ -23,7 +24,7 @@ Usage:
 """
 
 def do_query(config, server_url, args):
-    opts, args = getopt.getopt(args, "jism:N:pf:S:", ["json", "ids","summary","metadata=","namespace=","pretty",
+    opts, args = getopt.getopt(args, "jism:N:pf:S:l", ["line","json", "ids","summary","metadata=","namespace=","pretty",
                 "save-as="])
     opts = dict(opts)
 
@@ -58,6 +59,8 @@ def do_query(config, server_url, args):
         pprint.pprint(meta)
         sys.exit(0)
 
+    in_line = "-l" in opts or "--line" in opts
+
     #print("response data:", out)
     
     if "-s" in opts or "--summary" in opts and not with_meta:
@@ -69,11 +72,19 @@ def do_query(config, server_url, args):
             if with_meta:
                 meta = f["metadata"]
                 klist = sorted(list(meta.keys())) if keys == "all" else keys
-                for k in klist:
-                    if k in meta:
-                        meta_lst.append("%s=%s" % (k, repr(meta[k])))
-            if meta_lst:
-                meta_out = "\t"+"\t".join(meta_lst)
+                if in_line:
+                    for k in klist:
+                        if k in meta:
+                            meta_lst.append("%s=%s" % (k, repr(meta[k])))
+                else:
+                    for k in klist:
+                        if k in meta:
+                            meta_lst.append("%s\t=\t%s" % (k, repr(meta[k])))
+                if meta_lst:
+                    if in_line:
+                        meta_out = "\t"+"\t".join(meta_lst)
+                    else:
+                        meta_out += "\n    "+"\n    ".join(meta_lst)
             if "--ids" in opts or "-i" in opts:
                 print("%s%s" % (f["fid"],meta_out))
             else:
