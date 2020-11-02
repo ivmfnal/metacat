@@ -29,6 +29,8 @@ def sample(inputs, params):
         if x >= 1.0:
             x -= 1.0
             yield f
+        #else:
+        #    print("sample: skipping:", f)
             
 def limit(inputs, params):
     inp = inputs[0]

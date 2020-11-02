@@ -74,7 +74,7 @@ create table datasets
     monotonic		boolean default 'false',
     primary key (namespace, name),
     foreign key (parent_namespace, parent_name) references datasets(namespace, name),
-    metadata    jsonb,
+    metadata    jsonb   default '{}',
     required_metadata   text[],
     creator        text references users(username),
     created_timestamp   timestamp with time zone     default now(),

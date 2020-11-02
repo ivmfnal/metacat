@@ -28,6 +28,7 @@ top_dataset_query       :    dataset_query
 term_file_query: "files" ("from" datasets_selector)?                        -> basic_file_query
     |   "filter" FNAME "(" constant_list ")" "(" file_query_list ")"        -> filter
     |   "query" qualified_name                                              -> named_query
+    |   "files" STRING ("," STRING)*                                        -> file_list
     
 file_query_list: file_query ("," file_query)*     
 
@@ -59,7 +60,8 @@ meta_and:   term_meta ( "and" term_meta )*
     | scalar "not" "in" constant ":" constant       -> not_in_range
     | scalar "in" "(" constant_list ")"             -> in_set
     | scalar "not" "in" "(" constant_list ")"       -> not_in_set
-    | ANAME "present"?                              -> present_op                   
+    | ANAME "present"?                              -> present                   
+    | ANAME "not" "present"                         -> not_present                   
     | "(" meta_exp ")"                              
     | "!" term_meta                                 -> meta_not
 

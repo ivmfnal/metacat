@@ -8,11 +8,11 @@ def debug(*parts):
     if Debug:
         print(*parts)
         
-AliasID = 1
+Aliases = {}
 def alias(prefix="t"):
-    global AliasID
-    i = AliasID
-    AliasID += 1
+    global Aliases
+    i = Aliases.get(prefix, 1)
+    Aliases[prefix] = i+1
     return f"{prefix}_{i}"
 
 class AlreadyExistsError(Exception):
@@ -68,6 +68,7 @@ class DBFileSet(object):
         self.DB = db
         self.Files = files
         self.Limit = limit
+        self.SQL = None
 
     def limit(self, n):
         return DBFileSet(self.DB, self.Files, n)
@@ -110,6 +111,15 @@ class DBFileSet(object):
                     for (fid, namespace, name, metadata) in fetch_generator(c)
                     if "%s:%s" % (namespace, name) in joined)
         return DBFileSet.from_tuples(db, selected)
+        
+    @staticmethod
+    def from_sql(db, sql):
+        c = db.cursor()
+        c.execute(sql)
+        fs = DBFileSet.from_tuples(db, fetch_generator(c))
+        fs.SQL = sql
+        return fs
+        
     
     def __iter__(self):
         return limited(self.Files, self.Limit)
@@ -211,33 +221,96 @@ class DBFileSet(object):
             )
             
     @staticmethod
-    def sql_for_basic_query(db, basic_file_query, with_metadata, limit):
+    def sql_for_basic_query(basic_file_query, with_metadata, limit):
         if limit is None:
             limit = basic_file_query.Limit
         elif basic_file_query.Limit is not None:
             limit = min(limit, basic_file_query.Limit)
-        if limit is not None: limit = f"limit {limit}"
-
-        dataset_selector = basic_file_query.DatasetSelector
-        
-        datasets_sql = DBDataset.sql_for_selector(dataset_selector)
+        limit = "" if limit is None else f"limit {limit}"
         
         f = alias("f")
-        fd = alias("fd")
-        ds = alias("ds")
-        
+
         meta = f"{f}.metadata" if with_metadata else "null as metadata"
-        meta_where_clause = MetaExpressionDNF(basic_file_query.Wheres).sql(f)
-        sql = f"""
-            select {f}.id, {f}.namespace, {f}.name, {meta}
-                from files {f}
-                    inner join files_datasets {fd} on {fd}.file_id = {f}.id
-                    inner join (
-                            {datasets_sql}
-                    ) as {ds} on {ds}.namespace = {fd}.dataset_namespace and {ds}.name = {fd}.dataset_name 
-                where {meta_where_clause}
-                {limit}
-        """
+        where_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f)
+        meta_where_clause = f"where {where_exp}" if where_exp else ""
+
+        dataset_selector = basic_file_query.DatasetSelector
+        if dataset_selector is None:
+            # no dataset selection
+            sql = f"""
+                select {f}.id, {f}.namespace, {f}.name, {meta}
+                    from files {f}
+                    {meta_where_clause}
+                    {limit}
+            """
+        else:
+            datasets_sql = DBDataset.sql_for_selector(dataset_selector)
+        
+            fd = alias("fd")
+            ds = alias("ds")
+        
+            sql = f"""
+                with selected_datasets as (
+                    {datasets_sql}
+                )
+                select {f}.id, {f}.namespace, {f}.name, {meta}
+                    from files {f}
+                        inner join files_datasets {fd} on {fd}.file_id = {f}.id
+                        inner join selected_datasets on 
+                            selected_datasets.namespace = {fd}.dataset_namespace 
+                            and selected_datasets.name = {fd}.dataset_name 
+                    {meta_where_clause}
+                    {limit}
+            """
+        return sql
+        
+    @staticmethod
+    def sql_for_file_list(with_metadata, spec_list):
+        f = alias("f")
+        meta = f"{f}.metadata" if with_metadata else "null as metadata"
+        ids = []
+        specs = []
+        
+        for s in spec_list:
+            if ':' in s:
+                specs.append(s)
+            else:
+                ids.append(s)
+                
+        debug("sql_for_file_list: specs, ids:", specs, ids)
+                
+        ids_part = ""
+        specs_part = ""
+        
+        parts = []
+        
+        if ids:
+            id_list = ",".join(["'%s'" % (i,) for i in ids])
+            ids_part = f"""
+                select {f}.id, {f}.namespace, {f}.name, {meta} from files {f}
+                    where id in ({id_list})
+                """
+            parts.append(ids_part)
+        
+        if specs:
+            parsed = [s.split(":",1) for s in specs]
+            namespaces, names = zip(*parsed)
+            namespaces = list(set(namespaces))
+            assert not "" in namespaces
+            names = list(set(names))
+            
+            namespaces = ",".join([f"'{ns}'" for ns in namespaces])
+            names = ",".join([f"'{n}'" for n in names])
+            specs = ",".join([f"'{s}'" for s in specs])
+            
+            specs_part = f"""
+                select {f}.id, {f}.namespace, {f}.name, {meta} from files {f}
+                    where {f}.name in ({names}) and {f}.namespace in ({namespaces}) and
+                         {f}.namespace || ':' || {f}.name in ({specs})
+            """
+            parts.append(specs_part)
+
+        return "\nunion\n".join(parts)
         
     @staticmethod
     def all_files(db, meta_exp, with_metadata, limit):
@@ -764,7 +837,7 @@ class MetaExpressionDNF(object):
         if self.DNF:
             return " or ".join([self.sql_and(t, table_name) for t in self.DNF])
         else:
-            return " true "
+            return None
             
 class DBDataset(object):
 
@@ -876,56 +949,6 @@ class DBDataset(object):
             ds.CreatedTimestamp = created_timestamp
             yield ds
 
-    def list_files(self, recursive=False, with_metadata = False, condition=None, relationship=None,
-                limit=None):
-        # condition is the filter condition in DNF nested list format
-
-        limit = "" if limit is None else f"limit {limit}"        
-        if relationship is None:
-            meta = "f.metadata" if with_metadata else "null"
-            meta_where_clause = MetaExpressionDNF(condition).sql("f")
-            sql = f"""select f.id, f.namespace, f.name, {meta}
-                        from files f
-                        inner join files_datasets fd on fd.file_id = f.id
-                        where fd.dataset_namespace='{self.Namespace}' and fd.dataset_name='{self.Name}' and
-                            {meta_where_clause}
-                        {limit}
-                        """
-        elif relationship == "children_of":
-            meta = "c.metadata" if with_metadata else "null"
-            meta_where_clause = MetaExpressionDNF(condition).sql("p")
-            sql = f"""select c.id, c.namespace, c.name, {meta}
-                        from files c
-                            inner join parent_child pc on c.id = pc.child_id
-                            inner join files p on p.id = pc.parent_id
-                            inner join files_datasets fd on fd.file_id = p.id
-                        where fd.dataset_namespace='{self.Namespace}' and fd.dataset_name='{self.Name}' and
-                            {meta_where_clause}
-                        {limit}
-                        """
-        elif relationship == "parents_of":
-            meta = "p.metadata" if with_metadata else "null"
-            meta_where_clause = MetaExpressionDNF(condition).sql("c")
-            sql = f"""select p.id, p.namespace, p.name, {meta}
-                        from files p
-                            inner join parent_child pc on p.id = pc.parent_id
-                            inner join files c on c.id = pc.child_id
-                            inner join files_datasets fd on fd.file_id = c.id
-                        where fd.dataset_namespace='{self.Namespace}' and fd.dataset_name='{self.Name}' and
-                            {meta_where_clause}
-                        {limit}
-                        """
-            
-        debug("DBDataset.list_files: sql:", sql)
-        self.SQL = sql 
-        c = self.DB.cursor()
-        t0 = time.time()
-        c.execute(sql)
-        debug("SQL execution time:", time.time() - t0)
-        return DBFileSet.from_tuples(self.DB, fetch_generator(c))
-
-
-
     @property
     def nfiles(self):
         c = self.DB.cursor()
@@ -1023,42 +1046,49 @@ class DBDataset(object):
         """
 
     @staticmethod   
-    def sql_for_selector(db, selector):
-        self.Patterns = patterns
-        self.WithChildren = with_children
-        self.Recursively = recursively
-        self.Having = having
-
-        #
-        # Ignore Having for now
-        #
-
+    def sql_for_selector(selector):
+        meta_where_clause = ""
+        ds_alias = alias("ds")
+        meta = "null as metadata"
+        if selector.Having is not None:
+            meta_where_clause = "where " + MetaExpressionDNF(selector.Having).sql(ds_alias)            
+            meta = "metadata"
         parts = []
-        for p in patterns:
+        for p in selector.Patterns:
             namespace = p["namespace"]
             name_pattern = p["name"]
-            
-            parts.append(f"""
-                select namespace, name from datasets where namespace='{namespace}' and name like '{name_pattern}'
-            """)
+            wildcard = p["wildcard"]
+
+            if wildcard:
+                parts.append(f"""
+                    select namespace, name, {meta} from datasets where namespace='{namespace}' and name like '{name_pattern}'
+                """)
+            else:
+                parts.append(f"""
+                    select namespace, name, {meta} from datasets where namespace='{namespace}' and name='{name_pattern}'
+                """)
             
             if selector.WithChildren:
                 if selector.Recursively:
                     sql = f"""
                         with recursive subsets as (
-                            select namespace, name from datasets where parent_namespace='{namespace} and parent_name like '{name_pattern}'
+                            select namespace, name, {meta} from datasets where parent_namespace='{namespace} and parent_name like '{name_pattern}'
                             union
-                                select namespace, name from datasets d
+                                select namespace, name, {meta} from datasets d
                                     inner join subsets s on s.namespace = d.parent_namespace and s.name = d.parent_name
                         )
                         select * from subsets"""
                 else:
                     sql = f"""
-                    select namespace, name from datasets where parent_namespace='{namespace} and parent_name like '{name_pattern}'
+                    select namespace, name, {meta} from datasets where parent_namespace='{namespace} and parent_name like '{name_pattern}'
                     """
                 parts.append(sql)
-        return "\nuntion\n".join(parts)
 
+        sql = "\nuntion\n".join(parts)
+        if meta_where_clause:
+            sql = f"select namespace, name from ({sql}) as {ds_alias} {meta_where_clause}"
+
+        return sql
         
 class DBNamedQuery(object):
 

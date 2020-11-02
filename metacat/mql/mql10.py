@@ -1,5 +1,7 @@
 from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet, limited
 from .trees import Node, pass_node, Ascender, Descender, Visitor, LarkToNodes
+from .sql_converter import SQLConverter
+from .meta_evaluator import MetaEvaluator
 import json, time
 
 from lark import Lark
@@ -92,6 +94,7 @@ class BasicFileQuery(object):
         self.Limit = None
         self.WithMeta = False       # this is set to True if the query has "where" clouse
         
+        
     def __str__(self):
         return "BasicFileQuery(selector:%s, limit:%s, rel:%s, %s meta)" % (self.DatasetSelector, self.Limit, self.Relationship or "",
             "with" if self.WithMeta else "without")
@@ -162,7 +165,7 @@ class DatasetSelector(object):
     def filter_by_having(self, datasets):
         if self.Having is None:
             yield from datasets
-        evaluator = _MetaEvaluator()
+        evaluator = MetaEvaluator()
         for ds in datasets:
             if evaluator(ds.Metadata, self.Having):
                 yield ds
@@ -170,6 +173,18 @@ class DatasetSelector(object):
 class _ParamsApplier(Descender):
     
     # applies params from "with...", including default namespace
+    
+    def file_list(self, node, params):
+        namespace = params.get("namespace")
+        if not namespace:
+            return node
+        new_specs = []
+        for s in node["specs"]:
+            parts = s.split(":",1)
+            if len(parts) == 2 and not parts[0]:
+                s = namespace + ":" + parts[1]
+            new_specs.append(s)
+        node["specs"] = new_specs
 
     def basic_file_query(self, node, params):
         bfq = node["query"]
@@ -280,8 +295,11 @@ class FileQuery(object):
         optimized = _LimitApplier().walk(optimized, limit)
         #print("Limit %s applied: ----\n" % (limit,), optimized.pretty())
         
-        out = _FileEvaluator(db, filters, with_meta, None).walk(optimized)
+        #out = _FileEvaluator(db, filters, with_meta, None).walk(optimized)
         #print ("run: out:", out)
+        #print("FileQuery: with_meta:", with_meta)
+        out = SQLConverter(db, filters, with_meta, None, debug=debug).convert(optimized)
+
         return out
 
 class _Converter(Transformer):
@@ -349,6 +367,7 @@ class _Converter(Transformer):
             elif a.value == "having":
                 having_exp = args_[i+1]
                 break
+        #print("datasets_selector: having_exp:", having_exp.pretty("    "))
         ds = DatasetSelector(spec_list, with_children, recursively, having_exp)
         return Node("datasets_selector", selector = ds)
 
@@ -356,6 +375,9 @@ class _Converter(Transformer):
         assert len(args) == 0 or len(args) == 1 and args[0].T == "datasets_selector"
         dataset_selector = args[0]["selector"] if args else None
         return Node("basic_file_query", query=BasicFileQuery(dataset_selector))
+        
+    def file_list(self, args):
+        return Node("file_list", specs=[a.value[1:-1] for a in args])
 
     def int_constant(self, args):
         v = args[0]
@@ -382,9 +404,13 @@ class _Converter(Transformer):
         
     def dataset_spec(self, args):
         (x,) = args
-        return Node("dataet_spec", wildcard = (x.T == "dataset_pattern"), **x.D)
+        #print("dataset_spec: args:")
+        #for a in args:
+        #    print(a.pretty("    "))
+        return Node("dataset_spec", wildcard = (x.T == "dataset_pattern"), **x.D)
             
     def dataset_spec_list(self, args):
+        #print("dataset_spec_list: specs:", [a.D for a in args])
         return Node("dataset_spec_list", specs=[a.D for a in args])
         
     def _____dataset(self, args):
@@ -399,7 +425,7 @@ class _Converter(Transformer):
             name_pattern = args[1].value
             namespace = args[0].value
         name_pattern = name_pattern[1:-1]       # remove the surrouning quotes
-        return Node("join", name=name_pattern, namespace=namespace)
+        return Node("dataset_pattern", name=name_pattern, namespace=namespace)
         
     def named_query(self, args):
         (q,) = args
@@ -573,9 +599,13 @@ class _Converter(Transformer):
                 children.append(a)
         return Node("meta_or", children)
         
-    def present_op(self, args):
+    def present(self, args):
         assert len(args) == 1
         return Node("present", name = args[0].value)
+
+    def not_present(self, args):
+        assert len(args) == 1
+        return Node("not_present", name = args[0].value)
 
     def _apply_not(self, node):
         
@@ -617,11 +647,9 @@ class _Converter(Transformer):
             }[node["op"]]
             return node.clone(op=new_op)
         elif node.T == "present":
-            assert len(node.C) == 1 or (len(node.C) == 2 and node.C[1] is None)
-            return Node("not_present", node.C)
+            return Node("not_present", name=node["name"])
         elif node.T == "not_present":
-            assert len(node.C) == 1 or (len(node.C) == 2 and node.C[1] is None)
-            return Node("present", node.C)
+            return Node("present", name=node["name"])
         else:
             raise ValueError("Unknown node type %s while trying to apply NOT operation" % (node.T,))
             
@@ -745,6 +773,8 @@ class _MetaExpPusher(Descender):
     
     def meta_filter(self, node, meta_exp):
         child = node["query"]
+        if child.T in ("filter","file_list"):
+            return node
         node_exp = node["meta_exp"]
         if node_exp is None:
             new_exp = meta_exp
@@ -753,217 +783,8 @@ class _MetaExpPusher(Descender):
         else:
             new_exp = _make_DNF(Node("meta_and", [meta_exp, node_exp]))
         return self.walk(child, new_exp)
-
-class _MetaEvaluator(object):
-
-    BOOL_OPS = ("and", "or", "not")
-
-    def evaluate_meta_expression(self, metadata, meta_expression):
-        #print("evaluate_meta_expression: meta_expression:", meta_expression.pretty())
-        #print("    meta:", metadata)
-        op, args = meta_expression.T, meta_expression.C
-        #print("evaluate_meta_expression:", op, args)
-        if op in ("meta_and", "meta_or") and len(args) == 1:
-            return self.evaluate_meta_expression(metadata, args[0])
-        if meta_expression["neg"]:
-            return not self.evaluate_meta_expression(metadata, meta_expression.clone(neg=False))
-        if op == "meta_and":    op = "and"
-        if op == "meta_or":     op = "or"
-        if op in self.BOOL_OPS:
-            return self.eval_meta_bool(metadata, op, args)
-        elif op == "present":
-            return meta_expression["name"] in metadata
-        elif op == "not_present":
-            return not meta_expression["name"] in metadata
-        elif op == "in_set":
-            left, right = args
-            vset = set(list(right))
-            if left.T == "scalar":
-                aname = left["name"]
-                return aname in metadata and metadata[aname] in vset
-            elif left.T == "array_any":
-                aname = left["name"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                if not isinstance(lst, list):   return False
-                for x in lst:
-                    if x in vset:  return True
-                else:
-                    return False
-            elif left.T == "array_subscript":
-                aname = left["name"]
-                inx = left["index"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                try:    v = lst[inx]
-                except: return False
-                return v in vset
-        elif op == "not_in_set":
-            left, right = args
-            vset = set(list(right))
-            if left.T == "scalar":
-                aname = left["name"]
-                return aname in metadata and not metadata[aname] in vset
-            elif left.T == "array_any":
-                aname = left["name"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                if not isinstance(lst, list):   return False
-                for x in lst:
-                    if not x in vset:  return True
-                else:
-                    return False
-            elif left.T == "array_subscript":
-                aname = left["name"]
-                inx = left["index"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                try:    v = lst[inx]
-                except: return False
-                return not v in vset
-        elif op == "in_range":
-            left, right = args
-            low, high = right["low"], right["high"]
-            if left.T == "scalar":
-                aname = left["name"]
-                try:    return aname in metadata and metadata[aname] >= low and metadata[aname] <= high
-                except: return False
-            elif left.T == "array_any":
-                aname = left["name"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                if isinstance(lst, dict):
-                    attr_values = lst.values()
-                elif isinstance(lst, list):
-                    attr_values = lst
-                else:
-                    return False
-                for x in attr_values:
-                    if x >= low and x <= high:  return True
-                else:
-                    return False
-            elif left.T == "array_subscript":
-                aname = left["name"]
-                inx = left["index"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                try:    v = lst[inx]
-                except: return False
-                return v >= low and v <= high                    
-        elif op == "not_in_range":
-            left, right = args
-            low, high = right["low"], right["high"]
-            if left.T == "scalar":
-                aname = left["name"]
-                try:    return aname in metadata and metadata[aname] < low or metadata[aname] > high
-                except: return False
-            elif left.T == "array_any":
-                aname = left["name"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                if isinstance(lst, dict):
-                    attr_values = lst.values()
-                elif isinstance(lst, list):
-                    attr_values = lst
-                else:
-                    return False
-                for x in attr_values:
-                    if x < low or x > high:  return True
-                else:
-                    return False
-            elif left.T == "array_subscript":
-                aname = left["name"]
-                inx = left["index"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                try:    v = lst[inx]
-                except: return False
-                return v < low or v > high                    
-        elif op == "cmp_op":
-            cmp_op = meta_expression["op"]
-            left, right = args
-            #print("cmp_op: left:", left.pretty())
-            value = right["value"]
-            if left.T == "scalar":
-                aname = left["name"]
-                try:    
-                    result = aname in metadata and self.do_cmp_op(metadata[aname], cmp_op, value)
-                    #print("result:", result)
-                    return result
-                except: return False
-            elif left.T == "array_any":
-                aname = left["name"]
-                lst = metadata.get(aname)
-                #print("lst:", lst)
-                if lst is None:  return False
-                if isinstance(lst, dict):
-                    attr_values = lst.values()
-                elif isinstance(lst, list):
-                    attr_values = lst
-                else:
-                    return False
-                for av in attr_values:
-                    #print("comparing", av, cmp_op, value)
-                    if self.do_cmp_op(av, cmp_op, value):
-                        return True
-                else:
-                    return False
-            elif left.T == "array_subscript":
-                aname = left["name"]
-                inx = left["index"]
-                lst = metadata.get(aname)
-                if lst is None:  return False
-                try:    av = lst[inx]
-                except: return False
-                return  self.do_cmp_op(av, cmp_op, value)                
-        raise ValueError("Invalid expression:\n"+meta_expression.pretty())
         
-    __call__ = evaluate_meta_expression
 
-    def eval_meta_bool(self, f, bool_op, parts):
-        assert len(parts) > 0
-        p0 = parts[0]
-        rest = parts[1:]
-        ok = self.evaluate_meta_expression(f, p0)
-        if bool_op in ("and", "meta_and"):
-            if len(rest) and ok:
-                ok = self._eval_meta_bool(f, bool_op, rest)
-            return ok
-        elif bool_op in ("or", "meta_or"):
-            if len(rest) and not ok:
-                ok = self._eval_meta_bool(f, bool_op, rest)
-            return ok
-        elif bool_op == "not":
-            assert len(rest) == 0
-            return not ok
-        else:
-            raise ValueError("Unrecognized boolean operation '%s'" % (op,))
-    
-    def do_cmp_op(self, x, op, y):
-        if op == "<":          return x < y
-        elif op == ">":    
-            #print("evaluate_meta_expression: > :", attr_value, value)    
-            return x > y
-        elif op == "<=":       return x <= y
-        elif op == ">=":       return x >= y
-        elif op in ("==",'='): 
-            #print("evaluate_meta_expression:", repr(attr_value), repr(value))
-            return x == y
-        elif op == "!=":       return x != y
-        # - fix elif op == "in":       return value in attr_value       # exception, e.g.   123 in event_list
-        elif op in ("~", "!~", "~*", "!~*"):
-            negated = op[0] == '!'
-            flags = re.IGNORECASE if op[-1] == '*' else 0
-            r = re.compile(y, flags)
-            match = r.search(x) is not None
-            return negated != match
-        else:
-            raise ValueError("Invalid comparison operator '%s'" % (op,))
-        
-    @staticmethod
-    def evaluate(meta, exp):
-        return _MetaEvaluator().evaluate_meta_expression(meta, exp)
-    
 class _DatasetEvaluator(Ascender):
     
     def __init__(self, db, with_meta, limit):
@@ -977,7 +798,7 @@ class _DatasetEvaluator(Ascender):
     
     def datasets_selector(self, node, *args, selector = None):
         assert isinstance(selector, DatasetSelector)
-        evaluator = _MetaEvaluator()
+        evaluator = MetaEvaluator()
         out = limited(
             (x for x in selector.datasets(self.DB, self.Limit)
                 if selector.Having is None or evaluator(x.Metadata, selector.Having)
@@ -1001,7 +822,7 @@ class _FileEvaluator(Ascender):
         
     def meta_filter(self, node, files=None, meta_exp=None):
         #print("meta_filter: args:", args)
-        evaluator = _MetaEvaluator()
+        evaluator = MetaEvaluator()
         if meta_exp is not None:
             out = []
             for f in files:
