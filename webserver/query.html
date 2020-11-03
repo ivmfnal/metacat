@@ -56,6 +56,12 @@
         <tr>
             <th>Include metadata:</th>
             <td><input type="checkbox" name="with_meta" {% if with_meta %}checked="checked"{% endif %}>
+                &nbsp;&nbsp;&nbsp;view metadata as:&nbsp;<select name="view_meta_as">
+                            <option value="table" {{'selected="selected"' if view_meta_as== "table"}}>Table</option>
+                            <option value="json" {{'selected="selected"' if view_meta_as== "json"}}>JSON</option>
+                            <option value="pprint" {{'selected="selected"' if view_meta_as== "pprint"}}>Python pprint</option>
+                        </select>
+            </td>
         </tr>
         {% if allow_save_as_dataset %}
             <tr>
@@ -162,24 +168,29 @@
 
     <h3>Files</h3>
     <table class="file_metadata">
-        {#
-            <tr>
-            <th>File name</th>{% if attr_names %}<th>Metadata</th>{% endif %}
-        </tr>
-        #}
         {% for f in files|sort(attribute="Name") %}
             <tr>
                 <td colspan=2 class="filename">{{f.Namespace}}:{{f.Name}} (<a href="./show_file?fid={{f.FID}}">{{f.FID}}</a>)</td>
             </tr>
             {% if attr_names and f.Metadata %}
-                {% for n in attr_names %}
-                    {% if n in f.Metadata -%}
-                        <tr>
-                            <td class="attr_name">{{n}}</td>
-                            <td class="attr_value">{{f.Metadata[n]}}</td>
-                        </tr>
-                    {%- endif %}
-                {% endfor %}
+                {% if view_meta_as == "table" %}
+                    {% for n in attr_names %}
+                        {% if n in f.Metadata -%}
+                            <tr>
+                                <td class="attr_name">{{n}}</td>
+                                <td class="attr_value">{{f.Metadata[n]}}</td>
+                            </tr>
+                        {%- endif %}
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td class="meta_whole">
+                            <pre class="metadata">
+{{f.meta_view}}
+                            </pre>
+                        </td>
+                    </tr>
+                {% endif %}
             {% endif %}
         {% endfor %}
     </table>

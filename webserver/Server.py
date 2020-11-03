@@ -1,5 +1,5 @@
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
-import psycopg2, json, time, secrets, traceback, hashlib
+import psycopg2, json, time, secrets, traceback, hashlib, pprint
 from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, parse_name
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
@@ -218,6 +218,8 @@ class GUIHandler(BaseHandler):
         meta_stats = None
         with_meta = True
         
+        view_meta_as =  request.POST.get("view_meta_as","table")
+        
         save_as_dataset = "save_as_dataset" in request.POST
         
         db = self.App.connect()
@@ -312,10 +314,18 @@ class GUIHandler(BaseHandler):
             if with_meta:
                 for f in files:
                     if f.Metadata:
+                        if view_meta_as == "json":
+                            f.meta_view = json.dumps(f.Metadata, indent="  ", sort_keys = True) 
+                        elif view_meta_as == "pprint":
+                            f.meta_view = pprint.pformat(f.Metadata, compact=True, width=180)
                         for n in f.Metadata.keys():
                             attr_names.add(n)
+                            
         #print("Server.query: file list generated")
+        
+        
         resp = self.render_to_response("query.html", 
+            view_meta_as = view_meta_as,
             query_type = query_type,
             attr_names = sorted(list(attr_names)),
             message = message, error = error,
@@ -516,7 +526,7 @@ class GUIHandler(BaseHandler):
         namespace, name = (dataset or relpath).split(":",1)
         db = self.App.connect()
         dataset = DBDataset.get(db, namespace, name)
-        files = sorted(list(dataset.list_files(with_metadata=with_meta)), key=lambda x: (x.Namespace, x.Name))
+        files = sorted(list(dataset.list(with_metadata=with_meta)), key=lambda x: (x.Namespace, x.Name))
         return self.render_to_response("dataset_files.html", files=files, dataset=dataset, with_meta=with_meta)
         
     def create_dataset(self, request, relpath, **args):
@@ -537,7 +547,7 @@ class GUIHandler(BaseHandler):
         if dataset is None: self.redirect("./datasets")
 
         nfiles = dataset.nfiles
-        files = sorted(list(dataset.list_files(with_metadata=True, limit=100)), key = lambda x: x.Name)
+        files = sorted(list(dataset.list_files(with_metadata=True, limit=1000)), key = lambda x: x.Name)
         #print ("files:", len(files))
         attr_names = set()
         for f in files:

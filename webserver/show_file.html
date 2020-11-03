@@ -20,13 +20,17 @@
 	                <th>Size</th><td>{{f.Size}}</td>
                 </tr>
                 <tr>
+                    <th>Created at</th><td>{{f.CreatedTimestamp or ""}}</td>
+                </tr>
+                <tr>
+                    <th>Created by</th><td>{% if f.Creator %}<a href="./user?username={{f.Creator}}">{{f.Creator}}</a>{% endif %}</td>
+                </tr>
+                <tr>
 	                <th>Checksums</th>
                     <td>
-	                        <table>
-                                {% for ckn, ckv in f.Checksums.items() %}
-                                    <tr><td>{{ckn}}</td><td>{{ckv}}</td></tr>
-                                {% endfor %}
-                            </table>
+                            {% for ckn, ckv in f.Checksums.items() %}
+                                {{ckn}}:&nbsp;{{ckv}}<br/>
+                            {% endfor %}
 	                </td>
                 </tr>
                 <tr>

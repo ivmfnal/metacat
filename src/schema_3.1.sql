@@ -89,6 +89,7 @@ create table files_datasets
     file_id                 text    references files on delete cascade,
     dataset_namespace       text,
     dataset_name            text,
+    foreign key(dataset_namespace, dataset_name) references datasets(namespace, name) on delete cascade,
     primary key(dataset_namespace, dataset_name, file_id)
 );       
 

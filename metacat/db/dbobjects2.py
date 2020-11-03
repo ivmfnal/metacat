@@ -456,20 +456,23 @@ class DBFile(object):
         c = db.cursor()
         fetch_meta = "metadata" if with_metadata else "null"
         if fid is not None:
-            c.execute(f"""select id, namespace, name, {fetch_meta}, size, checksums 
+            c.execute(f"""select id, namespace, name, {fetch_meta}, size, checksums, creator, created_timestamp 
                     from files
                     where id = %s""", (fid,))
         else:
-            c.execute(f"""select id, namespace, name, {fetch_meta}, size, checksums 
+            c.execute(f"""select id, namespace, name, {fetch_meta}, size, checksums, creator, created_timestamp 
                     from files
                     where namespace = %s and name=%s""", (namespace, name))
         tup = c.fetchone()
         if not tup: return None
-        fid, namespace, name, meta, size, checksums = tup
+        fid, namespace, name, meta, size, checksums, creator, created_timestamp = tup
         meta = meta or {}
         checksums = checksums or {}
-        return DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums)
-            
+        f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums)
+        f.Creator = creator
+        f.CreatedTimestamp = created_timestamp
+        return f
+        
     @staticmethod
     def exists(db, fid = None, namespace = None, name = None):
         #print("DBFile.exists:", fid, namespace, name)
@@ -898,6 +901,26 @@ class DBDataset(object):
         if do_commit:
             c.execute("commit")
         return self
+        
+    def list_files(self, with_metadata=False, limit=None):
+        meta = "null as metadata" if not with_metadata else "f.metadata"
+        limit = f"limit {limit}" if limit else ""
+        sql = f"""select f.id, f.namespace, f.name, {meta}, f.size, f.checksums, f.creator, f.created_timestamp 
+                    from files f
+                        inner join files_datasets fd on fd.file_id = f.id
+                    where fd.dataset_namespace = %s and fd.dataset_name=%s
+                    {limit}
+        """
+        c = self.DB.cursor()
+        c.execute(sql, (self.Namespace, self.Name))
+        for fid, namespace, name, meta, size, checksums, creator, created_timestamp in fetch_generator(c):
+            meta = meta or {}
+            checksums = checksums or {}
+            f = DBFile(self.DB, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums)
+            f.Creator = creator
+            f.CreatedTimestamp = created_timestamp
+            yield f
+        
         
         
     @staticmethod

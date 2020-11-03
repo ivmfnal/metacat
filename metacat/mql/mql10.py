@@ -129,7 +129,8 @@ class BasicFileQuery(object):
         else:   self.Limit = min(self.Limit, limit)
         
     def apply_params(self, params):
-        self.DatasetSelector.apply_params(params)
+        if self.DatasetSelector is not None:
+            self.DatasetSelector.apply_params(params)
         
     def filter_by_having(self, dataset_generator):
         return self.DatasetSelector.filter_by_having(dataset_generator)
