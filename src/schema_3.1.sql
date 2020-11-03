@@ -9,15 +9,33 @@ create table users
 create table roles
 (
     name        text    primary key,
+    parent_role text    references roles(name),
     description text
 );
 
 create table users_roles
 (
     username    text    references users(username),
-    role_name   text    references roles(name),
+    role        text    references roles(name),
     primary key(username, role_name)
 );
+
+create recursive view subroles(parent_role, role) as
+(
+        select roles.name as parent_role, roles.name as role from roles       -- include self
+        union
+        select subrole.parent_role, subrole.name as role from roles subrole where subrole.parent_role is not null
+        union
+        select subroles.parent_role, roles.name as role from roles
+                inner join subroles on subroles.role = roles.parent_role
+)
+;
+
+create view role_members as
+    select distinct sr.parent_role as role, users_roles.username
+    from subroles sr
+    inner join users_roles on users_roles.role = sr.role
+;
 
 --insert into roles(name, description) values ('admin', 'Administrator');
 
@@ -35,7 +53,11 @@ create table authenticators
 create table namespaces
 (
 	name                text        primary key,
-	owner               text        references  roles(name),
+	owner_user          text        references  users(username),
+	owner_role          text        references  roles(name),
+    
+    check ( (owner_user is null ) != (owner_role is null) ),
+    
     creator        text references users(username),
     created_timestamp   timestamp with time zone        default now()
 );
@@ -109,7 +131,11 @@ create table queries
 create table parameter_categories
 (
     path        text    primary key,
-    owner       text    references  roles(name),
+	owner_user          text        references  users(username),
+	owner_role          text        references  roles(name),
+    
+    check ( (owner_user is null ) != (owner_role is null) ),
+    
     restricted  boolean default 'false',
     creator             text references users(username),
     created_timestamp   timestamp with time zone     default now(),
