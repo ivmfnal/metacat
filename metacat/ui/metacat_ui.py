@@ -38,7 +38,7 @@ def main():
 
     if cmd == "admin":
         # does not require server configuration
-        from metacat_admin import do_admin
+        from .metacat_admin import do_admin
         do_admin(config, args)
         sys.exit(0)
 

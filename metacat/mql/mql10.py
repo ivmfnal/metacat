@@ -554,6 +554,10 @@ class _Converter(Transformer):
         
     def array_subscript(self, args):
         name, inx = args
+        if inx.type == "STRING":
+            inx = inx.value[1:-1]
+        else:
+            inx = int(inx.value)
         return Node("array_subscript", name=name.value, index=inx)
 
     def cmp_op(self, args):

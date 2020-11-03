@@ -65,10 +65,6 @@ meta_and:   term_meta ( "and" term_meta )*
     | "(" meta_exp ")"                              
     | "!" term_meta                                 -> meta_not
 
-    //| constant "in" ANAME                           -> contains
-    //| constant "not" "in" ANAME                     -> not_contains
-
-
 scalar:  ANAME
         | ANAME "[" "all" "]"                              -> array_all
         | ANAME "[" "any" "]"                              -> array_any

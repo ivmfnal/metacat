@@ -186,6 +186,7 @@ class GUIHandler(BaseHandler):
         for f in files:
             for n, v in f.Metadata.items():
                 if isinstance(v, list): v = tuple(v)
+                elif isinstance(v, dict): v = repr(v)
                 n_dict = stats.setdefault(n, {})
                 count = n_dict.setdefault(v, 0)
                 n_dict[v] = count + 1
@@ -1105,7 +1106,7 @@ class DataHandler(BaseHandler):
                 return f"Namespace {ds_namespace} does not exist", 404
 
             if not user in ns.Owner:
-                return f"Permission to create a dataset in the namespace {namespace} denied", 403
+                return f"Permission to create a dataset in the namespace {ds_namespace} denied", 403
 
             if DBDataset.exists(db, ds_namespace, ds_name):
                 return "Already exists", 409

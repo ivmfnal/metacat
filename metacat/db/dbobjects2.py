@@ -1058,16 +1058,18 @@ class DBDataset(object):
             namespace = p["namespace"]
             name_pattern = p["name"]
             wildcard = p["wildcard"]
-
-            if wildcard:
-                parts.append(f"""
-                    select namespace, name, {meta} from datasets where namespace='{namespace}' and name like '{name_pattern}'
-                """)
-            else:
-                parts.append(f"""
-                    select namespace, name, {meta} from datasets where namespace='{namespace}' and name='{name_pattern}'
-                """)
             
+            base_query = (
+                f"""
+                    select namespace, name, {meta} from datasets where namespace='{namespace}' and name like '{name_pattern}'
+                """ if wildcard
+                else  f"""
+                    select namespace, name, {meta} from datasets where namespace='{namespace}' and name='{name_pattern}'
+                """
+            )
+            
+            parts.append(base_query)
+
             if selector.WithChildren:
                 if selector.Recursively:
                     sql = f"""
@@ -1077,7 +1079,7 @@ class DBDataset(object):
                                 select namespace, name, {meta} from datasets d
                                     inner join subsets s on s.namespace = d.parent_namespace and s.name = d.parent_name
                         )
-                        select * from subsets"""
+                        select distinct * from subsets"""
                 else:
                     sql = f"""
                     select namespace, name, {meta} from datasets where parent_namespace='{namespace} and parent_name like '{name_pattern}'

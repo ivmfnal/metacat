@@ -2,7 +2,7 @@ BINFILES = metacat 	query_test.py
 LIBFILES = \
     metacat_ui.py metacat_config.py  \
     metacat_auth.py metacat_dataset.py metacat_query.py metacat_file.py metacat_namespace.py \
-	metacat_admin.py \
+	metacat_admin.py 
 
 build:	
 	mkdir -p $(BINDIR) $(LIBDIR)
