@@ -4,12 +4,13 @@ from .meta_evaluator import MetaEvaluator
 
 class SQLConverter(Ascender):
     
-    def __init__(self, db, filters, with_meta = True, limit=None, debug=False):
+    def __init__(self, db, filters, with_meta = True, with_provenance=False, limit=None, debug=False):
         self.DB = db
         self.WithMeta = with_meta
         self.Limit = limit
         self.Filters = filters
         self.Debug = debug
+        self.WithProvenance = with_provenance
         
     def debug(self, *params, **args):
         parts = ["SQLConverter:"]+list(params)
@@ -46,7 +47,7 @@ class SQLConverter(Ascender):
         #print("FileEvaluator.basic_file_query: query.WithMeta:", query.WithMeta)
         #return DBFileSet.from_basic_query(self.DB, query, self.WithMeta or query.WithMeta, self.Limit)
         self.debug("basic_file_query: with_meta:", self.WithMeta)
-        sql = DBFileSet.sql_for_basic_query(query, self.WithMeta, self.Limit)
+        sql = DBFileSet.sql_for_basic_query(query, self.WithMeta, self.WithProvenance, self.Limit)
         self.debug("basic_file_query: sql: --------\n", sql, "\n--------")
         return Node("sql", sql=sql)
         
@@ -117,12 +118,20 @@ class SQLConverter(Ascender):
             c = alias("c")
             pc = alias("pc")
             meta = f"{p}.metadata" if self.WithMeta else "null"
-            new_sql = f"""
-                select {p}.id, {p}.namespace, {p}.name, {meta} as metadata
-                from files {p}
-                    inner join parent_child {pc} on {p}.id = {pc}.parent_id
-                    inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
-            """
+            if self.WithProvenance:
+                new_sql = f"""
+                    select {p}.id, {p}.namespace, {p}.name, {meta} as metadata, {p}.parents, {p}.children
+                    from files_with_provenance {p}
+                        inner join parent_child {pc} on {p}.id = {pc}.parent_id
+                        inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
+                """
+            else:
+                new_sql = f"""
+                    select {p}.id, {p}.namespace, {p}.name, {meta} as metadata, null as parents, null as children
+                    from files {p}
+                        inner join parent_child {pc} on {p}.id = {pc}.parent_id
+                        inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
+                """
             return Node("sql", sql=new_sql)
         else:
             return Node("file_set", file_set = arg["file_set"].parents(with_metadata=self.WithMeta))
@@ -137,12 +146,22 @@ class SQLConverter(Ascender):
             c = alias("c")
             pc = alias("pc")
             meta = f"{c}.metadata" if self.WithMeta else "null"
-            new_sql = f"""
-                select {c}.id, {c}.namespace, {c}.name, {meta} as metadata
-                from files {c}
-                    inner join parent_child {pc} on {c}.id = {pc}.child_id
-                    inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
-            """
+
+            if self.WithProvenance:
+                new_sql = f"""
+                    select {c}.id, {c}.namespace, {c}.name, {meta} as metadata, {c}.parents, {c}.children
+                    from files_with_provenance {c}
+                        inner join parent_child {pc} on {c}.id = {pc}.child_id
+                        inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
+                """
+            else:
+                new_sql = f"""
+                    select {c}.id, {c}.namespace, {c}.name, {meta} as metadata, null as parents, null as children
+                    from files {c}
+                        inner join parent_child {pc} on {c}.id = {pc}.child_id
+                        inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
+                """
+
             return Node("sql", sql=new_sql)
         else:
             return Node("file_set", file_set = arg["file_set"].children(with_metadata=self.WithMeta))

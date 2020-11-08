@@ -14,7 +14,7 @@
 
 <form method=POST action="./save_namespace">
 
-<input type="hidden" name="create" value="{{"yes" if create else "no"}}"/>
+<input type="hidden" name="create" value="{{'yes' if create else 'no'}}"/>
 
 <table class="form">
 	<tr>
@@ -29,16 +29,32 @@
 		</td>
 	</tr>
 	<tr>
-		<th>Owner role</th>
-		<td>{% if create or edit %}
-                <select name="role">
+		<th>Description</th>
+		<td>
+			{% if create %}
+				<input type="text" name="description" size=80/>
+			{% elif edit %}
+				<input type="text" name="description"  size=80 value="{{namespace.Description or ''}}"/>
+            {% else %}
+                {{namespace.Description or ''}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>Owner</th>
+		<td>{% if create or edit and admin %}
+                <select name="owner">
+                    <option value="u:{{user.Username}}">{{user.Username}}</option>
+                    <option disabled>-- roles --</option>
                     {% for r in roles %}
                         <!-- {{r}} -->
-                        <option value="{{r.Name}}">{{r.Name}}</option>
+                        <option value="r:{{r.Name}}">{{r.Name}}</option>
                     {% endfor %}
                 </select>
             {% else %}
-                {{namespace.Owner.Name}}
+                {% if namespace.OwnerUser %}user <a href="./user?username={{namespace.OwnerUser}}">{{namespace.OwnerUser}}</a>
+                {% else %}role <a href="./role?name={{namespace.OwnerRole}}">{{namespace.OwnerRole}}</a>
+                {% endif %}
             {% endif %}    
         </td>
 	</tr>

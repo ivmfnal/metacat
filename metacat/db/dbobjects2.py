@@ -1,4 +1,4 @@
-import uuid, json, hashlib, re, time
+import uuid, json, hashlib, re, time, io, traceback
 from metacat.util import to_bytes, to_str, epoch
 from psycopg2 import IntegrityError
 
@@ -85,8 +85,8 @@ class DBFileSet(object):
     def from_tuples(db, g):
         return DBFileSet(db, 
             (
-                DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta)
-                for fid, namespace, name, meta in g
+                DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, parents=parents, children=children)
+                for fid, namespace, name, meta, parents, children in g
             )
         )
         
@@ -221,7 +221,7 @@ class DBFileSet(object):
             )
             
     @staticmethod
-    def sql_for_basic_query(basic_file_query, with_metadata, limit):
+    def sql_for_basic_query(basic_file_query, with_metadata, with_provenance, limit):
         if limit is None:
             limit = basic_file_query.Limit
         elif basic_file_query.Limit is not None:
@@ -231,15 +231,21 @@ class DBFileSet(object):
         f = alias("f")
 
         meta = f"{f}.metadata" if with_metadata else "null as metadata"
+        
+        parents = f"{f}.parents" if with_provenance else "null as parents"
+        children = f"{f}.children" if with_provenance else "null as children"
+        table = "files_with_provenance" if with_provenance else "files"
+        
         where_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f)
         meta_where_clause = f"where {where_exp}" if where_exp else ""
+        
 
         dataset_selector = basic_file_query.DatasetSelector
         if dataset_selector is None:
             # no dataset selection
             sql = f"""
-                select {f}.id, {f}.namespace, {f}.name, {meta}
-                    from files {f}
+                select {f}.id, {f}.namespace, {f}.name, {meta}, {parents}, {children}
+                    from {table} {f}
                     {meta_where_clause}
                     {limit}
             """
@@ -253,8 +259,8 @@ class DBFileSet(object):
                 with selected_datasets as (
                     {datasets_sql}
                 )
-                select {f}.id, {f}.namespace, {f}.name, {meta}
-                    from files {f}
+                select {f}.id, {f}.namespace, {f}.name, {meta}, {parents}, {children}
+                    from {table} {f}
                         inner join files_datasets {fd} on {fd}.file_id = {f}.id
                         inner join selected_datasets on 
                             selected_datasets.namespace = {fd}.dataset_namespace 
@@ -333,18 +339,22 @@ class DBFileSet(object):
         
 class DBFile(object):
 
-    def __init__(self, db, namespace = None, name = None, metadata = None, fid = None, size=None, checksums=None):
+    def __init__(self, db, namespace = None, name = None, metadata = None, fid = None, size=None, checksums=None,
+                    parents = None, children = None
+                    ):
         assert (namespace is None) == (name is None)
         self.DB = db
         self.FID = fid or uuid.uuid4().hex
         self.FixedFID = (fid is not None)
         self.Namespace = namespace
         self.Name = name
-        self.Metadata = metadata or {}
+        self.Metadata = metadata
         self.Creator = None
         self.CreatedTimestamp = None
-        self.Checksums = checksums or {}
+        self.Checksums = checksums
         self.Size = size
+        self.Parents = parents
+        self.Children = children
     
     ID_BITS = 64
     ID_NHEX = ID_BITS/4
@@ -374,6 +384,10 @@ class DBFile(object):
                 insert into files(id, namespace, name, metadata, size, checksums) values(%s, %s, %s, %s, %s, %s)
                 """,
                 (self.FID, self.Namespace, self.Name, meta, self.Size, checksums))
+            if self.Parents:
+                c.executemany(f"""
+                    insert into parent_child(parent_id, child_id) values(%s, %s)
+                """, [(p.FID if isinstance(p, DBFile) else p, self.FID) for p in self.Parents])
             if do_commit:   c.execute("commit")
         except IntegrityError:
             c.execute("rollback")
@@ -385,30 +399,44 @@ class DBFile(object):
 
 
     @staticmethod
-    def create_many(db, files, do_commit=True):
-        from psycopg2 import IntegrityError
-        tuples = [
-            (f.FID, f.Namespace, f.Name, json.dumps(f.Metadata or {}), f.Size, json.dumps(f.Checksums or {}))
-            for f in files
-        ]
-        #print("tuples:", tuples)
+    def create_many(db, files, creator=None, do_commit=True):
+        files = list(files)
+        files_csv = []
+        parents_csv = []
+        null = r"\N"
+        for f in files:
+            f.FID = f.FID or self.generate_id()
+            files_csv.append("%s\t%s\t%s\t%s\t%s\t%s\t%s" % (
+                f.FID,
+                f.Namespace or null, 
+                f.Name or null,
+                json.dumps(f.Metadata) if f.Metadata else '{}',
+                f.Size if f.Size is not None else null,
+                json.dumps(f.Checksums) if f.Checksums else '{}',
+                f.Creator or creator or null
+            ))
+            f.Creator = f.Creator or creator
+            if f.Parents:
+                parents_csv += ["%s\t%s" % (f.FID, p.FID if isinstance(p, DBFile) else p) for p in f.Parents]
+            f.DB = db
+        
         c = db.cursor()
+        c.execute("begin")
+
         try:
-            c.executemany("""
-                insert 
-                    into files(id, namespace, name, metadata, size, checksums) 
-                    values(%s, %s, %s, %s, %s, %s)
-                """,
-                tuples)
+            files_data = "\n".join(files_csv)
+            #open("/tmp/files.csv", "w").write(files_data)
+            c.copy_from(io.StringIO("\n".join(files_csv)), "files", 
+                    columns = ["id", "namespace", "name", "metadata", "size", "checksums","creator"])
+            c.copy_from(io.StringIO("\n".join(parents_csv)), "parent_child", 
+                    columns=["child_id", "parent_id"])
             if do_commit:   c.execute("commit")
-        except IntegrityError:
-            c.execute("rollback")
-            raise AlreadyExistsError("multiple")
-        except:
+        except Exception as e:
+            print(traceback.format_exc())
             c.execute("rollback")
             raise
             
-        for f in files: f.DB = db
+        return DBFileSet(db, files)
 
         
     def update(self, do_commit = True):
@@ -448,6 +476,41 @@ class DBFile(object):
             c.execute("rollback")
             raise
         for f in files: f.DB = db
+    
+    @staticmethod
+    def get_files(db, files, load_all=False):
+        c = db.cursor()
+        strio = io.StringIO()
+        for f in files:
+            strio.write("%s\t%s\t%s\n" % (f.get("fid") or r'\N', f.get("namespace") or r'\N', f.get("name") or r'\N'))
+        c.execute("""create temp table if not exists
+            temp_files (
+                id text,
+                namespace text,
+                name text)
+                """)
+        c.copy_from(io.StringIO(strio.getvalue()), "temp_files")
+        
+        if load_all:
+            c.execute("""
+                select f.id, f.namespace, f.name, f.size, f.checksums, f.creator, f.created_timestamp. f.metadata
+                     from files f, temp_files t
+                     where t.id = f.id or (f.namespace = t.namespace and f.name = t.name)
+            """)
+        
+            for fid, namespace, name, size, checksums, creator, created_timestamp in fetch_generator(c):
+                yield DBFile(db, namespace = namespace, name = name, fid = fid, size=size, checksums=checksums, metadata=metadata)
+        else:
+            c.execute("""
+                select f.id, f.namespace, f.name
+                     from files f, temp_files t
+                     where t.id = f.id or (f.namespace = t.namespace and f.name = t.name)
+            """)
+        
+            for fid, namespace, name in fetch_generator(c):
+                yield DBFile(db, namespace = namespace, name = name, fid = fid)
+                
+        c.execute("""drop table temp_files""")            
         
     @staticmethod
     def get(db, fid = None, namespace = None, name = None, with_metadata = False):
@@ -529,29 +592,19 @@ class DBFile(object):
     def get_attribute(self, attrname, default=None):
         return self.Metadata.get(attrname, default)
 
-    def to_jsonable(self, with_metadata = False, with_relations=False):
+    def to_jsonable(self, with_datasets = False):
+        ns = self.Name if self.Namespace is None else self.Namespace + ':' + self.Name
         data = dict(
             fid = self.FID,
             namespace = self.Namespace,
-            name = self.Name,
-            children = [c.FID for c in self.children()],
-            parents = [p.FID for p in self.parents()],
-            checksums = self.Checksums,
-            size = self.Size
+            name = ns
         )
-        if with_metadata:
-            data["metadata"] = self.metadata()
-        if with_relations:
-            data["parents"] = [{
-                "fid":p.FID,
-                "namespace":p.Namespace,
-                "name":p.Name
-            } for p in self.parents()]
-            data["children"] = [{
-                "fid":c.FID,
-                "namespace":c.Namespace,
-                "name":c.Name
-            } for c in self.children()]
+        if self.Checksums is not None:  data["checksums"] = self.Checksums
+        if self.Size is not None:       data["size"] = self.Size
+        if self.Metadata is not None:   data["metadata"] = self.Metadata
+        if self.Parents is not None:    data["parents"] = [p.FID if isinstance(p, DBFile) else p for p in self.Parents]
+        if self.Children is not None:   data["children"] = [c.FID if isinstance(c, DBFile) else c for c in self.Children]
+        if with_datasets:
             data["datasets"] = [{
                 "namespace":ds.Namespace, "name":ds.Name
             } for ds in self.datasets()]
@@ -868,6 +921,7 @@ class DBDataset(object):
         namespace = self.Namespace.Name if isinstance(self.Namespace, DBNamespace) else self.Namespace
         parent_namespace = self.ParentNamespace.Name if isinstance(self.ParentNamespace, DBNamespace) else self.ParentNamespace
         meta = json.dumps(self.Metadata or {})
+        #print("DBDataset.save: saving")
         c.execute("""
             insert into datasets(namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp,
                         description) 
@@ -1228,6 +1282,75 @@ class X509Authenticator(Authenticator):
 
     def verifySecret(self, dn):
         return dn in self.Secrets
+        
+class _DBManyToMany(object):
+    
+    def __init__(self, db, table, *variable, **fixed):
+        self.DB = db
+        self.Table = table
+        assert len(fixed) == 1
+        self.FixedColumn, self.FixedValue = list(fixed.items())[0]
+        self.Where = "where %s = '%s'" % (self.FixedColumn, self.FixedValue)
+        assert len(variable) >= 1
+        self.VarColumns = list(variable)
+        
+    def list(self, c=None):
+        columns = ",".join(self.VarColumns) 
+        if c is None: c = self.DB.cursor()
+        c.execute(f"select {columns} from {self.Table} {self.Where}")
+        if len(self.VarColumns) == 1:
+            return (x for (x,) in fetch_generator(c))
+        else:
+            return fetch_generator(c)
+        
+    def __iter__(self):
+        return self.list()
+        
+    def add(self, *vals, c=None):
+        assert len(vals) == len(self.VarColumns)
+        col_vals = list(zip(self.VarColumns, vals)) + [(self.FixedColumn, self.FixedValue)]
+        cols, vals = zip(*col_vals)
+        cols = ",".join(cols)
+        vals = ",".join([f"'{v}'" for v in vals])
+        if c is None: c = self.DB.cursor()
+        c.execute(f"""
+            insert into {self.Table}({cols}) values({vals})
+                on conflict({cols}) do nothing
+        """)
+        return self
+        
+    def contains(self, *vals, c=None):
+        assert len(vals) == len(self.VarColumns)
+        col_vals = list(zip(self.VarColumns, vals))
+        where = self.Where + " and " + " and ".join(["%s='%s'" % (k,v) for k, v in col_vals])
+        if c is None: c = self.DB.cursor()
+        c.execute(f"select {self.FixedColumn} from {self.Table} {where}")
+        return c.fetchone() is not None
+        
+    def __contains__(self, v):
+        if not isinstance(v, tuple): v = (v,)
+        return self.contains(*v)
+
+    def remove(self, *vals, c=None, all=False):
+        assert all or len(vals) == len(self.VarColumns)
+        if c is None: c = self.DB.cursor()
+        where = self.Where
+        if not all:
+            col_vals = list(zip(self.VarColumns, vals))
+            where += " and " + " and ".join(["%s='%s'" % (k,v) for k, v in col_vals])
+        c.execute(f"delete from {self.Table} {where}")
+        return self
+        
+    def set(self, lst, c=None):
+        if c is None: c = self.DB.cursor()
+        c.execute("begin")
+        self.remove(all=True, c=c)
+        for tup in lst:
+            if not isinstance(tup, tuple):  tup = (tup,)
+            self.add(*tup, c=c)
+        c.execute("commit")
+        
+        
             
 class DBUser(object):
 
@@ -1238,7 +1361,6 @@ class DBUser(object):
         self.Flags = flags
         self.DB = db
         self.Authenticators = {}        # type -> [secret,...]
-        self.Roles = []                 # list of roles as DBRole objects
         
     def __str__(self):
         return "DBUser(%s, %s, %s, %s)" % (self.Username, self.Name, self.EMail, self.Flags)
@@ -1257,13 +1379,6 @@ class DBUser(object):
         c.execute("delete from authenticators where username=%s", (self.Username,))
         c.executemany("insert into authenticators(username, type, secrets) values(%s, %s, %s)",
             [(self.Username, typ, a.Secrets) for typ, a in self.Authenticators.items()])
-
-        c.execute("delete from users_roles where username=%s", (self.Username,))
-        if self.Roles:
-            c.executemany("insert into users_roles(username, role_name) values(%s, %s)", [
-                    (self.Username, role.Name) for role in self.Roles
-                ]
-            )
 
         if do_commit:
             c.execute("commit")
@@ -1292,7 +1407,6 @@ class DBUser(object):
         if not tup: return None
         (name, email, flags, roles) = tup
         u = DBUser(db, username, name, email, flags)
-        u.Roles = [DBRole.get(db, rn) for rn in sorted(roles)]
         c.execute("""select type, secrets from authenticators where username=%s""", (username,))
         u.Authenticators = {typ:Authenticator.from_db(username, typ, secrets) for typ, secrets in c.fetchall()}
         return u
@@ -1304,55 +1418,34 @@ class DBUser(object):
     def list(db):
         rolesdict = {}
         c = db.cursor()
-        c.execute("""select u.username, u.name, u.email, u.flags, 
-                                array(select ur.role_name from users_roles ur where ur.username=u.username)
-                            from users u 
+        c.execute("""select u.username, u.name, u.email, u.flags from users u 
         """)
-        for username, name, email, flags, roles in c.fetchall():
-            roles = [r for r in roles if r is not None]
-            roles = sorted(roles)
-            user_roles = []
-            for rn in roles:
-                r = rolesdict.get(rn)
-                if r is None:
-                    r = DBRole.get(db, rn)
-                    rolesdict[rn] = r
-                user_roles.append(r)
+        for username, name, email, flags in c.fetchall():
             u = DBUser(db, username, name, email, flags)
-            u.Roles = user_roles
             #print("DBUser.list: yielding:", u)
             yield u
-        
+            
+    @property
     def roles(self):
-        if self.Roles is None:  self.Roles = DBRole.list(self.DB, user = self)
-        return self.Roles
+        return _DBManyToMany(self.DB, "users_roles", "role_name", username = self.Username)
         
     def namespaces(self):
         return DBNamespace.list(self.DB, owned_by_user=self)        
         
     def add_role(self, role):
-        if isinstance(role, DBRole):
-            r = role
-        else:
-            r = DBRole.get(self.DB, role)
-        r.add_user(self)
-        r.save()
+        self.roles.add(role.Name if isinstance(role, DBRole) else role)
 
     def remove_role(self, role):
-        if isinstance(role, DBRole):
-            r = role
-        else:
-            r = DBRole.get(self.DB, role)
-        r.remove_user(self)
-        r.save()
+        self.roles.remove(role.Name if isinstance(role, DBRole) else role)
 
 class DBNamespace(object):
 
-    def __init__(self, db, name, owner):
+    def __init__(self, db, name, owner_user=None, owner_role=None, description=None):
         self.Name = name
-        if isinstance(owner, str):
-            owner = DBRole.get(db, owner)
-        self.Owner = owner
+        assert None in (owner_user, owner_role)
+        self.OwnerUser = owner_user
+        self.OwnerRole = owner_role
+        self.Description = description
         self.DB = db
         self.Creator = None
         self.CreatedTimestamp = None
@@ -1360,52 +1453,111 @@ class DBNamespace(object):
     def to_jsonable(self):
         return dict(
             name=self.Name,
-            owner=self.Owner.Name
+            owner_user=self.OwnerUser,
+            owner_name=self.OwnerName,
+            creator = self.Creator,
+            created_timestamp = epoch(self.CreatedTimestamp)
         )
         
-    def save(self):
+    def save(self, do_commit=True):
         c = self.DB.cursor()
         c.execute("""
-            insert into namespaces(name, owner) values(%s, %s)
+            insert into namespaces(name, owner_user, owner_role, description, creator) values(%s, %s, %s, %s, %s)
                 on conflict(name) 
-                    do update set owner=%s;
+                    do update set owner_user=%s, owner_role=%s, description=%s, creator=%s;
             commit
             """,
-            (self.Name, self.Owner.Name, self.Owner.Name))
+            (self.Name, self.OwnerUser, self.OwnerRole, self.Description, self.Creator, self.OwnerUser, self.OwnerRole, self.Description, self.Creator))
+        if do_commit:
+            c.execute("commit")
         return self
 
     def create(self, do_commit=True):
         c = self.DB.cursor()
         c.execute("""
-            insert into namespaces(name, owner) values(%s, %s)
+            insert into namespaces(name, owner_user, owner_role, description, creator) values(%s, %s, %s, %s, %s)
             """,
-            (self.Name, self.Owner.Name, self.Owner.Name))
+            (self.Name, self.OwnerUser, self.OwnerRole, self.Description, self.Creator))
         if do_commit:
-            c.execute(commit)
+            c.execute("commit")
         return self
         
     @staticmethod
     def get(db, name):
+        #print("DBNamespace.get: name:", name)
         c = db.cursor()
-        c.execute("""select owner from namespaces where name=%s""", (name,))
+        c.execute("""select owner_user, owner_role, description, creator, created_timestamp 
+                from namespaces where name=%s""", (name,))
         tup = c.fetchone()
         if not tup: return None
-        return DBNamespace(db, name, tup[0])
+        owner_user, owner_role, description, creator, created_timestamp = tup
+        ns = DBNamespace(db, name, owner_user, owner_role, description)
+        ns.Creator = creator
+        ns.CreatedTimestamp = created_timestamp
+        return ns
         
-    @staticmethod
-    def list(db, owned_by_user=None):
-        c = db.cursor()
-        c.execute("""select name, owner from namespaces order by name""")
-        lst = (DBNamespace(db, name, owner) for  name, owner in c.fetchall())
-        if owned_by_user is not None:
-            lst = (ns for ns in lst if owned_by_user in ns.Owner)
-        return lst
-
     @staticmethod
     def exists(db, name):
         return DBNamespace.get(db, name) != None
         
+    @staticmethod
+    def list(db, owned_by_user=None, owned_by_role=None, directly=False):
+        c = db.cursor()
+        if isinstance(owned_by_user, DBUser):   owned_by_user = owned_by_user.Username
+        if isinstance(owned_by_role, DBRole):   owned_by_role = owned_by_role.Name
+        if owned_by_user is not None:
+            sql = """
+                select name, owner_user, owner_role, description, creator, created_timestamp 
+                        from namespaces
+                        where owner_user=%s
+            """
+            args = (owned_by_user,)
+            if not directly:
+                sql += """
+                    union
+                    select name, owner_user, owner_role, description, creator, created_timestamp 
+                            from namespaces ns, users_roles ur
+                            where ur.username = %s and ur.role_name = ns.owner_role
+                """
+                args = args + (owned_by_user,)
+        elif owned_by_role is not None:
+            sql = """select name, owner_user, owner_role, description, creator, created_timestamp 
+                        from namespaces
+                        where owner_role=%s
+            """
+            args = (owned_by_role,)
+        else:
+            sql = """select name, owner_user, owner_role, description, creator, created_timestamp 
+                        from namespaces
+            """
+            args = ()
+        print("DBNamespace.list: sql, args:", sql, args)
+        c.execute(sql, args)
+        for name, owner_user, owner_role, description, creator, created_timestamp in c.fetchall():
+            ns = DBNamespace(db, name, owner_user, owner_role, description)
+            ns.Creator = creator
+            ns.CreatedTimestamp = created_timestamp
+            yield ns
+
+    def owners(self, directly=False):
+        if self.OwnerUser is not None:
+            return [self.OwnerUser]
+        elif not directly and self.OwnerRole is not None:
+            r = self.OwnerRole
+            if isinstance(r, str):
+                r = DBRole(self.DB, r)
+            return r.members
+        else:
+            return []
+
+    def owned_by_user(self, user, directly=False):
+        if isinstance(user, DBUser):   user = user.Username
+        return user in self.owners(directly)
         
+    def owned_by_role(self, role):
+        if isinstance(role, DBRole):   role = role.name
+        return self.OwnerRole == role
+
     def file_count(self):
         c = self.DB.cursor()
         c.execute("""select count(*) from files where namespace=%s""", (self.Name,))
@@ -1426,90 +1578,85 @@ class DBNamespace(object):
         tup = c.fetchone()
         if not tup: return 0
         else:       return tup[0]
-        
 
 class DBRole(object):
 
-    def __init__(self, db, name, description, users=[]):
+    def __init__(self, db, name, description=None, users=[]):
         self.Name = name
         self.Description = description
         self.DB = db
-        self.Usernames = set(users)          # set of text unsernames
-        for u in users:
-            if isinstance(u, DBUser):
-                u = u.Username
-            self.Usernames.add(u)
             
     def __str__(self):
-        return "[DBRole %s %s %s]" % (self.Name, self.Description, ",".join(sorted(list(self.Usernames))))
+        return "[DBRole %s %s]" % (self.Name, self.Description)
         
     __repr__ = __str__
+
+    @property
+    def members(self):
+        return _DBManyToMany(self.DB, "users_roles", "username", role_name=self.Name)
         
     def save(self, do_commit=True):
         c = self.DB.cursor()
-        usernames = sorted(list(self.Usernames))
         c.execute("""
-            insert into roles(name, description, users) values(%s, %s, %s)
+            insert into roles(name, description) values(%s, %s)
                 on conflict(name) 
-                    do update set description=%s, users=%s
+                    do update set description=%s
             """,
-            (self.Name, self.Description, usernames, self.Description, usernames))
+            (self.Name, self.Description, self.Description))
         if do_commit:   c.execute("commit")
         return self
         
     @staticmethod
     def get(db, name):
         c = db.cursor()
-        c.execute("""select r.name, r.description, array(select ur.username from users_roles ur where ur.role_name=r.name)
+        c.execute("""select r.description
                         from roles r
                         where r.name=%s
         """, (name,))
         tup = c.fetchone()
         if not tup: return None
-        _, desc, users = tup
-        return DBRole(db, name, desc, sorted(users))
+        (desc,) = tup
+        return DBRole(db, name, desc)
         
     @staticmethod 
     def list(db, user=None):
         c = db.cursor()
-        
+        if isinstance(user, DBUser):    user = user.Username
         if user:
-            c.execute("""select r.name, r.description, array(select ur1.username from users_roles ur1 where ur1.role_name=r.name) 
+            c.execute("""select r.name, r.description
                         from roles r
                             inner join users_roles ur on ur.role_name=r.name
                     where ur.username = %s
                     order by r.name
             """, (user,))
         else:
-            c.execute("""select r.name, r.description, array(select ur.username from users_roles ur where ur.role_name=r.name)
+            c.execute("""select r.name, r.description
                             from roles r
                             order by r.name""")
         
-        out = [DBRole(db, name, description, users) for  name, description, users in fetch_generator(c)]
+        out = [DBRole(db, name, description) for  name, description in fetch_generator(c)]
         #print("DBRole.list:", out)
         return out
         
+    def add_member(self, user):
+        self.members.add(user)
+        return self
+        
+    def remove_member(self, user):
+        self.members.remove(user)
+        return self
+        
+    def set_members(self, users):
+        self.members.set(users)
+        return self
+        
     def __contains__(self, user):
-        if user is None:    return False
         if isinstance(user, DBUser):
             user = user.Username
-        #print("__contains__:", self.Usernames)
-        return user in self.Usernames
-
-    def add_user(self, user):
-        if isinstance(user, DBUser):
-            username = user.Username
-        else:
-            username = user
-        self.Usernames.add(username)
+        return user in self.members
         
-    def remove_user(self, user):
-        if isinstance(user, DBUser):
-            username = user.Username
-        else:
-            username = user
-        if username in self.Usernames:
-            self.Usernames.remove(username)
+    def __iter__(self):
+        return self.members.__iter__()
             
 class DBParamDefinition(object):
     

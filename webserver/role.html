@@ -4,9 +4,9 @@
 	{% if create %}
 		Create role
 	{% elif edit %}
-		Edit role {{role.Name}}
+		Edit role {{role.Name}} {% if role.Description %}({{role.Description}}){% endif %}
     {% else %}
-    
+        Role {{role.Name}} {% if role.Description %}({{role.Description}}){% endif %}
 	{% endif %}
 {% endblock %}
 
@@ -32,9 +32,9 @@
 		<th>Description</th>
 		<td>
 			{% if create %}
-				<input type="text" name="description"/>
+				<input type="text"  size=80 name="description"/>
 			{% elif edit %}
-				<input type="text" name="description" value="{{role.Description}}"/>
+				<input type="text"  size=80 name="description" value="{{role.Description}}"/>
             {% else %}
                 {{role.Description}}
 			{% endif %}
@@ -46,7 +46,8 @@
             {% else %}Users
             {% endif %}
         </th>
-		<td><script type="text/javascript">
+		<td>
+            <script type="text/javascript">
                 var checkboxes=[];
             </script>
             {% if create %}
@@ -58,7 +59,8 @@
             {% elif edit %}
                 <input type="checkbox" onchange="javascript:toggle_all(this)"/>(all)<br/>
                 {% for u in all_users %}
-                    <input type="checkbox" name="member:{{u.Username}}" id="member:{{u.Username}}" {% if u.Username in role %}checked="checked"{% endif %}/>{{u.Username}}&nbsp;({{u.Name}})<br/>
+                    <input type="checkbox" name="member:{{u.Username}}" id="member:{{u.Username}}" {% if u.Username in role %}checked="checked"{% endif %}/>{{u.Username}}&nbsp;
+                        {%- if u.Name -%}({{u.Name}}){%- endif -%}&nbsp;&nbsp;
                     <script type="text/javascript">checkboxes.push(document.getElementById("member:{{u.Username}}"));</script>
                 {% endfor %}
             {% else %}

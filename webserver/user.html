@@ -88,13 +88,14 @@
             {% elif mode == "edit" %}
                 {% if admin %}
                     {% for r in all_roles %}
-                        <input type="checkbox" name="member:{{r.Name}}" {% if user in r %}checked="checked"{% endif %}/>{{r.Name}}&nbsp;({{r.Description}})<br/>
+                        <input type="checkbox" name="member:{{r.Name}}" 
+                            {% if r.Name in role_set %}checked="checked"{% endif %}/>{{r.Name}}&nbsp;({{r.Description}})<br/>
                     {% endfor %}
                 {% else %}
-                    {% for r in user.roles() %}{{r.Name}}&nbsp;({{r.Description}})<br/>{% endfor %}
+                    {% for r in roles %}{{r.Name}}&nbsp;({{r.Description}})<br/>{% endfor %}
                 {% endif %}
             {% else %}
-                {% for r in user.roles() %}{{r.Name}}&nbsp;({{r.Description}})<br/>{% endfor %}
+                {% for r in roles %}{{r.Name}}&nbsp;({{r.Description}})<br/>{% endfor %}
             {% endif %}
 		</td>
 	</tr>

@@ -10,13 +10,17 @@
 	<tr>
 		<th>Name</th>
 		<th>Description</th>
+        <th>Creator</th>
+        <th>Created at</th>
 		<th>Users</th>
 	</tr>
 	{% for r in roles %}
 		<tr>
 				<td><a href="./role?name={{r.Name}}">{{r.Name}}</a></td>
 				<td>{{r.Description}}</td>
-				<td>{% for u in r.Usernames %}<a href="./user?username={{u}}">{{u}}</a> {% endfor %}</td>
+				<td>{{r.Creator}}</td>
+				<td>{{r.CteatedTimestamp}}</td>
+				<td>{% for u in r %}<a href="./user?username={{u}}">{{u}}</a> {% endfor %}</td>
 	    </tr>
 	{% endfor %}
 </table>

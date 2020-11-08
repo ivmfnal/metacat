@@ -13,6 +13,21 @@ drop table if exists
     ,namespaces
 ;
 
+drop view if exists file_provenance, files_with_provenance;
+
+create view file_provenance as
+    select f.id, 
+        array(select parent_id from parent_child pc1 where pc1.child_id=f.id) as parents, 
+        array(select child_id from parent_child pc2 where pc2.parent_id=f.id) as children
+    from files f
+;    
+
+create view files_with_provenance as
+    select f.*, r.children, r.parents
+    from files f, file_provenance r
+    where f.id = r.id
+;
+
 create table authenticators
 (
     username    text    references users(username) on delete cascade,
@@ -27,12 +42,19 @@ create table authenticators
 create table namespaces
 (
     name                text        primary key,
-    owner               text        references  roles(name),
+    check( name != ''),
+
+    description         text,
+
+    owner_user          text        references  users(username),
+    owner_role          text        references  roles(name),
+    check ( (owner_user is null ) != (owner_role is null) ),
+
     creator        text references users(username),
     created_timestamp   timestamp with time zone        default now()
 );
 
-insert into namespaces(name, owner, creator)
+insert into namespaces(name, owner_role, creator)
 (
     select distinct namespace, 'admin_role', 'admin' from files
 );

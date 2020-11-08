@@ -230,7 +230,7 @@ class DatasetQuery(object):
     def __init__(self, tree):
         self.Tree = tree
 
-    def run(self, db, limit=None, with_meta=True, filters={}, default_namespace=None, debug=False):
+    def run(self, db, limit=None, with_meta=True, with_provenance=True, filters={}, default_namespace=None, debug=False):
         return _DatasetEvaluator(db, with_meta, limit).walk(self.Tree)
         
 class FileQuery(object):
@@ -278,7 +278,7 @@ class FileQuery(object):
             self.Optimized = optimized
         return self.Optimized
 
-    def run(self, db, filters={}, limit=None, with_meta=True, default_namespace=None, debug=False):
+    def run(self, db, filters={}, limit=None, with_meta=True, with_provenance=True, default_namespace=None, debug=False):
         #print("Query.run: DefaultNamespace:", self.DefaultNamespace)
         
         #print("assemble()...")
@@ -299,7 +299,7 @@ class FileQuery(object):
         #out = _FileEvaluator(db, filters, with_meta, None).walk(optimized)
         #print ("run: out:", out)
         #print("FileQuery: with_meta:", with_meta)
-        out = SQLConverter(db, filters, with_meta, None, debug=debug).convert(optimized)
+        out = SQLConverter(db, filters, with_meta, with_provenance, None, debug=debug).convert(optimized)
 
         return out
 

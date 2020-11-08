@@ -1,6 +1,10 @@
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
+
+import webpie
+print("webpie imported from:", webpie.__file__)
+
 import psycopg2, json, time, secrets, traceback, hashlib, pprint
-from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, parse_name
+from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, parse_name, AlreadyExistsError, IntegrityError
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
 
@@ -133,6 +137,14 @@ class GUIHandler(BaseHandler):
 
     def jinja_globals(self):
         return {"GLOBAL_User":self.authenticated_user()}
+        
+    def messages(self, args):
+        unquoted = {}
+        for k in ("error", "message"):
+            m = args.get(k)
+            if m:
+                unquoted[k] = unquote_plus(m)
+        return unquoted
         
     def index(self, request, relpath, **args):
         return self.redirect("./datasets")
@@ -293,7 +305,7 @@ class GUIHandler(BaseHandler):
                         ns = DBNamespace.get(db, dataset_namespace)
                         if ns is None:
                             error = "Namespace is not found"
-                        elif not user in ns.Owner:
+                        elif not ns.owned_by_user(user):
                             error = "User not authorized to access the namespace %s" % (dataset_namespace,)
                         else:
                             ds = DBDataset(db, dataset_namespace, dataset_name)
@@ -401,7 +413,11 @@ class GUIHandler(BaseHandler):
         user = DBUser.get(db, username)
         me = self.authenticated_user()
         all_roles = DBRole.list(db)
-        return self.render_to_response("user.html", all_roles=all_roles, user=user, 
+        role_set = set(user.roles)
+        #print("role_set:", role_set)
+        roles = (DBRole.get(db, r) for r in role_set)
+        #print("user: roles:", list(roles))
+        return self.render_to_response("user.html", all_roles=all_roles, user=user, roles=roles, role_set=role_set, 
             error = unquote_plus(error), message=unquote_plus(message),
             mode = "edit" if (me.is_admin() or me.Username==username) else "view", 
             admin=me.is_admin())
@@ -441,11 +457,9 @@ class GUIHandler(BaseHandler):
                         
                 u.set_password(request.POST["password1"])
                     
+            u.save()
             if me.is_admin():
                 # update roles
-                all_roles = {r.Name:r for r in DBRole.list(db)}
-                old_roles = set(r.Name for r in DBRole.list(db, u))
-                #print("old roles:", old_roles)
                 new_roles = set()
                 for k, v in request.POST.items():
                     #print("POST:", k, v)
@@ -453,24 +467,17 @@ class GUIHandler(BaseHandler):
                         r = k[len("member:"):]
                         if v == "on":
                             new_roles.add(r)
-                for rn in old_roles - new_roles:
-                    r = all_roles[rn]
-                    r.remove_user(u)
-                    #print("removing %s from %s" % (u.Username, r.Name))
-                    r.save()
-                for rn in new_roles - old_roles:
-                    r = all_roles[rn]
-                    r.add_user(u)
-                    r.save()
-                
-            u.save()
+                u.roles.set(new_roles)
                                         
         self.redirect(f"./user?username={username}&message="+quote_plus("User updated"))
-        
+#
+# --- namespaces
+#
+
     def namespaces(self, request, relpath, **args):
         db = self.App.connect()
         namespaces = DBNamespace.list(db)
-        return self.render_to_response("namespaces.html", namespaces=namespaces)
+        return self.render_to_response("namespaces.html", namespaces=namespaces, **self.messages(args))
         
     def namespace(self, request, relpath, name=None, **args):
         db = self.App.connect()
@@ -478,12 +485,13 @@ class GUIHandler(BaseHandler):
         roles = []
         edit = False
         me = self.authenticated_user()
+        admin = False
         if me is not None:
             admin = me.is_admin()
-            edit = me in ns.Owner or admin
-            roles = list(DBRole.list(db) if admin else me.roles())
+            edit = admin or ns.owned_by_user(me)
+            roles = DBRole.list(db) if admin else [DBRole.get(db, r) for r in me.roles]
         #print("namespace: roles", roles)
-        return self.render_to_response("namespace.html", namespace=ns, edit=edit, create=False, roles=roles)
+        return self.render_to_response("namespace.html", user=me, namespace=ns, edit=edit, create=False, roles=roles, admin=admin, **self.messages(args))
         
     def create_namespace(self, request, relpath, error="", **args):
         db = self.App.connect()
@@ -491,35 +499,59 @@ class GUIHandler(BaseHandler):
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/create_namespace")
         admin = me.is_admin()
-        roles = DBRole.list(db) if admin else me.roles()
-        return self.render_to_response("namespace.html", roles=roles, create=True, edit=False, error=unquote_plus(error))
+        roles = DBRole.list(db) if admin else [DBRole.get(db, r) for r in me.roles]
+        return self.render_to_response("namespace.html", user=me, roles=roles, create=True, edit=False, error=unquote_plus(error))
         
     def save_namespace(self, request, relpath, **args):
+        print("save_namespace")
         db = self.App.connect()
         me = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/namespaces")
-        if not me.is_admin():
-            self.redirect("./namespaces?error=%s" % (quote_plus("Not authorized to modify roles")))
+            
+        admin = me.is_admin()
+        print("save_namespace: POST:", list(request.POST.items()))
         name = request.POST["name"]
-        role = request.POST.get("role")
-        if role is not None:
-            role = DBRole.get(db, role)
+        print("save_namespace: POST['name']:", name)
+        description = request.POST["description"]
+        create = request.POST["create"] == "yes"
+
         ns = DBNamespace.get(db, name)
+        if ns is None and not create:
+            self.redirect("./namespaces?error=%s" % (quote_plus("Namespace not found"),))
+        elif ns is not None and create:
+            self.redirect("./namespace?name=%s&error=%s" % (name, quote_plus("Namespace already exists")))            
+
+        owner_role = owner_user = None
+        owner = request.POST.get("owner", "")
+        print("save_namespace: owner:", owner)
+        if owner.startswith("u:"):  owner_user = owner[2:]
+        elif owner.startswith("r:"):  owner_role = owner[2:]
+
         if ns is None:
-            assert role is not None
-            ns = DBNamespace(db, name, role)
-            ns.save()
-        elif role is not None:
-            ns.Owner = role
-            ns.save()
+            # create new
+            if not admin:
+                if owner_user and owner_user != me.Username or \
+                    owner_role and not owner_role in me.roles:
+                        self.redirect("./namespaces?error=%s" % (quote_plus("Not authorized"),))                    
+            assert (owner_user is None) != (owner_role is None)
+            ns = DBNamespace(db, name, owner_role=owner_role, owner_user=owner_user, description=description)
+        else:
+            if not admin and not ns.owned_by_user(me):
+                self.redirect("./namespaces?error=%s" % (quote_plus("Not authorized"),))
+            ns.Description = description
+            if admin:
+                assert (owner_user is None) != (owner_role is None)
+                ns.OwnerUser = owner_user
+                ns.OwnerRole = owner_role
+        ns.save()
         self.redirect("./namespaces")
         
     def datasets(self, request, relpath, **args):
         db = self.App.connect()
         datasets = DBDataset.list(db)
         datasets = sorted(list(datasets), key=lambda x: (x.Namespace, x.Name))
-        return self.render_to_response("datasets.html", datasets=datasets)
+        return self.render_to_response("datasets.html", datasets=datasets, **self.messages(args))
 
     def dataset_files(self, request, relpath, dataset=None, with_meta="no"):
         with_meta = with_meta == "yes"
@@ -535,7 +567,7 @@ class GUIHandler(BaseHandler):
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/create_dataset")
         admin = user.is_admin()
         db = self.App.connect()
-        namespaces = list(ns for ns in DBNamespace.list(db) if admin or (user in ns.Owner))
+        namespaces = list(DBNamespace.list(db, owned_by_user=user if not admin else None))
         #print("create_dataset: amdin:", admin, "   namespaces:", namespaces)
         if not namespaces:
             self.redirect("./create_namespace?error=%s" % (quote_plus("You do not own any namespace. Create one first"),))
@@ -560,10 +592,12 @@ class GUIHandler(BaseHandler):
         edit = False
         if user is not None:
             ns = DBNamespace.get(db, name=dataset.Namespace)
-            edit = ns.Owner == user
-        return self.render_to_response("dataset.html", dataset=dataset, files=files, nfiles=nfiles, attr_names=attr_names, edit=edit, create=False)
+            edit = ns.owned_by_user(user)
+        return self.render_to_response("dataset.html", dataset=dataset, files=files, nfiles=nfiles, attr_names=attr_names, edit=edit, create=False,
+            **self.messages(args))
         
     def save_dataset(self, request, relpath, **args):
+        #print("save_dataset:...")
         db = self.App.connect()
         user = self.authenticated_user()
         if not user:
@@ -572,7 +606,7 @@ class GUIHandler(BaseHandler):
         namespace = request.POST["namespace"]
         if not admin:
             ns = DBNamespace.get(db, namespace)
-            if not user in ns.Owner:
+            if not ns.owned_by_user(user):
                 self.redirect("./datasets?error=%s" % (quote_plus(f"No permission to modify namespace {namespace}"),))
 
         if request.POST["create"] == "yes":
@@ -586,25 +620,30 @@ class GUIHandler(BaseHandler):
         ds.save()
         self.redirect("./datasets")
         
-    def roles(self, request, relpath, **args):
+#
+# --- roles
+#
+        
+    def roles(self, request, relpath, error="", **args):
         me = self.authenticated_user()
         if me is None:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/roles")
         db = self.App.connect()
         roles = DBRole.list(db)
         admin = me.is_admin()
-        return self.render_to_response("roles.html", roles=roles, edit=admin, create=admin)
+        return self.render_to_response("roles.html", roles=roles, edit=admin, create=admin, error=unquote_plus(error))
         
-    def role(self, request, relpath, name=None, **args):
+    def role(self, request, relpath, name=None, message="", **args):
         me = self.authenticated_user()
         if me is None:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/roles")
         admin = me.is_admin()
         db = self.App.connect()
         role = DBRole.get(db, name)
-        all_users = list(DBUser.list(db))
+        all_users = sorted(list(DBUser.list(db)), key=lambda u: u.Username)
         #print("all_users:", all_users)
-        return self.render_to_response("role.html", all_users=all_users, role=role, edit=admin, create=False)
+        return self.render_to_response("role.html", all_users=all_users, role=role, edit=admin or me in role, create=False,
+            message = unquote_plus(message))
 
     def create_role(self, request, relpath, **args):
         me = self.authenticated_user()
@@ -613,17 +652,23 @@ class GUIHandler(BaseHandler):
         if not me.is_admin():
             self.redirect("./roles")
         db = self.App.connect()
-        return self.render_to_response("role.html", all_users=list(DBUser.list(db)), edit=False, create=True)
+        all_users = list(DBUser.list(db))
+        return self.render_to_response("role.html", all_users=all_users, edit=False, create=True)
         
     def save_role(self, request, relpath, **args):
         me = self.authenticated_user()
-        if not me.is_admin():
-            self.redirect("./roles")
+        if me is None:
+            self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/roles")
         db = self.App.connect()
         rname = request.POST["name"]
         role = DBRole.get(db, rname)
-        if role is None:
+        if role is None:    # create
+            if not me.is_admin():
+                self.redirect("./roles?error=" + quote_plus("Unauthorized to create roles"))            
             role = DBRole(db, rname, "")
+        else:
+            if not me.is_admin() and not me in role:
+                self.redirect("./roles?error=" + quote_plus("Unauthorized to edit role"))            
         role.Description = request.POST["description"]
         members = set()
         for k in request.POST.keys():
@@ -631,34 +676,25 @@ class GUIHandler(BaseHandler):
                 username = k.split(":", 1)[-1]
                 members.add(username)
         #print("save_role: members:", members)
-        role.Usernames = sorted(list(members))
         role.save()
-        self.redirect("./role?name=%s" % (rname,))
+        role.set_members(members)
+        self.redirect("./role?name=%s&message=Role+saved" % (rname,))
         
 class DataHandler(BaseHandler):
     
     def __init__(self, request, app):
         BaseHandler.__init__(self, request, app)
-        self.NamespaceCache = {}                # namespace -> True/False
+        self.NamespaceAuthorizations = {}                # namespace -> True/False
         
-    def _cached_namespace(self, db, namespace):
-        ns = self.NamespaceCache.get(namespace)
-        if ns is None:
+    def _namespace_authorized(self, db, namespace, user):
+        authorized = self.NamespaceAuthorizations.get(namespace)
+        if authorized is None:
             ns = DBNamespace.get(db, namespace)
             if ns is None:
                 raise KeyError("Namespace %s does not exist")
-            self.NamespaceCache[namespace] = ns
-        return ns
-        
-    def _namespace_authorized(self, db, user, namespace):
-        return user in self._cached_namespace(db, namespace).Owner
-        
-    def _namespace_exists(self, db, namespace):
-        try:    
-            self._cached_namespace(db, namespace)
-            return True
-        except KeyError:
-            return False
+            authorized = ns.owned_by_user(user)
+            self.NamespaceAuthorizations[namespace] = authorized
+        return authorized
         
     def json_generator(self, lst):
         from collections.abc import Iterable
@@ -762,7 +798,7 @@ class DataHandler(BaseHandler):
         db = self.App.connect()
         namespace, name = dataset.split(":",1)
         namespace = DBNamespace.get(db, namespace)
-        if not user.is_admin() and not user in namespace.Owner:
+        if not user.is_admin() and not namespace.owned_by_user(user):
             return 403
         if DBDataset.get(db, namespace, name) is not None:
             return "Already exists", 409
@@ -770,7 +806,7 @@ class DataHandler(BaseHandler):
         if parent:
                 parent_namespace, parent_name = parent.split(":",1)
                 parent_ns = DBNamespace.get(db, parent_namespace)
-                if not user.is_admin() and not user in parent_ns.Owner:
+                if not user.is_admin() and not parent_ns.owned_by_user(user):
                         return 403
                 parent_ds = DBDataset.get(db, parent_namespace, parent_name)
                 if parent_ds is None:
@@ -819,7 +855,7 @@ class DataHandler(BaseHandler):
                 spec = file_item.get("name")
                 if not spec:
                     return "File id or namespace:name must be specified", 400
-                namespace, name = parse_name(spec, default_namespace)
+                namespace, name = parse_name(file_item["name"], file_item.get("namespace") or default_namespace)
                 if not namespace:
                     return "File namespace unspecified", 400
                 f = DBFile.get(db, name=name, namespace=namespace)
@@ -852,7 +888,8 @@ class DataHandler(BaseHandler):
         default_namespace = namespace
         user = self.authenticated_user()
         if user is None:
-            return 401
+            print("Unauthenticated user")
+            return "Unauthenticated user", 401
             
         if dataset is None:
             return "Dataset not specified", 400
@@ -861,7 +898,7 @@ class DataHandler(BaseHandler):
 
         ds_namespace, ds_name = parse_name(dataset, default_namespace)
         try:
-            if not self._namespace_authorized(db, user, ds_namespace):
+            if not self._namespace_authorized(db, ds_namespace, user):
                 return f"Permission to declare files in namespace {namespace} denied", 403
         except KeyError:
             return f"Namespace {ds_namespace} does not exist", 404
@@ -874,32 +911,28 @@ class DataHandler(BaseHandler):
         if not file_list:
                 return "Empty file list", 400
         files = []
+        
         for file_item in file_list:
             name = file_item.get("name")
             fid = file_item.get("fid")
             if name is None:
                 return "Missing file namespace/name", 400
-            namespace, name = parse_name(file_item["name"], default_namespace)
-            if DBFile.exists(db, namespace=namespace, name=name):
-                return "File %s:%s already exists" % (namespace, name), 400
-            if fid is not None and DBFile.exists(db, fid=fid):
-                return "File with fid %s already exists" % (fid,), 400
+            namespace, name = parse_name(file_item["name"], file_item.get("namespace") or default_namespace)
                 
             try:
-                if not self._namespace_authorized(db, user, namespace):
+                if not self._namespace_authorized(db, namespace, user):
                     return f"Permission to declare files to namespace {namespace} denied", 403
             except KeyError:
                 return f"Namespace {namespace} does not exist", 404
             
             f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=file_item.get("metadata"))
-            if "checksums" in file_item:
-                f.Checksums = file_item["checksums"]
-            f.create(do_commit=False)
-            
-            parents = file_item.get("parents")
-            if parents:
-                f.add_parents(parents, do_commit=False)
+            f.Parents = file_item.get("parents")
+            f.Checksums = file_item.get("checksums")
             files.append(f)
+            
+        try:    results = DBFile.create_many(db, files)
+        except IntegrityError as e:
+            return f"Integrity error: {e}", 404
             
         ds.add_files(files, do_commit=True)
         
@@ -929,7 +962,7 @@ class DataHandler(BaseHandler):
         for f in file_set:
             namespace = f.Namespace
             try:
-                if not self._namespace_authorized(db, user, namespace):
+                if not self._namespace_authorized(db, namespace, user):
                     return f"Permission to update files in namespace {namespace} denied", 403
             except KeyError:
                 return f"Namespace {namespace} does not exist", 404
@@ -1007,7 +1040,7 @@ class DataHandler(BaseHandler):
                 return "File %s not found" % (fid or spec,), 404
             namespace = f.Namespace
             try:
-                if not self._namespace_authorized(db, user, namespace):
+                if not self._namespace_authorized(db, namespace, user):
                     return f"Permission to update files in namespace {namespace} denied", 403
             except KeyError:
                 return f"Namespace {namespace} does not exist", 404
@@ -1052,7 +1085,7 @@ class DataHandler(BaseHandler):
         meta = json.loads(request.body)
 
         try:
-            if not self._namespace_authorized(db, user, namespace):
+            if not self._namespace_authorized(db, namespace, user):
                 return f"Permission to update files in namespace {namespace} denied", 403
         except KeyError:
             return f"Namespace {namespace} does not exist", 404
@@ -1086,9 +1119,11 @@ class DataHandler(BaseHandler):
             f = DBFile.get(db, namespace=namespace, name=name)
         return f.to_json(with_metadata=with_metadata, with_relations=with_relations), "text/json"
             
-    def query(self, request, relpath, query=None, namespace=None, with_meta="no", 
+    def query(self, request, relpath, query=None, namespace=None, 
+                    with_meta="no", with_provenance="no",
                     add_to=None, save_as=None, expiration=None, **args):
         with_meta = with_meta == "yes"
+        with_provenance = with_provenance == "yes"
         namespace = namespace or self.App.DefaultNamespace
         if query is not None:
             query_text = unquote_plus(query)
@@ -1115,7 +1150,7 @@ class DataHandler(BaseHandler):
             if ns is None:
                 return f"Namespace {ds_namespace} does not exist", 404
 
-            if not user in ns.Owner:
+            if not ns.owned_by_user(user):
                 return f"Permission to create a dataset in the namespace {ds_namespace} denied", 403
 
             if DBDataset.exists(db, ds_namespace, ds_name):
@@ -1133,7 +1168,7 @@ class DataHandler(BaseHandler):
             if not DBDataset.exists(db, add_namespace, add_name):
                 return f"Dataset {add_namespace}:{add_name} does not exist", 404
 
-            if not user in ns.Owner:
+            if not ns.owned_by_user(user):
                 return f"Permission to add files to dataset in the namespace {add_namespace} denied", 403
 
         t0 = time.time()
@@ -1142,13 +1177,24 @@ class DataHandler(BaseHandler):
             
         query = MQLQuery.parse(query_text)
         query_type = query.Type
-        results = query.run(db, filters=self.App.filters(), with_meta=with_meta, default_namespace=namespace or None)
+        results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance, default_namespace=namespace or None)
 
         if not results:
             return "[]", "text/json"
 
         if query_type == "file":
-            
+
+            def format_file_data(f, with_meta, with_provenance):
+                data = { 
+                    "name":"%s:%s" % (f.Namespace, f.Name),
+                    "fid":f.FID,
+                }
+                if with_meta:
+                    data["metadata"] = f.Metadata or {}
+                if with_provenance:
+                    data["parents"] = f.Parents
+                    data["children"] = f.Children
+                
             if save_as:
                 results = list(results)
                 ds = DBDataset(db, ds_namespace, ds_name)
@@ -1160,21 +1206,8 @@ class DataHandler(BaseHandler):
                 ds = DBDataset(db, add_namespace, add_name)
                 ds.add_files(results)      
             
-            if with_meta:
-                data = (
-                    { 
-                        "name":"%s:%s" % (f.Namespace, f.Name),
-                        "fid":f.FID,
-                        "metadata": f.Metadata or {}
-                    } for f in results 
-                )
-            else:
-                data = (
-                    { 
-                        "name":"%s:%s" % (f.Namespace, f.Name),
-                        "fid":f.FID
-                    } for f in results 
-                )
+            data = (f.to_jsonable() for f in results)
+
         else:
             data = (
                     { 
@@ -1302,9 +1335,14 @@ class App(WPApp):
 
     def user_from_request(self, request):
         encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
-        if not encoded: return None
+        if not encoded: 
+            print("App: no token:", list(request.headers.items()) )
+            
+            return None
         try:    token = SignedToken.decode(encoded, self.TokenSecret, verify_times=True)
-        except: return None             # invalid token
+        except:
+            print("App: token error:", traceback.format_exc()) 
+            return None             # invalid token
         return token.Payload.get("user")
 
     def encoded_token_from_request(self, request):
@@ -1376,7 +1414,11 @@ application.initJinjaEnvironment(
 port = int(config.get("port", 8080))
 
 if __name__ == "__main__":
-    application.run_server(port)
+    from webpie import HTTPServer
+    import sys
+    server = HTTPServer(port, application, debug=sys.stdout)
+    server.run()
+    #application.run_server(port)
 else:
     # running under uwsgi
     pass

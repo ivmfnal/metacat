@@ -32,9 +32,7 @@ class HTTPClient(object):
     def get_json(self, uri_suffix):
         url = "%s/%s" % (self.ServerURL, uri_suffix)
         headers = {"X-Authentication-Token": self.Token.encode() if self.Token is not None else ""}
-        response = requests.get(url, 
-                headers = {"X-Authentication-Token": self.Token.encode()}
-        )
+        response = requests.get(url, headers =headers)
         if response.status_code != 200:
             raise ServerError(url, response.status_code, response.text)
         data = json.loads(response.text)
@@ -52,10 +50,10 @@ class HTTPClient(object):
             
         url = "%s/%s" % (self.ServerURL, uri_suffix)
         
-        response = requests.post(url, 
-                data = data,
-                headers = {"X-Authentication-Token": self.Token.encode() if self.Token is not None else ""}
-        )
+        headers = {"X-Authentication-Token": self.Token.encode() if self.Token is not None else ""}
+        #print("HTTPClient.post_json: url:", url)
+        #print("HTTPClient.post_json: headers:", headers)
+        response = requests.post(url, data = data, headers = headers)
         if response.status_code != 200:
             raise ServerError(url, response.status_code, response.text)
         data = json.loads(response.text)
@@ -140,8 +138,8 @@ class MetaCatClient(HTTPClient):
             url += f"&fid={fid}"        
         return self.get_json(url)
 
-    def run_query(self, query, namespace=None, with_metadata=False, save_as=None):
-        url = "data/query?with_meta=%s" % ("yes" if with_metadata else "no",)
+    def run_query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None):
+        url = "data/query?with_meta=%s&with_provenance=%s" % ("yes" if with_metadata else "no","yes" if with_provenance else "no")
         if namespace:
             url += f"&namespace={namespace}"
         if save_as:

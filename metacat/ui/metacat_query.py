@@ -19,20 +19,22 @@ Usage:
                                               overrides --summary
         -m|--metadata=all                   - print all metadata fields
                                               overrides --summary
+        -P|--with-provenance                - include provenance information
         -N|--namespace=<default namespace>  - default namespace for the query
         -S|--save-as=<namespace>:<name>     - save results as a new datset
 """
 
 def do_query(config, server_url, args):
-    opts, args = getopt.getopt(args, "jism:N:pf:S:l", ["line","json", "ids","summary","metadata=","namespace=","pretty",
-                "save-as="])
+    opts, args = getopt.getopt(args, "jism:N:pf:S:lP", ["line","json", "ids","summary","metadata=","namespace=","pretty",
+                "with-provenance","save-as="])
     opts = dict(opts)
 
     #print("opts:", opts,"    args:", args)
     
     namespace = opts.get("-N") or opts.get("--namespace")
-    with_meta = not "--summary" in opts and not "-s" in opts
-    with_meta = with_meta or "-m" in opts or "--metadata" in opts
+    #with_meta = not "--summary" in opts and not "-s" in opts
+    with_meta = "-m" in opts or "--metadata" in opts
+    with_provenance = "-P" in opts or "--with-provenance" in opts
     keys = opts.get("-m") or opts.get("--metadata") or []
     if keys and keys != "all":    keys = keys.split(",")
     save_as = opts.get("-S") or opts.get("--saves-as")
@@ -48,7 +50,9 @@ def do_query(config, server_url, args):
             sys.exit(2)
         query_text = to_str(open(query_file, "r").read())
         
-    results = client.run_query(query_text, namespace=namespace, with_metadata = with_meta, save_as=save_as)
+    print("with_meta=", with_meta)
+        
+    results = client.run_query(query_text, namespace=namespace, with_metadata = with_meta, save_as=save_as, with_provenance=with_provenance)
 
     if "--json" in opts or "-j" in opts:
         print(json.dumps(results, sort_keys=True, indent=4, separators=(',', ': ')))
