@@ -433,22 +433,6 @@ class _Converter(Transformer):
         #print("Converter.qualified_name: returning: %s" % (out.pretty(),))
         return out
         
-    def ___parents_of(self, args):
-        return self.parentage(args, "parents_of")
-        
-    def ___children_of(self, args):
-        return self.parentage(args, "children_of")
-        
-    def parentage(self, args, relationship):
-        assert len(args) == 1
-        c = args[0]
-        if c.T == "basic_file_query":
-            q = c["query"]
-            if q.Relationship is None:
-                q.Relationship = relationship
-                return c
-        return Node(relationship, args)
-
     def filter(self, args):
         name, params, queries = args
         queries = queries.C
@@ -634,33 +618,6 @@ class _Assembler(Ascender):
         #print("_Assembler.named_query: returning:", tree.pretty())
         return tree
 
-class _ProvenancePusher(Descender):
-
-    @pass_node
-    def parents_of(self, node, _):
-        return self.parentage(node, "parents_of")
-        
-    @pass_node
-    def children_of(self, node, _):
-        return self.parentage(node, "children_of")
-        
-    def parentage(self, node, relationship):
-        children = node.C
-        assert len(children) == 1
-        child = children[0]
-        if isinstance(child, Node):
-            if child.T == "union":
-                n = Node("union", [self.walk(Node(relationship, [cc])) for cc in child.C])
-                return self.visit_children(n, None)
-            elif child.T == "basic_file_query":
-                bfq = child["query"]
-                #print(f"_ProvenancePusher.parentage({relationship}): bfq:", bfq)
-                if bfq.Relationship is None:
-                    bfq.Relationship = relationship
-                    return child
-                else:
-                    return None         # can not apply parentage: return same BFQ node without changes
-
 class _WithParamsApplier(Descender):
     
     # applies params from "with...", including default namespace
@@ -807,7 +764,7 @@ class _MetaExpPusher(Descender):
         if meta_exp is not None:    
             bfq = node["query"]
             assert isinstance(bfq, BasicFileQuery)
-            assert bfq.Relationship is None             # this will be added by ProvenancePusher, as the next step of the optimization
+            #assert bfq.Relationship is None             # this will be added by ProvenancePusher, as the next step of the optimization
             bfq.addWhere(meta_exp)
             #bfq.WithMeta = True
         return node

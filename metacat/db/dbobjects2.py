@@ -774,7 +774,7 @@ class MetaExpressionDNF(object):
                 else:
                     raise ValueError(f"Unrecognozed argument type={arg.T}")
 
-                parts.append(f"{table_name}.metadata ? '{aname}'")
+                #parts.append(f"{table_name}.metadata ? '{aname}'")
 
                     
                 # - query time slows down significantly if this is addded
@@ -1125,14 +1125,16 @@ class DBDataset(object):
             name_pattern = p["name"]
             wildcard = p["wildcard"]
             
-            base_query = (
-                f"""
-                    select namespace, name, {meta} from datasets where namespace='{namespace}' and name like '{name_pattern}'
-                """ if wildcard
-                else  f"""
-                    select namespace, name, {meta} from datasets where namespace='{namespace}' and name='{name_pattern}'
-                """
-            )
+            if wildcard:
+                base_query = f"""
+                        select namespace, name, {meta} from datasets where namespace='{namespace}' and name like '{name_pattern}'
+                    """
+            elif meta_where_clause:
+                base_query = f"""
+                                    select namespace, name, {meta} from datasets where namespace='{namespace}' and name='{name_pattern}'
+                                """
+            else:
+                base_query = f"select '{namespace}' as namespace, '{name_pattern}' as name, null as metadata"
             
             parts.append(base_query)
 

@@ -696,16 +696,23 @@ class DataHandler(BaseHandler):
             self.NamespaceAuthorizations[namespace] = authorized
         return authorized
         
-    def json_generator(self, lst):
+    def json_generator(self, lst, page_size=10000):
         from collections.abc import Iterable
         assert isinstance(lst, Iterable)
         yield "["
         first = True
+        n = 0
+        page = []
         for x in lst:
             j = json.dumps(x)
             if not first: j = ","+j
-            yield j
+            page.append(j)
+            if len(page) >= page_size:
+                yield "".join(page)
+                page = []
             first = False
+        if page:
+            yield "".join(page)
         yield "]"
         
     def json_chunks(self, lst, chunk=100000):
