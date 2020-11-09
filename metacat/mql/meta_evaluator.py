@@ -42,6 +42,13 @@ class MetaEvaluator(object):
                 try:    v = lst[inx]
                 except: return False
                 return v in vset
+            elif left.T == "array_length":
+                aname = left["name"]
+                if not aname in metadata:  return False
+                lst = metadata[aname]
+                if not isinstance(lst, list):
+                    return False
+                return len(lst) in vset
         elif op == "not_in_set":
             left, right = args
             vset = set(list(right))
@@ -65,6 +72,13 @@ class MetaEvaluator(object):
                 try:    v = lst[inx]
                 except: return False
                 return not v in vset
+            elif left.T == "array_length":
+                aname = left["name"]
+                if not aname in metadata:  return False
+                lst = metadata[aname]
+                if not isinstance(lst, list):
+                    return False
+                return not len(lst) in vset
         elif op == "in_range":
             left, right = args
             low, high = right["low"], right["high"]
@@ -94,6 +108,14 @@ class MetaEvaluator(object):
                 try:    v = lst[inx]
                 except: return False
                 return v >= low and v <= high                    
+            elif left.T == "array_length":
+                aname = left["name"]
+                if not aname in metadata:  return False
+                lst = metadata[aname]
+                if not isinstance(lst, list):
+                    return False
+                l = len(lst)
+                return l >= low and l <= high
         elif op == "not_in_range":
             left, right = args
             low, high = right["low"], right["high"]
@@ -123,6 +145,14 @@ class MetaEvaluator(object):
                 try:    v = lst[inx]
                 except: return False
                 return v < low or v > high                    
+            elif left.T == "array_length":
+                aname = left["name"]
+                if not aname in metadata:  return False
+                lst = metadata[aname]
+                if not isinstance(lst, list):
+                    return False
+                l = len(lst)
+                return l < low or l > high
         elif op == "cmp_op":
             cmp_op = meta_expression["op"]
             left, right = args
@@ -160,6 +190,15 @@ class MetaEvaluator(object):
                 try:    av = lst[inx]
                 except: return False
                 return  self.do_cmp_op(av, cmp_op, value)                
+            elif left.T == "array_length":
+                aname = left["name"]
+                lst = metadata.get(aname)
+                if lst is None:  return False
+                if not isinstance(lst, list):
+                    return False
+                l = len(lst)
+                result = self.do_cmp_op(l, cmp_op, value)  
+                return result
         raise ValueError("Invalid expression:\n"+meta_expression.pretty())
         
     __call__ = evaluate_meta_expression

@@ -1,16 +1,23 @@
 from .trees import Ascender, Node
-from metacat.db import DBFileSet, alias
+from metacat.db import DBFileSet, alias, limited, MetaExpressionDNF
 from .meta_evaluator import MetaEvaluator
 
 class SQLConverter(Ascender):
     
-    def __init__(self, db, filters, with_meta = True, with_provenance=False, limit=None, debug=False):
+    def __init__(self, db, filters, debug=False):
         self.DB = db
-        self.WithMeta = with_meta
-        self.Limit = limit
         self.Filters = filters
         self.Debug = debug
-        self.WithProvenance = with_provenance
+        
+    def columns(self, t, with_meta=True, with_provenance=True):
+        meta = f"{t}.metadata" if with_meta else "null as metadata"
+        if with_provenance:
+            parents = f"{t}.parents"
+            children = f"{t}.children"
+        else:
+            parents = "null as parents"
+            children = "null as children"
+        return f"{t}.id, {t}.namespace, {t}.name, {meta}, {parents}, {children}"
         
     def debug(self, *params, **args):
         parts = ["SQLConverter:"]+list(params)
@@ -30,30 +37,43 @@ class SQLConverter(Ascender):
             file_set = node["file_set"]
         return file_set
         
-    def meta_filter(self, node, query=None, meta_exp=None):
+    def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
         #print("meta_filter: args:", args)
-        evaluator = MetaEvaluator()
+        assert query.T in ("sql","file_set")        
         if meta_exp is not None:
-            out = (f for f in self.node_to_file_set(query)
-                    if evaluator(f.metadata(), meta_exp)
-            )
-            return Node("file_set", file_set = DBFileSet(self.DB, out))
+            if query.T == "sql":
+                t = alias("t")
+                dnf = MetaExpressionDNF(meta_exp)
+                where_sql = dnf.sql(t)
+                if not where_sql:
+                    return node
+                columns = self.columns(t, with_meta, with_provenance)
+                query_sql = query["sql"]
+                sql = f"""
+                    -- meta_filter {t}
+                        select {columns} 
+                        from (
+                            {query_sql}
+                        ) {t} where {where_sql} 
+                    -- end of meta_filter {t}
+                """
+                return Node("sql", sql=sql)
+            else:
+                evaluator = MetaEvaluator()
+                out = (f for f in self.node_to_file_set(query)
+                        if evaluator(f.metadata(), meta_exp)
+                )
+                return Node("file_set", file_set = DBFileSet(self.DB, out))
         else:
             return query
 
     def basic_file_query(self, node, *args, query=None):
-        #assert isinstance(query, BasicFileQuery)
-        #print("_FileEvaluator:basic_file_query: query:", query.pretty())
-        #print("FileEvaluator.basic_file_query: query.WithMeta:", query.WithMeta)
-        #return DBFileSet.from_basic_query(self.DB, query, self.WithMeta or query.WithMeta, self.Limit)
-        self.debug("basic_file_query: with_meta:", self.WithMeta)
-        sql = DBFileSet.sql_for_basic_query(query, self.WithMeta, self.WithProvenance, self.Limit)
+        sql = DBFileSet.sql_for_basic_query(query)
         self.debug("basic_file_query: sql: --------\n", sql, "\n--------")
         return Node("sql", sql=sql)
         
-    def file_list(self, node, specs=None):
-        self.debug("file_list: specs:", specs)
-        return Node("sql", sql=DBFileSet.sql_for_file_list(self.WithMeta, specs))
+    def file_list(self, node, specs=None, with_meta=False, with_provenance=False):
+        return Node("sql", sql=DBFileSet.sql_for_file_list(specs, with_meta, with_provenance))
     
     def union(self, node, *args):
         #print("Evaluator.union: args:", args)
@@ -76,7 +96,7 @@ class SQLConverter(Ascender):
             return DBFileSet.union(self.DB, [from_sql, from_file_sets])
 
 
-    def join(self, node, *args):
+    def join(self, node, *args, **kv):
         #print("Evaluator.union: args:", args)
         assert all(n.T in ("sql","file_set") for n in args)
         sqls = [n for n in args if n.T == "sql"]
@@ -93,7 +113,7 @@ class SQLConverter(Ascender):
             from_sql = DBFileSet.from_sql(self.DB, u_sql)
             Node("file_set", file_set = DBFileSet.join(self.DB, [from_sql, from_file_sets]))
 
-    def minus(self, node, *args):
+    def minus(self, node, *args, **kv):
         #print("Evaluator.union: args:", args)
         assert len(args) == 2
         assert all(n.T in ("sql","file_set") for n in args)
@@ -108,7 +128,41 @@ class SQLConverter(Ascender):
             right_set = right["file_set"] if right.T == "file_set" else DBFileSet.from_sql(self.DB, right["sql"])
             Node("file_set", file_set = left_set - right_set)
 
-    def parents_of(self, node, *args):
+    def parents_of(self, node, *args, with_meta=False, with_provenance=False):
+        assert len(args) == 1
+        arg = args[0]
+        assert arg.T in ("sql","file_set")
+        with_meta = node["with_meta"]
+        with_provenance = node["with_provenance"]
+        if arg.T == "sql":
+            arg_sql = arg["sql"]
+            p = alias("p")
+            c = alias("c")
+            pc = alias("pc")
+            columns = self.columns(p, with_meta, with_provenance)
+            if with_provenance:
+                new_sql = f"""
+                    -- parents of {p}
+                        select {columns}
+                        from files_with_provenance {p}
+                            inner join parent_child {pc} on {p}.id = {pc}.parent_id
+                            inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
+                    -- end of parents of {p}
+                """
+            else:
+                new_sql = f"""
+                    -- parents of {p}
+                        select {columns}
+                        from files {p}
+                            inner join parent_child {pc} on {p}.id = {pc}.parent_id
+                            inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
+                    -- end of parents of {p}
+                """
+            return Node("sql", sql=new_sql)
+        else:
+            return Node("file_set", file_set = arg["file_set"].parents(with_metadata=with_meta, with_provenance=with_provenance))
+
+    def children_of(self, node, *args, with_meta=False, with_provenance=False):
         assert len(args) == 1
         arg = args[0]
         assert arg.T in ("sql","file_set")
@@ -117,54 +171,29 @@ class SQLConverter(Ascender):
             p = alias("p")
             c = alias("c")
             pc = alias("pc")
-            meta = f"{p}.metadata" if self.WithMeta else "null"
-            if self.WithProvenance:
+            columns = self.columns(c, with_meta, with_provenance)
+            if with_provenance:
                 new_sql = f"""
-                    select {p}.id, {p}.namespace, {p}.name, {meta} as metadata, {p}.parents, {p}.children
-                    from files_with_provenance {p}
-                        inner join parent_child {pc} on {p}.id = {pc}.parent_id
-                        inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
+                    -- children of {c}
+                        select {columns}
+                        from files_with_provenance {c}
+                            inner join parent_child {pc} on {c}.id = {pc}.child_id
+                            inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
+                    -- end of children of {c}
                 """
             else:
                 new_sql = f"""
-                    select {p}.id, {p}.namespace, {p}.name, {meta} as metadata, null as parents, null as children
-                    from files {p}
-                        inner join parent_child {pc} on {p}.id = {pc}.parent_id
-                        inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
-                """
-            return Node("sql", sql=new_sql)
-        else:
-            return Node("file_set", file_set = arg["file_set"].parents(with_metadata=self.WithMeta))
-
-    def children_of(self, node, *args):
-        assert len(args) == 1
-        arg = args[0]
-        assert arg.T in ("sql","file_set")
-        if arg.T == "sql":
-            arg_sql = arg["sql"]
-            p = alias("p")
-            c = alias("c")
-            pc = alias("pc")
-            meta = f"{c}.metadata" if self.WithMeta else "null"
-
-            if self.WithProvenance:
-                new_sql = f"""
-                    select {c}.id, {c}.namespace, {c}.name, {meta} as metadata, {c}.parents, {c}.children
-                    from files_with_provenance {c}
-                        inner join parent_child {pc} on {c}.id = {pc}.child_id
-                        inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
-                """
-            else:
-                new_sql = f"""
-                    select {c}.id, {c}.namespace, {c}.name, {meta} as metadata, null as parents, null as children
-                    from files {c}
-                        inner join parent_child {pc} on {c}.id = {pc}.child_id
-                        inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
+                    -- children of {c}
+                        select {columns}
+                        from files {c}
+                            inner join parent_child {pc} on {c}.id = {pc}.child_id
+                            inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
+                    -- end of children of {c}
                 """
 
             return Node("sql", sql=new_sql)
         else:
-            return Node("file_set", file_set = arg["file_set"].children(with_metadata=self.WithMeta))
+            return Node("file_set", file_set = arg["file_set"].children(with_metadata=with_meta, with_provenance=with_provenance))
 
     def limit(self, node, arg, limit=None):
         if limit is None:
@@ -172,15 +201,18 @@ class SQLConverter(Ascender):
         if arg.T == "sql":
             sql = arg["sql"]
             tmp = alias()
+            columns = self.columns(tmp)
             new_sql = f"""
-                select id, namespace, name, metadata from
-                (
-                    {sql}
-                ) as {tmp} limit {limit}
+                -- limit {limit} {tmp}
+                    select {columns} 
+                    from (
+                        {sql}
+                    ) {tmp} limit {limit} 
+                -- end of limit {limit} {tmp}
             """
             return Node("sql", sql=new_sql)
         else:
-            return Node("file_set", file_set = limited(arg["file_set"]))
+            return Node("file_set", file_set = limited(arg["file_set"], limit))
 
     def filter(self, node, *queries, name=None, params=[]):
         #print("Evaluator.filter: inputs:", inputs)

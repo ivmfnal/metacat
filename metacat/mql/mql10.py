@@ -78,25 +78,16 @@ def _make_DNF(exp, op=None, exp1=None):
             
 class BasicFileQuery(object):
     
-    def __init__(self, dataset_selector, where=None, relationship=None):
-        #
-        # Encapsulates query like:
-        #   select files from datasets where wheres
-        # or, if relationship == "parent"
-        #   select parents of (files from datasets where wheres)
-        # or, if relationship == "children"
-        #   select children of (files from datasets where wheres)
-        #
-        
-        self.Relationship = relationship
+    def __init__(self, dataset_selector, where=None):
         self.DatasetSelector = dataset_selector
         self.Wheres = where 
         self.Limit = None
-        self.WithMeta = False       # this is set to True if the query has "where" clouse
+        self.WithMeta = False       
+        self.WithProvenanace = False
         
         
     def __str__(self):
-        return "BasicFileQuery(selector:%s, limit:%s, rel:%s, %s meta)" % (self.DatasetSelector, self.Limit, self.Relationship or "",
+        return "BasicFileQuery(selector:%s, limit:%s, %s meta)" % (self.DatasetSelector, self.Limit,
             "with" if self.WithMeta else "without")
         
     def _pretty(self, indent="", headline_indent=None):
@@ -171,58 +162,6 @@ class DatasetSelector(object):
             if evaluator(ds.Metadata, self.Having):
                 yield ds
         
-class _ParamsApplier(Descender):
-    
-    # applies params from "with...", including default namespace
-    
-    def file_list(self, node, params):
-        namespace = params.get("namespace")
-        if not namespace:
-            return node
-        new_specs = []
-        for s in node["specs"]:
-            parts = s.split(":",1)
-            if len(parts) == 2 and not parts[0]:
-                s = namespace + ":" + parts[1]
-            new_specs.append(s)
-        node["specs"] = new_specs
-
-    def basic_file_query(self, node, params):
-        bfq = node["query"]
-        assert isinstance(bfq, BasicFileQuery)
-        bfq.apply_params(params)
-        return node
-
-    def dataset_selector(self, node, params):
-        #print("_ParamsApplier.dataset_selector: applying params:", params)
-        selector = meta
-        assert isinstance(selector, DatasetSelector)
-        selector.apply_params(params)
-        return node
-        
-    def named_query(self, node, params):
-        #print("_ParamsApplier:named_query %s %s" % (node, params))
-        if params is not None:
-            assert isinstance(params, dict)
-            if node["namespace"] is None:
-                node["namespace"] = params.get("namespace")
-        return self.visit_children(node, params)
-
-    def ______query(self, node, params):        # done by the Converter
-        if len(node.C) == 2:
-            p, q = args
-            new_params = params.copy()
-            new_params.update(p)
-            return Node("query", [self.walk(q, new_params)])
-        else:
-            return node
-            
-    def qualified_name(self, node, params):
-        if params is not None:
-            assert isinstance(params, dict)
-            if node["namespace"] is None:   node["namespace"] = params.get("namespace")
-        return node
-        
 class DatasetQuery(object):
     
     Type = "dataset"
@@ -270,10 +209,10 @@ class FileQuery(object):
                 print("Query.optimize: after _MetaExpPusher:----")
                 print(optimized.pretty("    "))
             
-            optimized = _ProvenancePusher().walk(optimized, None)
-            if debug:
-                print("Query.optimize: after _ProvenancePusher:----")
-                print(optimized.pretty("    "))
+            #optimized = _ProvenancePusher().walk(optimized, None)
+            #if debug:
+            #    print("Query.optimize: after _ProvenancePusher:----")
+            #    print(optimized.pretty("    "))
 
             self.Optimized = optimized
         return self.Optimized
@@ -290,16 +229,27 @@ class FileQuery(object):
         #print("Query.run: optimized: ----\n", optimized.pretty())
         
         if default_namespace is not None:
-            optimized = _ParamsApplier().walk(optimized, {"namespace":default_namespace})
+            optimized = _WithParamsApplier().walk(optimized, {"namespace":default_namespace})
         
         #print("starting _LimitApplier...")
-        optimized = _LimitApplier().walk(optimized, limit)
+        optimized = _QueryLimitApplier().walk(optimized, limit)
+        if debug:
+            print("after _QueryLimitApplier:", optimized.pretty())
+        
+        
+        optimized = _QueryOptionsApplier().walk(optimized, 
+            dict(
+                with_provenance = with_provenance,
+                with_meta = with_meta
+        ))
+        if debug:
+            print("after _QueryOptionsApplier:", optimized.pretty())
         #print("Limit %s applied: ----\n" % (limit,), optimized.pretty())
         
         #out = _FileEvaluator(db, filters, with_meta, None).walk(optimized)
         #print ("run: out:", out)
         #print("FileQuery: with_meta:", with_meta)
-        out = SQLConverter(db, filters, with_meta, with_provenance, None, debug=debug).convert(optimized)
+        out = SQLConverter(db, filters, debug=debug).convert(optimized)
 
         return out
 
@@ -378,7 +328,7 @@ class _Converter(Transformer):
         return Node("basic_file_query", query=BasicFileQuery(dataset_selector))
         
     def file_list(self, args):
-        return Node("file_list", specs=[a.value[1:-1] for a in args])
+        return Node("file_list", specs=[a.value[1:-1] for a in args], with_meta=False, with_provenance=False, limit=None)
 
     def int_constant(self, args):
         v = args[0]
@@ -711,7 +661,50 @@ class _ProvenancePusher(Descender):
                 else:
                     return None         # can not apply parentage: return same BFQ node without changes
 
-class _LimitApplier(Descender):
+class _WithParamsApplier(Descender):
+    
+    # applies params from "with...", including default namespace
+    
+    def file_list(self, node, params):
+        namespace = params.get("namespace")
+        if not namespace:
+            return node
+        new_specs = []
+        for s in node["specs"]:
+            parts = s.split(":",1)
+            if len(parts) == 2 and not parts[0]:
+                s = namespace + ":" + parts[1]
+            new_specs.append(s)
+        node["specs"] = new_specs
+
+    def basic_file_query(self, node, params):
+        bfq = node["query"]
+        assert isinstance(bfq, BasicFileQuery)
+        bfq.apply_params(params)
+        return node
+
+    def dataset_selector(self, node, params):
+        #print("_ParamsApplier.dataset_selector: applying params:", params)
+        selector = meta
+        assert isinstance(selector, DatasetSelector)
+        selector.apply_params(params)
+        return node
+        
+    def named_query(self, node, params):
+        #print("_ParamsApplier:named_query %s %s" % (node, params))
+        if params is not None:
+            assert isinstance(params, dict)
+            if node["namespace"] is None:
+                node["namespace"] = params.get("namespace")
+        return self.visit_children(node, params)
+
+    def qualified_name(self, node, params):
+        if params is not None:
+            assert isinstance(params, dict)
+            if node["namespace"] is None:   node["namespace"] = params.get("namespace")
+        return node
+        
+class _QueryLimitApplier(Descender):
     
     def limit(self, node, limit):
         #print("_LimitPusher.limit: node:", node)
@@ -729,18 +722,72 @@ class _LimitApplier(Descender):
                 ], limit=limit)
         else:
             return node
-            
+
     def basic_file_query(self, node, limit):
         #print("LimitApplier: applying limit", limit)
         node["query"].addLimit(limit)
+        return node
+
+    def file_list(self, node, limit):
+        node["limit"] = limit
         return node
         
     def _default(self, node, limit):
         #print("_LimitApplier._default: node:", node.pretty())
         if limit is not None:
-            return Node("limit", [self.visit_children(node, None)], limit=limit)
+            return Node("limit", [node], limit=limit)
         else:
-            return self.visit_children(node, None)
+            return node
+            
+class _QueryOptionsApplier(Descender):
+    
+    #
+    # Applies query params set outside of MQL: with/without metadata, with/without provenance, limit, default namespace
+    #
+    
+    def basic_file_query(self, node, params):
+        #print("LimitApplier: applying limit", limit)
+        with_meta = params.get("with_meta")
+        with_provenance = params.get("with_provenance")
+        query = node["query"]
+        query.WithMeta = query.WithMeta or with_meta
+        query.WithProvenance = query.WithMeta or with_provenance
+        return node
+        
+    def _default(self, node, params):
+        #print("_LimitApplier._default: node:", node.pretty())
+        return self.visit_children(node, params)
+            
+    def meta_filter(self, node, params):
+        node["with_provenance"] = params.get("with_provenance", False)
+        node["with_meta"] = params.get("with_meta", False)
+        new_params = params.copy()
+        new_params["with_meta"] = True
+        return self.visit_children(node, new_params)
+
+    def parents_of(self, node, params):
+        print("_QueryOptionsApplier.parents_of/children_of: params:", params)
+        node["with_provenance"] = params.get("with_provenance", False)
+        node["with_meta"] = params.get("with_meta", False)
+        new_params = params.copy()
+        new_params["with_provenance"] = True
+        return self.visit_children(node, new_params)
+        
+    children_of = parents_of
+
+    def filter(self, node, params):
+        new_params = params.copy()
+        new_params["with_provenance"] = True
+        new_params["with_meta"] = True
+        node["with_provenance"] = params.get("with_provenance", False)
+        node["with_meta"] = params.get("with_meta", False)
+        return self.visit_children(node, new_params)
+        
+    def file_list(self, node, params):
+        node["with_meta"] = node["with_meta"] or params.get("with_meta", False)
+        node["with_provenance"] = node["with_provenance"] or params.get("with_provenance", False)
+        return node
+        
             
 class _MetaExpPusher(Descender):
 

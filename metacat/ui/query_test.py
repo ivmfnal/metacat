@@ -91,7 +91,7 @@ elif cmd == "run":
     #print("connecting to db...")
     db = connect(config)
     #print("connected to db")
-    results = q.run(db, debug=True, filters=filters)
+    results = q.run(db, debug=True, filters=filters, with_meta=True, with_provenance=False)
     print("Query results:")
     for r in results:
         print(r)

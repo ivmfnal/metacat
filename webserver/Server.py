@@ -1,7 +1,7 @@
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
 
 import webpie
-print("webpie imported from:", webpie.__file__)
+#print("webpie imported from:", webpie.__file__)
 
 import psycopg2, json, time, secrets, traceback, hashlib, pprint
 from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, parse_name, AlreadyExistsError, IntegrityError

@@ -50,7 +50,7 @@ def do_query(config, server_url, args):
             sys.exit(2)
         query_text = to_str(open(query_file, "r").read())
         
-    print("with_meta=", with_meta)
+    #print("with_meta=", with_meta)
         
     results = client.run_query(query_text, namespace=namespace, with_metadata = with_meta, save_as=save_as, with_provenance=with_provenance)
 
