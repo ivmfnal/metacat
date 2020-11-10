@@ -18,7 +18,7 @@ Make sure ~/.local/bin is in your PATH:
 
   .. code-block:: shell
 
-      $ export PATH=${HOME}/.local/bin:$HOME
+      $ export PATH=${HOME}/.local/bin:$PATH
       
 If you use your own Python installation, e.g. Anaconda or Miniconda, then you can do this instead:
 
