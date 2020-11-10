@@ -1361,6 +1361,7 @@ class DBUser(object):
         self.Flags = flags
         self.DB = db
         self.Authenticators = {}        # type -> [secret,...]
+        self.Roles = None
         
     def __str__(self):
         return "DBUser(%s, %s, %s, %s)" % (self.Username, self.Name, self.EMail, self.Flags)
@@ -1416,18 +1417,21 @@ class DBUser(object):
     
     @staticmethod 
     def list(db):
-        rolesdict = {}
         c = db.cursor()
-        c.execute("""select u.username, u.name, u.email, u.flags from users u 
+        c.execute("""select u.username, u.name, u.email, u.flags, array(select ur.role_name from users_roles ur where ur.username=u.username)
+            from users u
         """)
-        for username, name, email, flags in c.fetchall():
+        for username, name, email, flags, roles in c.fetchall():
             u = DBUser(db, username, name, email, flags)
+            u.Roles = roles
             #print("DBUser.list: yielding:", u)
             yield u
             
     @property
     def roles(self):
-        return _DBManyToMany(self.DB, "users_roles", "role_name", username = self.Username)
+        if self.Roles is None:
+            self.Roles = list(_DBManyToMany(self.DB, "users_roles", "role_name", username = self.Username))
+        return self.Roles
         
     def namespaces(self):
         return DBNamespace.list(self.DB, owned_by_user=self)        

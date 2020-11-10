@@ -83,19 +83,19 @@
 		<td>
             {% if mode == "create" %}
                     {% for r in all_roles %}
-                        <input type="checkbox" name="member:{{r.Name}}"/>{{r.Name}}&nbsp;({{r.Description}})<br/>
+                        <input type="checkbox" name="member:{{r.Name}}"/>{{r.Name}}&nbsp;({{r.Description or ""}})<br/>
                     {% endfor %}
             {% elif mode == "edit" %}
                 {% if admin %}
                     {% for r in all_roles %}
                         <input type="checkbox" name="member:{{r.Name}}" 
-                            {% if r.Name in role_set %}checked="checked"{% endif %}/>{{r.Name}}&nbsp;({{r.Description}})<br/>
+                            {% if r.Name in role_set %}checked="checked"{% endif %}/>{{r.Name}}&nbsp;({{r.Description or ""}})<br/>
                     {% endfor %}
                 {% else %}
-                    {% for r in roles %}{{r.Name}}&nbsp;({{r.Description}})<br/>{% endfor %}
+                    {% for r in roles %}{{r.Name}}&nbsp;({{r.Description or ""}})<br/>{% endfor %}
                 {% endif %}
             {% else %}
-                {% for r in roles %}{{r.Name}}&nbsp;({{r.Description}})<br/>{% endfor %}
+                {% for r in roles %}{{r.Name}}&nbsp;({{r.Description or ""}})<br/>{% endfor %}
             {% endif %}
 		</td>
 	</tr>
