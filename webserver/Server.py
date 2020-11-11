@@ -36,6 +36,14 @@ class BaseHandler(WPHandler):
         if not username:    return None
         db = self.App.connect()
         return DBUser.get(db, username)
+
+    def messages(self, args):
+        unquoted = {}
+        for k in ("error", "message"):
+            m = args.get(k)
+            if m:
+                unquoted[k] = unquote_plus(m)
+        return unquoted
         
 class GUICategoryHandler(BaseHandler):
     
@@ -137,14 +145,6 @@ class GUIHandler(BaseHandler):
 
     def jinja_globals(self):
         return {"GLOBAL_User":self.authenticated_user()}
-        
-    def messages(self, args):
-        unquoted = {}
-        for k in ("error", "message"):
-            m = args.get(k)
-            if m:
-                unquoted[k] = unquote_plus(m)
-        return unquoted
         
     def index(self, request, relpath, **args):
         return self.redirect("./datasets")
@@ -1232,7 +1232,7 @@ class DataHandler(BaseHandler):
         data = ("%s:%s" % (q.Namespace, q.Name) for q in queries)
         return self.json_chunks(data), "text/json"
             
-class AuthHandler(WPHandler):
+class AuthHandler(BaseHandler):
 
     def whoami(self, request, relpath, **args):
         return str(self.App.user_from_request(request)), "text/plain"
@@ -1246,6 +1246,7 @@ class AuthHandler(WPHandler):
         
         ok, data = digest_server("metadata", request.environ, self.App.get_password)
         if ok:
+            print("AuthHandler.auth: digest_server ok")
             resp = self.App.response_with_auth_cookie(data, redirect)
             return resp
         elif data:
@@ -1259,9 +1260,8 @@ class AuthHandler(WPHandler):
     def logout(self, request, relpath, redirect=None, **args):
         return self.App.response_with_unset_auth_cookie(redirect)
 
-    def login(self, request, relpath, message="", error="", redirect=None, **args):
-        return self.render_to_response("login.html", error=unquote_plus(error), 
-                message=unquote_plus(message), redirect=redirect)
+    def login(self, request, relpath, redirect=None, **args):
+        return self.render_to_response("login.html", redirect=redirect, **self.messages(args))
         
     def do_login(self, request, relpath, **args):
         username = request.POST["username"]
@@ -1335,8 +1335,16 @@ class App(WPApp):
         return conn
         
     def get_password(self, realm, username):
-        # realm is ignored for now
-        return self.Users.get(username).get("password")
+        db = self.connect()
+        u = DBUser.get(db, username)
+        if u is None:
+            return None
+        a = u.Authenticators.get("password")
+        if a is None:
+            return None
+        hashed = a.hashed_password()
+        print("App.get_password: hashed:", hashed)
+        return a.hashed_password()
 
     TokenExpiration = 24*3600*7
 

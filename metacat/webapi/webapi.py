@@ -1,5 +1,5 @@
 import requests, json, fnmatch
-from metacat.util import to_str, to_bytes, TokenLib
+from metacat.util import to_str, to_bytes, TokenLib, password_hash
 
 class ServerError(Exception):
     
@@ -164,9 +164,10 @@ class MetaCatClient(HTTPClient):
     
     def login_password(self, username, password):
         from requests.auth import HTTPDigestAuth
+        hashed = password_hash(username, password)
         server_url = self.ServerURL
         url = "%s/%s" % (server_url, "auth/auth")
-        response = requests.get(url, auth=HTTPDigestAuth(username, password))
+        response = requests.get(url, auth=HTTPDigestAuth(username, hashed))
         if response.status_code != 200:
             raise ServerError(url, response.status_code, "Authentication failed", response.text)
         #print(response)

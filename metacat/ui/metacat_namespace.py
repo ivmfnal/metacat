@@ -28,7 +28,15 @@ def do_list(config, client, args):
     output = client.list_namespaces(pattern)
     for item in output:
         name = item["name"]
-        print("%(name)s\towner:%(owner)s" % item)
+        owner = ""
+        owner_user = item.get("owner_user")
+        if owner_user:
+            owner="u:"+owner_user
+        else:
+            owner_role = item.get("owner_role")
+            if owner_role:
+                owner = "r:"+owner_role
+        print("%-30s\t%-20s\t%s" % (name, owner, item.get("descrition") or ""))
                 
     
 def do_show(config, client, args):

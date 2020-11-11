@@ -1,5 +1,6 @@
 import yaml, sys, getopt
 from metacat.db import DBUser
+from metacat.util import password_hash
 import psycopg2
 
 Usage="""
@@ -57,7 +58,8 @@ def do_password(config, args):
     if u is None or not u.is_admin():
         print("User does not exist or is not an Admin. Leaving the password unchanged.")
         sys.exit(1)
-    u.set_password(password)
+    hashed = password_hash(username, password)
+    u.set_password(hashed)
     u.save()
     print("Password updated")
     

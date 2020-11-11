@@ -31,7 +31,6 @@ def do_whoami(config, client, args):
 def do_login(config, client, args):
     username = args[0]
     password = getpass.getpass("Password:")
-
     user, expiration = client.login_password(username, password)
     print ("User:   ", user)
     print ("Expires:", time.ctime(expiration))

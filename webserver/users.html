@@ -33,7 +33,7 @@
     				<td>{{u.Name or ""}}</td>
     				<td>{{u.EMail or ""}}</td>
                     <td>{{u.Flags or ""}}</td>
-                    <td>{% for r in u.roles %}<a href="./role?name={{r}}">{{r}}</a> {% endfor %}</td>
+                    <td>{% for r in u.RoleNames %}<a href="./role?name={{r}}">{{r}}</a> {% endfor %}</td>
     	    </tr>
 	{% endfor %}
 </table>

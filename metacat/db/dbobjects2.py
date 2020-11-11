@@ -1,5 +1,5 @@
 import uuid, json, hashlib, re, time, io, traceback
-from metacat.util import to_bytes, to_str, epoch
+from metacat.util import to_bytes, to_str, epoch, PasswordHashAlgorithm
 from psycopg2 import IntegrityError
 
 Debug = False
@@ -1243,31 +1243,30 @@ class Authenticator(object):
         
 class PasswordAuthenticator(Authenticator):
     
-    HashAlg = "sha1"
-    
     def addSecret(self,new_secret):
         raise NotImplementedError("Can not add secret to a password authenticator. Use setSecret() instead")
-
-    def hash(self, password, alg=None):
-        alg = alg or self.HashAlg
-        hashed = hashlib.new(alg)
-        hashed.update(to_bytes(self.Username))
-        hashed.update(b":")
-        hashed.update(to_bytes(password))
-        return "$%s:%s" % (alg, hashed.digest().hex())
-                
-    def setSecret(self, plain_password):
-        self.Secrets = [self.hash(plain_password)]
-
-    def verifySecret(self, plain_password):
-        hashed_secret = self.Secrets[0]
-        if hashed_secret.startswith("$") and ":" in hashed_secret:
-            alg = hashed_secret[1:].split(":", 1)[0]
-            hashed_password = self.hash(plain_password, alg)
-            return hashed_password == hashed_password
+        
+    def format_secret(self, hashed_password):
+        if hashed_password.startswith("$") and ":" in hashed_password: return hashed_password
+        return f"${PasswordHashAlgorithm}:{hashed_password}"
+        
+    def unpack_password(self, secret):
+        if secret.startswith("$") and ":" in secret:
+            secret_alg, password = secret[1:].split(":", 1)
         else:
-            # plain text password in DB ??
-            return hashed_secret == plain_password
+            password = secret
+        return password
+        
+    def hashed_password(self):
+        return self.unpack_password(self.Secrets[0])
+        
+    def setSecret(self, hashed_password):
+        # should never be used by the Server because Server will always see only hashed password!
+        self.Secrets = [self.format_secret(hashed_password)]
+
+    def verifySecret(self, hashed_password):
+        # password is supposed to be hashed password
+        return self.hashed_password() == hashed_password
             
 class X509Authenticator(Authenticator):
     
@@ -1350,8 +1349,6 @@ class _DBManyToMany(object):
             self.add(*tup, c=c)
         c.execute("commit")
         
-        
-            
 class DBUser(object):
 
     def __init__(self, db, username, name, email, flags=""):
@@ -1361,7 +1358,7 @@ class DBUser(object):
         self.Flags = flags
         self.DB = db
         self.Authenticators = {}        # type -> [secret,...]
-        self.Roles = None
+        self.RoleNames = None
         
     def __str__(self):
         return "DBUser(%s, %s, %s, %s)" % (self.Username, self.Name, self.EMail, self.Flags)
@@ -1410,6 +1407,7 @@ class DBUser(object):
         u = DBUser(db, username, name, email, flags)
         c.execute("""select type, secrets from authenticators where username=%s""", (username,))
         u.Authenticators = {typ:Authenticator.from_db(username, typ, secrets) for typ, secrets in c.fetchall()}
+        u.RoleNames = roles
         return u
         
     def is_admin(self):
@@ -1423,15 +1421,13 @@ class DBUser(object):
         """)
         for username, name, email, flags, roles in c.fetchall():
             u = DBUser(db, username, name, email, flags)
-            u.Roles = roles
+            u.RoleNames = roles
             #print("DBUser.list: yielding:", u)
             yield u
             
     @property
     def roles(self):
-        if self.Roles is None:
-            self.Roles = list(_DBManyToMany(self.DB, "users_roles", "role_name", username = self.Username))
-        return self.Roles
+        return _DBManyToMany(self.DB, "users_roles", "role_name", username = self.Username)
         
     def namespaces(self):
         return DBNamespace.list(self.DB, owned_by_user=self)        
@@ -1458,8 +1454,9 @@ class DBNamespace(object):
         return dict(
             name=self.Name,
             owner_user=self.OwnerUser,
-            owner_name=self.OwnerName,
+            owner_role=self.OwnerRole,
             creator = self.Creator,
+            description = self.Description,
             created_timestamp = epoch(self.CreatedTimestamp)
         )
         
@@ -1535,7 +1532,7 @@ class DBNamespace(object):
                         from namespaces
             """
             args = ()
-        print("DBNamespace.list: sql, args:", sql, args)
+        #print("DBNamespace.list: sql, args:", sql, args)
         c.execute(sql, args)
         for name, owner_user, owner_role, description, creator, created_timestamp in c.fetchall():
             ns = DBNamespace(db, name, owner_user, owner_role, description)

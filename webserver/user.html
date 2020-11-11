@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 
+{% block html_head %}
+    <script src="{{GLOBAL_AppTopPath}}/static/js/password_hash.js"></script>
+{% endblock %}
+
+
 {% block headline %}
 	{% if create %}
 		Create User
@@ -12,7 +17,7 @@
 
 {% block content %}
 
-<form method=POST action="./save_user">
+<form method=POST action="./save_user" id="the_form">
     
 <input type="hidden" name="new_user" value="{{'yes' if mode=='create' else 'no'}}"/>
 
@@ -102,8 +107,26 @@
     
     
 	{% if mode == "edit" or mode == "create" %}
-		<tr><td></td><td><input type="submit" value="Save"/></td>
+		<tr><td></td><td><input type="submit" value="Save" onclick="do_submit();"/></td>
 		</tr>
+        
+        <script type="text/javascript">
+            function do_submit()
+            {
+                var form = document.getElementById("the_form");
+                var pwd1_input = form.elements.namedItem("password1");
+                var password1 = pwd1_input.value;
+                var pwd2_input = form.elements.namedItem("password2");
+                var password2 = pwd2_input.value;
+                var username =  "{{user.Username}}";
+                pwd1_input.value = password_hash(username, password1);
+                pwd2_input.value = password_hash(username, password2);
+                form.submit();
+            }
+        </script>
+        
+        
+        
 	{% endif %}
 </table>
 

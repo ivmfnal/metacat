@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
+{% block html_head %}
+    <script src="{{GLOBAL_AppTopPath}}/static/js/password_hash.js"></script>
+{% endblock %}
+
 {% block headline %}Log in{% endblock %}
 
 {% block content %}
@@ -11,20 +15,33 @@
     <input type="hidden" name="redirect" value="{{redirect}}"/>
 {% endif %}
 
-<table class="form">
+<table class="form" id="the_form">
 	<tr>
 		<th>Username</th>
-		<td><input type="text" name="username"/></td>
+		<td><input type="text" name="username" id="username"/></td>
 	</tr>
 	<tr>
 		<th>Password</th>
-		<td><input type="password" name="password"/></td>
+		<td><input type="password" name="password" id="password"/></td>
 	</tr>
-	<tr><td></td><td><input type="submit" value="Log in"/></td>
+	<tr><td></td>
+        <td>
+            <input type="submit" value="Log in" onclick="do_submit()"/>
+        </td>
     </tr>
 </table>
 
 </form>
 
+<script type="text/javascript">
+    function do_submit()
+    {
+        var pwd_input = document.getElementById("password");
+        var password = pwd_input.value;
+        var username =  document.getElementById("username").value;
+        pwd_input.value = password_hash(username, password);
+        document.getElementById("the_form").submit();
+    }
+</script>
 {% endblock %}
 	
