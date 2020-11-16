@@ -74,27 +74,20 @@ class DBFileSet(object):
         return DBFileSet(self.DB, self.Files, n)
         
     @staticmethod
-    def from_shallow(db, g):
-        # g is genetator of tuples (fid, namespace, name)
-        return DBFileSet(db, (
-            DBFile(db, namespace, name, fid=fid) for fid, namespace, name in g
-        ))
-        
-
-    @staticmethod
     def from_tuples(db, g):
+        # must be in sync with DBFile.all_columns()
         return DBFileSet(db, 
             (
-                DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, parents=parents, children=children)
-                for fid, namespace, name, meta, parents, children in g
+                DBFile.from_tuple(db, t) for t in g
             )
         )
         
     @staticmethod
     def from_id_list(db, lst):
         c = db.cursor()
-        c.execute("""
-            select id, namespace, name, metadata from files
+        columns = DBFile.all_columns()
+        c.execute(f"""
+            select {columns}
                 where id = any(%s)""", (list(lst),))
         return DBFileSet.from_tuples(db, fetch_generator(c))
     
@@ -104,23 +97,15 @@ class DBFileSet(object):
         just_names = [name for ns, name in full_names]
         joined = set("%s:%s" % t for t in full_names)
         c = db.cursor()
-        c.execute("""
-            select id, namespace, name, metadata from files
+        columns = DBFile.all_columns()
+        c.execute(f"""
+            select {columns}, null as parents, null as children from files
                 where name = any(%s)""", (just_names,))
         selected = ((fid, namespace, name, metadata) 
                     for (fid, namespace, name, metadata) in fetch_generator(c)
                     if "%s:%s" % (namespace, name) in joined)
         return DBFileSet.from_tuples(db, selected)
         
-    @staticmethod
-    def from_sql(db, sql):
-        c = db.cursor()
-        c.execute(sql)
-        fs = DBFileSet.from_tuples(db, fetch_generator(c))
-        fs.SQL = sql
-        return fs
-        
-    
     def __iter__(self):
         return limited(self.Files, self.Limit)
                         
@@ -135,21 +120,23 @@ class DBFileSet(object):
         return self._relationship("children", with_metadata, with_provenance)
             
     def _relationship(self, rel, with_metadata, with_provenance):
-        table = "files" if not with_provenance else files_with_provenance
-        f_alias = alias("f")
-        pc_alias = alias("pc")
+        table = "files" if not with_provenance else "files_with_provenance"
+        f = alias("f")
+        pc = alias("pc")
+        attrs = DBFile.attr_columns(f)
         if rel == "children":
             join = f"{f}.id = {pc}.child_id and {pc}.parent_id = any (%s)"
         else:
             join = f"{f}.id = {pc}.parent_id and {pc}.child_id = any (%s)"
             
         meta = "null as metadata" if not with_metadata else f"{f}.metadata"
-        provenance = "null as parents, null as children" if not with_provennce else \
-            f"{f}.paremts, {f}.children"
+        provenance = "null as parents, null as children" if not with_provenance else \
+            f"{f}.parents, {f}.children"
             
         c = self.DB.cursor()
         file_ids = list(f.FID for f in self.Files)
-        sql = f"""select distinct {f}.id, {f}.namespace, {f}.name, {meta}, {provenance}
+
+        sql = f"""select distinct {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {provenance}
                     from {table} {f}, parent_child {pc}
                     where {join}
                     """
@@ -238,11 +225,12 @@ class DBFileSet(object):
         
 
         dataset_selector = basic_file_query.DatasetSelector
+        attrs = DBFile.attr_columns(f)
         if dataset_selector is None:
             # no dataset selection
             sql = f"""
                 -- sql_for_basic_query {f}
-                    select {f}.id, {f}.namespace, {f}.name, {meta}, {parents}, {children}
+                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
                         {meta_where_clause}
                         {limit}
@@ -259,7 +247,7 @@ class DBFileSet(object):
                     with selected_datasets as (
                         {datasets_sql}
                     )
-                    select {f}.id, {f}.namespace, {f}.name, {meta}, {parents}, {children}
+                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
                             inner join files_datasets {fd} on {fd}.file_id = {f}.id
                             inner join selected_datasets on 
@@ -291,6 +279,8 @@ class DBFileSet(object):
         
         parts = []
         
+        attrs = DBFile.attr_columns(f)
+
         if with_provenance:
             table = "files_with_provenance"
             prov_columns = f"{f}.parents, {f}.children"
@@ -301,7 +291,7 @@ class DBFileSet(object):
         if ids:
             id_list = ",".join(["'%s'" % (i,) for i in ids])
             ids_part = f"""
-                select {f}.id, {f}.namespace, {f}.name, {meta}, {prov_columns} from {table} {f}
+                select {f}.id, {f}.namespace, {f}.name, {meta}, {prov_columns}, {attrs} from {table} {f}
                     where id in ({id_list})
                 """
             parts.append(ids_part)
@@ -318,18 +308,31 @@ class DBFileSet(object):
             specs = ",".join([f"'{s}'" for s in specs])
             
             specs_part = f"""
-                select {f}.id, {f}.namespace, {f}.name, {meta}, {prov_columns} from {table} {f}
+                select {f}.id, {f}.namespace, {f}.name, {meta}, {prov_columns}, {attrs} from {table} {f}
                     where {f}.name in ({names}) and {f}.namespace in ({namespaces}) and
                          {f}.namespace || ':' || {f}.name in ({specs})
             """
             parts.append(specs_part)
 
         return "\nunion\n".join(parts)
+
+    @staticmethod
+    def from_sql(db, sql):
+        c = db.cursor()
+        c.execute(sql)
+        fs = DBFileSet.from_tuples(db, fetch_generator(c))
+        fs.SQL = sql
+        return fs
+    
+
         
 class DBFile(object):
-
+    
+    ColumnAttributes=[      # column names which can be used in queries
+        "creator", "created_timestamp", "name", "namespace", "size"
+    ]  
     def __init__(self, db, namespace = None, name = None, metadata = None, fid = None, size=None, checksums=None,
-                    parents = None, children = None
+                    parents = None, children = None, creator = None, created_timestamp=None,
                     ):
         assert (namespace is None) == (name is None)
         self.DB = db
@@ -338,8 +341,8 @@ class DBFile(object):
         self.Namespace = namespace
         self.Name = name
         self.Metadata = metadata
-        self.Creator = None
-        self.CreatedTimestamp = None
+        self.Creator = creator
+        self.CreatedTimestamp = created_timestamp
         self.Checksums = checksums
         self.Size = size
         self.Parents = parents
@@ -363,16 +366,40 @@ class DBFile(object):
         
     __repr__ = __str__
 
-    def create(self, do_commit = True):
+    CoreColumnNames = [
+        "id", "namespace", "name", "metadata"
+    ]
+    
+    AttrColumnNames = [
+        "creator", "created_timestamp", "size", "checksums"
+    ]
+
+    AllColumnNames = CoreColumnNames + AttrColumnNames
+
+    @staticmethod
+    def all_columns(alias=None, with_meta=False):
+        if alias:
+            return ','.join(f"{alias}.{c}" for c in DBFile.AllColumnNames)
+        else:
+            return ','.join(DBFile.AllColumnNames)
+
+    @staticmethod
+    def attr_columns(alias=None):
+        if alias:
+            return ','.join(f"{alias}.{c}" for c in DBFile.AttrColumnNames)
+        else:
+            return ','.join(DBFile.AttrColumnNames)
+
+    def create(self, creator=None, do_commit = True):
         from psycopg2 import IntegrityError
         c = self.DB.cursor()
         try:
             meta = json.dumps(self.Metadata or {})
             checksums = json.dumps(self.Checksums or {})
             c.execute("""
-                insert into files(id, namespace, name, metadata, size, checksums) values(%s, %s, %s, %s, %s, %s)
+                insert into files(id, namespace, name, metadata, size, checksums, creator) values(%s, %s, %s, %s, %s, %s, %s)
                 """,
-                (self.FID, self.Namespace, self.Name, meta, self.Size, checksums))
+                (self.FID, self.Namespace, self.Name, meta, self.Size, checksums, creator))
             if self.Parents:
                 c.executemany(f"""
                     insert into parent_child(parent_id, child_id) values(%s, %s)
@@ -445,6 +472,27 @@ class DBFile(object):
         return self
         
     @staticmethod
+    def from_tuple(db, tup):
+        #print("----DBFile.from_tup: tup:", tup)
+        if tup is None: return None
+        try:    
+            fid, namespace, name, meta, creator, created_timestamp, size, checksums, parents, children = tup
+            f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums,
+                parents = parents, children=children)
+        except: 
+            try:    
+                fid, namespace, name, meta, creator, created_timestamp, size, checksums = tup
+                f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums)
+            except: 
+                try:    
+                    fid, namespace, name, meta = tup
+                    f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta)
+                except: 
+                        fid, namespace, name = tup
+                        f = DBFile(db, fid=fid, namespace=namespace, name=name)
+        return f
+
+    @staticmethod
     def update_many(db, files, do_commit=True):
         from psycopg2 import IntegrityError
         tuples = [
@@ -480,50 +528,32 @@ class DBFile(object):
                 """)
         c.copy_from(io.StringIO(strio.getvalue()), "temp_files")
         
-        if load_all:
-            c.execute("""
-                select f.id, f.namespace, f.name, f.size, f.checksums, f.creator, f.created_timestamp. f.metadata
-                     from files f, temp_files t
-                     where t.id = f.id or (f.namespace = t.namespace and f.name = t.name)
-            """)
-        
-            for fid, namespace, name, size, checksums, creator, created_timestamp in fetch_generator(c):
-                yield DBFile(db, namespace = namespace, name = name, fid = fid, size=size, checksums=checksums, metadata=metadata)
-        else:
-            c.execute("""
-                select f.id, f.namespace, f.name
-                     from files f, temp_files t
-                     where t.id = f.id or (f.namespace = t.namespace and f.name = t.name)
-            """)
-        
-            for fid, namespace, name in fetch_generator(c):
-                yield DBFile(db, namespace = namespace, name = name, fid = fid)
-                
-        c.execute("""drop table temp_files""")            
+        columns = DBFile.all_columns("f")
+
+        return DBFileSet.from_sql(f"""
+            select {columns}
+                 from files f, temp_files t
+                 where t.id = f.id or (f.namespace = t.namespace and f.name = t.name)
+        """)
         
     @staticmethod
     def get(db, fid = None, namespace = None, name = None, with_metadata = False):
+        
         assert (fid is not None) != (namespace is not None or name is not None), "Can not specify both FID and namespace.name"
         assert (namespace is None) == (name is None)
         c = db.cursor()
         fetch_meta = "metadata" if with_metadata else "null"
+        attrs = DBFile.attr_columns()
         if fid is not None:
-            c.execute(f"""select id, namespace, name, {fetch_meta}, size, checksums, creator, created_timestamp 
+            c.execute(f"""select id, namespace, name, {fetch_meta}, {attrs} 
                     from files
                     where id = %s""", (fid,))
         else:
-            c.execute(f"""select id, namespace, name, {fetch_meta}, size, checksums, creator, created_timestamp 
+            c.execute(f"""select id, namespace, name, {fetch_meta}, {attrs} 
                     from files
                     where namespace = %s and name=%s""", (namespace, name))
         tup = c.fetchone()
-        if not tup: return None
-        fid, namespace, name, meta, size, checksums, creator, created_timestamp = tup
-        meta = meta or {}
-        checksums = checksums or {}
-        f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums)
-        f.Creator = creator
-        f.CreatedTimestamp = created_timestamp
-        return f
+        return DBFile.from_tuple(db, tup)
         
     @staticmethod
     def exists(db, fid = None, namespace = None, name = None):
@@ -573,8 +603,8 @@ class DBFile(object):
         else:
             c.execute("""select id, namespace, name from files
                 where namespace=%s""", (namespace,))
-        return DBFileSet.from_shallow(db, fetch_generator(c))
-        
+        return DBFileSet.from_tuples(db, fetch_generator(c))
+
     def has_attribute(self, attrname):
         return attrname in self.Metadata
         
@@ -741,23 +771,32 @@ class MetaExpressionDNF(object):
             args = exp.C
             negate = False
 
-
             term = ""
 
             if op == "present":
                 aname = exp["name"]
-                term = f"{table_name}.metadata ? '{aname}'"
+                if not '.' in aname:
+                    term = "true" if aname in DBFile.ColumnAttributes else "false"
+                else:
+                    term = f"{table_name}.metadata ? '{aname}'"
 
             elif op == "not_present":
                 aname = exp["name"]
-                term = f"not ({table_name}.metadata ? '{aname}')"
+                if not '.' in aname:
+                    term = "false" if aname in DBFile.ColumnAttributes else "true"
+                else:
+                    term = f"{table_name}.metadata ? '{aname}'"
             
             else:
                 assert op in ("cmp_op", "in_range", "in_set", "not_in_range", "not_in_set")
                 arg = args[0]
                 assert arg.T in ("array_any", "array_subscript","array_length","scalar")
                 negate = exp["neg"]
-                
+                aname = arg["name"]
+                if not '.' in aname:
+                    assert arg.T == "scalar"
+                    assert aname in DBFile.ColumnAttributes
+                    
                 if arg.T == "array_subscript":
                     # a[i] = x
                     aname, inx = arg["name"], arg["index"]
@@ -787,7 +826,11 @@ class MetaExpressionDNF(object):
                     typ, low, high = exp["type"], exp["low"], exp["high"]
                     low = json_literal(low)
                     high = json_literal(high)
-                    if arg.T in ("array_subscript", "scalar", "array_any"):
+                    if not '.' in aname:
+                        low = sql_literal(low)
+                        high = sql_literal(high)
+                        term = f"{table_name}.{aname} between {low} and {high}"
+                    elif arg.T in ("array_subscript", "scalar", "array_any"):
                         term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? (@ >= {low} && @ <= {high})'"
                     elif arg.T == "array_length":
                         n = "not" if negate else ""
@@ -799,7 +842,11 @@ class MetaExpressionDNF(object):
                     typ, low, high = exp["type"], exp["low"], exp["high"]
                     low = json_literal(low)
                     high = json_literal(high)
-                    if arg.T in ("array_subscript", "scalar", "array_any"):
+                    if not '.' in aname:
+                        low = sql_literal(low)
+                        high = sql_literal(high)
+                        term = f"not ({table_name}.{aname} between {low} and {high})"
+                    elif arg.T in ("array_subscript", "scalar", "array_any"):
                         term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? (@ < {low} || @ > {high})'"
                     elif arg.T == "array_length":
                         n = "" if negate else "not"
@@ -807,7 +854,11 @@ class MetaExpressionDNF(object):
                         term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {n} between {low} and {high}"
                         
                 elif op == "in_set":
-                    if arg.T == "array_length":
+                    if not '.' in aname:
+                        values = [sql_literal(v) for v in exp["set"]]
+                        value_list = ",".join(values)
+                        term = f"{table_name}.{aname} in ({value_list})"
+                    elif arg.T == "array_length":
                         values = [sql_literal(v) for v in exp["set"]]
                         value_list = ",".join(values)
                         n = "not" if negate else ""
@@ -820,7 +871,11 @@ class MetaExpressionDNF(object):
                         term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'"
                         
                 elif op == "not_in_set":
-                    if arg.T == "array_length":
+                    if not '.' in aname:
+                        values = [sql_literal(v) for v in exp["set"]]
+                        value_list = ",".join(values)
+                        term = f"not ({table_name}.{aname} in ({value_list}))"
+                    elif arg.T == "array_length":
                         values = [sql_literal(v) for v in exp["set"]]
                         value_list = ",".join(values)
                         n = "" if negate else "not"
@@ -838,9 +893,12 @@ class MetaExpressionDNF(object):
                     sql_cmp_op = "=" if cmp_op == "==" else cmp_op
                     value = args[1]
                     value_type, value = value.T, value["value"]
+                    sql_value = sql_literal(value)
                     value = json_literal(value)
                     
-                    if arg.T == "array_length":
+                    if not '.' in aname:
+                        term = f"{table_name}.{aname} {sql_cmp_op} {sql_value}"
+                    elif arg.T == "array_length":
                         term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {sql_cmp_op} {value}"
                     else:
                         if cmp_op in ("~", "~*", "!~", "!~*"):

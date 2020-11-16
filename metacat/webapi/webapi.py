@@ -46,8 +46,6 @@ class HTTPClient(object):
             data = to_bytes(data)
         #print("post_json: data:", type(data), data)
             
-        
-            
         url = "%s/%s" % (self.ServerURL, uri_suffix)
         
         headers = {"X-Authentication-Token": self.Token.encode() if self.Token is not None else ""}

@@ -4,7 +4,13 @@
 
 {% block content %}
 
-<p><a href="./create_namespace">create</a></p>
+<p><a href="./create_namespace">create</a>&nbsp;&nbsp;&nbsp;
+    {%- if showing_all -%}
+        <a href="./namespaces?all=no">my namespaces</a></p>
+    {%- else -%}
+        <a href="./namespaces?all=yes">all namespaces</a></p>
+    {%- endif -%}
+</p>
 
 <table class="data">
 	<tr>
@@ -19,9 +25,9 @@
 		<tr>
 				<td><a href="./namespace?name={{ns.Name}}">{{ns.Name}}</a></td>
 				<td>{% if ns.OwnerUser %}
-                        <a href="./user?username={{ns.OwnerUser}}">{{ns.OwnerUser}}<a>
+                        <a href="./user?username={{ns.OwnerUser}}">{{ns.OwnerUser}}</a>
                     {% else %}
-                        <a href="./role?name={{ns.OwnerRole}}">{{ns.OwnerRole}}<a>
+                        <a href="./role?name={{ns.OwnerRole}}">{{ns.OwnerRole}}</a>
                     {% endif %}
                 </td>
                 <td>{{ns.Description or ""}}</td>

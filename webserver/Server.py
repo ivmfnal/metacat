@@ -448,14 +448,9 @@ class GUIHandler(BaseHandler):
             
         if me.is_admin() or me.Username == u.Username:
             
-            if "password1" in request.POST and request.POST.get("password1"):
-                if request.POST["password1"] != request.POST.get("password2"):
-                    if new_user:
-                        self.redirect("./create_user?error=%s" % (quote_plus("Password mismatch")))
-                    else:
-                        self.redirect("./user?username=%s&error=%s" % (username, quote_plus("Password mismatch")))
-                        
-                u.set_password(request.POST["password1"])
+            hashed_password = request.POST.get("hashed_password")
+            if hashed_password:
+                u.set_password(hashed_password)
                     
             u.save()
             if me.is_admin():
@@ -474,10 +469,15 @@ class GUIHandler(BaseHandler):
 # --- namespaces
 #
 
-    def namespaces(self, request, relpath, **args):
+    def namespaces(self, request, relpath, all="no", **args):
         db = self.App.connect()
-        namespaces = DBNamespace.list(db)
-        return self.render_to_response("namespaces.html", namespaces=namespaces, **self.messages(args))
+        all = all == "yes"
+        if all:
+            namespaces = DBNamespace.list(db)
+        else:
+            me = self.authenticated_user()
+            namespaces = DBNamespace.list(db, owned_by_user=me)
+        return self.render_to_response("namespaces.html", namespaces=namespaces, showing_all=all, **self.messages(args))
         
     def namespace(self, request, relpath, name=None, **args):
         db = self.App.connect()
@@ -490,8 +490,11 @@ class GUIHandler(BaseHandler):
             admin = me.is_admin()
             edit = admin or ns.owned_by_user(me)
             roles = DBRole.list(db) if admin else [DBRole.get(db, r) for r in me.roles]
+        datasets = DBDataset.list(db, namespace=name) if ns is not None else None
         #print("namespace: roles", roles)
-        return self.render_to_response("namespace.html", user=me, namespace=ns, edit=edit, create=False, roles=roles, admin=admin, **self.messages(args))
+        return self.render_to_response("namespace.html", user=me, namespace=ns, edit=edit, create=False, roles=roles, admin=admin, 
+            datasets = datasets,
+            **self.messages(args))
         
     def create_namespace(self, request, relpath, error="", **args):
         db = self.App.connect()
@@ -624,26 +627,25 @@ class GUIHandler(BaseHandler):
 # --- roles
 #
         
-    def roles(self, request, relpath, error="", **args):
+    def roles(self, request, relpath, **args):
         me = self.authenticated_user()
         if me is None:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/roles")
         db = self.App.connect()
         roles = DBRole.list(db)
         admin = me.is_admin()
-        return self.render_to_response("roles.html", roles=roles, edit=admin, create=admin, error=unquote_plus(error))
+        return self.render_to_response("roles.html", roles=roles, edit=admin, create=admin, **self.messages(args))
         
-    def role(self, request, relpath, name=None, message="", **args):
+    def role(self, request, relpath, name=None, **args):
         me = self.authenticated_user()
         if me is None:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/roles")
         admin = me.is_admin()
         db = self.App.connect()
         role = DBRole.get(db, name)
-        all_users = sorted(list(DBUser.list(db)), key=lambda u: u.Username)
+        users = sorted(list(role.members))
         #print("all_users:", all_users)
-        return self.render_to_response("role.html", all_users=all_users, role=role, edit=admin or me in role, create=False,
-            message = unquote_plus(message))
+        return self.render_to_response("role.html", role=role, users=users, edit=admin or me in role, create=False, **self.messages(args))
 
     def create_role(self, request, relpath, **args):
         me = self.authenticated_user()
@@ -1127,7 +1129,7 @@ class DataHandler(BaseHandler):
         return f.to_json(with_metadata=with_metadata, with_relations=with_relations), "text/json"
             
     def query(self, request, relpath, query=None, namespace=None, 
-                    with_meta="no", with_provenance="no",
+                    with_meta="no", with_provenance="no", debug="no",
                     add_to=None, save_as=None, expiration=None, **args):
         with_meta = with_meta == "yes"
         with_provenance = with_provenance == "yes"
@@ -1184,7 +1186,9 @@ class DataHandler(BaseHandler):
             
         query = MQLQuery.parse(query_text)
         query_type = query.Type
-        results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance, default_namespace=namespace or None)
+        results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance, default_namespace=namespace or None,
+            debug = debug == "yes"
+        )
 
         if not results:
             return "[]", "text/json"

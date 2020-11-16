@@ -13,5 +13,5 @@ MetaCat Documentation
    mql
    REST_API
    ui
-
+   regexp
 

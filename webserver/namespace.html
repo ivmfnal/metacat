@@ -76,9 +76,37 @@
 		<tr><td></td><td><input type="submit" value="Save"/></td>
 		</tr>
 	{% endif %}
+                    
 </table>
 
 </form>
+
+{% if datasets is not none %}
+    <h2>Datasets</h2>
+    <table class="data">
+    	<tr>
+    		<th>Name</th>
+    		<th>Frozen</th>
+    		<th>Monotonic</th>
+    		<th>Files</th>
+    	</tr>
+    	{% for ds in datasets %}
+    		<tr>
+                <td><a href="./dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">{{ds.Name}}</a></td>
+                <td>{{'frozen' if ds.Frozen}}</td>
+                <td>{{'monotonic' if ds.Monotonic}}</td>
+                <td id="count:{{ds.Namespace}}:{{ds.Name}}" class="right"></td>
+                <script>
+    		        var out = document.getElementById("count:{{ds.Namespace}}:{{ds.Name}}");
+    		        out.data_received = function(data, param) { this.innerHTML = "" + data.nfiles; };
+                    HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_count/{{ds.Namespace}}:{{ds.Name}}", 
+    			        out, null, "json");
+                </script>
+            </tr>
+    	{% endfor %}
+    </table>
+{% endif %}
+
 
 {% endblock %}
 	

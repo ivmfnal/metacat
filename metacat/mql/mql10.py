@@ -250,6 +250,10 @@ class FileQuery(object):
         #print ("run: out:", out)
         #print("FileQuery: with_meta:", with_meta)
         out = SQLConverter(db, filters, debug=debug).convert(optimized)
+        
+        if debug:
+            print("Query:\n%s" % (optimized.pretty(),))
+            print("SQL:\n%s" % (out.SQL,))
 
         return out
 

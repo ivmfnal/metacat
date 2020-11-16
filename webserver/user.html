@@ -17,6 +17,7 @@
 
 {% block content %}
 
+
 <form method=POST action="./save_user" id="the_form">
     
 <input type="hidden" name="new_user" value="{{'yes' if mode=='create' else 'no'}}"/>
@@ -76,7 +77,10 @@
     {% if mode == "create" or mode == "edit" %}
         <tr>
             <th>Password</th>
-            <td><input type="password" name="password1"/></td>
+            <td><input type="hidden" name="hashed_password"/>
+                <input type="password" name="password1"/>
+            </td>
+            <td id="error" class="error" style="visibility:hidden; display:none"></td>
         </tr>
         <tr>
             <th>Repeat password</th>
@@ -107,21 +111,38 @@
     
     
 	{% if mode == "edit" or mode == "create" %}
-		<tr><td></td><td><input type="submit" value="Save" onclick="do_submit();"/></td>
+		<tr><td></td><td><input type="submit" value="Save" onclick="return do_submit();"/></td>
 		</tr>
         
         <script type="text/javascript">
+            function show_error(error)
+            {
+                var p = document.getElementById("error")
+                p.innerHTML = error;
+                p.style.visibility = "visible";
+                p.style.display = "";
+            }
+
             function do_submit()
             {
                 var form = document.getElementById("the_form");
-                var pwd1_input = form.elements.namedItem("password1");
-                var password1 = pwd1_input.value;
-                var pwd2_input = form.elements.namedItem("password2");
-                var password2 = pwd2_input.value;
+                var password1_input = form.elements.namedItem("password1");
+                var password2_input = form.elements.namedItem("password2");
+                var password1 = password1_input.value;
+                var password2 = password2_input.value;
                 var username =  "{{user.Username}}";
-                pwd1_input.value = password_hash(username, password1);
-                pwd2_input.value = password_hash(username, password2);
-                form.submit();
+                if( password1 != password2 )
+                {
+                    show_error("Password mismatch. Please re-enter");
+                    password1_input.value = "";
+                    password2_input.value = "";
+                    return false;
+                }
+                else
+                {
+                    form.elements.namedItem("hashed_password") = password_hash(username, password1);
+                    return true;
+                }
             }
         </script>
         

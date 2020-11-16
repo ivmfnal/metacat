@@ -61,6 +61,11 @@ create table files
 create unique index file_names_unique on files(namespace, name);
 create index files_meta_path_ops_index on files using gin (metadata jsonb_path_ops);
 
+create index files_creator on files(creator);
+create index files_created_timestamp on files(created_timestamp);
+create index files_size on files(size);
+
+
 create table parent_child
 (
     parent_id   text references files(id),

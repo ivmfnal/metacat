@@ -136,14 +136,17 @@
         
     p.message {
         color: #117711;
-        border-left: solid 3px #117711;
-        padding: 3px 5px;
+        border-left: solid 5px #117711;
+        padding: 0px 5px;
     }
     
+    .error {
+        color: #A11;
+    }
+
     p.error {
-        color: #771111;
-        border-left: solid 3px #771111;
-        padding: 3px 5px;
+        border-left: solid 3px #A11;
+        padding: 0px 5px;
     }
         
     a.button {
@@ -237,10 +240,10 @@
 	<h2>{% block headline %}{% endblock %}</h2>
     </div>
     {% if message %}
-        <p class=message>{{message}}</div>
+        <p class=message>{{message}}</p>
     {% endif %}
     {% if error %}
-        <p class=error>{{error}}</div>
+        <p class=error>{{error}}</p>
     {% endif %}
     <div id=content style="clear:both">{% block content %}{% endblock %}</div>
 </div>	<!-- body -->
