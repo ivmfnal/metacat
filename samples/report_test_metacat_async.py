@@ -1,4 +1,4 @@
-import os,time,sys,datetime, glob, fnmatch,string,subprocess, json
+import os,time,sys,datetime, glob, fnmatch,string,subprocess, json, threading
 from metacat.webapi import MetaCatClient
 
 #server_url = "https://dbdata0vm.fnal.gov:9443/dune_meta_demo/app"
@@ -10,8 +10,27 @@ month = sys.argv[1]
 first = sys.argv[1]
 last = sys.argv[2]
 
-def 
+Lock = threading.RLock()
 
+def process_results(results, params, out):
+    events = file_count = total_file_size = 0
+    for f in results:
+        #print(f)
+        file_count += 1
+        meta = f["metadata"]
+        events += meta.get("core.event_count", 0)
+        total_file_size += f["size"]
+    if file_count == 0:
+      #print(params, "zero events")
+      return
+    ssize = total_file_size/1000/1000/1000/1000.
+    fsize = ssize/events*1000*1000 if events > 0 else 0
+
+    data = r"%s& %s& %s& %s& %s& %d& %10.1f& %10.1f\\" % (params + (file_count,events,ssize,fsize))
+    data = data.replace("_","$\_$")
+    data = data.replace("%","ALL")
+    print (data)
+    out.write(data+"\n")
 
 out = open("report_"+first+"_"+last+".tex",'w')
 top = "\\documentclass[10pt]{article}\n"
@@ -23,6 +42,9 @@ out.write(top)
 out.write(begin)
 header = "Expt& version& tier& stream&files& events& size, TB& event size, MB\\\\\n"
 out.write(header)
+
+queries = []
+
 for expt in ["protodune-sp","protodune-dp"]:
   for stream in ["physics","cosmics","test","commissioning","ALL"]:
     for tier in ["raw","full-reconstructed","pandora_info","hit-reconstructed","ALL"]:
@@ -58,25 +80,13 @@ for expt in ["protodune-sp","protodune-dp"]:
         print (command)
         print(query)
         
-
-        results = client.run_query(query, with_metadata=True)
-        events = file_count = total_file_size = 0
-        for f in results:
-            #print(f)
-            file_count += 1
-            meta = f["metadata"]
-            events += meta.get("core.event_count", 0)
-            total_file_size += f["size"]
-        if file_count == 0:
-          continue
-        ssize = total_file_size/1000/1000/1000/1000.
-        fsize = ssize/events*1000*1000 if events > 0 else 0
-
-        data = r"%s& %s& %s& %s& %s& %d& %10.1f& %10.1f\\"%(expt,version,tier,stream,file_count,events,ssize,fsize)
-        data = data.replace("_","$\_$")
-        data = data.replace("%","ALL")
-        print (data)
-        out.write(data+"\n")
+        queries.append(client.async_query(query, (expt,version,tier,stream), with_metadata=True))
+        
+for q in queries:
+    results = q.wait()
+    #print (q.Data)
+    process_results(results, q.Data, out)
+    
 
 end = "\\end{tabular}\n"
 out.write(end)
@@ -90,6 +100,9 @@ top = "\\begin{table}\n\\begin{tabular}{rrrrrrrr}\n"
 out.write(top)
 header = "Expt&type&version&tier&files&events&size(TB)&size(MB)\\\\\n"
 out.write(header)
+
+queries = []
+
 for expt in ["protodune-sp","protodune-dp","fardetALL","neardetALL","ALL"]:
   for version in ["v07ALL","v08ALL","raw","ALL"]:
     for tier in ["simulated","detector-simulated","full-reconstructed","pandora_info","ALL",]:
@@ -130,27 +143,15 @@ for expt in ["protodune-sp","protodune-dp","fardetALL","neardetALL","ALL"]:
         command = command.replace("ALL","%")
         print (command)
         print (query)
-        results = client.run_query(query, with_metadata=True)
-        events = file_count = total_file_size = 0
-        for f in results:
-            #print(f)
-            file_count += 1
-            meta = f["metadata"]
-            events += meta.get("core.event_count", 0)
-            total_file_size += f["size"]
-        if file_count == 0:
-          continue
-        ssize = total_file_size/1000/1000/1000/1000.
-        if not events:
-            events = 0
-            fsize = 0.0
-        else:
-            fsize = ssize/events*1000*1000
 
-        print (expt,version,tier,events,ssize," TB")
-        data = r"%s & %s & %s& %s &%s &%d &%10.1f&%10.1f\\n"%(expt,version,tier,"mc",file_count,events,ssize,fsize)
-        data = data.replace("_","$\_$")
-        out.write(data)
+        queries.append(client.async_query(query, (expt,version,tier,"mc"), with_metadata=True))
+
+
+for q in queries:
+    results = q.wait()
+    process_results(results, q.Data, out)
+    
+
 end = "\\end{tabular}\n"
 out.write(end)
 end = "\\caption{Summary of mc production %s to %s}\n\\end{table}"%(first,last)

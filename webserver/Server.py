@@ -733,26 +733,26 @@ class DataHandler(BaseHandler):
             return "Not found", 400
         return json.dumps(ns.to_jsonable()), "text/json"
         
-    def create_namespace(self, request, relpath, name=None, owner=None, **args):
+    def create_namespace(self, request, relpath, name=None, owner_role=None, description=None, **args):
         db = self.App.connect()
         user = self.authenticated_user()
         if user is None:
             return 401
-        if owner is None:
-            user_roles = list(user.roles())
-            if len(user_roles) == 1:
-                owner_role = user_roles[0]
-            else:
-                return "Owner role must be specified", 400
+        owner_user = None
+        if owner_role is None:
+            owner_user = user.Name
         else:
-            owner_role = DBRole.get(db, owner)
-            if not user.is_admin() and not user in owner_role:
+            r = DBRole.get(db, owner_role)
+            if not user.is_admin() and not user.Name in r.members:
                 return 403
 
         if DBNamespace.exists(db, name):
             return "Namespace already exists", 400
+
+        if description:
+            description = unquote_plus(description)
             
-        ns = DBNamespace(db, name, owner_role.Name)
+        ns = DBNamespace(db, name, owner_role = owner_role, owner_user=owner_user, description=description)
         ns.save()
         return json.dumps(ns.to_jsonable()), "text/json"
             
@@ -1007,7 +1007,8 @@ class DataHandler(BaseHandler):
         #               name: "namespace:name",   or "name", but then default namespace must be specified
         #               fid: "fid",               // optional
         #               parents:        [fid,...],              // optional
-        #               metadata: { ... }       // optional
+        #               metadata: { ... },       // optional
+        #               checksums: { ...}       // optional
         #       }, ... 
         # ]
         #
@@ -1055,7 +1056,17 @@ class DataHandler(BaseHandler):
                 return f"Namespace {namespace} does not exist", 404
             
             if "metadata" in file_item:
-                f.Metadata = file_item["metadata"]
+                if mode == "update":
+                    f.Metadata.update(file_item["metadata"])
+                else:
+                    f.Metadata = file_item["metadata"]
+            
+            if "checksums" in file_item:
+                if mode == "update":
+                    f.Checksums.update(file_item["checksums"])
+                else:
+                    f.Checksums = file_item["checksums"]
+                
             files.append((f, file_item.get("parents")))
 
         for f, parents in files:
@@ -1108,7 +1119,7 @@ class DataHandler(BaseHandler):
         ds.save()
         return json.dumps(ds.Metadata), "text/json"
                 
-    def file(self, request, relpath, name=None, fid=None, with_metadata="yes", with_relations="yes", **args):
+    def file(self, request, relpath, name=None, fid=None, with_metadata="yes", with_provenance="yes", **args):
         if name:
             namespace, name = parse_name(name, None)
             if not namespace:
@@ -1119,14 +1130,14 @@ class DataHandler(BaseHandler):
         
         
         with_metadata = with_metadata == "yes"
-        with_relations = with_relations == "yes"
+        with_provenance = with_provenance == "yes"
         
         db = self.App.connect()
         if fid:
             f = DBFile.get(db, fid = fid)
         else:
             f = DBFile.get(db, namespace=namespace, name=name)
-        return f.to_json(with_metadata=with_metadata, with_relations=with_relations), "text/json"
+        return f.to_json(with_metadata=with_metadata, with_relations=with_provenance), "text/json"
             
     def query(self, request, relpath, query=None, namespace=None, 
                     with_meta="no", with_provenance="no", debug="no",

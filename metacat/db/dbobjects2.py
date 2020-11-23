@@ -611,7 +611,7 @@ class DBFile(object):
     def get_attribute(self, attrname, default=None):
         return self.Metadata.get(attrname, default)
 
-    def to_jsonable(self, with_datasets = False):
+    def to_jsonable(self, with_datasets = False, with_metadata = True, with_provenance=True):
         ns = self.Name if self.Namespace is None else self.Namespace + ':' + self.Name
         data = dict(
             fid = self.FID,
@@ -620,17 +620,19 @@ class DBFile(object):
         )
         if self.Checksums is not None:  data["checksums"] = self.Checksums
         if self.Size is not None:       data["size"] = self.Size
-        if self.Metadata is not None:   data["metadata"] = self.Metadata
-        if self.Parents is not None:    data["parents"] = [p.FID if isinstance(p, DBFile) else p for p in self.Parents]
-        if self.Children is not None:   data["children"] = [c.FID if isinstance(c, DBFile) else c for c in self.Children]
+        if self.Creator is not None:    data["creator"] = self.Creator
+        if self.CreatedTimestamp is not None:    data["created_timestamp"] = epoch(self.CreatedTimestamp)
+        if with_metadata and self.Metadata is not None:   data["metadata"] = self.Metadata
+        if with_provenance and self.Parents is not None:    data["parents"] = [p.FID if isinstance(p, DBFile) else p for p in self.Parents]
+        if with_provenance and self.Children is not None:   data["children"] = [c.FID if isinstance(c, DBFile) else c for c in self.Children]
         if with_datasets:
             data["datasets"] = [{
                 "namespace":ds.Namespace, "name":ds.Name
             } for ds in self.datasets()]
         return data
 
-    def to_json(self, with_metadata = False, with_relations=False):
-        return json.dumps(self.to_jsonable(with_metadata=with_metadata, with_relations=with_relations))
+    def to_json(self, with_metadata = False, with_provenance=False):
+        return json.dumps(self.to_jsonable(with_metadata=with_metadata, with_provenance=with_provenance))
         
     def children(self, with_metadata = False):
         return DBFileSet(self.DB, [self]).children(with_metadata)

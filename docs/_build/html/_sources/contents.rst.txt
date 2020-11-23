@@ -1,4 +1,0 @@
-Contents
---------
-
-Hello there

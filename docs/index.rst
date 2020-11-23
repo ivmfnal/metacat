@@ -14,4 +14,5 @@ MetaCat Documentation
    REST_API
    ui
    regexp
+   webapi
 
