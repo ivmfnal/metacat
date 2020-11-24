@@ -27,23 +27,24 @@ If you use your own Python installation, e.g. Anaconda or Miniconda, then you ca
       $ python setup.py install
 
 
-Environment
------------
+General CLI command syntax
+--------------------------
 
-To set the client environment:
+General command looks like this:
 
-  1. Create config YAML file:
-  
-      .. code-block:: yaml
-      
-          Server:
-              URL:    http://host.fnal.gov:8080/path_head
+    .. code-block:: shell
+    
+        $ metacat [-s <server URL>] <command> [command options] [arguments ...]
+    
+    
+-s option specified the server URL. Alternativey, you can define the METACAT_SERVER_URL environment variable:
 
-  2. Set environment:
-  
-      .. code-block:: shell
-      
-          export METACAT_CONFIG=/path/to/config.yaml
+    .. code-block:: shell
+    
+        $ export METACAT_SERVER_URL="http://server:port/path"
+        $ metacat <command> [command options] [arguments ...]
+    
+
 
 Authentication
 --------------
