@@ -60,6 +60,7 @@ def do_password(config, args):
         sys.exit(1)
     hashed = password_hash(username, password)
     u.set_password(hashed)
+    #print("hashed password:", hashed)
     u.save()
     print("Password updated")
     

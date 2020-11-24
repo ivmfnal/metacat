@@ -140,7 +140,10 @@
                 }
                 else
                 {
-                    form.elements.namedItem("hashed_password") = password_hash(username, password1);
+                    var h = password_hash(username, password1);
+                    e = form.elements.namedItem("hashed_password");
+                    e.value = h;
+                    console.log("hashed:"+h);
                     return true;
                 }
             }
