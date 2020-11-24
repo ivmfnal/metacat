@@ -129,7 +129,7 @@ class MetaCatClient(HTTPClient):
         return item
 
     def create_dataset(self, spec, parent=None):
-        """Creates new dataset
+        """Creates new dataset. Requires client authentication.
         
         Parameters
         ----------
@@ -147,7 +147,7 @@ class MetaCatClient(HTTPClient):
         return self.get_json(url)
         
     def add_files(self, dataset, file_list, namespace=None):
-        """Add existing files to an existing dataset
+        """Add existing files to an existing dataset. Requires client authentication.
         
         Parameters
         ----------
@@ -182,7 +182,7 @@ class MetaCatClient(HTTPClient):
         return out
 
     def declare_files(self, dataset, file_list, namespace=None):
-        """Declare new files and add them to an existing dataset
+        """Declare new files and add them to an existing dataset. Requires client authentication.
         
         Parameters
         ----------
@@ -231,7 +231,7 @@ class MetaCatClient(HTTPClient):
         return out
 
     def update_file_meta(self, metadata, names=None, fids=None, mode="update", namespace=None):
-        """Updates metadata for existing files
+        """Updates metadata for existing files. Requires client authentication.
         
         Parameters
         ----------
@@ -305,7 +305,7 @@ class MetaCatClient(HTTPClient):
         return out
         
     def update_dataset_meta(self, metadata, dataset, mode="update"):   
-        """Update dataset metadata
+        """Update dataset metadata. Requires client authentication.
         
         Parameters
         ----------
@@ -314,7 +314,7 @@ class MetaCatClient(HTTPClient):
         dataset : str
            "namespace:name"
         mode: str
-            Either ``"replace"`` or ``"replace"``. If ``"replace"``, metadata will be updated with new values. If ``"replace"``,
+            Either ``"update"`` or ``"replace"``. If ``"update"``, metadata will be updated with new values. If ``"replace"``,
             metadata will be replaced with new values.
 
         Returns
@@ -374,7 +374,7 @@ class MetaCatClient(HTTPClient):
         return self.get_json(url)
 
     def run_query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None, add_to=None):
-        """Run file query
+        """Run file query. Requires client authentication if save_as or add_to are used.
         
         Parameters
         ----------
@@ -412,7 +412,7 @@ class MetaCatClient(HTTPClient):
         return results
         
     def async_query(self, query, data, **args):
-        """Run file query asynchronously.
+        """Run file query asynchronously. Requires client authentication if save_as or add_to are used.
         
         Parameters
         ----------
@@ -462,7 +462,7 @@ class MetaCatClient(HTTPClient):
         self.QueryQueue.waitUntilEmpty()
     
     def create_namespace(self, name, owner_role=None, description=None):
-        """Creates new namespace
+        """Creates new namespace. Requires client authentication.
         
         Parameters
         ----------

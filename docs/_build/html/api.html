@@ -49,7 +49,7 @@
 <dl class="py method">
 <dt>
 <code class="sig-name descname">add_files</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dataset</span></em>, <em class="sig-param"><span class="n">file_list</span></em>, <em class="sig-param"><span class="n">namespace</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span></dt>
-<dd><p>Add existing files to an existing dataset</p>
+<dd><p>Add existing files to an existing dataset. Requires client authentication.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -79,7 +79,7 @@ will be used.</p></li>
 <dl class="py method">
 <dt>
 <code class="sig-name descname">async_query</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">query</span></em>, <em class="sig-param"><span class="n">data</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">args</span></em><span class="sig-paren">)</span></dt>
-<dd><p>Run file query asynchronously.</p>
+<dd><p>Run file query asynchronously. Requires client authentication if save_as or add_to are used.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -118,7 +118,7 @@ argument to the <code class="docutils literal notranslate"><span class="pre">asy
 <dl class="py method">
 <dt>
 <code class="sig-name descname">create_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">spec</span></em>, <em class="sig-param"><span class="n">parent</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span></dt>
-<dd><p>Creates new dataset</p>
+<dd><p>Creates new dataset. Requires client authentication.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>spec</strong> (<em>str</em>) – “namespace:name”</p>
@@ -135,7 +135,7 @@ argument to the <code class="docutils literal notranslate"><span class="pre">asy
 <dl class="py method">
 <dt>
 <code class="sig-name descname">create_namespace</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span></em>, <em class="sig-param"><span class="n">owner_role</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">description</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span></dt>
-<dd><p>Creates new namespace</p>
+<dd><p>Creates new namespace. Requires client authentication.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -157,7 +157,7 @@ Optional. If unspecified, the new namespace will be owned by the user.</p></li>
 <dl class="py method">
 <dt>
 <code class="sig-name descname">declare_files</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dataset</span></em>, <em class="sig-param"><span class="n">file_list</span></em>, <em class="sig-param"><span class="n">namespace</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span></dt>
-<dd><p>Declare new files and add them to an existing dataset</p>
+<dd><p>Declare new files and add them to an existing dataset. Requires client authentication.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -328,7 +328,7 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 <dl class="py method">
 <dt>
 <code class="sig-name descname">run_query</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">query</span></em>, <em class="sig-param"><span class="n">namespace</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">with_metadata</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">with_provenance</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">save_as</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">add_to</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span></dt>
-<dd><p>Run file query</p>
+<dd><p>Run file query. Requires client authentication if save_as or add_to are used.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -354,13 +354,13 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 <dl class="py method">
 <dt>
 <code class="sig-name descname">update_dataset_meta</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">metadata</span></em>, <em class="sig-param"><span class="n">dataset</span></em>, <em class="sig-param"><span class="n">mode</span><span class="o">=</span><span class="default_value">'update'</span></em><span class="sig-paren">)</span></dt>
-<dd><p>Update dataset metadata</p>
+<dd><p>Update dataset metadata. Requires client authentication.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>metadata</strong> (<em>dict</em>) – New metadata values</p></li>
 <li><p><strong>dataset</strong> (<em>str</em>) – “namespace:name”</p></li>
-<li><p><strong>mode</strong> (<em>str</em>) – Either <code class="docutils literal notranslate"><span class="pre">&quot;replace&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;replace&quot;</span></code>. If <code class="docutils literal notranslate"><span class="pre">&quot;replace&quot;</span></code>, metadata will be updated with new values. If <code class="docutils literal notranslate"><span class="pre">&quot;replace&quot;</span></code>,
+<li><p><strong>mode</strong> (<em>str</em>) – Either <code class="docutils literal notranslate"><span class="pre">&quot;update&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;replace&quot;</span></code>. If <code class="docutils literal notranslate"><span class="pre">&quot;update&quot;</span></code>, metadata will be updated with new values. If <code class="docutils literal notranslate"><span class="pre">&quot;replace&quot;</span></code>,
 metadata will be replaced with new values.</p></li>
 </ul>
 </dd>
@@ -376,7 +376,7 @@ metadata will be replaced with new values.</p></li>
 <dl class="py method">
 <dt>
 <code class="sig-name descname">update_file_meta</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">metadata</span></em>, <em class="sig-param"><span class="n">names</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">fids</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mode</span><span class="o">=</span><span class="default_value">'update'</span></em>, <em class="sig-param"><span class="n">namespace</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span></dt>
-<dd><p>Updates metadata for existing files</p>
+<dd><p>Updates metadata for existing files. Requires client authentication.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
