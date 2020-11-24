@@ -1,4 +1,4 @@
-import sys, getopt, os, json, fnmatch
+import sys, getopt, os, json, fnmatch, pprint
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
 from metacat.webapi import MetaCatClient
@@ -18,7 +18,7 @@ Usage:
         show <name>
 """
 
-def do_list(config, client, args):
+def do_list(client, args):
     opts, args = getopt.getopt(args, "v", ["--verbose"])
     
     pattern = None if not args else args[0]
@@ -39,10 +39,10 @@ def do_list(config, client, args):
         print("%-30s\t%-20s\t%s" % (name, owner, item.get("descrition") or ""))
                 
     
-def do_show(config, client, args):
-    print(client.get_namespace(args[0]))
+def do_show(client, args):
+    pprint.pprint(client.get_namespace_info(args[0]))
     
-def do_create(config, client, args):
+def do_create(client, args):
     opts, args = getopt.getopt(args, "o:", ["--owner="])
     opts = dict(opts)
     
@@ -51,7 +51,7 @@ def do_create(config, client, args):
     output = client.create_namespace(name, owner_role=opts.get("-o", opts.get("--owner")))
     print(output)
     
-def do_namespace(config, server_url, args):
+def do_namespace(server_url, args):
     if not args:
         print(Usage)
         sys.exit(2)
@@ -62,7 +62,7 @@ def do_namespace(config, server_url, args):
         "list":     do_list,
         "create":   do_create,
         "show":     do_show
-    }[command](config, client, args[1:])
+    }[command](client, args[1:])
     
     
  

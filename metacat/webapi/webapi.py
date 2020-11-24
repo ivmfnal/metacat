@@ -109,7 +109,7 @@ class MetaCatClient(HTTPClient):
                 continue
             yield item
     
-    def get_dataset(self, spec, namespace=None, name=None):
+    def get_dataset_info(self, spec, namespace=None, name=None):
         """Gets single dataset
         
         Parameters
@@ -326,7 +326,7 @@ class MetaCatClient(HTTPClient):
         out = self.post_json(url, metadata)
         return out
         
-    def get_file(self, fid=None, name=None, with_metadata = True, with_provenance=True):
+    def get_file_info(self, fid=None, name=None, with_metadata = True, with_provenance=True):
         """Get one file record
         
         Parameters
@@ -488,7 +488,7 @@ class MetaCatClient(HTTPClient):
             url += f"&description={desc}"
         return self.get_json(url)
         
-    def get_namespace(self, name):
+    def get_namespace_info(self, name):
         """Creates new namespace
         
         Parameters

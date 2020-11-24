@@ -24,7 +24,7 @@ Usage:
         -S|--save-as=<namespace>:<name>     - save results as a new datset
 """
 
-def do_query(config, server_url, args):
+def do_query(server_url, args):
     opts, args = getopt.getopt(args, "jism:N:pf:S:lP", ["line","json", "ids","summary","metadata=","namespace=","pretty",
                 "with-provenance","save-as="])
     opts = dict(opts)

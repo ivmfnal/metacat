@@ -1137,7 +1137,7 @@ class DataHandler(BaseHandler):
             f = DBFile.get(db, fid = fid)
         else:
             f = DBFile.get(db, namespace=namespace, name=name)
-        return f.to_json(with_metadata=with_metadata, with_relations=with_provenance), "text/json"
+        return f.to_json(with_metadata=with_metadata, with_provenance=with_provenance), "text/json"
             
     def query(self, request, relpath, query=None, namespace=None, 
                     with_meta="no", with_provenance="no", debug="no",
@@ -1228,7 +1228,7 @@ class DataHandler(BaseHandler):
                 ds = DBDataset(db, add_namespace, add_name)
                 ds.add_files(results)      
             
-            data = (f.to_jsonable() for f in results)
+            data = (f.to_jsonable(with_metadata=with_meta, with_provenance=with_provenance) for f in results)
 
         else:
             data = (

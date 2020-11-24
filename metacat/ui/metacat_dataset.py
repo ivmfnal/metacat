@@ -1,4 +1,4 @@
-import sys, getopt, os, json, fnmatch
+import sys, getopt, os, json, fnmatch, pprint
 #from urllib.request import urlopen, Request
 from metacat.util import to_bytes, to_str, TokenLib, epoch
 from metacat.webapi import MetaCatClient
@@ -25,7 +25,7 @@ Usage:
             -r|--replace          - replace metadata, otherwise update
 """
 
-def do_list(config, client, args):
+def do_list(client, args):
     opts, args = getopt.getopt(args, "l", ["--long"])
     if args:
         patterns = args
@@ -69,10 +69,10 @@ def do_list(config, client, args):
                     
                 
     
-def do_show(config, client, args):
-    print(client.get_dataset(args[0]))
+def do_show(client, args):
+    pprint.pprint(client.get_dataset_info(args[0]))
     
-def do_create(config, client, args):
+def do_create(client, args):
     opts, args = getopt.getopt(args, "p:", ["--parent="])
     opts = dict(opts)
     dataset_spec = args[0]    
@@ -81,7 +81,7 @@ def do_create(config, client, args):
     out = client.create_dataset(dataset_spec, parent = parent_spec)
     print(out)
     
-def do_update(config, client, args):
+def do_update(client, args):
     opts, args = getopt.getopt(args, "r", ["replace"])
     opts = dict(opts)
 
@@ -102,7 +102,7 @@ def do_update(config, client, args):
     response = client.update_dataset_meta(meta, dataset, mode=mode)
     print(response)
 
-def do_dataset(config, server_url, args):
+def do_dataset(server_url, args):
     if not args:
         print(Usage)
         sys.exit(2)
@@ -115,7 +115,7 @@ def do_dataset(config, server_url, args):
         "update":   do_update,
         "create":   do_create,
         "show":     do_show
-    }[command](config, client, args[1:])
+    }[command](client, args[1:])
     
     
  

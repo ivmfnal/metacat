@@ -4,13 +4,13 @@ from metacat.util import password_hash
 import psycopg2
 
 Usage="""
-metacat -c <config file> admin  create <username> <password>   - create new admin account
+metacat admin -c <config file> create <username> <password>   - create new admin account
                                 password <username> <password> - change admins password
                                 add <username>                 - add admin privileges
                                 remove <username>              - remove admin privileges
                                 list                           - list all admin accounts
 
-Required direct access to the database. The config file must include:
+Requires direct access to the database. The YAML config file must include:
 
     database:
         host: ...
@@ -92,7 +92,17 @@ def do_remove(config, args):
     u.save()
     print("Admin privileges removed")
     
-def do_admin(config, args):
+def do_admin(args):
+    
+    from .metacat_config import MetaCatConfig
+    
+    opts, args = getopt.getopt(args, "c:")
+    opts = dict(opts)
+    if not "-c" in opts:
+        print("Config file must be specified with -c option")
+        sys.exit(2)
+    
+    config = MetaCatConfig(opts["-c"])
     
     if not args:
         print(Usage)

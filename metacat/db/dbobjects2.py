@@ -345,8 +345,8 @@ class DBFile(object):
         self.CreatedTimestamp = created_timestamp
         self.Checksums = checksums
         self.Size = size
-        self.Parents = parents
-        self.Children = children
+        self.Parents = parents      # list of file ids
+        self.Children = children    # list of file ids
     
     ID_BITS = 64
     ID_NHEX = ID_BITS/4
@@ -611,7 +611,7 @@ class DBFile(object):
     def get_attribute(self, attrname, default=None):
         return self.Metadata.get(attrname, default)
 
-    def to_jsonable(self, with_datasets = False, with_metadata = True, with_provenance=True):
+    def to_jsonable(self, with_datasets = False, with_metadata = False, with_provenance=False):
         ns = self.Name if self.Namespace is None else self.Namespace + ':' + self.Name
         data = dict(
             fid = self.FID,
@@ -622,23 +622,26 @@ class DBFile(object):
         if self.Size is not None:       data["size"] = self.Size
         if self.Creator is not None:    data["creator"] = self.Creator
         if self.CreatedTimestamp is not None:    data["created_timestamp"] = epoch(self.CreatedTimestamp)
-        if with_metadata and self.Metadata is not None:   data["metadata"] = self.Metadata
-        if with_provenance and self.Parents is not None:    data["parents"] = [p.FID if isinstance(p, DBFile) else p for p in self.Parents]
-        if with_provenance and self.Children is not None:   data["children"] = [c.FID if isinstance(c, DBFile) else c for c in self.Children]
+        if with_metadata:     data["metadata"] = self.metadata()
+        if with_provenance:   
+            data["parents"] = self.parents()
+            data["children"] = self.children()
         if with_datasets:
-            data["datasets"] = [{
-                "namespace":ds.Namespace, "name":ds.Name
-            } for ds in self.datasets()]
+            data["datasets"] = ["%s:%s" % (ds.Namespace, ds.Name) for ds in self.datasets()]
         return data
 
     def to_json(self, with_metadata = False, with_provenance=False):
         return json.dumps(self.to_jsonable(with_metadata=with_metadata, with_provenance=with_provenance))
         
     def children(self, with_metadata = False):
-        return DBFileSet(self.DB, [self]).children(with_metadata)
+        if self.Children is None:
+            self.Children = [f.FID for f in DBFileSet(self.DB, [self]).children(with_metadata)]
+        return self.Children
         
     def parents(self, with_metadata = False):
-        return DBFileSet(self.DB, [self]).parents(with_metadata)
+        if self.Parents is None:
+            self.Parents = [f.FID for f in DBFileSet(self.DB, [self]).parents(with_metadata)]
+        return self.Parents
         
     def add_child(self, child, do_commit=True):
         child_fid = child if isinstance(child, str) else child.FID

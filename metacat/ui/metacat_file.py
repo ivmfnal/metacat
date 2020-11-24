@@ -103,7 +103,7 @@ _declare_smaple = [
 ]
 
 
-def do_declare(config, client, args):
+def do_declare(client, args):
     opts, args = getopt.getopt(args, "N:", ["namespace=", "sample"])
     opts = dict(opts)
     namespace = opts.get("-N") or opts.get("--namespace")
@@ -123,7 +123,7 @@ def do_declare(config, client, args):
                 
 
 
-def do_show(config, client, args):
+def do_show(client, args):
     opts, args = getopt.getopt(args, "jmpi:", ["json","meta-only","pretty"])
     opts = dict(opts)
     
@@ -150,7 +150,7 @@ def do_show(config, client, args):
     else:
         fid = opts["-i"]
 
-    data = client.get_file(name=name, fid=fid)
+    data = client.get_file_info(name=name, fid=fid)
     
     if meta_only:
         data = data.get("metadata", {})
@@ -160,8 +160,11 @@ def do_show(config, client, args):
         print(json.dumps(data))
     else:
         for k, v in sorted(data.items()):
-            print("%s:\t%s" % (k, v))
-
+            if k != "metadata":
+                print("%-15s:\t%s" % (k, v))
+        if "metadata" in data:
+            print("%-15s:\t" % ("metadata",), end="")
+            pprint.pprint(data["metadata"])
 _update_smaple = [
     {        
         "name":"test:file1.dat",
@@ -195,7 +198,7 @@ _update_smaple = [
     }
 ]
 
-def do_update(config, client, args):
+def do_update(client, args):
     opts, args = getopt.getopt(args, "i:n:N:r", ["namespace=", "names=", "ids=", "sample", "replace"])
     opts = dict(opts)
 
@@ -240,7 +243,7 @@ _add_smaple = [
     }
 ]
 
-def do_add(config, client, args):
+def do_add(client, args):
     opts, args = getopt.getopt(args, "i:j:n:N:", ["namespace=", "json=", "names=", "ids=", "sample"])
     opts = dict(opts)
 
@@ -266,7 +269,7 @@ def do_add(config, client, args):
 
 
 
-def do_file(config, server_url, args):
+def do_file(server_url, args):
     if not args:
         print(Usage)
         sys.exit(2)
@@ -278,4 +281,4 @@ def do_file(config, server_url, args):
         "add":          do_add,
         "update":       do_update,
         "show":         do_show
-    }[command](config, client, args[1:])
+    }[command](client, args[1:])
