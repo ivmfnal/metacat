@@ -213,13 +213,17 @@ metacat query &lt;options&gt; -f &lt;MQL query file&gt;
 Options:
     -j<span class="p">|</span>--json                           - print raw JSON output
     -p<span class="p">|</span>--pretty                         - pretty-print metadata
+    -l<span class="p">|</span>--line                           - print all metadata on single line <span class="o">(</span>good <span class="k">for</span> grepping, ignored with -j and -p<span class="o">)</span>
     -i<span class="p">|</span>--ids                            - print file ids instead of names
     -s<span class="p">|</span>--summary                        - print only summary information
     -m<span class="p">|</span>--metadata<span class="o">=[</span>&lt;field&gt;,...<span class="o">]</span>         - print metadata fields
                                           overrides --summary
     -m<span class="p">|</span>--metadata<span class="o">=</span>all                   - print all metadata fields
                                           overrides --summary
+    -P<span class="p">|</span>--with-provenance                - include provenance information
     -N<span class="p">|</span>--namespace<span class="o">=</span>&lt;default namespace&gt;  - default namespace <span class="k">for</span> the query
+    -S<span class="p">|</span>--save-as<span class="o">=</span>&lt;namespace&gt;:&lt;name&gt;     - save files as a new datset
+    -A<span class="p">|</span>--add-to<span class="o">=</span>&lt;namespace&gt;:&lt;name&gt;      - add files to an existing dataset
 </pre></div>
 </div>
 </div>

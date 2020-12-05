@@ -200,13 +200,18 @@ Query
     Options:
         -j|--json                           - print raw JSON output
         -p|--pretty                         - pretty-print metadata
+        -l|--line                           - print all metadata on single line (good for grepping, ignored with -j and -p)
         -i|--ids                            - print file ids instead of names
         -s|--summary                        - print only summary information
         -m|--metadata=[<field>,...]         - print metadata fields
                                               overrides --summary
         -m|--metadata=all                   - print all metadata fields
                                               overrides --summary
+        -P|--with-provenance                - include provenance information
         -N|--namespace=<default namespace>  - default namespace for the query
+        -S|--save-as=<namespace>:<name>     - save files as a new datset
+        -A|--add-to=<namespace>:<name>      - add files to an existing dataset
+        
 
     
 
