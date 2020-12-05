@@ -21,12 +21,13 @@ Usage:
                                               overrides --summary
         -P|--with-provenance                - include provenance information
         -N|--namespace=<default namespace>  - default namespace for the query
-        -S|--save-as=<namespace>:<name>     - save results as a new datset
+        -S|--save-as=<namespace>:<name>     - save files as a new datset
+        -A|--add-to=<namespace>:<name>      - add files to an existing dataset
 """
 
 def do_query(server_url, args):
-    opts, args = getopt.getopt(args, "jism:N:pf:S:lP", ["line","json", "ids","summary","metadata=","namespace=","pretty",
-                "with-provenance","save-as="])
+    opts, args = getopt.getopt(args, "jism:N:pf:S:A:lP", ["line","json", "ids","summary","metadata=","namespace=","pretty",
+                "with-provenance","save-as=","add-to="])
     opts = dict(opts)
 
     #print("opts:", opts,"    args:", args)
@@ -38,6 +39,7 @@ def do_query(server_url, args):
     keys = opts.get("-m") or opts.get("--metadata") or []
     if keys and keys != "all":    keys = keys.split(",")
     save_as = opts.get("-S") or opts.get("--saves-as")
+    add_to = opts.get("-A") or opts.get("--add-to")
 
     #print("url:", url)
     client = MetaCatClient(server_url)
@@ -52,7 +54,9 @@ def do_query(server_url, args):
         
     #print("with_meta=", with_meta)
         
-    results = client.run_query(query_text, namespace=namespace, with_metadata = with_meta, save_as=save_as, with_provenance=with_provenance)
+    results = client.run_query(query_text, namespace=namespace, with_metadata = with_meta, 
+            save_as=save_as, add_to=add_to,
+            with_provenance=with_provenance)
 
     if "--json" in opts or "-j" in opts:
         print(json.dumps(results, sort_keys=True, indent=4, separators=(',', ': ')))

@@ -10,17 +10,17 @@ Usage:
     metacat auth subommands and options:
     
         login [-m <mechanism>] <username>               - request authentication token
-            Only "password" mechanism is implemnted
+            Currently, only "password" mechanism is implemented
         whoami                                          - verify token
         list                                            - list tokens
 """
 
-def do_list(config, client, args):
+def do_list(client, args):
     tl = client.TL
     for url, token in tl.items():
             print("%s %s %s %s" % (token.TID, url, token["user"], time.ctime(token.Expiration)))
 
-def do_whoami(config, client, args):
+def do_whoami(client, args):
     try:    user, expiration = client.auth_info()
     except MCAuthenticationError as e:
         print(e)
@@ -28,14 +28,14 @@ def do_whoami(config, client, args):
         print ("User:   ", user)
         print ("Expires:", time.ctime(expiration))
 
-def do_login(config, client, args):
+def do_login(client, args):
     username = args[0]
     password = getpass.getpass("Password:")
     user, expiration = client.login_password(username, password)
     print ("User:   ", user)
     print ("Expires:", time.ctime(expiration))
     
-def do_auth(config, server_url, args):
+def do_auth(server_url, args):
     if not args:
         print(Usage)
         sys.exit(2)
@@ -46,5 +46,5 @@ def do_auth(config, server_url, args):
         "list":         do_list,
         "login":        do_login,
         "whoami":       do_whoami
-    }[command](config, client, args[1:])
+    }[command](client, args[1:])
 

@@ -4,7 +4,7 @@ from metacat.util import password_hash
 import psycopg2
 
 Usage="""
-metacat admin -c <config file> create <username> <password>   - create new admin account
+metacat admin -c <config file>  create <username> <password>   - create new admin account
                                 password <username> <password> - change admins password
                                 add <username>                 - add admin privileges
                                 remove <username>              - remove admin privileges
@@ -97,9 +97,14 @@ def do_admin(args):
     from .metacat_config import MetaCatConfig
     
     opts, args = getopt.getopt(args, "c:")
+    if not args:
+        print(Usage)
+        sys.exit(2)
+    
     opts = dict(opts)
     if not "-c" in opts:
-        print("Config file must be specified with -c option")
+        print("Config file must be specified with -c option\n")
+        print(Usage)
         sys.exit(2)
     
     config = MetaCatConfig(opts["-c"])
@@ -114,7 +119,7 @@ def do_admin(args):
         "create":   do_create,
         "password":     do_password,
         "add":     do_add,
-        "remove":     do_remove,
+        "remove":     do_remove
     }[command](config, args[1:])
     
  

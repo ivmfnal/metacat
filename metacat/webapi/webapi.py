@@ -3,7 +3,10 @@ from metacat.util import to_str, to_bytes, TokenLib, password_hash
 from pythreader import Task, TaskQueue, Promise
 from urllib.parse import quote_plus, unquote_plus
 
-class ServerError(Exception):
+class WebAPIError(Exception):
+    pass
+
+class ServerError(WebAPIError):
     
     def __init__(self, url, status_code, message, body=""):
         self.URL = url
@@ -14,10 +17,10 @@ class ServerError(Exception):
     def __str__(self):
         msg = f"MetaCatServer error:\n  URL: {self.URL}\n  HTTP status code: {self.StatusCode}\n  Message: {self.Message}"
         if self.Body:
-            msg += "\nMessage from the server:\n"+self.Body
+            msg += "\nMessage from the server:\n"+self.Body+"\n"
         return msg
         
-class AuthenticationError(Exception):
+class AuthenticationError(WebAPIError):
     def __init__(self, message):
         self.Message = message
         

@@ -1174,7 +1174,7 @@ class DataHandler(BaseHandler):
                 return f"Permission to create a dataset in the namespace {ds_namespace} denied", 403
 
             if DBDataset.exists(db, ds_namespace, ds_name):
-                return "Already exists", 409
+                return f"Dataset {ds_namespace}:{ds_name} already exists", 409
 
         if add_to:
             if user is None:
@@ -1270,7 +1270,7 @@ class AuthHandler(BaseHandler):
             })
 
         else:
-            return 403, "Authentication failed"
+            return "Authentication failed", 403
             
     def logout(self, request, relpath, redirect=None, **args):
         return self.App.response_with_unset_auth_cookie(redirect)

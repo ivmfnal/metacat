@@ -999,7 +999,7 @@ class DBDataset(object):
         if do_commit:   c.execute("commit")
         return self
         
-    def add_files(self, files, do_commit=True):
+    def ___add_files(self, files, do_commit=True):
         c = self.DB.cursor()
         c.executemany(f"""
             insert into files_datasets(file_id, dataset_namespace, dataset_name) values(%s, '{self.Namespace}', '{self.Name}')
@@ -1007,7 +1007,42 @@ class DBDataset(object):
         if do_commit:
             c.execute("commit")
         return self
+
+
+
+    def add_files(self, files, do_commit=True):
+        c = self.DB.cursor()
+        c.execute("begin")
         
+        existing = set(f.FID for f in self.list_files(with_metadata=False))
+
+        csv = []
+        null = r"\N"
+
+        to_add = set(f.FID for f in files) - existing
+        
+        for fid in to_add:
+            csv.append("%s\t%s\t%s" % (
+                fid, self.Namespace, self.Name
+            ))
+        csv = io.StringIO("\n".join(csv))
+        
+
+        try:
+            #open("/tmp/files.csv", "w").write(files_data)
+            if to_add:
+                c.copy_from(csv, "files_datasets", 
+                        columns = ["file_id", "dataset_namespace", "dataset_name"])
+            if do_commit:   c.execute("commit")
+        except Exception as e:
+            print(traceback.format_exc())
+            c.execute("rollback")
+            raise
+
+
+
+
+
     def list_files(self, with_metadata=False, limit=None):
         meta = "null as metadata" if not with_metadata else "f.metadata"
         limit = f"limit {limit}" if limit else ""
