@@ -25,10 +25,13 @@ class SQLConverter(Ascender):
             print(*parts, **args)
             
     def convert(self, tree):
+        self.debug("convert(): input tree:----------\n", tree.pretty(), "\n-------------")
         result = self.walk(tree)
         if result.T == "sql":
-            self.debug("sql:---------\n", result["sql"], "\n-------------")
-        return self.node_to_file_set(result)
+            self.debug("convert(): sql:---------\n", result["sql"], "\n-------------")
+        file_set = self.node_to_file_set(result)
+        self.debug("convert(): returning file set")
+        return file_set
         
     def node_to_file_set(self, node):
         if node.T == "sql":
@@ -195,7 +198,7 @@ class SQLConverter(Ascender):
         else:
             return Node("file_set", file_set = arg["file_set"].children(with_metadata=with_meta, with_provenance=with_provenance))
 
-    def limit(self, node, arg, limit=None):
+    def limit(self, node, arg, limit=None, **kv):
         if limit is None:
             return arg
         if arg.T == "sql":
@@ -214,9 +217,10 @@ class SQLConverter(Ascender):
         else:
             return Node("file_set", file_set = limited(arg["file_set"], limit))
 
-    def filter(self, node, *queries, name=None, params=[]):
+    def filter(self, node, *queries, name=None, params=[], **kv):
         #print("Evaluator.filter: inputs:", inputs)
         assert name is not None
         filter_function = self.Filters[name]
         queries = [self.node_to_file_set(q) for q in queries]
-        return Node("file_set", file_set = DBFileSet(self.DB, filter_function(queries, params)))
+        limit = node.get("limit")
+        return Node("file_set", file_set = DBFileSet(self.DB, filter_function(queries, params, limit=limit)))

@@ -83,12 +83,14 @@ class BasicFileQuery(object):
         self.Wheres = where 
         self.Limit = None
         self.WithMeta = False       
-        self.WithProvenanace = False
+        self.WithProvenance = False
         
         
     def __str__(self):
-        return "BasicFileQuery(selector:%s, limit:%s, %s meta)" % (self.DatasetSelector, self.Limit,
-            "with" if self.WithMeta else "without")
+        return "BasicFileQuery(selector:%s, limit:%s, %s meta, %s provenance)" % (self.DatasetSelector, self.Limit,
+            "with" if self.WithMeta else "without",
+            "with" if self.WithProvenance else "without",
+            )
         
     def _pretty(self, indent="", headline_indent=None):
         #print(f"BasicFileQuery._pretty(indent='{indent}', headline_indent='{headline_indent}')")
@@ -253,7 +255,7 @@ class FileQuery(object):
         
         if debug:
             print("Query:\n%s" % (optimized.pretty(),))
-            print("SQL:\n%s" % (out.SQL,))
+            #print("SQL:\n%s" % (out.SQL,))
 
         return out
 
@@ -298,7 +300,11 @@ class _Converter(Transformer):
         
     def limited_file_query_expression(self, args):
         assert len(args) == 2
-        return Node("limit", [args[0]], limit = int(args[1].value))
+        child, limit = args
+        limit = int(limit)
+        if child.T == "filter":
+            child["limit"] = limit
+        return Node("limit", [child], limit = limit)
         #return Node("file_query", [args[0]], meta = {"limit":int(args[1].value)})
 
     def meta_filter(self, args):
@@ -688,6 +694,10 @@ class _QueryLimitApplier(Descender):
         #print("LimitApplier: applying limit", limit)
         node["query"].addLimit(limit)
         return node
+        
+    def filter(self, node, limit):
+        node["limit"] = limit
+        return Node("limit", [node], limit=limit)
 
     def file_list(self, node, limit):
         node["limit"] = limit
@@ -712,7 +722,7 @@ class _QueryOptionsApplier(Descender):
         with_provenance = params.get("with_provenance")
         query = node["query"]
         query.WithMeta = query.WithMeta or with_meta
-        query.WithProvenance = query.WithMeta or with_provenance
+        query.WithProvenance = query.WithProvenance or with_provenance
         return node
         
     def _default(self, node, params):

@@ -210,6 +210,8 @@ class DBFileSet(object):
             
     @staticmethod
     def sql_for_basic_query(basic_file_query):
+        if Debug:
+            print("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
         limit = basic_file_query.Limit
         limit = "" if limit is None else f"limit {limit}"
         
@@ -219,6 +221,10 @@ class DBFileSet(object):
         parents = f"{f}.parents" if basic_file_query.WithProvenance else "null as parents"
         children = f"{f}.children" if basic_file_query.WithProvenance else "null as children"
         table = "files_with_provenance" if basic_file_query.WithProvenance else "files"
+
+        if Debug:
+            print("sql_for_basic_query: table:", table)
+
         
         where_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f)
         meta_where_clause = f"where {where_exp}" if where_exp else ""
@@ -257,6 +263,8 @@ class DBFileSet(object):
                         {limit}
                 -- end of sql_for_basic_query {f}
             """
+        if Debug:
+            print("sql_for_basic_query: sql:-------\n", sql, "\n---------")
         return sql
         
     @staticmethod
@@ -319,7 +327,11 @@ class DBFileSet(object):
     @staticmethod
     def from_sql(db, sql):
         c = db.cursor()
+        if Debug:
+            print("DBFileSet.from_sql: executing sql...")
         c.execute(sql)
+        if Debug:
+            print("DBFileSet.from_sql: return from execute()")
         fs = DBFileSet.from_tuples(db, fetch_generator(c))
         fs.SQL = sql
         return fs

@@ -1331,6 +1331,9 @@ class App(WPApp):
             import metacat.filters as filters_mod
             for n in cfg["filters"].get("names", []):
                 self.Filters[n] = getattr(filters_mod, n)
+        else:
+            from metacat.filters import standard_filters
+            self.Filters = standard_filters
                 
         #
         # Authentication/authtorization

@@ -50,8 +50,10 @@ def print_meta(inputs, params):
         lst = ["%s=%s" % (name, repr(meta.get(name))) for name in params]
         print(f"{f.FID} {f.Namespace}:{f.Name}  " + " ".join(lst))
         yield f
-            
-filters = dict(sample = sample, limit = limit, print_meta=print_meta)
+
+from metacat.filters import standard_filters as filters
+
+
 
 if not sys.argv[1:] or sys.argv[1] in ("help", "--help", "-?"):
     print(Usage)
