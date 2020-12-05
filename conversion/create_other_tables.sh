@@ -11,6 +11,7 @@ drop table if exists
     ,authenticators
     ,parameter_definitions
     ,namespaces
+    cascade
 ;
 
 drop view if exists file_provenance, files_with_provenance;
