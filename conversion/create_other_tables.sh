@@ -59,7 +59,7 @@ insert into namespaces(name, owner_role, creator)
     select distinct namespace, 'admin_role', 'admin' from files
 );
 
-insert into namespaces(name, owner, creator) values('dune', 'admin_role', 'admin');
+insert into namespaces(name, owner_role, creator) values('dune', 'admin_role', 'admin');
 
 create table datasets
 (
