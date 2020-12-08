@@ -346,6 +346,9 @@ class DBFile(object):
     def __init__(self, db, namespace = None, name = None, metadata = None, fid = None, size=None, checksums=None,
                     parents = None, children = None, creator = None, created_timestamp=None,
                     ):
+        
+        #print("DBFile.__init__: creator=", creator)            
+        
         assert (namespace is None) == (name is None)
         self.DB = db
         self.FID = fid or uuid.uuid4().hex
@@ -487,21 +490,28 @@ class DBFile(object):
     def from_tuple(db, tup):
         #print("----DBFile.from_tup: tup:", tup)
         if tup is None: return None
-        try:    
-            fid, namespace, name, meta, creator, created_timestamp, size, checksums, parents, children = tup
-            f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums,
-                parents = parents, children=children)
-        except: 
+        try:
             try:    
-                fid, namespace, name, meta, creator, created_timestamp, size, checksums = tup
-                f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums)
+                fid, namespace, name, meta, creator, created_timestamp, size, checksums, parents, children = tup
+                f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums,
+                    parents = parents, children=children, creator=creator,
+                            created_timestamp=created_timestamp)
             except: 
                 try:    
-                    fid, namespace, name, meta = tup
-                    f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta)
+                    fid, namespace, name, meta, creator, created_timestamp, size, checksums = tup
+                    f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums, creator=creator,
+                            created_timestamp=created_timestamp)
+                    #print(tup)
+                    #print(f.__dict__)
                 except: 
-                        fid, namespace, name = tup
-                        f = DBFile(db, fid=fid, namespace=namespace, name=name)
+                    try:    
+                        fid, namespace, name, meta = tup
+                        f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta)
+                    except: 
+                            fid, namespace, name = tup
+                            f = DBFile(db, fid=fid, namespace=namespace, name=name)
+        except:
+            raise ValueError("Can not unpack tuple: %s" % (tup,))
         return f
 
     @staticmethod
@@ -557,6 +567,10 @@ class DBFile(object):
         fetch_meta = "metadata" if with_metadata else "null"
         attrs = DBFile.attr_columns()
         if fid is not None:
+            #sql = f"""select id, namespace, name, {fetch_meta}, {attrs} 
+            #        from files
+            #        where id = %s"""
+            #print("sql:", sql)
             c.execute(f"""select id, namespace, name, {fetch_meta}, {attrs} 
                     from files
                     where id = %s""", (fid,))

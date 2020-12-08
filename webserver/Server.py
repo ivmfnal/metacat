@@ -188,6 +188,7 @@ class GUIHandler(BaseHandler):
     def show_file(self, request, relpath, fid=None, **args):
         db = self.connect()
         f = DBFile.get(db, fid=fid, with_metadata=True)
+        #print(f.__dict__)
         return self.render_to_response("show_file.html", f=f)
 
     def _meta_stats(self, files):

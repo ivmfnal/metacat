@@ -11,13 +11,13 @@
 	                <th>File ID</th><td>{{f.FID}}</td>
                 </tr>
                 <tr>
-	                <th>Namespace</th><td>{{f.Namespace}}</td>
+	                <th>Namespace</th><td class="filename">{{f.Namespace}}</td>
                 </tr>
                 <tr>
-	                <th>Name</th><td>{{f.Name}}</td>
+	                <th>Name</th><td class="filename">{{f.Name}}</td>
                 </tr>
                 <tr>
-	                <th>Size</th><td>{{f.Size}}</td>
+	                <th>Size</th><td>{{f.Size}} ({{"%.3f" % (f.Size/1024.0/1024.0,)}} MB)</td>
                 </tr>
                 <tr>
                     <th>Created at</th><td>{{f.CreatedTimestamp or ""}}</td>

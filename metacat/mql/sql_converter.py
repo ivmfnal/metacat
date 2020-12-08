@@ -17,7 +17,7 @@ class SQLConverter(Ascender):
         else:
             parents = "null as parents"
             children = "null as children"
-        return f"{t}.id, {t}.namespace, {t}.name, {meta}, {parents}, {children}"
+        return f"{t}.id, {t}.namespace, {t}.name, {meta}, {t}.creator, {t}.created_timestamp, {t}.size, {t}.checksums, {parents}, {children}"
         
     def debug(self, *params, **args):
         parts = ["SQLConverter:"]+list(params)
@@ -125,6 +125,8 @@ class SQLConverter(Ascender):
             s1 = left["sql"]
             s2 = right["sql"]
             sql = f"""({s1})\nexcept\n({s2})"""
+            if self.Debug:
+                print("SQLConverter.minus: sql:---------\n", sql, "\n-----------")
             return Node("sql", sql=sql)
         else:
             #print("minus: \n   left:", left.pretty(), "\n   right:", right.pretty())

@@ -57,8 +57,8 @@
             <th>Include metadata:</th>
             <td><input type="checkbox" name="with_meta" {% if with_meta %}checked="checked"{% endif %}>
                 &nbsp;&nbsp;&nbsp;view metadata as:&nbsp;<select name="view_meta_as">
-                            <option value="table" {{'selected="selected"' if view_meta_as== "table"}}>Table</option>
                             <option value="json" {{'selected="selected"' if view_meta_as== "json"}}>JSON</option>
+                            <option value="table" {{'selected="selected"' if view_meta_as== "table"}}>Table</option>
                             <option value="pprint" {{'selected="selected"' if view_meta_as== "pprint"}}>Python pprint</option>
                         </select>
             </td>
@@ -170,7 +170,7 @@
     <table class="file_metadata">
         {% for f in files|sort(attribute="Name") %}
             <tr>
-                <td colspan=2 class="filename">{{f.Namespace}}:{{f.Name}} (<a href="./show_file?fid={{f.FID}}">{{f.FID}}</a>)</td>
+                <td colspan=2 class="filename"><a href="./show_file?fid={{f.FID}}">{{f.Namespace}}:{{f.Name}}</a> ({{f.FID}})</td>
             </tr>
             {% if attr_names and f.Metadata %}
                 {% if view_meta_as == "table" %}
