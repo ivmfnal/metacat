@@ -137,21 +137,21 @@ result set from the first:</p>
 </div>
 <p>Also, you can use square and curly brackets as an alternative to using explicit words “union” and “join” respectively.
 The following two queries are equivalent:</p>
-<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span>union (
-        files from s:A,
-        join(
-                files from s:B,
-                files from s:C
-        )
-)
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">union</span> <span class="p">(</span>
+        <span class="n">files</span> <span class="kn">from</span> <span class="nn">s</span><span class="p">:</span><span class="n">A</span><span class="p">,</span>
+        <span class="n">join</span><span class="p">(</span>
+                <span class="n">files</span> <span class="kn">from</span> <span class="nn">s</span><span class="p">:</span><span class="n">B</span><span class="p">,</span>
+                <span class="n">files</span> <span class="kn">from</span> <span class="nn">s</span><span class="p">:</span><span class="n">C</span>
+        <span class="p">)</span>
+<span class="p">)</span>
 
-[
-        files from s:A,
-        {
-                files from s:B,
-                files from s:C
-        }
-]
+<span class="p">[</span>
+        <span class="n">files</span> <span class="kn">from</span> <span class="nn">s</span><span class="p">:</span><span class="n">A</span><span class="p">,</span>
+        <span class="p">{</span>
+                <span class="n">files</span> <span class="kn">from</span> <span class="nn">s</span><span class="p">:</span><span class="n">B</span><span class="p">,</span>
+                <span class="n">files</span> <span class="kn">from</span> <span class="nn">s</span><span class="p">:</span><span class="n">C</span>
+        <span class="p">}</span>
+<span class="p">]</span>
 </pre></div>
 </div>
 </div>
@@ -165,35 +165,99 @@ operations on the file sets. They in the Query Language, they are invoked using 
 <p>Here, <em>filter</em> the the keyword, <em>sample</em> is the name of the Python function to be used to filter the results
 of the argument query (simple “files from s:A” query in this case). As you can see, you can pass some
 parameters to the function (the number 0.5).</p>
-<p>A filter can accept multiple parameters and/or queries:</p>
-<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">filter</span> <span class="n">process</span><span class="p">(</span><span class="mi">0</span><span class="p">.</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">.</span><span class="mi">1415</span><span class="p">)</span>
-        <span class="p">(</span> <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">A</span><span class="p">,</span> <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">B</span> <span class="o">-</span> <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">D</span> <span class="p">)</span>
+<div class="section" id="standard-metacat-filters">
+<h4>Standard MetaCat Filters<a class="headerlink" href="#standard-metacat-filters" title="Permalink to this headline">¶</a></h4>
+<p>MetaCat provides several general purpose filters:</p>
+<p><strong>every_nth</strong> the filter has 2 integer parameters - <code class="docutils literal notranslate"><span class="pre">n</span></code> and <code class="docutils literal notranslate"><span class="pre">i</span></code> and takes single file set as input.
+It returns every <code class="docutils literal notranslate"><span class="pre">n</span></code>-th file, starting from <code class="docutils literal notranslate"><span class="pre">i</span></code>. For example, if a dataset has files A0, A1, A2, A3, A4, A5, …,
+and the query looks like this:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">filter</span> <span class="n">every_nth</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">1</span><span class="p">)(</span> <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">A</span> <span class="p">)</span>
 </pre></div>
 </div>
-<p>The user supplied function looks like ths:</p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
-        <span class="c1"># ...</span>
-        <span class="k">return</span> <span class="n">iterable</span>
+<p>then the filter will return files A1, A4, …</p>
+<p>Note that MetaCat does not guarantee that the underlying query (files from s:A) will always return files
+in the same order. Therefore, strictly speaking, every_nth filter may return different results even if the
+source dataset does not change.</p>
+<p>If you need more reproducibility, you can use <code class="docutils literal notranslate"><span class="pre">hash</span></code> filter:</p>
+<p><strong>hash</strong> filter has the same 2 parameters as the <code class="docutils literal notranslate"><span class="pre">every_nth</span></code> filter (<code class="docutils literal notranslate"><span class="pre">n</span></code> and <code class="docutils literal notranslate"><span class="pre">i</span></code>) and takes single input file set, but it
+uses hash of file id modulo <code class="docutils literal notranslate"><span class="pre">n</span></code> to compare to <code class="docutils literal notranslate"><span class="pre">i</span></code> to select approximately every <code class="docutils literal notranslate"><span class="pre">n</span></code>-th file. Notice that the number
+of files selected by this filter may differ significantly from <code class="docutils literal notranslate"><span class="pre">1/n</span></code> for small file sets.</p>
+<p>It is guaranteed that the results of the <code class="docutils literal notranslate"><span class="pre">hash</span></code> filter with the same <code class="docutils literal notranslate"><span class="pre">n</span></code> and different <code class="docutils literal notranslate"><span class="pre">i</span></code> will never intersect.
+The same is not necesarily true for <code class="docutils literal notranslate"><span class="pre">every_nth</span></code> filter simply because the order, in which files are seen by the filter
+may change from query to query, although this is highly unlikely.</p>
+<p><strong>sample</strong> the filter has one argument - a floating point fraction <code class="docutils literal notranslate"><span class="pre">f</span></code> from 0 to 1. It works the same way as the <code class="docutils literal notranslate"><span class="pre">every_nth</span></code> in the
+sense that <code class="docutils literal notranslate"><span class="pre">sample</span></code> selects <code class="docutils literal notranslate"><span class="pre">1/n</span></code> files from the set, starting from first. The following queries will produce the same results:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">filter</span> <span class="n">sample</span><span class="p">(</span><span class="mi">0</span><span class="p">.</span><span class="mi">01</span><span class="p">)(</span> <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">A</span> <span class="p">)</span>
+<span class="n">filter</span> <span class="n">every_nth</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span><span class="mi">0</span><span class="p">)(</span> <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">A</span> <span class="p">)</span>
 </pre></div>
 </div>
-<p>The <em>params</em> argument will receive the pist of parameters and the <em>inputs</em> will get the list of
-input file sets. The function is supposed to return a single iterable (a list, a generator, etc.) as the
-output file set.</p>
+<p><strong>mix</strong> - <code class="docutils literal notranslate"><span class="pre">mix</span></code> filter can be used to pick files from multiple datasets. It takes variable number of floating point arguments (<code class="docutils literal notranslate"><span class="pre">fractions</span></code>)
+and the same number of input file sets. The files from the input sets will be picked proportinally to the <code class="docutils literal notranslate"><span class="pre">fractions</span></code>. Fractions do not have
+to add up to 1.0. The filter will run until it reaches the end of one of the input datasets. For example:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">filter</span> <span class="n">sample</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">5</span><span class="p">)(</span>
+    <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">A</span><span class="p">,</span>
+    <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">B</span><span class="p">,</span>
+    <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="k">C</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The output will have approximately 2 files from dataset B and 5 files from dataset C for every file from dataset A.</p>
+</div>
+<div class="section" id="user-defined-filters">
+<h4>User Defined Filters<a class="headerlink" href="#user-defined-filters" title="Permalink to this headline">¶</a></h4>
+<p>A user can define their own filters by supplying a class derived from <code class="docutils literal notranslate"><span class="pre">MetaCatFiler</span></code> class imported from <code class="docutils literal notranslate"><span class="pre">metacat.filters</span></code>.
+The class must have a method called <code class="docutils literal notranslate"><span class="pre">filter</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">metacat.filters</span> <span class="kn">import</span> <span class="n">MetaCatFiler</span>
+
+<span class="k">class</span> <span class="nc">MyFilter</span><span class="p">(</span><span class="n">MetaCatFiler</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">file_sets</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">skip</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">param1</span><span class="p">,</span> <span class="n">param2</span> <span class="o">=</span> <span class="n">params</span>
+        <span class="n">input_set</span> <span class="o">=</span> <span class="n">file_sets</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">input_set</span><span class="p">:</span>
+            <span class="k">if</span> <span class="o">....</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">f</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">filter</span></code> method arguments are:</p>
+<p><em>params</em> - list of filter parameters</p>
+<p><em>file_sets</em> - list of input file sets</p>
+<p><em>limit</em> - either <code class="docutils literal notranslate"><span class="pre">None</span></code> or the limit of the number of files to return</p>
+<p><em>skip</em> - either <code class="docutils literal notranslate"><span class="pre">None</span></code> or the number of returned files to skip before returing first file (this functionality is not yet implemented)</p>
+<p>For example, if the query was:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">filter</span> <span class="n">sample</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">5</span><span class="p">)(</span>
+    <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">A</span><span class="p">,</span>
+    <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">B</span><span class="p">,</span>
+    <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="k">C</span>
+<span class="p">)</span> <span class="k">limit</span> <span class="mi">100</span>
+</pre></div>
+</div>
+<p>then the <code class="docutils literal notranslate"><span class="pre">filter()</span></code> arguments will be:</p>
+<p>params = [1,2,5]</p>
+<p>file_sets = list of iterables with results of the 3 subqueries</p>
+<p>limit = 100</p>
+<p>The user defined filter does not have to implement the limit, unless there is some significant advantage
+in implementing those inside the filter. MetaCat will limit the results anyway.</p>
+<p>The filter finction may return an iterable (a list) of files, but it is preferable that the function is in fact
+a generator, <code class="docutils literal notranslate"><span class="pre">yielding</span></code> the files one by one to avoid building and destroying large lists of file objects.</p>
+<p>MetaCat will create new object of the filter class for each query and each appearance of the filter inside the query.</p>
+</div>
 </div>
 <div class="section" id="common-namesaces">
 <h3>Common Namesaces<a class="headerlink" href="#common-namesaces" title="Permalink to this headline">¶</a></h3>
 <p>Typically (but not necessarily), all the datasets mentioned in a query refer to the same namespace.
 You can avoid repeting the same namespace using “with” clause. The following are equivalent:</p>
-<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span>with namespace=&quot;s&quot;
-{
-        files from B,
-        files from C
-}
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;s&quot;</span>
+<span class="p">{</span>
+        <span class="n">files</span> <span class="kn">from</span> <span class="nn">B</span><span class="p">,</span>
+        <span class="n">files</span> <span class="kn">from</span> <span class="nn">C</span>
+<span class="p">}</span>
 
-{
-        files from s:B,
-        files from s:C
-}
+<span class="p">{</span>
+        <span class="n">files</span> <span class="kn">from</span> <span class="nn">s</span><span class="p">:</span><span class="n">B</span><span class="p">,</span>
+        <span class="n">files</span> <span class="kn">from</span> <span class="nn">s</span><span class="p">:</span><span class="n">C</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>Each “with” clause has its scope limited to the immediate query it is attached to. For example, the following query
@@ -419,7 +483,11 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
 <li><a class="reference internal" href="#simple-query">Simple Query</a></li>
 <li><a class="reference internal" href="#metadata-filtering">Metadata Filtering</a></li>
 <li><a class="reference internal" href="#combining-queries">Combining Queries</a></li>
-<li><a class="reference internal" href="#external-filters">External Filters</a></li>
+<li><a class="reference internal" href="#external-filters">External Filters</a><ul>
+<li><a class="reference internal" href="#standard-metacat-filters">Standard MetaCat Filters</a></li>
+<li><a class="reference internal" href="#user-defined-filters">User Defined Filters</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#common-namesaces">Common Namesaces</a></li>
 </ul>
 </li>

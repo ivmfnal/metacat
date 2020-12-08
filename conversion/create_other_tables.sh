@@ -42,16 +42,16 @@ create table authenticators
 
 create table namespaces
 (
-    name                text        primary key,
+    name                text,
     check( name != ''),
 
     description         text,
 
-    owner_user          text        references  users(username),
-    owner_role          text        references  roles(name),
+    owner_user          text,
+    owner_role          text,
     check ( (owner_user is null ) != (owner_role is null) ),
 
-    creator        text references users(username),
+    creator        text,
     created_timestamp   timestamp with time zone        default now()
 );
 

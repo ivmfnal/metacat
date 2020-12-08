@@ -25,10 +25,10 @@ top_dataset_query       :    dataset_query
     |   "children" "(" file_query ")"                    -> children_of
     |   "(" file_query ")"                               
 
-term_file_query: "files" ("from" datasets_selector)?                        -> basic_file_query
-    |   "filter" FNAME "(" constant_list ")" "(" file_query_list ")"        -> filter
-    |   "query" qualified_name                                              -> named_query
-    |   "files" STRING ("," STRING)*                                        -> file_list
+term_file_query: "files" ("from" datasets_selector)?                                -> basic_file_query
+    |   "filter" FNAME "(" constant_list ")" "(" file_query_list ")"       -> filter
+    |   "query" qualified_name                                                      -> named_query
+    |   "files" STRING ("," STRING)*                                                -> file_list
     
 file_query_list: file_query ("," file_query)*     
 

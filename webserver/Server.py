@@ -1326,14 +1326,8 @@ class App(WPApp):
         connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % self.DBCfg
         
         self.DB = ConnectionPool(postgres=connstr, max_idle_connections=3)
-        self.Filters = {}
-        if "filters" in cfg:
-            import metacat.filters as filters_mod
-            for n in cfg["filters"].get("names", []):
-                self.Filters[n] = getattr(filters_mod, n)
-        else:
-            from metacat.filters import standard_filters
-            self.Filters = standard_filters
+        from metacat.filters import standard_filters
+        self.Filters = standard_filters
                 
         #
         # Authentication/authtorization

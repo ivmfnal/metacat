@@ -171,7 +171,7 @@ class DBFileSet(object):
 
     def subtract(self, right):
         right_ids = set(f.FID for f in right)
-        #print("DBFileSet: right_ids:", len(right_ids))
+        #print("DBFileSet: right_ids:", right_ids)
         return DBFileSet(self.DB, (f for f in self if not f.FID in right_ids))
         
     __sub__ = subtract
@@ -1769,123 +1769,70 @@ class DBRole(object):
     def __iter__(self):
         return self.members.__iter__()
             
-class DBParamDefinition(object):
-    
-    Types =  ('int','double','text','boolean',
-                'int[]','double[]','text[]','boolean[]')
-
-    def __init__(self, db, name, typ, int_values = None, int_min = None, int_max = None, 
-                            double_values = None, double_min = None, double_max = None,
-                            text_values = None, text_pattern = None):
-        self.DB = db
-        self.Name = name
-        self.Type = typ
-        self.IntValues = int_values
-        self.IntMin = int_min
-        self.IntMax = int_max
-        self.DoubleValues = double_values
-        self.DoubleMin = double_min
-        self.DoubleMax = double_max
-        self.TextValues = text_values if text_pattern is None else set(text_values)
-        self.TextPattern = text_pattern if text_pattern is None else re.compile(text_pattern)
-        
-        # TODO: add booleans, add is_null
-        
-    def as_jsonable(self):
-        dct = dict(name = self.Name, type=self.Type)
-        if self.Type in ("int", "int[]"):
-            if self.IntMin is not None: dct["int_min"] = self.IntMin
-            if self.IntMax is not None: dct["int_max"] = self.IntMax
-            if self.IntValues: dct["int_values"] = self.IntValues
-        elif self.Type in ("float", "float[]"):
-            if self.IntMin is not None: dct["float_min"] = self.FloatMin
-            if self.IntMax is not None: dct["float_max"] = self.FloatMax
-            if self.IntValues: dct["float_values"] = self.FloatValues
-        elif self.Type in ("text", "text[]"):
-            if self.TextValues: dct["text_values"] = self.TextValues
-            if self.TextPattern: dct["text_pattern"] = self.TextPattern
-        return dct
-        
-    def as_json(self):
-        return json.dumps(self.as_jsonable())
-            
-    @staticmethod
-    def from_json(db, x):
-        if isinstance(x, str):
-            x = json.loads(x)
-        d = DBParamDefinition(db, x["name"], x["type"],
-            int_values = x.get("int_values"), int_min=x.get("int_min"), int_max=x.get("int_max"),
-            float_values = x.get("float_values"), float_min=x.get("float_min"), float_max=x.get("float_max"),
-            text_values = x.get("text_values"), text_pattern=x.get("text_pattern")
-        )
-        return d
-        
-    def check(self, value):
-        if isinstance(value, int):
-            ok = (
-                (self.IntValues is None or value in self.IntValues) \
-                and (self.IntMin is None or value >= self.IntMin) \
-                and (self.IntMax is None or value <= self.IntMax) 
-            )
-            if not ok:  return False
-            value = float(value)        # check floating point constraints too
-        
-        if isinstance(value, float):
-            ok = (
-                (self.FloatValues is None or value in self.FloatValues) \
-                and (self.FloatMin is None or value >= self.FloatMin) \
-                and (self.FloatMax is None or value <= self.FloatMax) 
-            )
-            if not ok:  return False
-        
-        if isinstance(value, str):
-            ok = (
-                (self.TextPattern is None or self.TextPattern.match(value) is not None) \
-                and (self.TextValues is None or value in self.TextValues)
-            )
-            
-        return ok
-        
 class DBParamCategory(object):
 
-    def __init__(self, db, path, owner):
+    """
+        Definitions is JSON with the following structure:
+
+        {
+            "name": {
+                "type":         'int','double','text','boolean',
+                                        'int[]','double[]','text[]','boolean[]', 'dict', 'list', 'any'
+                "values":       [ v1, v2, ...]      optional, ignored for boolean
+                "min":          min value           optional, ignored if "values" present, ignored for boolean
+                "max":          max value           optional, ignored if "values" present, ignored for boolean
+            }
+        }
+    """
+
+    Types =  ('int','double','text','boolean',
+                'int[]','double[]','text[]','boolean[]','dict', 'list', 'any')
+
+
+    def __init__(self, db, path, restricted=False, owner_role=None, owner_user=None, creator=None, definitions={}, description=""):
         self.Path = path
         self.DB = db
-        if isinstance(owner, str):
-            owner = DBRole.get(db, owner)
-        self.Owner = owner
-        self.Restricted = False
-        self.Definitions = None           # relpath -> definition
+        self.OwnerUser = owner_user
+        self.OwnerRole = owner_role
+        self.Description = description
+        self.Restricted = restricted
+        self.Definitions = definitions         
+        self.Creator = creator 
         
     def save(self, do_commit=True):
         c = self.DB.cursor()
-        defs = {name:d.to_jsonable() for name, d in self.Definitions.items()}
-        defs = json.dumps(defs)
+        defs = json.dumps(self.Definitions)
         c.execute("""
-            insert into parameter_categories(path, owner, restricted, definitions) values(%{path}s, %{owner}s, %{restricted}s, %{defs}s)
+            insert into parameter_categories(path, owner_user, owner_role, description, restricted, definitions, creator) 
+                values(%(path)s, %(owner_user)s, %(owner_role)s, %(description)s, %(restricted)s, %(defs)s, %(creator)s)
                 on conflict(path) 
-                    do update set owner=%{owner}s, restricted=%{restricted}s, definitions=%{defs}s
+                    do update 
+                        set owner_user=%(owner_user)s, owner_role=%(owner_role)s, restricted=%(restricted)s, 
+                        definitions=%(defs)s, description=%(description)s, creator=%(creator)s
             """,
-            dict(path=self.Path, owner=self.Owner.Name, restricted=self.Restricted, defs=defs))
+            dict(path=self.Path, owner_user=self.OwnerUser, owner_role=self.OwnerRole, restricted=self.Restricted, defs=defs,
+                    description=self.Description, creator=self.Creator))
         if do_commit:
             c.execute("commit")
         return self
     
     @staticmethod
+    def from_tuple(db, tup):
+        if tup is None: return None
+        path, owner_user, owner_role, description, restricted, definitions, creator = tup
+        return DBParamCategory(db, path, owner_user=owner_user, owner_role=owner_role, description=description, 
+                restricted=restricted, definitions=definitions, creator=creator)
+        
+    @staticmethod
     def get(db, path):
         c = db.cursor()
         c.execute("""
-            select owner, restricted, definitions from parameter_categories where path=%s""", (path)
+            select path, owner_user, owner_role, description, restricted, definitions, creator 
+                from parameter_categories where path=%s
+                """, (path)
         )
         tup = c.fetchone()
-        if not tup:
-            return None
-        owner, restricted, defs = tup
-        defs = defs or {}
-        cat = DBParamCategory(db, path, owner)
-        cat.Restricted = restricted
-        cat.Definitions = {name: DBParamDefinition.from_json(d) for name, d in defs.items()}
-        return cat
+        return DBParamCategory.from_tuple(tup)
         
     @staticmethod
     def exists(db, path):
@@ -1903,48 +1850,74 @@ class DBParamCategory(object):
             
         c = db.cursor()
         c.execute("""
-            select path, owner, restricted from parameter_categories where path in %s
+            select path, owner_user, owner_role, description, restricted, definitions, creator
+                from parameter_categories where path in %s
                 order by path desc limit 1""", (paths,)
         )
-        
         tup = c.fetchone()
-        cat = None
-        if tup:
-            path, owner, restricted = tup
-            cat = DBParamCategory(db, path, owner)
-            cat.Restricted = restricted
-        return cat
-        
-    def check_metadata(self, name, value):
-        # name is relative to the category path
-        defs = self.definitions
-        d = defs.get(name)
-        if d is not None:
-            if not d.check(v):
-                raise ValueError(f"Invalid value for {name}: {v}")
-        elif self.Restricted:
-            raise ValueError(f"Unknown name {name} in a restricted category")
+        return DBParamCategory.from_tuple(tup)
 
-class DBParamValidator(object):
-    
-    def __init__(self, db):
-        self.DB = db
-        self.Categories = {}        # param parent path -> category. Category can be None !
-        
-    def validate_metadata(self, meta):
-        for k, v in sorted(meta.items()):
-            words = k.rsplit(".", 1)
-            if len(words) != 2:
-                parent = ""
-                name = k
+    def check_param(self, name, value):
+        if not name in self.Definitions:    
+            if self.Restricted:
+                return False, f"restricted category"
             else:
-                parent, name = words                
-            cat = self.Categories.get(parent, -1)
-            if cat == -1:
-                self.Categories[parent] = cat = DBParamCategory.category_for_path(self.DB, parent)
-            if cat is not None:
-                cat.check_metadata(name, v)
+                return True, "no definition"
+        definition = self.Definitions[name]
+        typ = definition["type"]
 
-                
-        
-    
+        if typ == "any":    return True, "valid"
+
+        if typ == "int" and not isinstance(value, int): return False, "int value required"
+        if typ == "float" and not isinstance(value, float): return False, "float value required"
+        if typ == "text" and not isinstance(value, str): return False, "text value required"
+        if typ == "boolean" and not isinstance(value, bool): return False, "boolean value required"
+        if typ == "dict" and not isinstance(value, dict): return False, "dict value required"
+        if typ == "list" and not isinstance(value, list): return False, "list value required"
+
+        if typ == "int[]":
+            if not isinstance(value, []): return False, "list of ints required"
+            if not all(isinstance(x, int) for x in value): return False, "list of ints required"
+
+        elif typ == "float[]":
+            if not isinstance(value, []): return False, "list of floats required"
+            if not all(isinstance(x, float) for x in value): return False, "list of floats required"
+            
+        elif typ == "text[]":
+            if not isinstance(value, []): return False, "list of strings required"
+            if not all(isinstance(x, str) for x in value): return False, "list of strings required"
+            
+        elif typ == "boolean[]":
+            if not isinstance(value, []): return False, "list of booleans required"
+            if not all(isinstance(x, bool) for x in value): return False, "list of booleans required"
+            
+        if not typ in ("boolean", "boolean[]", "list", "dict", "any"):
+            if "values" in definition:
+                values = definition["values"]
+                if isinstance(value, list):
+                    if not all(x in values for x in value): return False, "value is not allowed"
+                else:
+                    if not x in values: return False, "value is not allowed"
+            else:
+                if "min" in definition:
+                    vmin = definition["min"]
+                    if isinstance(value, list):
+                        if not all(x >= vmin for x in value):   return False, "value out of range"
+                    else:
+                        if x < vmin:    return False, "value out of range"
+                if "max" in definition:
+                    vmax = definition["max"]
+                    if isinstance(value, list):
+                        if not all(x <= vmax for x in value):   return False, "value out of range"
+                    else:
+                        if x > vmax:    return False, "value out of range"
+                        
+        return True, "valid"
+            
+    def check_metadata(self, metadata):
+        # name is relative to the category path
+        for name, value in metadata.items():
+            valid, reason = self.check_param(name, value)
+            if not valid:   
+                return False, f"Invalid value for parameter {name}:{value}. Reason:{reason}"
+        return True, "OK"

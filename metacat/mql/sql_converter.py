@@ -127,9 +127,12 @@ class SQLConverter(Ascender):
             sql = f"""({s1})\nexcept\n({s2})"""
             return Node("sql", sql=sql)
         else:
+            #print("minus: \n   left:", left.pretty(), "\n   right:", right.pretty())
             left_set = left["file_set"] if left.T == "file_set" else DBFileSet.from_sql(self.DB, left["sql"])
             right_set = right["file_set"] if right.T == "file_set" else DBFileSet.from_sql(self.DB, right["sql"])
-            Node("file_set", file_set = left_set - right_set)
+            #print("minus: left_set, right_set:", left_set, right_set)
+            
+            return Node("file_set", file_set = left_set - right_set)
 
     def parents_of(self, node, *args, with_meta=False, with_provenance=False):
         assert len(args) == 1
@@ -215,12 +218,14 @@ class SQLConverter(Ascender):
             """
             return Node("sql", sql=new_sql)
         else:
-            return Node("file_set", file_set = limited(arg["file_set"], limit))
+            return Node("file_set", file_set = arg["file_set"].limit(limit))
 
     def filter(self, node, *queries, name=None, params=[], **kv):
         #print("Evaluator.filter: inputs:", inputs)
         assert name is not None
-        filter_function = self.Filters[name]
+        filter_object = self.Filters[name]()
         queries = [self.node_to_file_set(q) for q in queries]
         limit = node.get("limit")
-        return Node("file_set", file_set = DBFileSet(self.DB, filter_function(queries, params, limit=limit)))
+        node = Node("file_set", file_set = DBFileSet(self.DB, filter_object.filter(queries, params, limit=limit)))
+        #print("filter: returning:", node.pretty())
+        return node

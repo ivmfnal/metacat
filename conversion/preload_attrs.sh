@@ -99,10 +99,16 @@ $OUT_DB_PSQL <<_EOF_
 drop table if exists parameter_categories cascade;
 create table parameter_categories
 (
-    path                text    primary key,
-    owner               text,
-    restricted          boolean default 'false',
-    creator             text,
+    path        text    primary key,
+    
+	owner_user          text,
+	owner_role          text,
+    
+    check ( (owner_user is null ) != (owner_role is null) ),
+    
+    restricted  boolean default 'false',
+    description         text,
+    creator             text references users(username),
     created_timestamp   timestamp with time zone     default now(),
     definitions         jsonb
 );

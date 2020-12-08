@@ -16,8 +16,17 @@ alter table files_datasets add foreign key (file_id)
         references files(id) 
         on delete cascade;
 
-alter table parameter_categories add foreign key (owner) references users(username);
+alter table parameter_categories add foreign key (owner_user) references users(username);
+alter table parameter_categories add foreign key (owner_role) references roles(name);
 alter table parameter_categories add foreign key (creator) references users(username);
+
+alter table namespaces add foreign key (owner_user) references users(username);
+alter table namespaces add foreign key (owner_role) references roles(name);
+alter table namespaces add foreign key (creator) references users(username);
+
+
+
+
 
 _EOF_
 

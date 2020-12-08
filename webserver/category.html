@@ -1,16 +1,62 @@
 {% extends "base.html" %}
 
 {% block headline %}
-		Parameter category {{category.Path}}
+	{% if create %}
+		Create category
+	{% elif edit %}
+		Edit category {{category.Name}}
+    {% else %}
+        Category {{category.Name}}
+	{% endif %}
 {% endblock %}
 
 {% block content %}
 
-<form method=POST action="./do_save">
+<form method=POST action="./save_category">
 
-<input type="hidden" name="create" value="yes"/>
+<input type="hidden" name="create" value="{{'yes' if create else 'no'}}"/>
 
 <table class="form">
+	<tr>
+		<th>Name</th>
+		<td>
+			{% if create %}
+				<input type="text" name="name"/>
+			{% else %}
+				<input type="hidden" name="name" value="{{category.Name}}"/>
+				{{category.Name}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>Description</th>
+		<td>
+			{% if create %}
+				<input type="text" name="description" size=80/>
+			{% elif edit %}
+				<input type="text" name="description"  size=80 value="{{category.Description or ''}}"/>
+            {% else %}
+                {{category.Description or ''}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>Creator</th>
+		<td>
+			{% if create %}
+				{{creator}}
+            {% else %}
+                {{category.Creator or ''}}
+			{% endif %}
+		</td>
+	</tr>
+    {% if not create %}
+    	<tr>
+    		<th>Created timestamp</th>
+    		<td>{{category.CreatedTimestamp}}
+    		</td>
+    	</tr>
+    {% endif %}
     <tr>
         <th>Restricted</th>
         <td>
@@ -22,19 +68,76 @@
         </td>
     </tr>
     <tr>
-        <th>Owner role</th>
+        <th>Owner user</th>
         </td>
             {% if edit }
-                <select name="owner">
-                    {% for r in roles %}
-                        <option value="{{r.Name}}">{{r.Name}}</option>
+                <select name="owner_user">
+                    <option value="" {%- if not category.OwnerUser%} selected="selected"{% endif %}>
+                    {% for u in users %}
+                        <option value="{{u.Username}}" {%- if u.Username == category.OwnerUser %} selected="selected"{% endif %}>{{u.Username}}</option>
                     {% endfor %}
                 </select>
             {% else %}
-                {{ category.Owner.Name }}
+                {{ category.OwnerUser }}
             {% endif %}
         </td>
     </tr>
+    <tr>
+        <th>Owner role</th>
+        </td>
+            {% if edit }
+                <select name="owner_role">
+                    <option value="" {%- if not category.OwnerRole%} selected="selected"{% endif %}>
+                    {% for r in roles %}
+                        <option value="{{r.Name}}" {%- if r.Name == category.OwnerRole %} selected="selected"{% endif %}>{{r.Name}}</option>
+                    {% endfor %}
+                </select>
+            {% else %}
+                {{ category.OwnerRole }}
+            {% endif %}
+        </td>
+    </tr>
+    <tr>
+        <th>Parameter definitions</th>
+        </td>
+            <table>
+                <tr>
+                    <th></th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Min</th>
+                    <th>Max</th>
+                    <th>Values</th>
+                </tr>
+                <tr>
+                    <td><input type="checkbox" name="add">add</td>
+                    <td><input type="text" name="add:name"/></td>
+                    <td><select name="add:type">
+                        {% for t in types %}
+                            <option value="{{t}}">{{t}}</option>
+                        {% endfor %}
+                    </td>
+                    <td><input type="text" name="add:min"/></td>
+                    <td><input type="text" name="add:max"/></td>
+                    <td><input type="text" name="add:values"/></td>
+                </tr>
+                {% for name, definition in definitions.items() %}
+                    <tr>
+                        <td><input type="checkbox" name="delete:{{name}}">delete</td>
+                        <td>{{name}}</td>
+                        <td><select name="type:{{name}}">
+                            {% for t in types %}
+                                <option value="{{t}}" {% if definition["type"] == t %}selected="selected"{% endif %}>{{t}}</option>
+                            {% endfor %}
+                        </td>
+                        <td><input type="text" name="min:{{name}}" value="{{definition['min'] or ''}}"/></td>
+                        <td><input type="text" name="max:{{name}}" value="{{definition['max'] or ''}}"/></td>
+                        <td><input type="text" name="values:{{name}}" value="{{definition['values'] or ''}}"/></td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </td>
+    </tr>                      
 	{% if edit %}
         <tr><td></td><td><input type="submit" value="Save"/></td>
     {% endif %}
@@ -43,106 +146,6 @@
 
 </form>
 
-<h2>Parameter definitions</h2>
-
-<form method=POST action="./do_update_definitions">
-    <input type="hidden" name="path" value="{{category.Path}}"/>
-    
-    <table class="form">
-        
-        <tr>
-            <th rowspan=2>Name</th>
-            <th rowspan=2>Type</th>
-            <th colspan=8>Constraints</th>
-            <th rowspan=2>Action</th>
-        </tr>
-        <tr>
-            <th>int: min</th>
-            <th>max</th>
-            <th>values</th>
-            <th>float: min</th>
-            <th>max</th>
-            <th>values</th>
-            <th>text: pattern</th>
-            <th>values</th>
-        </tr>
-        {% for d in category.definitions %}
-            <tr>
-                <td>{{d.Name}}</td>
-                <td>{% if edit %}
-                        <select name="{{d.Name}}:type">
-                            {% for t in types %}
-                                <option value="{{t}}" {%- if t==d.Type %} selected="selected"{% endif %}>{{t}}</option>
-                            {% endfor %}
-                        </select>
-                    {% else %}
-                        {{d.Type}}
-                    {% endif %}
-                </td>
-                
-                <td>
-                    {% if edit %}
-                        <input type="text" name="{{d.Name}}:int_min" value="{{d.int_min|default('', True)}}"/>
-                    {% else %}
-                        {{d.int_min|default('', True)}}
-                    {% endif %}
-                </td>
-                <td>
-                    {% if edit %}
-                        <input type="text" name="{{d.Name}}:int_max" value="{{d.int_max|default('', True)}}"/>
-                    {% else %}
-                        {{d.int_max|default('', True)}}
-                    {% endif %}
-                </td>
-                <td>
-                    {% if edit %}
-                        <input type="text" name="{{d.Name}}:int_values" value="{% if d.int_values %}{{d.int_vaues|join(',')}}{% endif %}"/>
-                    {% else %}
-                        {% if d.int_values %}{{d.int_vaues|join(' ')}}{% endif %}
-                    {% endif %}
-                </td>
-                
-                <td>
-                    {% if edit %}
-                        <input type="text" name="{{d.Name}}:float_min" value="{{d.float_min|default('', True)}}"/>
-                    {% else %}
-                        {{d.float_min|default('', True)}}
-                    {% endif %}
-                </td>
-                <td>
-                    {% if edit %}
-                        <input type="text" name="{{d.Name}}:float_max" value="{{d.float_max|default('', True)}}"/>
-                    {% else %}
-                        {{d.float_max|default('', True)}}
-                    {% endif %}
-                </td>
-                <td>
-                    {% if edit %}
-                        <input type="text" name="{{d.Name}}:float_values" value="{% if d.float_values %}{{d.float_vaues|join(',')}}{% endif %}"/>
-                    {% else %}
-                        {% if d.float_values %}{{d.float_vaues|join(' ')}}{% endif %}
-                    {% endif %}
-                </td>
-
-                <td>
-                    {% if edit %}
-                        <input type="text" name="{{d.Name}}:text_pattern" value="{{d.TextPattern or ''}}"/>
-                    {% else %}
-                        {{d.float_min|default('', True)}}
-                    {% endif %}
-                </td>
-                <td>
-                    {% if edit %}
-                        <input type="text" name="{{d.Name}}:text_values" value="{% if d.TextValues %}{{d.TextVaues|join(',')}}{% endif %}"/>
-                    {% else %}
-                        {% if d.TextValues %}{{d.TextVaues|join(',')}}{% endif %}
-                    {% endif %}
-                </td>
-
-    
-    </table>    <!-- form -->
-
-</form>
 
 {% endblock %}
 	

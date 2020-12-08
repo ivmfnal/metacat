@@ -130,7 +130,7 @@ Although is it not necessary in this example, you can use parethesis and white s
 Also, you can use square and curly brackets as an alternative to using explicit words "union" and "join" respectively.
 The following two queries are equivalent:
 
-.. code-block:: sql
+.. code-block:: 
 
         union (
                 files from s:A,
@@ -163,25 +163,114 @@ Here, *filter* the the keyword, *sample* is the name of the Python function to b
 of the argument query (simple "files from s:A" query in this case). As you can see, you can pass some
 parameters to the function (the number 0.5).
 
-A filter can accept multiple parameters and/or queries:
+
+Standard MetaCat Filters
+________________________
+
+MetaCat provides several general purpose filters:
+
+**every_nth** the filter has 2 integer parameters - ``n`` and ``i`` and takes single file set as input.
+It returns every ``n``-th file, starting from ``i``. For example, if a dataset has files A0, A1, A2, A3, A4, A5, ...,
+and the query looks like this:
 
 .. code-block:: sql
 
-        filter process(0.5, 1, 3.1415)
-                ( files from s:A, files from s:B - files from s:D )
+        filter every_nth(3,1)( files from s:A )
+        
+then the filter will return files A1, A4, ...
 
-The user supplied function looks like ths:
+Note that MetaCat does not guarantee that the underlying query (files from s:A) will always return files
+in the same order. Therefore, strictly speaking, every_nth filter may return different results even if the
+source dataset does not change.
 
-.. code-block:: Python
+If you need more reproducibility, you can use ``hash`` filter:
 
-        def process(params, inputs):
-                # ...
-                return iterable
-                
-The *params* argument will receive the pist of parameters and the *inputs* will get the list of
-input file sets. The function is supposed to return a single iterable (a list, a generator, etc.) as the
-output file set.
+**hash** filter has the same 2 parameters as the ``every_nth`` filter (``n`` and ``i``) and takes single input file set, but it
+uses hash of file id modulo ``n`` to compare to ``i`` to select approximately every ``n``-th file. Notice that the number
+of files selected by this filter may differ significantly from ``1/n`` for small file sets.
 
+It is guaranteed that the results of the ``hash`` filter with the same ``n`` and different ``i`` will never intersect.
+The same is not necesarily true for ``every_nth`` filter simply because the order, in which files are seen by the filter
+may change from query to query, although this is highly unlikely.
+
+**sample** the filter has one argument - a floating point fraction ``f`` from 0 to 1. It works the same way as the ``every_nth`` in the
+sense that ``sample`` selects ``1/n`` files from the set, starting from first. The following queries will produce the same results:
+
+.. code-block:: sql
+
+        filter sample(0.01)( files from s:A )
+        filter every_nth(100,0)( files from s:A )
+
+**mix** - ``mix`` filter can be used to pick files from multiple datasets. It takes variable number of floating point arguments (``fractions``)
+and the same number of input file sets. The files from the input sets will be picked proportinally to the ``fractions``. Fractions do not have
+to add up to 1.0. The filter will run until it reaches the end of one of the input datasets. For example:
+
+.. code-block:: sql
+
+        filter sample(1,2,5)(
+            files from s:A, 
+            files from s:B, 
+            files from s:C
+        )
+        
+The output will have approximately 2 files from dataset B and 5 files from dataset C for every file from dataset A.
+
+User Defined Filters
+____________________
+
+A user can define their own filters by supplying a class derived from ``MetaCatFiler`` class imported from ``metacat.filters``.
+The class must have a method called ``filter``:
+
+.. code-block:: python
+
+    from metacat.filters import MetaCatFiler
+    
+    class MyFilter(MetaCatFiler):
+
+        def filter(self, params, file_sets, limit=None, skip=None):
+            param1, param2 = params
+            input_set = file_sets[0]
+            
+            for f in input_set:
+                if ....:
+                    yield f
+
+
+The ``filter`` method arguments are:
+
+*params* - list of filter parameters
+
+*file_sets* - list of input file sets
+
+*limit* - either ``None`` or the limit of the number of files to return
+
+*skip* - either ``None`` or the number of returned files to skip before returing first file (this functionality is not yet implemented)
+
+For example, if the query was:
+
+.. code-block:: sql
+
+        filter sample(1,2,5)(
+            files from s:A, 
+            files from s:B, 
+            files from s:C
+        ) limit 100
+
+then the ``filter()`` arguments will be:
+
+params = [1,2,5]
+
+file_sets = list of iterables with results of the 3 subqueries
+
+limit = 100
+
+The user defined filter does not have to implement the limit, unless there is some significant advantage 
+in implementing those inside the filter. MetaCat will limit the results anyway.
+
+The filter finction may return an iterable (a list) of files, but it is preferable that the function is in fact
+a generator, ``yielding`` the files one by one to avoid building and destroying large lists of file objects.
+
+MetaCat will create new object of the filter class for each query and each appearance of the filter inside the query.
 
 Common Namesaces
 ----------------
@@ -189,7 +278,7 @@ Common Namesaces
 Typically (but not necessarily), all the datasets mentioned in a query refer to the same namespace.
 You can avoid repeting the same namespace using "with" clause. The following are equivalent:
 
-.. code-block:: sql
+.. code-block:: 
 
         with namespace="s"
         {

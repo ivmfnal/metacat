@@ -140,6 +140,7 @@ create table parameter_categories
     check ( (owner_user is null ) != (owner_role is null) ),
     
     restricted  boolean default 'false',
+    description         text,
     creator             text references users(username),
     created_timestamp   timestamp with time zone     default now(),
     definitions         jsonb
