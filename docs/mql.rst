@@ -215,6 +215,8 @@ to add up to 1.0. The filter will run until it reaches the end of one of the inp
         
 The output will have approximately 2 files from dataset B and 5 files from dataset C for every file from dataset A.
 
+Even if a file appears in more than one of the input file sets, it will not be returned several times.
+
 User Defined Filters
 ____________________
 
@@ -268,7 +270,7 @@ The user defined filter does not have to implement the limit, unless there is so
 in implementing those inside the filter. MetaCat will limit the results anyway.
 
 The filter finction may return an iterable (a list) of files, but it is preferable that the function is in fact
-a generator, ``yielding`` the files one by one to avoid building and destroying large lists of file objects.
+a generator, yielding the files one by one to avoid building and destroying large lists of file objects.
 
 MetaCat will create new object of the filter class for each query and each appearance of the filter inside the query.
 

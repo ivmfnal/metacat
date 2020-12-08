@@ -1,3 +1,5 @@
+from metacat.db import DBFileSet
+
 #
 # Common filters
 #
@@ -95,25 +97,37 @@ class Mix(MetaCatFilter):
     @accepts_skip
 
     def filter(self, inputs, ratios, **ignore):
+        import types
         assert len(inputs) == len(ratios)
+        assert all(isinstance(inp, DBFileSet) for inp in inputs)
         N = NActive = len(inputs)
-        scores = [(0.0, i, it) for i, it in enumerate(inputs)]
+        scores = [(0.0, i, iter(fs)) for i, fs in enumerate(inputs)]
         stop = False
         sent_files = set()      # if the same file appears in multiple input sets, make sure it is sent out only once
         while scores and not stop:
             scores = [(s+ratios[i], i, inp) for s, i, inp in scores]
-            scores = sorted(scores, reverse=True)
-            s, i, it = scores[0]
+            scores = sorted(scores, reverse=True, key=lambda x: (x[0], x[1]))
+            #print("sorted scores:")
+            #for s, i, _ in scores:
+            #    print(s,i)
+            s0, i, it = scores[0]
+            scores = [(s-s0, i, inp) for s, i, inp in scores]       # renormalize
+            s0 = 0.0
             sent = False
             while not sent:
-                try:  f = next(it)
+                try:
+                    if isinstance(it, types.GeneratorType):
+                        f = it.send(None)
+                    else:
+                        f = next(it)
                 except StopIteration:
                     stop = True
                     break
                 else:
                     if not f.FID in sent_files:
                         yield f
-                        scores[0] = (s-1.0, i, it)
+                        #print("yielding from", i, f.FID)
+                        scores[0] = (s0-1.0, i, it)
                         sent_files.add(f.FID)
                         sent = True
 
