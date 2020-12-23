@@ -29,7 +29,7 @@ class AuthHandler(BaseHandler):
             })
 
         else:
-            return "Authentication failed", 403
+            return "Authentication failed\n", 403
 
     def _auth_ldap(self, request, redirect):
         
@@ -38,11 +38,13 @@ class AuthHandler(BaseHandler):
         username, password = request.body.split(b":",1)
         username = to_str(username)
         password = to_str(password)
-        authenticator = LDAPAuthenticator(self.App.LDAP_Server_URL, self.App.LDAP_DN_Template)
-        if authenticator.authenticate(username, password):
+        db = self.App.connect()
+        u = DBUser.get(db, username)
+        config = self.App.auth_config("ldap")
+        if u.authenticate("ldap", config, password):
             return self.App.response_with_auth_cookie(username, redirect)
         else:
-            return "Authentication failed", 403
+            return "Authentication failed\n", 403
         
     def auth(self, request, relpath, redirect=None, method="digest", **args):
         if method == "digest":
@@ -50,7 +52,7 @@ class AuthHandler(BaseHandler):
         elif method == "ldap":
             return self._auth_ldap(request, redirect)
         else:
-            return 400, "Unknown aythentication method"
+            return 400, "Unknown authentication method\n"
         
             
     def logout(self, request, relpath, redirect=None, **args):
