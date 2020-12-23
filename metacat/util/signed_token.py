@@ -17,7 +17,7 @@ class crypt(object):
     def encrypt(self, data):
         import secrets, Crypto              # pycrypto is requred
         from Crypto.Cipher import AES
-        if isinstance(data, str):   data = data.encode("utf-8")
+        data = to_bytes(data)
         l = len(data)
         padded_l = ((l+15)//16)*16
         pad_l = padded_l - l
@@ -135,27 +135,26 @@ class SignedToken(object):
         h.update(text)
         return h.digest()
 
-    def encode(self, secret=None, key=None):
-        if secret is None:
+    def encode(self, signature_key=None, encryption_key=None):
+        if signature_key is None:
             assert self.Encoded is not None
             return self.Encoded
-        #print("encode: secret:", secret)
         payload = self.serialize(self.Payload)      # this will be bytes
         header = {"iat":self.IssuedAt, "exp":self.Expiration, "alg":self.Alg, "nbf":self.NotBefore, "tid":self.TID}
-        if key is not None:
+        if encryption_key is not None:
             # encrypt the payload
-            if isinstance(key, str):    key = key.encode("utf-8")
+            key = to_bytes(encryption_key)
             assert isinstance(key, bytes) and len(key) == 16
             c = crypt(key)
             payload, iv, length = c.encrypt(payload)
             header["enc"] = {"ini":base64.b64encode(iv).decode("utf-8", "ignore"), "len":length, "alg":"AES"}
         header = self.serialize(header)
-        signature = self.signature(self.Alg, header, payload, secret)
+        signature = self.signature(self.Alg, header, payload, signature_key)
         encoded = self.Encoded = self.pack(header, payload, signature)
         return encoded
         
     @staticmethod
-    def decode(txt, secret=None, verify_times=False, leeway=0, key=None):
+    def decode(txt, signature_key=None, verify_times=False, leeway=0, encryption_key=None):
         #print("SignedToken.decode(%s)" % (txt,))
         header, payload, signature = SignedToken.unpack(txt)
         #print("SignedToken.decode(): unpacked:", header, payload, signature)
@@ -168,10 +167,10 @@ class SignedToken(object):
         nbf = header_decoded.get("nbf")
         iat = header_decoded.get("iat")
         tid = header_decoded.get("tid", uuid.uuid1().hex)		# in case there is none ??
-        if secret is not None:
+        if signature_key is not None:
             if not alg in SignedToken.AcceptedAlgorithms:
                 raise SignedTokenUnacceptedAlgorithmError(alg)
-            calculated_signature = SignedToken.signature(alg, header, payload, secret)
+            calculated_signature = SignedToken.signature(alg, header, payload, signature_key)
             if calculated_signature != signature:
                 raise SignedTokenSignatureVerificationError
         if verify_times:
@@ -182,7 +181,7 @@ class SignedToken(object):
                 
         enc = header_decoded.get("enc")
         if enc is not None:
-            if isinstance(key, str):    key = key.encode("utf-8")
+            key = to_bytes(encryption_key)
             assert key is not None and len(key) == 16
             c = crypt(key)
             l = enc["len"]

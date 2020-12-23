@@ -1,33 +1,20 @@
-from webpie import WPApp, WPHandler, Response, WPStaticHandler
-from metacat.db import DBUser, DBRole
-
-#import webpie
-#print("webpie imported from:", webpie.__file__)
-
-import json, time, secrets, traceback, hashlib, pprint
-from urllib.parse import quote_plus, unquote_plus
-
-from metacat.util import to_str, to_bytes, SignedToken
-from metacat import Version
-from wsdbtools import ConnectionPool
-
-from gui_handler import GUIHandler
-from data_handler import DataHandler
 from auth_handler import AuthHandler
-            
-class RootHandler(WPHandler):
-    
-    def __init__(self, *params, **args):
-        WPHandler.__init__(self, *params, **args)
-        self.data = DataHandler(*params, **args)
-        self.gui = GUIHandler(*params, **args)
-        self.static = WPStaticHandler(*params, root=self.App.StaticLocation)
-        self.auth = AuthHandler(*params, **args)
+from metacat.util import to_str, to_bytes, SignedToken
 
-    def index(self, req, relpath, **args):
-        return self.redirect("./gui/index")
-        
-class App(WPApp):
+
+from webpie import WPApp, WPHandler, Response, WPStaticHandler
+import psycopg2, json, time, secrets, traceback, hashlib, pprint
+from metacat.db import DBUser
+from wsdbtools import ConnectionPool
+from urllib.parse import quote_plus, unquote_plus
+from metacat.util import to_str, to_bytes, SignedToken
+from metacat.mql import MQLQuery
+from metacat import Version
+
+from auth_handler import AuthHandler
+
+
+class AuthApp(WPApp):
 
     Version = Version
 
@@ -35,21 +22,20 @@ class App(WPApp):
         WPApp.__init__(self, root, **args)
         self.StaticLocation = static_location
         self.Cfg = cfg
-        self.DefaultNamespace = cfg.get("default_namespace")
-        self.AuthConfig = cfg.get("authentication")
+        self.LDAP_Server_URL = cfg.get("ldap", {}).get("server_url")
+        self.LDAP_DN_Template = cfg.get("ldap", {}).get("dn_template")
         
         self.DBCfg = cfg["database"]
         
         connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % self.DBCfg
         
         self.DB = ConnectionPool(postgres=connstr, max_idle_connections=3)
-        from metacat.filters import standard_filters
-        self.Filters = standard_filters
                 
         #
         # Authentication/authtorization
         #        
-        self.Users = cfg["users"]       #   { username: { "passwrord":password }, ...}
+        #self.______Users = cfg["users"]       #   { username: { "passwrord":password }, ...}
+        
         secret = cfg.get("secret") 
         if secret is None:    self.TokenSecret = secrets.token_bytes(128)     # used to sign tokens
         else:         
@@ -57,34 +43,35 @@ class App(WPApp):
             h.update(to_bytes(secret))      
             self.TokenSecret = h.digest()
         self.Tokens = {}                # { token id -> token object }
-        
-    def auth_config(self, method):
-        return self.AuthConfig.get(method)
 
     def connect(self):
         conn = self.DB.connect()
         #print("conn: %x" % (id(conn),), "   idle connections:", ",".join("%x" % (id(c),) for c in self.DB.IdleConnections))
         return conn
         
-    def get_digest_password(self, realm, username):
+    def get_password(self, realm, username):
         db = self.connect()
         u = DBUser.get(db, username)
         if u is None:
             return None
-        hashed = u.authenticator("password").password_for_digest()
-        return hashed
+        a = u.Authenticators.get("password")
+        if a is None:
+            return None
+        hashed = a.hashed_password()
+        print("App.get_password: hashed:", hashed)
+        return a.hashed_password()
 
     TokenExpiration = 24*3600*7
 
     def user_from_request(self, request):
         encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
         if not encoded: 
-            print("App: no token:", list(request.headers.items()) )
+            #print("App: no token:", list(request.headers.items()) )
             
             return None
         try:    token = SignedToken.decode(encoded, self.TokenSecret, verify_times=True)
         except:
-            print("App: token error:", traceback.format_exc()) 
+            #print("App: token error:", traceback.format_exc()) 
             return None             # invalid token
         return token.Payload.get("user")
 
@@ -124,9 +111,6 @@ class App(WPApp):
         return True, None
         
 
-    def filters(self):
-        return self.Filters
-       
 import yaml, os
 import sys, getopt
 
@@ -138,23 +122,12 @@ if not config:
     sys.exit(1)
     
 config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
-cookie_path = config.get("cookie_path", "/metacat")
-static_location = os.environ.get("METACAT_SERVER_STATIC_DIR", "./static")
-static_location = config.get("static_location", static_location)
-application=App(config, RootHandler, static_location=static_location)
+cookie_path = config.get("cookie_path", "/metadata")
+#static_location = os.environ.get("METACAT_SERVER_STATIC_DIR", "./static")
+#static_location = config.get("static_location", static_location)
+application=AuthApp(config, AuthHandler)
 
-templdir = config.get("templates", "")
-if templdir.startswith("$"):
-    templdir = os.environ[templdir[1:]]
-
-application.initJinjaEnvironment(
-    tempdirs=[templdir, "."],
-    globals={
-        "GLOBAL_Version": Version, 
-        "GLOBAL_SiteTitle": config.get("site_title", "DEMO Metadata Catalog")
-    }
-)
-port = int(config.get("port", 8080))
+port = int(config.get("auth_port", 8080))
 
 if __name__ == "__main__":
     from webpie import HTTPServer
@@ -167,4 +140,3 @@ else:
     pass
     
     
-        

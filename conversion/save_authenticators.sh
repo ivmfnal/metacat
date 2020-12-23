@@ -2,8 +2,12 @@
 
 source config.sh
 
-$DUNE_DB_PSQL -q > data/authenticators.csv << _EOF_
-copy authenticators(username, type, secrets) to stdout;
+$DUNE_DB_PSQL -q > data/auth_info.csv << _EOF_
+copy (
+    select username, auth_info-'ldap' 
+        from users 
+        where auth_info-'ldap' != '{}'
+    ) to stdout;
 _EOF_
 
 

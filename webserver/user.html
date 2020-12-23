@@ -86,6 +86,17 @@
             <th>Repeat password</th>
             <td><input type="password" name="password2"/></td>
         </tr>
+        {% if ldap_url %}
+            <tr>
+                <th>Allow LDAP authentication</th>
+                <td>
+                        <input type="checkbox" name="allow_ldap" 
+                            {%- if user.auth_method_enabled("ldap") %} checked="checked"{% endif %}
+                            {%- if not admin %} disabled="disabled"{% endif -%}
+                        />&nbsp;<span style="color:#AAA">server: {{ldap_url}}</span>
+                </td>
+            </tr>
+        {% endif %}
     {% endif %}
 	<tr>
 		<th>Roles</th>

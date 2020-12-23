@@ -3,7 +3,8 @@ create table users
     username    text    primary key,
     name        text,
     email       text,
-    flags       text    default ''
+    flags       text    default '',
+    auth_info   jsonb   default '{}'
 );
 
 create table roles
@@ -16,7 +17,7 @@ create table roles
 create table users_roles
 (
     username    text    references users(username),
-    role        text    references roles(name),
+    role_name        text    references roles(name),
     primary key(username, role_name)
 );
 

@@ -40,7 +40,8 @@ create table users
     username    text    primary key,
     name        text,
     email       text,
-    flags       text    default ''
+    flags       text    default '',
+    auth_info   jsonb   default '{}'
 );
 
 create table roles
@@ -58,6 +59,12 @@ create table users_roles
 
 \copy users (username, name, email) from 'data/users.csv';
 
+update users 
+    set auth_info=auth_info || (
+        '{"ldap":"cn='  ||  username  ||  ',ou=FermiUsers,dc=services,dc=fnal,dc=gov"}'
+    )::jsonb 
+;
+    
 \copy roles(name) from 'data/roles.csv';
 
 \copy users_roles(username, role_name) from 'data/users_roles.csv';

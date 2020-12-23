@@ -9,6 +9,8 @@ metacat admin -c <config file>  create <username> <password>   - create new admi
                                 add <username>                 - add admin privileges
                                 remove <username>              - remove admin privileges
                                 list                           - list all admin accounts
+                                genkey [-l <length>] [-x]      - generate random key, length in bytes, default 32
+                                                                 if -x is used, generate random bytes in hex
 
 Requires direct access to the database. The YAML config file must include:
 
@@ -58,8 +60,7 @@ def do_password(config, args):
     if u is None or not u.is_admin():
         print("User does not exist or is not an Admin. Leaving the password unchanged.")
         sys.exit(1)
-    hashed = password_hash(username, password)
-    u.set_password(hashed)
+    u.set_auth_info("password", None, password)
     #print("hashed password:", hashed)
     u.save()
     print("Password updated")
@@ -92,6 +93,19 @@ def do_remove(config, args):
     u.save()
     print("Admin privileges removed")
     
+def do_generate_key(config, args):
+    import secrets
+    opts, args = getopt.getopt(args, "l:x")
+    opts = dict(opts)
+    length = int(opts.get("-l", 32))
+    if "-x" in opts:
+        key = secrets.token_hex(length)
+    else:
+        key = secrets.token_urlsafe(length)
+    print (key)
+    
+    
+    
 def do_admin(args):
     
     from .metacat_config import MetaCatConfig
@@ -101,25 +115,26 @@ def do_admin(args):
         print(Usage)
         sys.exit(2)
     
+    command = args[0]
     opts = dict(opts)
-    if not "-c" in opts:
+    if command != "genkey" and not "-c" in opts:
         print("Config file must be specified with -c option\n")
         print(Usage)
         sys.exit(2)
     
-    config = MetaCatConfig(opts["-c"])
+    config = MetaCatConfig(opts["-c"]) if "-c" in opts else None
     
     if not args:
         print(Usage)
         sys.exit(2)
         
-    command = args[0]
     return {
         "list":     do_list,
         "create":   do_create,
         "password":     do_password,
         "add":     do_add,
-        "remove":     do_remove
+        "remove":     do_remove,
+        "genkey":   do_generate_key
     }[command](config, args[1:])
     
  

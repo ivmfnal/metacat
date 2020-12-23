@@ -3,7 +3,7 @@ import sys, getopt, os
 
 Usage = """
 Usage: 
-    metacat [-s <server URL>] command argsuments
+    metacat [-s <server URL>] [-a <auth server URL>] command argsuments
     metacat help
 
     Server host:port can also be specified using environment variable METACAT_SERVER_URL
@@ -20,7 +20,7 @@ Commands = ["admin","auth","dataset","query","namespace","file"]
 
 def main():
 
-    opts, args = getopt.getopt(sys.argv[1:], "s:")
+    opts, args = getopt.getopt(sys.argv[1:], "s:a:")
     opts = dict(opts)
 
     if not args or args[0] == "help":
@@ -29,9 +29,14 @@ def main():
         
     cmd, args = args[0], args[1:]
     server_url = opts.get("-s", os.environ.get("METACAT_SERVER_URL"))
+    auth_server_url = opts.get("-a", os.environ.get("METACAT_AUTH_SERVER_URL")) or server_url+"/auth"
+    
     if not server_url or not cmd in Commands:
         print("Server address must be specified either using -s option or using environment variable METACAT_SERVER_URL")
         sys.exit(2)
+
+    if not auth_server_url:
+        auth_server_url = server_url + "/auth"
 
     if cmd == "admin":
         # does not require server configuration
@@ -45,7 +50,7 @@ def main():
             do_query(server_url, args)
         elif cmd == "auth":
             from .metacat_auth import do_auth
-            do_auth(server_url, args)
+            do_auth(server_url, auth_server_url, args)
         elif cmd == "dataset":
             from .metacat_dataset import do_dataset
             do_dataset(server_url, args)

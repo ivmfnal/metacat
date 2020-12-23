@@ -1,5 +1,6 @@
 import uuid, json, hashlib, re, time, io, traceback
-from metacat.util import to_bytes, to_str, epoch, PasswordHashAlgorithm
+from metacat.util import to_bytes, to_str, epoch
+from metacat.util.authenticators import authenticator
 from psycopg2 import IntegrityError
 
 Debug = False
@@ -1342,70 +1343,6 @@ class DBNamedQuery(object):
                     for namespace, name, source, parameters in fetch_generator(c)
         )
 
-class Authenticator(object):
-    
-    def __init__(self, username, secrets=[]):
-        self.Username = username
-        self.Secrets = secrets[:]
-    
-    @staticmethod
-    def from_db(username, typ, secrets):
-        if typ == "password":   a = PasswordAuthenticator(username, secrets)
-        elif typ == "x509":   a = X509Authenticator(username, secrets)
-        else:
-            raise ValueError(f"Unknown autenticator type {typ}")
-        return a
-    
-    def addSecret(self, new_secret):
-        raise NotImplementedError
-        
-    def setSecret(self, secret):
-        self.Secrets = [secret]
-        
-    def verifySecret(self, secret):
-        raise NotImplementedError
-        
-class PasswordAuthenticator(Authenticator):
-    
-    def addSecret(self,new_secret):
-        raise NotImplementedError("Can not add secret to a password authenticator. Use setSecret() instead")
-        
-    def format_secret(self, hashed_password):
-        if hashed_password.startswith("$") and ":" in hashed_password: return hashed_password
-        return f"${PasswordHashAlgorithm}:{hashed_password}"
-        
-    def unpack_password(self, secret):
-        if secret.startswith("$") and ":" in secret:
-            secret_alg, password = secret[1:].split(":", 1)
-        else:
-            password = secret
-        return password
-        
-    def hashed_password(self):
-        return self.unpack_password(self.Secrets[0])
-        
-    def setSecret(self, hashed_password):
-        # should never be used by the Server because Server will always see only hashed password!
-        self.Secrets = [self.format_secret(hashed_password)]
-
-    def verifySecret(self, hashed_password):
-        # password is supposed to be hashed password
-        return self.hashed_password() == hashed_password
-            
-class X509Authenticator(Authenticator):
-    
-    HashAlg = "sha1"
-    
-    def addSecret(self, dn):
-        if not new_secret in self.Secrets:
-            self.Secrets.append(dn)
-
-    def setSecret(self, dn):
-        self.Secrets = [dn]
-
-    def verifySecret(self, dn):
-        return dn in self.Secrets
-        
 class _DBManyToMany(object):
     
     def __init__(self, db, table, *variable, **fixed):
@@ -1481,7 +1418,7 @@ class DBUser(object):
         self.EMail = email
         self.Flags = flags
         self.DB = db
-        self.Authenticators = {}        # type -> [secret,...]
+        self.AuthInfo = {}        # type -> [secret,...]        # DB representation
         self.RoleNames = None
         
     def __str__(self):
@@ -1491,46 +1428,49 @@ class DBUser(object):
     
     def save(self, do_commit=True):
         c = self.DB.cursor()
+        auth_info = json.dumps(self.AuthInfo)
         c.execute("""
-            insert into users(username, name, email, flags) values(%s, %s, %s, %s)
+            insert into users(username, name, email, flags, auth_info) values(%s, %s, %s, %s, %s)
                 on conflict(username) 
-                    do update set name=%s, email=%s, flags=%s;
+                    do update set name=%s, email=%s, flags=%s, auth_info=%s;
             """,
-            (self.Username, self.Name, self.EMail, self.Flags, self.Name, self.EMail, self.Flags))
+            (self.Username, self.Name, self.EMail, self.Flags, auth_info,
+                            self.Name, self.EMail, self.Flags, auth_info
+            ))
         
-        c.execute("delete from authenticators where username=%s", (self.Username,))
-        c.executemany("insert into authenticators(username, type, secrets) values(%s, %s, %s)",
-            [(self.Username, typ, a.Secrets) for typ, a in self.Authenticators.items()])
-
         if do_commit:
             c.execute("commit")
         return self
         
-    def set_password(self, password):
-        a = self.Authenticators.setdefault("password", PasswordAuthenticator(self.Username))
-        a.setSecret(password)
+    def authenticator(self, method):
+        info = self.AuthInfo.get(method)
+        #print(f"DBUser: authenticator({method}): info:{info}")
+        return authenticator(self.Username, method, info)
         
-    def verify_password(self, password):
-        a = self.Authenticators.get("password")
-        if not a:
-            return False, "No password found"
-        if not a.verifySecret(password):
-            return False, "Password mismatch"
-        return True, "OK"
-
+    def auth_method_enabled(self, method):
+        return self.authenticator(method).enabled()
+        
+    def set_auth_info(self, method, config, info):  
+        # info is in external representation, e.g. unhashed password
+        a = self.authenticator(method)
+        self.AuthInfo[method] = a.set_info(config, info)        # this will convert to DB representation
+        
+    def authenticate(self, method, config, secret):
+        a = self.authenticator(method)
+        return a.authenticate(config, secret)
+        
     @staticmethod
     def get(db, username):
         c = db.cursor()
-        c.execute("""select u.name, u.email, u.flags, array(select ur.role_name from users_roles ur where ur.username=u.username)
+        c.execute("""select u.name, u.email, u.flags, u.auth_info, array(select ur.role_name from users_roles ur where ur.username=u.username)
                         from users u
                         where u.username=%s""",
                 (username,))
         tup = c.fetchone()
         if not tup: return None
-        (name, email, flags, roles) = tup
+        (name, email, flags, auth_info, roles) = tup
         u = DBUser(db, username, name, email, flags)
-        c.execute("""select type, secrets from authenticators where username=%s""", (username,))
-        u.Authenticators = {typ:Authenticator.from_db(username, typ, secrets) for typ, secrets in c.fetchall()}
+        u.AuthInfo = auth_info
         u.RoleNames = roles
         return u
         

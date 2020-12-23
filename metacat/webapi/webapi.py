@@ -65,7 +65,7 @@ class HTTPClient(object):
 
 class MetaCatClient(HTTPClient):
     
-    def __init__(self, server_url, max_concurrent_queries = 5):    
+    def __init__(self, server_url, auth_server_url=None, max_concurrent_queries = 5):    
 
         """Initializes the MetaCatClient object
 
@@ -73,6 +73,8 @@ class MetaCatClient(HTTPClient):
         ----------
         server_url : str
             The server endpoint URL
+        auth_server_url : str
+            The endpoint URL for the Authentication server, default = server_url + "/auth"
         max_concurrent_queries : int, optional
             Controls the concurrency when asynchronous queries are used
 
@@ -83,6 +85,7 @@ class MetaCatClient(HTTPClient):
         #if token is None:
         #    raise RuntimeError(f"No valid tocken found for server {server_url}")
         HTTPClient.__init__(self, server_url, token)
+        self.AuthURL = auth_server_url or server_url + "/auth"
         
         self.QueryQueue = TaskQueue(max_concurrent_queries)        
 
@@ -542,21 +545,53 @@ class MetaCatClient(HTTPClient):
             token expiration timestamp
             
         """
-
-
         from requests.auth import HTTPDigestAuth
-        hashed = password_hash(username, password)
-        server_url = self.ServerURL
-        url = "%s/%s" % (server_url, "auth/auth")
-        response = requests.get(url, auth=HTTPDigestAuth(username, hashed))
+        from metacat.util.authenticators import PasswordAuthenticator
+        password_for_digest = PasswordAuthenticator.make_password_for_digest(username, password)
+        server_url = self.AuthURL
+        url = "%s/%s?method=digest" % (server_url, "auth")
+        response = requests.get(url, auth=HTTPDigestAuth(username, password_for_digest))
         if response.status_code != 200:
             raise ServerError(url, response.status_code, "Authentication failed", response.text)
         #print(response)
         #print(response.headers)
         token = response.headers["X-Authentication-Token"]
-        self.TL[server_url] = token
-        token = self.TL[server_url]
+        self.TL[self.ServerURL] = token
+        token = self.TL[self.ServerURL]
         return token["user"], token.Expiration
+
+    def login_ldap(self, username, password):
+        """Performs password-based authentication and stores the authentication token locally using LDAP.
+        
+        Parameters
+        ----------
+        username : str
+        password : str
+            Password 
+
+        Returns
+        -------
+        str
+            username of the authenticated user (same as ``usernme`` argument)
+        numeric
+            token expiration timestamp
+            
+        """
+        server_url = self.AuthURL
+        url = "%s/%s?method=ldap" % (server_url, "auth")        
+        data = b"%s:%s" % (to_bytes(username), to_bytes(password))
+        #print("HTTPClient.post_json: url:", url)
+        #print("HTTPClient.post_json: headers:", headers)
+        response = requests.post(url, data = data)
+        if response.status_code != 200:
+            raise ServerError(url, response.status_code, response.text)
+        token = response.headers["X-Authentication-Token"]
+        self.TL[self.ServerURL] = token
+        token = self.TL[self.ServerURL]
+        return token["user"], token.Expiration
+
+
+        
 
     def auth_info(self):
         """Returns information about current authentication token.

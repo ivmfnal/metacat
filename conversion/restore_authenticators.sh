@@ -3,12 +3,14 @@
 source config.sh
 
 $DUNE_DB_PSQL << _EOF_
-create temp table temp_auth( like authenticators );
-\copy temp_auth(username, type, secrets) from 'data/authenticators.csv'
+create temp table temp_auth( username text, auth_info jsonb );
 
-delete from authenticators where username in (select username from temp_auth);
+\copy temp_auth(username, auth_info) from 'data/auth_info.csv'
 
-insert into authenticators(username, type, secrets) (
-	select username, type, secrets from temp_auth
-);
+update users u
+    set auth_info=u.auth_info || (
+        select a.auth_info from temp_auth a where a.username=u.username
+    );
+
+
 _EOF_
