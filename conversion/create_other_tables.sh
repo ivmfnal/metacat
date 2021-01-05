@@ -42,7 +42,7 @@ create table authenticators
 
 create table namespaces
 (
-    name                text,
+    name                text    primary key,
     check( name != ''),
 
     description         text,

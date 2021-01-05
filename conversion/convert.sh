@@ -10,11 +10,11 @@ echo Starting parallel preloading at `date` ...
 (
     echo
     echo -0- loading users ...
-    time ./load_users.sh
+    ./load_users.sh
 
     echo
     echo -0- loading raw files ...
-    time ./load_files.sh
+    ./load_files.sh
 
     echo -0- DONE
 )&
@@ -89,24 +89,27 @@ echo Parallel preloading finished at `date`
 
 echo
 echo --- merging metadata into the files table ...
-time ./merge_meta.sh
+./merge_meta.sh
 
 echo
 echo --- loading lineages ...
-time ./load_lineages.sh
+./load_lineages.sh
 
 echo
 echo --- creating other tables ...
-time ./create_other_tables.sh
+./create_other_tables.sh
 
 echo
 echo --- building indexes ...
-time ./build_indexes.sh
+./build_indexes.sh
 
 echo
 echo --- building foreign keys ...
-time ./build_foreign_keys.sh
+./build_foreign_keys.sh
 
 
+echo
+echo --- saving authenticators
+./save_authenticators.sh
 
 

@@ -25,8 +25,5 @@ alter table namespaces add foreign key (owner_role) references roles(name);
 alter table namespaces add foreign key (creator) references users(username);
 
 
-
-
-
 _EOF_
 
