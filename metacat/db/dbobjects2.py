@@ -89,6 +89,7 @@ class DBFileSet(object):
         columns = DBFile.all_columns()
         c.execute(f"""
             select {columns}
+                from   files
                 where id = any(%s)""", (list(lst),))
         return DBFileSet.from_tuples(db, fetch_generator(c))
     
@@ -1739,11 +1740,11 @@ class DBParamCategory(object):
         }
     """
 
-    Types =  ('int','double','text','boolean',
-                'int[]','double[]','text[]','boolean[]','dict', 'list', 'any')
+    Types =  ('int','float','text','boolean',
+                'int[]','float[]','text[]','boolean[]','dict', 'list', 'any')
 
 
-    def __init__(self, db, path, restricted=False, owner_role=None, owner_user=None, creator=None, definitions={}, description=""):
+    def __init__(self, db, path, restricted=False, owner_role=None, owner_user=None, creator=None, definitions={}, description="", created_timestamp=None):
         self.Path = path
         self.DB = db
         self.OwnerUser = owner_user
@@ -1752,10 +1753,49 @@ class DBParamCategory(object):
         self.Restricted = restricted
         self.Definitions = definitions         
         self.Creator = creator 
+        self.CreatedTimestamp = created_timestamp
         
+        
+    def owners(self, directly=False):
+        if self.OwnerUser is not None:
+            return [self.OwnerUser]
+        elif not directly and self.OwnerRole is not None:
+            r = self.OwnerRole
+            if isinstance(r, str):
+                r = DBRole(self.DB, r)
+            return r.members
+        else:
+            return []
+            
+    @staticmethod
+    def list(db, parent=None):
+        c = db.cursor()
+        if parent:
+            c.execute(f"""
+                select path, owner_user, owner_role, description, restricted, definitions, creator, created_timestamp
+                    from parameter_categories
+                    where path like '{parent}.%'
+            """)
+        else:
+            c.execute(f"""
+                select path, owner_user, owner_role, description, restricted, definitions, creator, created_timestamp
+                    from parameter_categories
+            """)
+        return (DBParamCategory.from_tuple(db, tup) for tup in fetch_generator(c))
+            
+
+    def owned_by_user(self, user, directly=False):
+        if isinstance(user, DBUser):   user = user.Username
+        return user in self.owners(directly)
+        
+    def owned_by_role(self, role):
+        if isinstance(role, DBRole):   role = role.name
+        return self.OwnerRole == role
+
     def save(self, do_commit=True):
         c = self.DB.cursor()
         defs = json.dumps(self.Definitions)
+        print("db save:", self.OwnerUser, self.OwnerRole)
         c.execute("""
             insert into parameter_categories(path, owner_user, owner_role, description, restricted, definitions, creator) 
                 values(%(path)s, %(owner_user)s, %(owner_role)s, %(description)s, %(restricted)s, %(defs)s, %(creator)s)
@@ -1773,20 +1813,20 @@ class DBParamCategory(object):
     @staticmethod
     def from_tuple(db, tup):
         if tup is None: return None
-        path, owner_user, owner_role, description, restricted, definitions, creator = tup
+        path, owner_user, owner_role, description, restricted, definitions, creator, created_timestamp = tup
         return DBParamCategory(db, path, owner_user=owner_user, owner_role=owner_role, description=description, 
-                restricted=restricted, definitions=definitions, creator=creator)
+                restricted=restricted, definitions=definitions, creator=creator, created_timestamp=created_timestamp)
         
     @staticmethod
     def get(db, path):
         c = db.cursor()
         c.execute("""
-            select path, owner_user, owner_role, description, restricted, definitions, creator 
+            select path, owner_user, owner_role, description, restricted, definitions, creator, created_timestamp
                 from parameter_categories where path=%s
-                """, (path)
+                """, (path,)
         )
         tup = c.fetchone()
-        return DBParamCategory.from_tuple(tup)
+        return DBParamCategory.from_tuple(db, tup)
         
     @staticmethod
     def exists(db, path):
@@ -1796,11 +1836,12 @@ class DBParamCategory(object):
     def category_for_path(db, path):
         # get the deepest category containing the path
         words = path.split(".")
-        paths = ["."]
         p = []
+        paths = ['.']
         for w in words:
-            p.append(w)
-            paths.append(".".join(p))
+            if w:
+                p.append(w)
+                paths.append(".".join(p))
             
         c = db.cursor()
         c.execute("""
@@ -1811,7 +1852,7 @@ class DBParamCategory(object):
         tup = c.fetchone()
         return DBParamCategory.from_tuple(tup)
 
-    def check_param(self, name, value):
+    def validate_parameter(self, name, value):
         if not name in self.Definitions:    
             if self.Restricted:
                 return False, f"restricted category"
@@ -1822,27 +1863,27 @@ class DBParamCategory(object):
 
         if typ == "any":    return True, "valid"
 
-        if typ == "int" and not isinstance(value, int): return False, "int value required"
-        if typ == "float" and not isinstance(value, float): return False, "float value required"
-        if typ == "text" and not isinstance(value, str): return False, "text value required"
-        if typ == "boolean" and not isinstance(value, bool): return False, "boolean value required"
+        if typ == "int" and not isinstance(value, int): return False, "scalar int value required"
+        if typ == "float" and not isinstance(value, float): return False, "scalar float value required"
+        if typ == "text" and not isinstance(value, str): return False, "scalar text value required"
+        if typ == "boolean" and not isinstance(value, bool): return False, "scalar boolean value required"
         if typ == "dict" and not isinstance(value, dict): return False, "dict value required"
         if typ == "list" and not isinstance(value, list): return False, "list value required"
 
         if typ == "int[]":
-            if not isinstance(value, []): return False, "list of ints required"
+            if not isinstance(value, list): return False, "list of ints required"
             if not all(isinstance(x, int) for x in value): return False, "list of ints required"
 
         elif typ == "float[]":
-            if not isinstance(value, []): return False, "list of floats required"
+            if not isinstance(value, list): return False, "list of floats required"
             if not all(isinstance(x, float) for x in value): return False, "list of floats required"
             
         elif typ == "text[]":
-            if not isinstance(value, []): return False, "list of strings required"
+            if not isinstance(value, list): return False, "list of strings required"
             if not all(isinstance(x, str) for x in value): return False, "list of strings required"
             
         elif typ == "boolean[]":
-            if not isinstance(value, []): return False, "list of booleans required"
+            if not isinstance(value, list): return False, "list of booleans required"
             if not all(isinstance(x, bool) for x in value): return False, "list of booleans required"
             
         if not typ in ("boolean", "boolean[]", "list", "dict", "any"):
@@ -1851,20 +1892,20 @@ class DBParamCategory(object):
                 if isinstance(value, list):
                     if not all(x in values for x in value): return False, "value is not allowed"
                 else:
-                    if not x in values: return False, "value is not allowed"
+                    if not value in values: return False, "value is not allowed"
             else:
                 if "min" in definition:
                     vmin = definition["min"]
                     if isinstance(value, list):
                         if not all(x >= vmin for x in value):   return False, "value out of range"
                     else:
-                        if x < vmin:    return False, "value out of range"
+                        if value < vmin:    return False, "value out of range"
                 if "max" in definition:
                     vmax = definition["max"]
                     if isinstance(value, list):
                         if not all(x <= vmax for x in value):   return False, "value out of range"
                     else:
-                        if x > vmax:    return False, "value out of range"
+                        if value > vmax:    return False, "value out of range"
                         
         return True, "valid"
             

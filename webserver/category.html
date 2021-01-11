@@ -4,30 +4,45 @@
 	{% if create %}
 		Create category
 	{% elif edit %}
-		Edit category {{category.Name}}
+		Edit category {{category.Path}}
     {% else %}
-        Category {{category.Name}}
+        Category {{category.Path}}
 	{% endif %}
 {% endblock %}
 
 {% block content %}
 
-<form method=POST action="./save_category">
+<form method=POST action="./save">
 
-<input type="hidden" name="create" value="{{'yes' if create else 'no'}}"/>
+<input type="hidden" name="mode" value="{{'create' if create else 'edit'}}"/>
 
 <table class="form">
 	<tr>
-		<th>Name</th>
+		<th>Path</th>
 		<td>
 			{% if create %}
-				<input type="text" name="name"/>
+				<input type="text" name="rpath"/> <span style="color:#AAA">enter "." and leave parent blank for top category</span>
 			{% else %}
-				<input type="hidden" name="name" value="{{category.Name}}"/>
-				{{category.Name}}
+				<input type="hidden" name="path" value="{{category.Path}}"/>
+				{{category.Path}}
 			{% endif %}
 		</td>
 	</tr>
+    {% if create %}
+    	<tr>
+    		<th>Parent category</th>
+    		<td>
+    				<select name="parent_path">
+                        {% if admin %}
+                            <option value="">--</option>
+                        {% endif %}
+                        {% for c in parent_categories %}
+                            <option value="{{c}}">{{c}}</option>
+                        {% endfor %}
+                    </select>
+    		</td>
+    	</tr>
+    {% endif %}
 	<tr>
 		<th>Description</th>
 		<td>
@@ -60,88 +75,105 @@
     <tr>
         <th>Restricted</th>
         <td>
-            {% if edit %}
-                <input type="checkbox" name="restricted" {% if category.Restricted %} checked="checked" {% endif %}/>
+            {% if edit or create %}
+                <input type="checkbox" name="restricted" {% if category and category.Restricted %} checked="checked" {% endif %}/>
             {% else %}
                 {{'yes' if category.Restricted else 'no'}}
             {% endif %}
         </td>
     </tr>
     <tr>
-        <th>Owner user</th>
-        </td>
-            {% if edit }
-                <select name="owner_user">
-                    <option value="" {%- if not category.OwnerUser%} selected="selected"{% endif %}>
+        <th>Owner</th>
+        <td>
+            {% if edit or create %}
+                <select name="owner">
+                    <option value="user:{{user.Username}}">{{user.Username}}</option>
                     {% for u in users %}
-                        <option value="{{u.Username}}" {%- if u.Username == category.OwnerUser %} selected="selected"{% endif %}>{{u.Username}}</option>
+                        {% if u != user.Unsername %}
+                            <option value="user:{{u}}" {%- if not create and u == category.OwnerUser %} selected="selected"{% endif %}>{{u}}</option>
+                        {% endif %}
                     {% endfor %}
+                    {% if roles %}
+                        <option value="" disabled>-- roles --</option>
+                        {% for r in roles %}
+                            <option value="role:{{r}}" {%- if not create and r == category.OwnerRole %} selected="selected"{% endif %}>{{r}}</option>
+                        {% endfor %}
+                    {% endif %}
                 </select>
             {% else %}
-                {{ category.OwnerUser }}
-            {% endif %}
-        </td>
-    </tr>
-    <tr>
-        <th>Owner role</th>
-        </td>
-            {% if edit }
-                <select name="owner_role">
-                    <option value="" {%- if not category.OwnerRole%} selected="selected"{% endif %}>
-                    {% for r in roles %}
-                        <option value="{{r.Name}}" {%- if r.Name == category.OwnerRole %} selected="selected"{% endif %}>{{r.Name}}</option>
-                    {% endfor %}
-                </select>
-            {% else %}
-                {{ category.OwnerRole }}
+                {{ category.OwnerUser or ""}}
             {% endif %}
         </td>
     </tr>
     <tr>
         <th>Parameter definitions</th>
-        </td>
+        <td>
             <table>
+                {% set inx = 0 %}
                 <tr>
-                    <th></th>
-                    <th>Name</th>
+                    <th>Parameter name</th>
                     <th>Type</th>
                     <th>Min</th>
                     <th>Max</th>
                     <th>Values</th>
+                    <td>{% if edit %}delete{% endif %}</td>
                 </tr>
-                <tr>
-                    <td><input type="checkbox" name="add">add</td>
-                    <td><input type="text" name="add:name"/></td>
-                    <td><select name="add:type">
-                        {% for t in types %}
-                            <option value="{{t}}">{{t}}</option>
-                        {% endfor %}
-                    </td>
-                    <td><input type="text" name="add:min"/></td>
-                    <td><input type="text" name="add:max"/></td>
-                    <td><input type="text" name="add:values"/></td>
-                </tr>
-                {% for name, definition in definitions.items() %}
-                    <tr>
-                        <td><input type="checkbox" name="delete:{{name}}">delete</td>
-                        <td>{{name}}</td>
-                        <td><select name="type:{{name}}">
-                            {% for t in types %}
-                                <option value="{{t}}" {% if definition["type"] == t %}selected="selected"{% endif %}>{{t}}</option>
-                            {% endfor %}
-                        </td>
-                        <td><input type="text" name="min:{{name}}" value="{{definition['min'] or ''}}"/></td>
-                        <td><input type="text" name="max:{{name}}" value="{{definition['max'] or ''}}"/></td>
-                        <td><input type="text" name="values:{{name}}" value="{{definition['values'] or ''}}"/></td>
-                    </tr>
-                {% endfor %}
+                {% if edit %}
+                    {% for name, definition in category.Definitions.items() %}
+                        <tr>
+                            <td><input type="hidden" name="param:1_{{loop.index}}:name" value="{{name}}">{{name}}</td>
+                            <td><select name="param:1_{{loop.index}}:type">
+                                {% for t in types %}
+                                    <option value="{{t}}" {% if definition["type"] == t %}selected="selected"{% endif %}>{{t}}</option>
+                                {% endfor %}
+                            </td>
+                            <td><input type="text" name="param:1_{{loop.index}}:min" value="{{definition['min'] or ''}}"/></td>
+                            <td><input type="text" name="param:1_{{loop.index}}:max" value="{{definition['max'] or ''}}"/></td>
+                            <td><input type="text" name="param:1_{{loop.index}}:values" 
+                                {% if "values" in definition and definition['values'] %}
+                                    value="{{definition['values']|join(',')}}"
+                                {% endif %}/></td>
+                            <td>{% if edit %}<input type="checkbox" name="param:1_{{loop.index}}:remove">{% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+                
+                {% if edit or create %}
+                    {% for i in range(5) %}
+
+                        <tr>
+                            <td><input type="text" name="param:2_{{loop.index}}:name"/></td>
+                            <td><select name="param:2_{{loop.index}}:type">
+                                {% for t in types %}
+                                    <option value="{{t}}">{{t}}</option>
+                                {% endfor %}
+                            </td>
+                            <td><input type="text" name="param:2_{{loop.index}}:min"/></td>
+                            <td><input type="text" name="param:2_{{loop.index}}:max"/></td>
+                            <td><input type="text" name="param:2_{{loop.index}}:values"/></td>
+                            <td></td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    {% for name, definition in category.Definitions.items() %}
+                        <tr>
+                            <td>{{name}}</td>
+                            <td>{{definition["type"]}}</td>
+                            <td>{{definition["min"] or ""}}</td>
+                            <td>{{definition["max"] or ""}}</td>
+                            <td>{{definition["values"]|join(',') or ""}}</td>
+                            <td></td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
             </table>
         </td>
     </tr>                      
-	{% if edit %}
-        <tr><td></td><td><input type="submit" value="Save"/></td>
+	{% if edit or create %}
+        <tr><td></td><td><input type="submit" value="{{'Save' if edit else 'Create'}}"/></td>
+	    </tr>
     {% endif %}
-	</tr>
 </table>
 
 </form>

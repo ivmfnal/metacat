@@ -31,8 +31,13 @@ def main():
     server_url = opts.get("-s", os.environ.get("METACAT_SERVER_URL"))
     auth_server_url = opts.get("-a", os.environ.get("METACAT_AUTH_SERVER_URL")) or server_url+"/auth"
     
-    if not server_url or not cmd in Commands:
+    if not server_url:
         print("Server address must be specified either using -s option or using environment variable METACAT_SERVER_URL")
+        sys.exit(2)
+        
+    if not cmd in Commands:
+        print("Unrecognized command", cmd)
+        print(Usage)
         sys.exit(2)
 
     if not auth_server_url:

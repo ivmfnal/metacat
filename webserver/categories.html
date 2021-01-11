@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block headline %}Parameter Categories{% endblock %}
+
+{% block content %}
+
+<p>
+<a href="./create">create</a>
+</p>
+
+<table class="data">
+	<tr>
+		<th>Path</th>
+        <th>Creator</th>
+        <th>Created timestamp</th>
+		<th>Owner</th>
+		<th>Description</th>
+	</tr>
+    {% for cat in categories %}
+        <tr>
+            <td><a href="./show?path={{cat.Path}}">{{cat.Path}}</a></td>
+            <td><a href="../user?username={{cat.Creator}}">{{cat.Creator}}</a></td>
+            <td>{{cat.CreatedTimestamp}}</td>
+            <td>
+                {% if cat.OwnerUser %}<a href="../user?username={{cat.OwnerUser}}">{{cat.OwnerUser}}</a>
+                {% else %}<a href="../role?name={{cat.OwnerRole}}">{{cat.OwnerRole}}</a>
+                {% endif %}
+            </td>
+            <td>{{cat.Description or ""}}</td>
+        </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}
+            

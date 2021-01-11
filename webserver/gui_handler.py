@@ -1,6 +1,7 @@
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
 import psycopg2, json, time, secrets, traceback, hashlib, pprint
-from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, parse_name, AlreadyExistsError, IntegrityError
+from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, DBParamCategory, \
+        parse_name, AlreadyExistsError, IntegrityError
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_str, to_bytes, SignedToken
@@ -13,7 +14,7 @@ class GUICategoryHandler(BaseHandler):
     
     def categories(self, request, relpath):
         db = self.connect()
-        cats = DBParamCategory.list(db)
+        cats = sorted(list(DBParamCategory.list(db)), key=lambda c:c.Path)
         return self.render_to_response("categories.html", categories=cats)
         
     index = categories
@@ -22,68 +23,166 @@ class GUICategoryHandler(BaseHandler):
         me = self.authenticated_user()
         db = self.connect()
         cat = DBParamCategory.get(db, path)
-        admin = me.is_admin()
-        edit = me is not None and (me in ns.Owner or admin)
-        roles = None
-        if edit:
-            if admin:
-                roles = DBRole.list(db)
-            else:
-                roles = me.roles()
-        return self.render_to_response("category.html", category=cat, edit=edit, create=False, roles=roles, admin=admin)
+        admin = me.is_admin() if me is not None else False
+        edit = me is not None and (me.Username in cat.owners() or admin)
+        roles = sorted([r.Name for r in DBRole.list(db)]) if admin else (
+            me.roles() if me is not None else [])
+        users = sorted(list(u.Username for u in DBUser.list(db))) if admin else [me.Username if me is not None else None]
+        cats = list(DBParamCategory.list(db))
+        for name, d in cat.Definitions.items():
+            print(name, d)
+        return self.render_to_response("category.html", category=cat, edit=edit, create=False, roles=roles, admin=admin, user=me,
+            users = users,
+            types = DBParamCategory.Types)
         
     def create(self, request, relpath):
         db = self.connect()
         me = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/categories/crteate")
-        cats = list(DBParamCategory.list(db))
         admin = me.is_admin()
-        if not admin:
-            cats = [c for c in cats if me in c.Owner]
-        return self.render_to_response("create_category.html", parents=cats, roles=me.roles(), admin=admin)
-        
-    def do_create(self, request, relpath):
+        cats = list(DBParamCategory.list(db))
+        if admin:
+            roles = sorted([r.Name for r in DBRole.list(db)])
+        else:
+            roles = me.roles()
+            cats = [c for c in cats if me.Username in c.owners()]
+        cats = sorted([c.Path for c in cats])
+        users = sorted(list(u.Username for u in DBUser.list(db))) if admin else [me.Username]
+        return self.render_to_response("category.html", category=None, create=True, creator=me.Username, roles=roles, 
+                users=users, admin=admin, parent_categories=cats, user=me, types = DBParamCategory.Types)
+    
+    def read_parameter_definitions(self, form):
+        defs = {}
+        removals = []
+        for k, v in form.items():
+            if k.startswith("param:") and k.endswith(":name"):
+                param_id = k.split(":", 2)[1]
+                name = form.get(f"param:{param_id}:name")
+                print("param k, id, name:", k, param_id, name)
+                if name:
+                    if form.get(f"param:{param_id}:remove"):
+                        removals.append(name)
+                    else:
+                        type = form.get(f"param:{param_id}:type")
+                        print("name, type:", name, type)
+                        values = form.get(f"param:{param_id}:values", "")
+                        values = values.split(",") if values else None
+                        minv = form.get(f"param:{param_id}:min")
+                        maxv = form.get(f"param:{param_id}:max")
+                
+                        if type in ("int", "int[]"):
+                            if minv is not None:    
+                                try:    minv = int(minv)
+                                except: minv = None
+                            if maxv is not None:    
+                                try:    maxv = int(maxv)
+                                except: maxv = None
+                            if values:  
+                                try:    values = [int(x) for x in values]
+                                except: values = None
+                        elif type in ("float", "float[]"):
+                            if minv is not None:    
+                                try:    minv = float(minv)
+                                except: minv = None
+                            if maxv is not None:    
+                                try:    maxv = float(maxv)
+                                except: maxv = None
+                            if values:  
+                                try:    values = [float(x) for x in values]
+                                except: values = None
+                        elif type in ("boolean", "boolean[]", "any"):
+                            minv = maxv = values = None     # meaningless
+                        pdef = {"type":type}
+                        if minv is not None:    pdef["min"] = minv
+                        if maxv is not None:    pdef["max"] = maxv
+                        if values is not None:    pdef["values"] = values
+                        defs[name] = pdef
+                        print("pdef:", pdef)
+        for n in removals:
+            if n in defs:
+                del defs[n]
+        return defs
+    
+    def do_create(self, user, request):
         db = self.connect()
         me = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/categories/index")
         rpath = request.POST["rpath"]
-        if '.' in rpath:
+        if '.' in rpath and rpath != '.':
             self.redirect("./index?error=%s" % (quote_plus("Invaid relative category path. Can not contain dot."),))
-        parent_path = reuest.POST["parent"]
+        parent_path = request.POST["parent_path"]
         if not parent_path:
             if not me.is_admin():
                 self.redirect("./index?error=%s" % (quote_plus("Can not create top level category"),))
+            path = rpath
         else:
             parent_cat = DBParamCategory.get(db, parent_path)
-            if not (me.is_admin() or me in parent_cat.Owner):
+            if not (me.is_admin() or me.Username in parent_cat.owners()):
                 self.redirect("./index?error=%s" % (quote_plus(f"No permission to create a category under {parent_path}"),))
-        
-        path = f"{parent_path}.{rpath}"
+            path = f"{parent_path}.{rpath}"
+
         if DBParamCategory.exists(db, path):
             self.redirect("./index?error=%s" % (quote_plus(f"Category {path} already exists"),))
             
-        cat = DBParamCategory(db, path, me)
-        cat.Restricted = "restricted" in request.POST
+        owner_role = owner_user = None
+        owner = request.POST.get("owner")
+        if owner:
+            kind, owner = owner.split(":",1)
+            if kind == "role":
+                owner_role = owner
+            else:
+                owner_user = owner
+        
+        #print("owner_user, owner_role:", owner_user, owner_role)
+        
+        restricted = request.POST.get("restricted", False)
+        definitions = self.read_parameter_definitions(request.POST)
+        cat = DBParamCategory(db, path, restricted=restricted, owner_role=owner_role, 
+            owner_user=owner_user,
+            creator = me.Username, description=request.POST["description"],
+            definitions = definitions)
+
         cat.save()
         self.redirect(f"./show?path={path}")
         
-    def do_save(self, request, relpath):
+    def save(self, request, relpath):
         db = self.connect()
         me = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/categories/index")
+        mode = request.POST["mode"]
+        create = mode == "create"
+        
+        if create:
+            return self.do_create(me, request)
+        
         path = request.POST["path"]
 
         cat = DBParamCategory.get(db, path)
         if cat is None:
             self.redirect("./index?error=%s" % (quote_plus(f"Category does not exist"),))
 
-        if not (me.is_admin() or me in cat.Owner):
+        if not (me.is_admin() or me.Username in cat.owners()):
             self.redirect("./index?error=%s" % (quote_plus(f"Permission denied"),))
-
+            
+        if me.is_admin():
+            new_owner = request.POST.get("owner")
+            if new_owner:
+                kind, owner = new_owner.split(":",1)
+                if kind == "role":
+                    cat.OwnerRole = owner
+                    cat.OwnerUser = None
+                else:
+                    cat.OwnerUser = owner
+                    cat.OwnerRole = None
+        print("owner_user, owner_role:", cat.OwnerUser, cat.OwnerRole)
+            
+        cat.Description = request.POST["description"]
         cat.Restricted = "restricted" in request.POST
+        defs = self.read_parameter_definitions(request.POST)
+        cat.Definitions = defs
         cat.save()
         self.redirect(f"./show?path={path}")
         
@@ -98,8 +197,6 @@ class GUICategoryHandler(BaseHandler):
         if not (me.is_admin() or me in cat.Owner):
             self.redirect("./show?path=%s&error=%s" % (path, quote_plus(f"Permission denied"),))
         defs = cat.definitions
-        
-        
         
 class GUIHandler(BaseHandler):
     

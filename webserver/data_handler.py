@@ -1,6 +1,7 @@
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
 import psycopg2, json, time, secrets, traceback, hashlib, pprint
-from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, parse_name, AlreadyExistsError, IntegrityError
+from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, \
+    DBParamCategory, parse_name, AlreadyExistsError, IntegrityError
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_str, to_bytes, SignedToken
@@ -205,6 +206,21 @@ class DataHandler(BaseHandler):
             ds.add_files(files, do_commit=True)
         return json.dumps([f.FID for f in files]), "text/json"
         
+    def validate_metadata(self, db, data):
+        categories = {c.Path:c for c in DBParamCategory.list(db)}
+        invalid = []
+        for k, v in data.items():
+            if '.' in k:
+                path, name = k.rsplit(".",1)
+            else:
+                path, name = ".", k
+            cat = categories.get(path)
+            if cat is not None:
+                valid, reason = cat.validate_parameter(name, v)
+                if not valid:
+                    invalid.append({"name":k, "value":v, "reason":reason})
+        return invalid
+        
     def declare_files(self, request, relpath, namespace=None, dataset=None, **args):
         # Declare new files, add to the dataset
         # request body: JSON with list:
@@ -248,23 +264,54 @@ class DataHandler(BaseHandler):
                 return "Empty file list", 400
         files = []
         
+        errors = []
+        
         for file_item in file_list:
             name = file_item.get("name")
             fid = file_item.get("fid")
             if name is None:
-                return "Missing file namespace/name", 400
+                errors.append({
+                    "message":"Missing filename",
+                    "fid":fid
+                })
+                continue
+            
             namespace, name = parse_name(file_item["name"], file_item.get("namespace") or default_namespace)
+            if not namespace:
+                errors.append({
+                    "message":"Missing namespace",
+                    "fid":fid
+                })
+                continue
                 
             try:
                 if not self._namespace_authorized(db, namespace, user):
-                    return f"Permission to declare files to namespace {namespace} denied", 403
+                    errors.append({
+                        "message":f"Permission to declare files to namespace {namespace} denied"
+                    })
+                    continue
             except KeyError:
-                return f"Namespace {namespace} does not exist", 404
-            
-            f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=file_item.get("metadata"))
+                    errors.append({
+                        "message":f"Namespace {namespace} does not exist"
+                    })
+                    continue
+                    
+            meta = file_item.get("metadata", {})
+            metadata_errors = self.validate_metadata(db, meta)
+            if metadata_errors:
+                errors.append({
+                    "message":"Metadata validation errors",
+                    "metadata_errors":metadata_errors
+                })
+                continue
+                
+            f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=meta)
             f.Parents = file_item.get("parents")
             f.Checksums = file_item.get("checksums")
             files.append(f)
+
+        if errors:
+            return json.dumps(errors), 400, "text/json"
             
         try:    results = DBFile.create_many(db, files)
         except IntegrityError as e:
@@ -286,6 +333,14 @@ class DataHandler(BaseHandler):
         ids = data.get("fids")
         names = data.get("names")
         new_meta = data["metadata"]
+        
+        metadata_errors = self.validate_metadata(db, new_meta)
+        if metadata_errors:
+            return json.dumps({
+                "message":"Metadata validation errors",
+                "metadata_errors":metadata_errors
+            }), 400, "text/json"
+        
         if (names is None) == (ids is None):
             return "Either file ids or names must be specified, but not both", 400
             
@@ -357,11 +412,14 @@ class DataHandler(BaseHandler):
             return self.update_meta_bulk(db, user, data, mode, default_namespace)
         else:
             return "Not implemented", 400
-            
+        
         file_list = json.loads(request.body) if request.body else []
         if not file_list:
                 return "Empty file list", 400
         files = []
+        
+        errors = []
+        
         for file_item in file_list:
             fid, spec = None, None
             if "fid" in file_item:
