@@ -26,11 +26,26 @@ create table parent_child
 	child_id text
 );
 
+create temp table parent_child_temp
+(
+    like parent_child
+);
+
 \echo ... loading ...
 
-\copy parent_child(parent_id, child_id) from 'data/lineages.csv';
+\copy parent_child_temp(parent_id, child_id) from 'data/lineages.csv';
+
+insert into parent_child(parent_id, child_id)
+(
+    select t.parent_id, t.child_id
+    from parent_child_temp t
+    inner join raw_files f1 on f1.file_id = t.parent_id
+    inner join raw_files f1 on f2.file_id = t.child_id
+);
 
 \echo ... creating primary key ...
+
+
 
 alter table parent_child add primary key(parent_id, child_id);
 
