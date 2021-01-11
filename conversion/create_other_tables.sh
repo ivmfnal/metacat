@@ -8,22 +8,22 @@ drop table if exists
     queries
     ,files_datasets
     ,datasets
-    ,authenticators
     ,parameter_definitions
     ,namespaces
     cascade
 ;
 
-create table authenticators
-(
-    username    text    references users(username) on delete cascade,
-    type        text
-        constraint authenticator_types check ( 
-            type in ('x509','password','ssh')
-            ),
-    secrets      text[],
-    primary key(username, type)
-);
+--drop table if exists authenticators;
+--create table authenticators
+--(
+--    username    text    references users(username) on delete cascade,
+--    type        text
+--        constraint authenticator_types check ( 
+--            type in ('x509','password','ssh')
+--            ),
+--    secrets      text[],
+--    primary key(username, type)
+--);
 
 create table namespaces
 (

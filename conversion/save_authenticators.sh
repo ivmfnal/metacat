@@ -10,4 +10,5 @@ copy (
     ) to stdout;
 _EOF_
 
+echo --- non-LDAP authenticators saved
 
