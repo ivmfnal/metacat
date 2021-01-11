@@ -14,21 +14,6 @@ drop table if exists
     cascade
 ;
 
-drop view if exists file_provenance, files_with_provenance;
-
-create view file_provenance as
-    select f.id, 
-        array(select parent_id from parent_child pc1 where pc1.child_id=f.id) as parents, 
-        array(select child_id from parent_child pc2 where pc2.parent_id=f.id) as children
-    from files f
-;    
-
-create view files_with_provenance as
-    select f.*, r.children, r.parents
-    from files f, file_provenance r
-    where f.id = r.id
-;
-
 create table authenticators
 (
     username    text    references users(username) on delete cascade,
