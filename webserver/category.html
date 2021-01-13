@@ -34,7 +34,7 @@
     		<td>
     				<select name="parent_path">
                         {% if admin %}
-                            <option value="">--</option>
+                            <option value="">(top)</option>
                         {% endif %}
                         {% for c in parent_categories %}
                             <option value="{{c}}">{{c}}</option>
@@ -89,7 +89,7 @@
                 <select name="owner">
                     <option value="user:{{user.Username}}">{{user.Username}}</option>
                     {% for u in users %}
-                        {% if u != user.Unsername %}
+                        {% if u != user.Username %}
                             <option value="user:{{u}}" {%- if not create and u == category.OwnerUser %} selected="selected"{% endif %}>{{u}}</option>
                         {% endif %}
                     {% endfor %}
@@ -116,6 +116,7 @@
                     <th>Min</th>
                     <th>Max</th>
                     <th>Values</th>
+                    <th>Pattern</th>
                     <td>{% if edit %}delete{% endif %}</td>
                 </tr>
                 {% if edit %}
@@ -133,6 +134,7 @@
                                 {% if "values" in definition and definition['values'] %}
                                     value="{{definition['values']|join(',')}}"
                                 {% endif %}/></td>
+                            <td><input type="text" name="param:1_{{loop.index}}:pattern" value="{{definition['pattern'] or ''}}"/></td>
                             <td>{% if edit %}<input type="checkbox" name="param:1_{{loop.index}}:remove">{% endif %}
                             </td>
                         </tr>
@@ -152,6 +154,7 @@
                             <td><input type="text" name="param:2_{{loop.index}}:min"/></td>
                             <td><input type="text" name="param:2_{{loop.index}}:max"/></td>
                             <td><input type="text" name="param:2_{{loop.index}}:values"/></td>
+                            <td><input type="text" name="param:2_{{loop.index}}:pattern"/></td>
                             <td></td>
                         </tr>
                     {% endfor %}

@@ -12,10 +12,10 @@ from base_handler import BaseHandler
 
 class GUICategoryHandler(BaseHandler):
     
-    def categories(self, request, relpath):
+    def categories(self, request, relpath, **args):
         db = self.connect()
         cats = sorted(list(DBParamCategory.list(db)), key=lambda c:c.Path)
-        return self.render_to_response("categories.html", categories=cats)
+        return self.render_to_response("categories.html", categories=cats, **self.messages(args))
         
     index = categories
         
@@ -26,7 +26,7 @@ class GUICategoryHandler(BaseHandler):
         admin = me.is_admin() if me is not None else False
         edit = me is not None and (me.Username in cat.owners() or admin)
         roles = sorted([r.Name for r in DBRole.list(db)]) if admin else (
-            me.roles() if me is not None else [])
+            list(me.roles) if me is not None else [])
         users = sorted(list(u.Username for u in DBUser.list(db))) if admin else [me.Username if me is not None else None]
         cats = list(DBParamCategory.list(db))
         for name, d in cat.Definitions.items():
@@ -45,7 +45,7 @@ class GUICategoryHandler(BaseHandler):
         if admin:
             roles = sorted([r.Name for r in DBRole.list(db)])
         else:
-            roles = me.roles()
+            roles = list(me.roles)
             cats = [c for c in cats if me.Username in c.owners()]
         cats = sorted([c.Path for c in cats])
         users = sorted(list(u.Username for u in DBUser.list(db))) if admin else [me.Username]
@@ -68,8 +68,8 @@ class GUICategoryHandler(BaseHandler):
                         print("name, type:", name, type)
                         values = form.get(f"param:{param_id}:values", "")
                         values = values.split(",") if values else None
-                        minv = form.get(f"param:{param_id}:min")
-                        maxv = form.get(f"param:{param_id}:max")
+                        minv = form.get(f"param:{param_id}:min", "").strip() or None
+                        maxv = form.get(f"param:{param_id}:max", "").strip() or None
                 
                         if type in ("int", "int[]"):
                             if minv is not None:    
@@ -93,12 +93,18 @@ class GUICategoryHandler(BaseHandler):
                                 except: values = None
                         elif type in ("boolean", "boolean[]", "any"):
                             minv = maxv = values = None     # meaningless
+                            
                         pdef = {"type":type}
+
+                        if type in ("text", "text[]"):
+                            pattern = form.get(f"param:{param_id}:pattern", "").strip() or None
+                            if pattern: pdef["pattern"] = pattern
+                            
                         if minv is not None:    pdef["min"] = minv
                         if maxv is not None:    pdef["max"] = maxv
                         if values is not None:    pdef["values"] = values
                         defs[name] = pdef
-                        print("pdef:", pdef)
+                        #print("pdef:", pdef)
         for n in removals:
             if n in defs:
                 del defs[n]
@@ -112,7 +118,7 @@ class GUICategoryHandler(BaseHandler):
         rpath = request.POST["rpath"]
         if '.' in rpath and rpath != '.':
             self.redirect("./index?error=%s" % (quote_plus("Invaid relative category path. Can not contain dot."),))
-        parent_path = request.POST["parent_path"]
+        parent_path = request.POST.get("parent_path")
         if not parent_path:
             if not me.is_admin():
                 self.redirect("./index?error=%s" % (quote_plus("Can not create top level category"),))

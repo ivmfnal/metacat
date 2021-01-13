@@ -15,6 +15,13 @@ class DataHandler(BaseHandler):
     def __init__(self, request, app):
         BaseHandler.__init__(self, request, app)
         self.NamespaceAuthorizations = {}                # namespace -> True/False
+        self.Categories = None
+        
+    def load_categories(self):
+        if self.Categories is None:
+            db = self.App.connect()
+            self.Categories = {c.Path:c for c in DBParamCategory.list(db)}
+        return self.Categories
         
     def _namespace_authorized(self, db, namespace, user):
         authorized = self.NamespaceAuthorizations.get(namespace)
@@ -206,16 +213,29 @@ class DataHandler(BaseHandler):
             ds.add_files(files, do_commit=True)
         return json.dumps([f.FID for f in files]), "text/json"
         
-    def validate_metadata(self, db, data):
-        categories = {c.Path:c for c in DBParamCategory.list(db)}
+    def split_cat(self, path):
+        if '.' in path:
+            return tuple(path.rsplit(".",1))
+        else:
+            return ".", path
+        
+        
+    def validate_metadata(self, data):
+        categories = self.load_categories()
         invalid = []
         for k, v in data.items():
-            if '.' in k:
-                path, name = k.rsplit(".",1)
-            else:
-                path, name = ".", k
+            path, name = self.split_cat(k)
             cat = categories.get(path)
-            if cat is not None:
+            if cat is None:
+                while True:
+                    path, _ = self.split_cat(path)
+                    if path in categories:
+                        if categories[path].Restricted:
+                            invalid.append({"name":k, "value":v, "reason":f"Category {path} is restricted"})
+                        break
+                    if path == ".":
+                        break
+            else:
                 valid, reason = cat.validate_parameter(name, v)
                 if not valid:
                     invalid.append({"name":k, "value":v, "reason":reason})
@@ -297,7 +317,7 @@ class DataHandler(BaseHandler):
                     continue
                     
             meta = file_item.get("metadata", {})
-            metadata_errors = self.validate_metadata(db, meta)
+            metadata_errors = self.validate_metadata(meta)
             if metadata_errors:
                 errors.append({
                     "message":"Metadata validation errors",
@@ -334,7 +354,7 @@ class DataHandler(BaseHandler):
         names = data.get("names")
         new_meta = data["metadata"]
         
-        metadata_errors = self.validate_metadata(db, new_meta)
+        metadata_errors = self.validate_metadata(new_meta)
         if metadata_errors:
             return json.dumps({
                 "message":"Metadata validation errors",

@@ -1894,6 +1894,13 @@ class DBParamCategory(object):
                 else:
                     if not value in values: return False, "value is not allowed"
             else:
+                if "pattern" in definition:
+                    r = re.compile(definition["pattern"])
+                    if isinstance(value, list):
+                        if not all(r.match(v) is not None for v in value):  return False, "value does not match the pattern"
+                    else:
+                        if r.match(value) is None:
+                            return False, "value does not match the pattern"
                 if "min" in definition:
                     vmin = definition["min"]
                     if isinstance(value, list):
@@ -1909,7 +1916,7 @@ class DBParamCategory(object):
                         
         return True, "valid"
             
-    def check_metadata(self, metadata):
+    def ________check_metadata(self, metadata):
         # name is relative to the category path
         for name, value in metadata.items():
             valid, reason = self.check_param(name, value)
