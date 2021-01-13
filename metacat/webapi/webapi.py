@@ -3,10 +3,7 @@ from metacat.util import to_str, to_bytes, TokenLib, password_hash
 from pythreader import Task, TaskQueue, Promise
 from urllib.parse import quote_plus, unquote_plus
 
-class WebAPIError(Exception):
-    pass
-
-class ServerError(WebAPIError):
+class ServerError(Exception):
     
     def __init__(self, url, status_code, message, body=""):
         self.URL = url
@@ -20,6 +17,12 @@ class ServerError(WebAPIError):
             msg += "\nMessage from the server:\n"+self.Body+"\n"
         return msg
         
+class WebAPIError(ServerError):
+    
+    def json(self):
+        #print("WebAPIError.json: body:", self.Body)
+        return json.loads(self.Body)
+
 class AuthenticationError(WebAPIError):
     def __init__(self, message):
         self.Message = message
@@ -39,7 +42,8 @@ class HTTPClient(object):
         headers = {"X-Authentication-Token": self.Token.encode() if self.Token is not None else ""}
         response = requests.get(url, headers =headers)
         if response.status_code != 200:
-            raise ServerError(url, response.status_code, response.text)
+            #print("raising ServerError")
+            raise WebAPIError(url, response.status_code, response.text)
         data = json.loads(response.text)
         return data
         
@@ -58,7 +62,8 @@ class HTTPClient(object):
         #print("HTTPClient.post_json: headers:", headers)
         response = requests.post(url, data = data, headers = headers)
         if response.status_code != 200:
-            raise ServerError(url, response.status_code, response.text)
+            #print("raising ServerError")
+            raise WebAPIError(url, response.status_code, "", response.text)
         data = json.loads(response.text)
         return data
         

@@ -1855,64 +1855,64 @@ class DBParamCategory(object):
     def validate_parameter(self, name, value):
         if not name in self.Definitions:    
             if self.Restricted:
-                return False, f"restricted category"
+                return False, f"Restricted category"
             else:
-                return True, "no definition"
+                return True, "No definition"
         definition = self.Definitions[name]
         typ = definition["type"]
 
         if typ == "any":    return True, "valid"
 
-        if typ == "int" and not isinstance(value, int): return False, "scalar int value required"
-        if typ == "float" and not isinstance(value, float): return False, "scalar float value required"
-        if typ == "text" and not isinstance(value, str): return False, "scalar text value required"
-        if typ == "boolean" and not isinstance(value, bool): return False, "scalar boolean value required"
-        if typ == "dict" and not isinstance(value, dict): return False, "dict value required"
-        if typ == "list" and not isinstance(value, list): return False, "list value required"
+        if typ == "int" and not isinstance(value, int): return False, "Scalar int value required"
+        if typ == "float" and not isinstance(value, float): return False, "Scalar float value required"
+        if typ == "text" and not isinstance(value, str): return False, "Scalar text value required"
+        if typ == "boolean" and not isinstance(value, bool): return False, "Scalar boolean value required"
+        if typ == "dict" and not isinstance(value, dict): return False, "Dict value required"
+        if typ == "list" and not isinstance(value, list): return False, "List value required"
 
         if typ == "int[]":
             if not isinstance(value, list): return False, "list of ints required"
-            if not all(isinstance(x, int) for x in value): return False, "list of ints required"
+            if not all(isinstance(x, int) for x in value): return False, "List of ints required"
 
         elif typ == "float[]":
             if not isinstance(value, list): return False, "list of floats required"
-            if not all(isinstance(x, float) for x in value): return False, "list of floats required"
+            if not all(isinstance(x, float) for x in value): return False, "List of floats required"
             
         elif typ == "text[]":
             if not isinstance(value, list): return False, "list of strings required"
-            if not all(isinstance(x, str) for x in value): return False, "list of strings required"
+            if not all(isinstance(x, str) for x in value): return False, "List of strings required"
             
         elif typ == "boolean[]":
             if not isinstance(value, list): return False, "list of booleans required"
-            if not all(isinstance(x, bool) for x in value): return False, "list of booleans required"
+            if not all(isinstance(x, bool) for x in value): return False, "List of booleans required"
             
         if not typ in ("boolean", "boolean[]", "list", "dict", "any"):
             if "values" in definition:
                 values = definition["values"]
                 if isinstance(value, list):
-                    if not all(x in values for x in value): return False, "value is not allowed"
+                    if not all(x in values for x in value): return False, "Value is not allowed"
                 else:
-                    if not value in values: return False, "value is not allowed"
+                    if not value in values: return False, "Value is not allowed"
             else:
                 if "pattern" in definition:
                     r = re.compile(definition["pattern"])
                     if isinstance(value, list):
-                        if not all(r.match(v) is not None for v in value):  return False, "value does not match the pattern"
+                        if not all(r.match(v) is not None for v in value):  return False, "Value does not match the pattern"
                     else:
                         if r.match(value) is None:
-                            return False, "value does not match the pattern"
+                            return False, "Value does not match the pattern"
                 if "min" in definition:
                     vmin = definition["min"]
                     if isinstance(value, list):
-                        if not all(x >= vmin for x in value):   return False, "value out of range"
+                        if not all(x >= vmin for x in value):   return False, "Value out of range"
                     else:
-                        if value < vmin:    return False, "value out of range"
+                        if value < vmin:    return False, "Value out of range"
                 if "max" in definition:
                     vmax = definition["max"]
                     if isinstance(value, list):
-                        if not all(x <= vmax for x in value):   return False, "value out of range"
+                        if not all(x <= vmax for x in value):   return False, "Value out of range"
                     else:
-                        if value > vmax:    return False, "value out of range"
+                        if value > vmax:    return False, "Value out of range"
                         
         return True, "valid"
             

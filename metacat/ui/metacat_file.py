@@ -1,6 +1,6 @@
 import sys, getopt, os, json, pprint, time
 from metacat.util import to_bytes, to_str, TokenLib
-from metacat.webapi import MetaCatClient
+from metacat.webapi import MetaCatClient, MCWebAPIError
 
 Usage = """
 Show file info:
@@ -228,7 +228,13 @@ def do_update(client, args):
     else:
         meta = json.loads(meta)
 
-    response = client.update_file_meta(meta, names=names, fids=fids, mode=mode, namespace=namespace)
+    try:    response = client.update_file_meta(meta, names=names, fids=fids, mode=mode, namespace=namespace)
+    except MCWebAPIError as e:
+        data = e.json()
+        print(data["message"], file=sys.stderr)
+        for error in data.get("metadata_errors", []):
+            print("  {name} = {value}: {reason}".format(**error), file=sys.stderr)
+        sys.exit(1)
     print(response)
 
 _add_smaple = [

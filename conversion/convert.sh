@@ -96,6 +96,10 @@ echo --- loading lineages ...
 ./load_lineages.sh
 
 echo
+echo --- creating and populating datasets ...
+./create_datasets.sh
+
+echo
 echo --- creating other tables ...
 ./create_other_tables.sh
 

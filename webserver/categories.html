@@ -11,21 +11,19 @@
 <table class="data">
 	<tr>
 		<th>Path</th>
-        <th>Creator</th>
-        <th>Created timestamp</th>
 		<th>Owner</th>
+        <th>Restricted</th>
 		<th>Description</th>
 	</tr>
     {% for cat in categories %}
         <tr>
             <td><a href="./show?path={{cat.Path}}">{{cat.Path}}</a></td>
-            <td><a href="../user?username={{cat.Creator}}">{{cat.Creator}}</a></td>
-            <td>{{cat.CreatedTimestamp}}</td>
             <td>
-                {% if cat.OwnerUser %}<a href="../user?username={{cat.OwnerUser}}">{{cat.OwnerUser}}</a>
-                {% else %}<a href="../role?name={{cat.OwnerRole}}">{{cat.OwnerRole}}</a>
+                {% if cat.OwnerUser %}user <a href="../user?username={{cat.OwnerUser}}">{{cat.OwnerUser}}</a>
+                {% else %}group <a href="../role?name={{cat.OwnerRole}}">{{cat.OwnerRole}}</a>
                 {% endif %}
             </td>
+            <td>{{'yes' if cat.Restricted else 'no'}}</td>
             <td>{{cat.Description or ""}}</td>
         </tr>
     {% endfor %}

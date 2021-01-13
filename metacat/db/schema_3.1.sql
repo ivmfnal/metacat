@@ -104,7 +104,8 @@ create table datasets
     creator        text references users(username),
     created_timestamp   timestamp with time zone     default now(),
     expiration          timestamp with time zone,
-    description         text
+    description         text,
+    file_metadata_requirements  jsonb
 );
 
 create index datasets_meta_index on datasets using gin (metadata);
