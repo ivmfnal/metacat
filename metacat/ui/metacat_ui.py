@@ -66,7 +66,6 @@ def main():
             from .metacat_namespace import do_namespace
             do_namespace(server_url, args)
     except MCWebAPIError as e:
-        sys.stderr.write()
         sys.stderr.write(str(e))
         sys.exit(1)
     

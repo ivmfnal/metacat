@@ -1,6 +1,6 @@
 import sys, getopt, os, json, pprint, time
 from metacat.util import to_bytes, to_str, TokenLib
-from metacat.webapi import MetaCatClient, MCWebAPIError
+from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError
 
 Usage = """
 Show file info:
@@ -118,8 +118,12 @@ def do_declare(client, args):
     
     file_list = json.load(open(args[0], "r"))       # parse to validate JSON
     
-    response = client.declare_files(args[1], file_list, namespace = namespace)    
-    print(response)
+    try:
+        response = client.declare_files(args[1], file_list, namespace = namespace)    
+        print(response)
+    except MCInvalidMetadataError as e:
+        print(e)
+        sys.exit(1)
                 
 
 
@@ -229,11 +233,14 @@ def do_update(client, args):
         meta = json.loads(meta)
 
     try:    response = client.update_file_meta(meta, names=names, fids=fids, mode=mode, namespace=namespace)
-    except MCWebAPIError as e:
+    except MCInvalidMetadataError as e:
         data = e.json()
         print(data["message"], file=sys.stderr)
         for error in data.get("metadata_errors", []):
             print("  {name} = {value}: {reason}".format(**error), file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(e)
         sys.exit(1)
     print(response)
 

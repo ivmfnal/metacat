@@ -1,7 +1,7 @@
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
 import psycopg2, json, time, secrets, traceback, hashlib, pprint
 from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, \
-    DBParamCategory, parse_name, AlreadyExistsError, IntegrityError
+    DBParamCategory, parse_name, AlreadyExistsError, IntegrityError, MetaValidationError
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_str, to_bytes, SignedToken
@@ -10,18 +10,30 @@ from metacat import Version
 
 from base_handler import BaseHandler
 
+METADATA_ERROR_CODE = 488
+
+
 class DataHandler(BaseHandler):
     
     def __init__(self, request, app):
         BaseHandler.__init__(self, request, app)
         self.NamespaceAuthorizations = {}                # namespace -> True/False
         self.Categories = None
+        self.Datasets = {}            # {(ns,n)->DBDataset}
         
     def load_categories(self):
         if self.Categories is None:
             db = self.App.connect()
             self.Categories = {c.Path:c for c in DBParamCategory.list(db)}
         return self.Categories
+        
+    def load_dataset(self, ns, n):
+        ds = self.Datasets.get((ns, n))
+        if ds is None:
+            db = self.App.connect()
+            ds = self.Datasets[(ns, n)] = DBDataset.get(db, ns, n)
+        return ds
+        
         
     def _namespace_authorized(self, db, namespace, user):
         authorized = self.NamespaceAuthorizations.get(namespace)
@@ -210,7 +222,9 @@ class DataHandler(BaseHandler):
             #    return f"Permission to add files from namespace {namespace} is denied", 403
             files.append(f)
         if files:
-            ds.add_files(files, do_commit=True)
+            try:    ds.add_files(files, do_commit=True)
+            except MetaValidationError as e:
+                return e.as_json(), 400, "text/json"
         return json.dumps([f.FID for f in files]), "text/json"
         
     def split_cat(self, path):
@@ -317,27 +331,41 @@ class DataHandler(BaseHandler):
                     continue
                     
             meta = file_item.get("metadata", {})
+            
             metadata_errors = self.validate_metadata(meta)
             if metadata_errors:
                 errors.append({
-                    "message":"Metadata validation errors",
+                    "message":f"Metadata validation errors for {namespace}:{name}",
                     "metadata_errors":metadata_errors
                 })
-                continue
+            
+            ds_validation_errors = ds.validate_file_metadata(meta)
+            if ds_validation_errors:
+                errors.append({
+                    "message":f"Dataset metadata requirements violation for {namespace}:{name}",
+                    "metadata_errors":ds_validation_errors
+                })
                 
+            if ds_validation_errors or metadata_errors:
+                continue
+            
+            
             f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=meta)
             f.Parents = file_item.get("parents")
             f.Checksums = file_item.get("checksums")
             files.append(f)
 
         if errors:
-            return json.dumps(errors), 400, "text/json"
+            return json.dumps(errors), METADATA_ERROR_CODE, "text/json"
             
         try:    results = DBFile.create_many(db, files)
         except IntegrityError as e:
             return f"Integrity error: {e}", 404
             
-        ds.add_files(files, do_commit=True)
+        print("server:declare_files(): calling ds.add_files...")
+        try:    ds.add_files(files, do_commit=True, validate_meta=False)
+        except MetaValidationError as e:
+            return e.as_json(), METADATA_ERROR_CODE, "text/json"
         
         out = [
                     dict(
@@ -359,7 +387,7 @@ class DataHandler(BaseHandler):
             return json.dumps({
                 "message":"Metadata validation errors",
                 "metadata_errors":metadata_errors
-            }), 400, "text/json"
+            }), METADATA_ERROR_CODE, "text/json"
         
         if (names is None) == (ids is None):
             return "Either file ids or names must be specified, but not both", 400
@@ -368,7 +396,10 @@ class DataHandler(BaseHandler):
             file_set = DBFileSet.from_id_list(db, ids)
         else:
             file_set = DBFileSet.from_name_list(db, names, default_namespace=default_namespace)
-        file_set = list(file_set)
+
+        file_set = list(file_set)        
+        files_datasets = DBDataset.datasets_for_files(db, file_set)        
+        
         out = []
         for f in file_set:
             namespace = f.Namespace
@@ -383,6 +414,12 @@ class DataHandler(BaseHandler):
                 meta = {}
                 meta.update(f.metadata())   # to make a copy
                 meta.update(new_meta)
+
+            for ds in files_datasets[f.FID]:
+                errors = ds.validate_file_metadata(meta)
+                if errors:
+                    metadata_errors += errors
+
             f.Metadata = meta
             
             out.append(                    
@@ -392,6 +429,14 @@ class DataHandler(BaseHandler):
                         metadata=meta
                     )
             )
+            
+        if metadata_errors:
+            print("update_files_bulk:", metadata_errors)
+            return json.dumps({
+                "message":"Metadata validation errors",
+                "metadata_errors":metadata_errors
+            }), METADATA_ERROR_CODE, "text/json"
+            
         
         DBFile.update_many(db, file_set, do_commit=True)
         return json.dumps(out), 200
@@ -424,7 +469,7 @@ class DataHandler(BaseHandler):
         default_namespace = namespace
         user = self.authenticated_user()
         if user is None:
-            return 403
+            return "Authentication required", 403
         db = self.App.connect()
         data = json.loads(request.body)
 
@@ -542,6 +587,8 @@ class DataHandler(BaseHandler):
             f = DBFile.get(db, fid = fid)
         else:
             f = DBFile.get(db, namespace=namespace, name=name)
+        if f is None:
+            return "File not found", 404
         return f.to_json(with_metadata=with_metadata, with_provenance=with_provenance), "text/json"
             
     def query(self, request, relpath, query=None, namespace=None, 

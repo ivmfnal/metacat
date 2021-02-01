@@ -53,8 +53,8 @@
         </td>
         <td>
             <h3>Datasets</h3>
-            {% for ds in f.datasets() %}
-                <a href="./dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">{{ds.Namespace}}:{{ds.Name}}</a><br/>
+            {% for ns, n in f.datasets %}
+                <a href="./dataset?namespace={{ns}}&name={{n}}">{{ns}}:{{n}}</a><br/>
             {% endfor %}
         </td>
     </tr>

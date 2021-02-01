@@ -79,12 +79,12 @@ class App(WPApp):
     def user_from_request(self, request):
         encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
         if not encoded: 
-            print("App: no token:", list(request.headers.items()) )
+            #print("App: no token:", list(request.headers.items()) )
             
             return None
         try:    token = SignedToken.decode(encoded, self.TokenSecret, verify_times=True)
         except:
-            print("App: token error:", traceback.format_exc()) 
+            #print("App: token error:", traceback.format_exc()) 
             return None             # invalid token
         return token.Payload.get("user")
 

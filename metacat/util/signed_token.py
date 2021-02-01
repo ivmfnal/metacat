@@ -197,6 +197,8 @@ class SignedToken(object):
         token.Encoded = to_bytes(txt)
         return token
         
+    from_bytes = decode
+        
 class TokenBox(object):
     def __init__(self, url, username, password, margin = 10, request_now = False):
         self.URL = url

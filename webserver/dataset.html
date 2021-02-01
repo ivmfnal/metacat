@@ -27,7 +27,7 @@
                     {% endfor %}
                 </select>
             {% else %}
-				<input type="hidden" name="name" value="{{dataset.Namespace}}"/>
+				<input type="hidden" name="namespace" value="{{dataset.Namespace}}"/>
                 {{dataset.Namespace}}
             {% endif %}
         </td>
@@ -67,18 +67,69 @@
             {% endif %}
         </td>
     </tr>
-    {% if not create %}
-        <tr>
-            <th>Files:</th>
-            <td id="nfiles">...</td>
-            <script>
-    		    var out = document.getElementById("nfiles");
-    		    out.data_received = function(data, param) { this.innerHTML = "" + data.nfiles; };
-                HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_count/{{dataset.Namespace}}:{{dataset.Name}}", 
-    			    out, null, "json");
-            </script>
-        </tr>
-    {% endif %}
+    <tr>
+        <th>File metadata requirements</th>
+        <td>
+            <table>
+                {% set inx = 0 %}
+                <tr>
+                    <th>Parameter name</th>
+                    <th>Required</th>
+                    <th>Min</th>
+                    <th>Max</th>
+                    <th>Values</th>
+                    <th>Pattern</th>
+                    <td>{% if edit %}delete{% endif %}</td>
+                </tr>
+                {% if edit %}
+                    {% for name, reqs in dataset.FileMetaRequirements.items() %}
+                        <tr>
+                            <td><input type="hidden" name="param:1_{{loop.index}}:name" value="{{name}}">{{name}}</td>
+                            <td><input type="checkbox" name="param:1_{{loop.index}}:required"
+                                    {% if reqs["required"] == True %}checked="checked"{% endif %}/>
+                            </td>
+                            <td><input type="text" name="param:1_{{loop.index}}:min" value="{{reqs['min'] or ''}}"/></td>
+                            <td><input type="text" name="param:1_{{loop.index}}:max" value="{{reqs['max'] or ''}}"/></td>
+                            <td><input type="text" name="param:1_{{loop.index}}:values" 
+                                {% if "values" in reqs and reqs['values'] %}
+                                    value="{{reqs['values']|join(',')}}"
+                                {% endif %}/></td>
+                            <td><input type="text" name="param:1_{{loop.index}}:pattern" value="{{reqs['pattern'] or ''}}"/></td>
+                            <td>{% if edit %}<input type="checkbox" name="param:1_{{loop.index}}:remove">{% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+                
+                {% if edit or create %}
+                    {% for i in range(5) %}
+
+                        <tr>
+                            <td><input type="text" name="param:2_{{loop.index}}:name"/></td>
+                            <td><input type="checkbox" name="param:2_{{loop.index}}:checkbox"/></td>
+                            <td><input type="text" name="param:2_{{loop.index}}:min"/></td>
+                            <td><input type="text" name="param:2_{{loop.index}}:max"/></td>
+                            <td><input type="text" name="param:2_{{loop.index}}:values"/></td>
+                            <td><input type="text" name="param:2_{{loop.index}}:pattern"/></td>
+                            <td></td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    {% for name, definition in dataset.FileMetaRequirements.items() %}
+                        <tr>
+                            <!-- {{name}} {{definition}} -->
+                            <td>{{name}}</td>
+                            <td>{{'yes' if definition["required"] == True else 'no'}}</td>
+                            <td>{{definition["min"] or ""}}</td>
+                            <td>{{definition["max"] or ""}}</td>
+                            <td>{% if "values" in definition %}{{definition["values"]|join(',') or ""}}{% endif %}</td>
+                            <td></td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+            </table>
+        </td>
+    </tr>
 	{% if edit or create %}
 		<tr><td></td><td><input type="submit" value="Save"/></td>
 		</tr>
@@ -91,20 +142,22 @@
 
 {% if files %}
 
-    <h3>Sample files</h3>
-
-    <p><i>{{files|length}}/{{nfiles}} files shown</i></p>
+    <h3>{{files|length}}/{{nfiles}} files</h3>
 
     <table class="file_metadata">
+        {#
         <tr>
             <th>File name</th>{% for a in attr_names %}<th>{{a}}</th>{% endfor %}
         </tr>
+        #}
         {% for f in files|sort(attribute="Name") %}
             <tr>
                 <td class="filename"><a class="left" href="./show_file?fid={{f.FID}}">{{f.Namespace}}:{{f.Name}}</a></td>
-                    {% for n in attr_names %}
+                    {#
+                        {% for n in attr_names %}
                         <td class="attr_value">{{f.Metadata[n]}}</td>
-                    {% endfor %}
+                        {% endfor %}
+                    #}
             </tr>
         {% endfor %}
     </table>

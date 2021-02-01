@@ -10,8 +10,9 @@ Usage:
     metacat auth subommands and options:
     
         login [-m <mechanism>] <username>               - request authentication token
-            Currently, only "digest" mechanism is implemented
-        whoami                                          - verify token
+            Currently, only "digest" and "ldap" mechanisms are implemented
+        whoami [-t <token file>]                        - verify and show token
+        token [-o <token file>]                         - export token
         list                                            - list tokens
 """
 
@@ -35,7 +36,7 @@ def time_delta(dt):
         return "%dd%dh" % (d, h)
 
 def do_list(client, args):
-    tl = client.TL
+    tl = client.TokenLib
     now = time.time()
     lst = [(token.TID, url, token["user"], time.ctime(token.Expiration), time_delta(token.Expiration - now)) for url, token in tl.items()
                 if token.Expiration > now]
@@ -54,12 +55,18 @@ def do_list(client, args):
         print(format % (tid, url, user, exp))
 
 def do_whoami(client, args):
-    try:    user, expiration = client.auth_info()
-    except MCAuthenticationError as e:
-        print(e)
+    opts, args = getopt.getopt(args, "t:")
+    opts = dict(opts)
+    
+    if "-t" in opts:
+        token = SignedToken.from_bytes(open(opts["-t"], "rb").read())
+        user, expiration = token["user"], token.Expiration
     else:
-        print ("User:   ", user)
-        print ("Expires:", time.ctime(expiration))
+        try:    user, expiration = client.auth_info()
+        except MCAuthenticationError as e:
+            print(e)
+    print ("User:   ", user)
+    print ("Expires:", time.ctime(expiration))
 
 def do_login(client, args):
     opts, args = getopt.getopt(args, "m:")
@@ -78,6 +85,26 @@ def do_login(client, args):
     print ("User:   ", user)
     print ("Expires:", time.ctime(expiration))
     
+def do_token(client, args):
+    opts, args = getopt.getopt(args, "o:")
+    opts = dict(opts)
+    
+    token = client.Token
+    if token is None:
+        sys.stderr.write("Token not found\n")
+        sys.exit(1)
+
+    out_path = opts.get("-o")
+    if out_path:
+        fd = os.open(out_path, os.O_CREAT + os.O_WRONLY + os.O_TRUNC, 0o700)
+        out_file = os.fdopen(fd, "wb")
+        out_file.write(token.encode())
+        out_file.close()
+        os.chmod(out_path, 0o700)
+    else:
+        print(to_str(token.encode()))
+        
+    
 def do_auth(server_url, auth_server_url, args):
     if not args:
         print(Usage)
@@ -88,6 +115,7 @@ def do_auth(server_url, auth_server_url, args):
     return {
         "list":         do_list,
         "login":        do_login,
-        "whoami":       do_whoami
+        "whoami":       do_whoami,
+        "token":        do_token
     }[command](client, args[1:])
 

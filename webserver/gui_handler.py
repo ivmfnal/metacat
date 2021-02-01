@@ -670,9 +670,60 @@ class GUIHandler(BaseHandler):
         if user is not None:
             ns = DBNamespace.get(db, name=dataset.Namespace)
             edit = ns.owned_by_user(user)
+        print("gui.dataset: dataset.reqs:", dataset.FileMetaRequirements)
         return self.render_to_response("dataset.html", dataset=dataset, files=files, nfiles=nfiles, attr_names=attr_names, edit=edit, create=False,
             **self.messages(args))
+            
+            
+    def read_dataset_file_meta_requiremets(self, form):
         
+        def cvt_value(x):
+            if x is None:   return None
+            if x == "true": x = True
+            elif x == "false":  x = False
+            elif x == "null":   x = None
+            else:
+                try:    x = int(x)
+                except: 
+                    try:    x = float(x)
+                    except: pass
+            if isinstance(x, str) and len(x) >= 2:
+                if x[0] == "'" and x[-1] == "'" or \
+                    x[0] == '"' and x[-1] == '"':
+                        x = x[1:-1]
+            return x
+        
+        reqs = {}
+        removals = []
+        for k, v in form.items():
+            if k.startswith("param:") and k.endswith(":name"):
+                param_id = k.split(":", 2)[1]
+                name = form.get(f"param:{param_id}:name")
+                #print("param k, id, name:", k, param_id, name)
+                if name:
+                    if form.get(f"param:{param_id}:remove"):
+                        removals.append(name)
+                    else:
+                        required = form.get(f"param:{param_id}:required") and True
+                        #print("name, type:", name, type)
+                        values = form.get(f"param:{param_id}:values", "")
+                        values = [cvt_value(x) for x in values.split(",")] if values else None
+                        minv = cvt_value(form.get(f"param:{param_id}:min", "").strip() or None)
+                        maxv = cvt_value(form.get(f"param:{param_id}:max", "").strip() or None)                            
+                        pattern = form.get(f"param:{param_id}:pattern").strip() or None
+                        req = {}
+                        if required:            req["required"] = True
+                        if minv is not None:    req["min"] = minv
+                        if maxv is not None:    req["max"] = maxv
+                        if values is not None:    req["values"] = values
+                        if pattern is not None:    req["pattern"] = pattern
+                        reqs[name] = req
+                        #print("pdef:", pdef)
+        for n in removals:
+            if n in reqs:
+                del reqs[n]
+        return reqs
+
     def save_dataset(self, request, relpath, **args):
         #print("save_dataset:...")
         db = self.App.connect()
@@ -681,26 +732,27 @@ class GUIHandler(BaseHandler):
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/datasets")
         admin = user.is_admin()
         namespace = request.POST["namespace"]
+        name = request.POST["name"]
         if not admin:
             ns = DBNamespace.get(db, namespace)
             if not ns.owned_by_user(user):
                 self.redirect("./datasets?error=%s" % (quote_plus(f"No permission to modify namespace {namespace}"),))
 
         if request.POST["create"] == "yes":
-            ds = DBDataset(db, request.POST["namespace"], request.POST["name"])
+            ds = DBDataset(db, namespace, name)
             ds.Creator = user.Username
         else:
-            ds = DBDataset.get(db, request.POST["namespace"], request.POST["name"])
+            ds = DBDataset.get(db, namespace, name)
 
         ds.Monotonic = "monotonic" in request.POST
         ds.Frozen = "frozen" in request.POST
+        reqs = self.read_dataset_file_meta_requiremets(request.POST)
+        ds.FileMetaRequirements = reqs
         ds.save()
-        self.redirect("./datasets")
-        
+        self.redirect(f"./dataset?namespace={namespace}&name={name}")
 #
 # --- roles
 #
-        
     def roles(self, request, relpath, **args):
         me = self.authenticated_user()
         if me is None:

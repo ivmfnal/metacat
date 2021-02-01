@@ -1,7 +1,9 @@
 import requests, json, fnmatch, sys
-from metacat.util import to_str, to_bytes, TokenLib, password_hash
+from metacat.util import to_str, to_bytes, password_hash, SignedToken, TokenLib
 from pythreader import Task, TaskQueue, Promise
 from urllib.parse import quote_plus, unquote_plus
+
+INVALID_METADATA_ERROR_CODE = 488
 
 class ServerError(Exception):
     
@@ -19,9 +21,22 @@ class ServerError(Exception):
         
 class WebAPIError(ServerError):
     
+    def __init__(self, url, status_code, body):
+        ServerError.__init__(self, url, status_code, "", body)
+    
     def json(self):
         #print("WebAPIError.json: body:", self.Body)
         return json.loads(self.Body)
+        
+class InvalidMetadataError(WebAPIError):
+
+    def __str__(self):
+        msg = ["Metadata error"]
+        for item in self.json():
+            msg.append("  %s" % (item["message"]))
+            for error in item.get("metadata_errors", []):
+                msg.append("    %s: %s" % (error["name"], error["reason"]))
+        return "\n".join(msg)
 
 class AuthenticationError(WebAPIError):
     def __init__(self, message):
@@ -39,10 +54,13 @@ class HTTPClient(object):
 
     def get_json(self, uri_suffix):
         url = "%s/%s" % (self.ServerURL, uri_suffix)
-        headers = {"X-Authentication-Token": self.Token.encode() if self.Token is not None else ""}
+        headers = {}
+        if self.Token is not None:
+            headers["X-Authentication-Token"] = self.Token.encode()
         response = requests.get(url, headers =headers)
+        if response.status_code == INVALID_METADATA_ERROR_CODE:
+            raise InvalidMetadataError(url, response.status_code, response.text)
         if response.status_code != 200:
-            #print("raising ServerError")
             raise WebAPIError(url, response.status_code, response.text)
         data = json.loads(response.text)
         return data
@@ -57,20 +75,25 @@ class HTTPClient(object):
             
         url = "%s/%s" % (self.ServerURL, uri_suffix)
         
-        headers = {"X-Authentication-Token": self.Token.encode() if self.Token is not None else ""}
+        headers = {}
+        if self.Token is not None:
+            headers["X-Authentication-Token"] = self.Token.encode()
         #print("HTTPClient.post_json: url:", url)
         #print("HTTPClient.post_json: headers:", headers)
         response = requests.post(url, data = data, headers = headers)
+        if response.status_code == INVALID_METADATA_ERROR_CODE:
+            #print("raising InvalidMetadataError")
+            raise InvalidMetadataError(url, response.status_code, response.text)
         if response.status_code != 200:
-            #print("raising ServerError")
-            raise WebAPIError(url, response.status_code, "", response.text)
+            raise WebAPIError(url, response.status_code, response.text)
         data = json.loads(response.text)
         return data
         
 
 class MetaCatClient(HTTPClient):
     
-    def __init__(self, server_url, auth_server_url=None, max_concurrent_queries = 5):    
+    def __init__(self, server_url, auth_server_url=None, max_concurrent_queries = 5,
+                token = None, token_file = None):    
 
         """Initializes the MetaCatClient object
 
@@ -82,17 +105,35 @@ class MetaCatClient(HTTPClient):
             The endpoint URL for the Authentication server, default = server_url + "/auth"
         max_concurrent_queries : int, optional
             Controls the concurrency when asynchronous queries are used
-
+        token_file : str
+            File path to read the authentication token from
+        token : bytes or str or SignedToken
+            Use this token for authentication, optional
         """
 
-        self.TL = TokenLib()
-        token = self.TL.get(server_url)
-        #if token is None:
-        #    raise RuntimeError(f"No valid tocken found for server {server_url}")
+        self.TokenLib = self.Token = None
+        self.TokenFile = token_file
+
+        if token_file and token is None:
+            token = self.resfresh_token()
+
+        if token is not None:
+            if isinstance(token, (str, bytes)):
+                token = SignedToken.decode(token)
+            
+        if token is None:
+            self.TokenLib = TokenLib()
+            token = self.TokenLib.get(server_url)
+            
         HTTPClient.__init__(self, server_url, token)
         self.AuthURL = auth_server_url or server_url + "/auth"
+        self.QueryQueue = TaskQueue(max_concurrent_queries)       
         
-        self.QueryQueue = TaskQueue(max_concurrent_queries)        
+    def resfresh_token(self):
+        if self.TokenFile:
+             token = open(self.TokenFile, "rb").read()
+             self.Token = SignedToken.decode(token)
+        return self.Token
 
     def list_datasets(self, namespace_pattern=None, name_pattern=None, with_file_counts=False):
         """Gets the list of datasets with namespace/name matching the templates. The templates are
@@ -533,7 +574,7 @@ class MetaCatClient(HTTPClient):
             if pattern is None or fnmatch.fnmatch(item["name"], pattern):
                 yield item
     
-    def login_password(self, username, password):
+    def login_password(self, username, password, save_token=False):
         """Performs password-based authentication and stores the authentication token locally.
         
         Parameters
@@ -553,16 +594,16 @@ class MetaCatClient(HTTPClient):
         from requests.auth import HTTPDigestAuth
         from metacat.util.authenticators import PasswordAuthenticator
         password_for_digest = PasswordAuthenticator.make_password_for_digest(username, password)
-        server_url = self.AuthURL
-        url = "%s/%s?method=digest" % (server_url, "auth")
+        auth_url = self.AuthURL
+        url = "%s/%s?method=digest" % (auth_url, "auth")
         response = requests.get(url, auth=HTTPDigestAuth(username, password_for_digest))
         if response.status_code != 200:
             raise ServerError(url, response.status_code, "Authentication failed", response.text)
         #print(response)
         #print(response.headers)
-        token = response.headers["X-Authentication-Token"]
-        self.TL[self.ServerURL] = token
-        token = self.TL[self.ServerURL]
+        self.Token = token = SignedToken.decode(response.headers["X-Authentication-Token"])
+        if self.TokenLib is not None:
+            self.TokenLib[self.ServerURL] = token
         return token["user"], token.Expiration
 
     def login_ldap(self, username, password):
@@ -582,21 +623,18 @@ class MetaCatClient(HTTPClient):
             token expiration timestamp
             
         """
-        server_url = self.AuthURL
-        url = "%s/%s?method=ldap" % (server_url, "auth")        
+        auth_url = self.AuthURL
+        url = "%s/%s?method=ldap" % (auth_url, "auth")        
         data = b"%s:%s" % (to_bytes(username), to_bytes(password))
         #print("HTTPClient.post_json: url:", url)
         #print("HTTPClient.post_json: headers:", headers)
         response = requests.post(url, data = data)
         if response.status_code != 200:
             raise ServerError(url, response.status_code, response.text)
-        token = response.headers["X-Authentication-Token"]
-        self.TL[self.ServerURL] = token
-        token = self.TL[self.ServerURL]
+        self.Token = token = SignedToken.decode(response.headers["X-Authentication-Token"])
+        if self.TokenLib is not None:
+            self.TokenLib[self.ServerURL] = token
         return token["user"], token.Expiration
-
-
-        
 
     def auth_info(self):
         """Returns information about current authentication token.
@@ -610,9 +648,12 @@ class MetaCatClient(HTTPClient):
             
         """
         server_url = self.ServerURL
-        token = self.TL.get(server_url)
+        token = self.Token
         if not token:
-            raise AuthenticationError("No token found for server %s" % (server_url,))
+            if self.TokenLib:
+                token = self.TokenLib[server_url]
+        if not token:
+            raise AuthenticationError("No token found")
         url = server_url + "/auth/verify"
         response = requests.get(url, headers={
                 "X-Authentication-Token":token.encode()

@@ -63,6 +63,20 @@ def limited(iterable, n):
                 break
             n -= 1
             
+class MetaValidationError(Exception):
+    
+    def __init__(self, message, errors):
+        self.Errors = errors
+        self.Message = message
+        
+    def as_json(self):
+        return json.dumps(
+            {
+                "message":self.Message,
+                "metadata_errors":self.Errors
+            }
+        )
+    
 class DBFileSet(object):
     
     def __init__(self, db, files=[], limit=None):
@@ -422,9 +436,6 @@ class DBFile(object):
                     insert into parent_child(parent_id, child_id) values(%s, %s)
                 """, [(p.FID if isinstance(p, DBFile) else p, self.FID) for p in self.Parents])
             if do_commit:   c.execute("commit")
-        except IntegrityError:
-            c.execute("rollback")
-            raise AlreadyExistsError("%s:%s" % (self.Namespace, self.Name))
         except:
             c.execute("rollback")
             raise
@@ -465,7 +476,6 @@ class DBFile(object):
                     columns=["child_id", "parent_id"])
             if do_commit:   c.execute("commit")
         except Exception as e:
-            print(traceback.format_exc())
             c.execute("rollback")
             raise
             
@@ -655,7 +665,7 @@ class DBFile(object):
             data["parents"] = self.parents()
             data["children"] = self.children()
         if with_datasets:
-            data["datasets"] = ["%s:%s" % (ds.Namespace, ds.Name) for ds in self.datasets()]
+            data["datasets"] = ["%s:%s" % tup for ds in self.datasets]
         return data
 
     def to_json(self, with_metadata = False, with_provenance=False):
@@ -724,7 +734,13 @@ class DBFile(object):
         parent_fid = parent if isinstance(parent, str) else parent.FID
         return DBFile(self.DB, fid=parent_fid).remove_child(self, do_commit=do_commit)
         
+    @property
     def datasets(self):
+        return _DBManyToMany(self.DB, "files_datasets", "dataset_namespace", "dataset_name", file_id = self.FID)
+
+
+
+    def __datasets(self):
         # list all datasets this file is found in
         c = self.DB.cursor()
         c.execute("""
@@ -977,7 +993,7 @@ class MetaExpressionDNF(object):
             
 class DBDataset(object):
 
-    def __init__(self, db, namespace, name, parent_namespace=None, parent_name=None, frozen=False, monotonic=False, metadata={}):
+    def __init__(self, db, namespace, name, parent_namespace=None, parent_name=None, frozen=False, monotonic=False, metadata={}, file_meta_requirements=None):
         assert namespace is not None and name is not None
         assert (parent_namespace is None) == (parent_name == None)
         self.DB = db
@@ -992,6 +1008,7 @@ class DBDataset(object):
         self.CreatedTimestamp = None
         self.Metadata = metadata
         self.Description = None
+        self.FileMetaRequirements = file_meta_requirements
     
     def __str__(self):
         return "DBDataset(%s:%s)" % (self.Namespace, self.Name)
@@ -1001,17 +1018,19 @@ class DBDataset(object):
         namespace = self.Namespace.Name if isinstance(self.Namespace, DBNamespace) else self.Namespace
         parent_namespace = self.ParentNamespace.Name if isinstance(self.ParentNamespace, DBNamespace) else self.ParentNamespace
         meta = json.dumps(self.Metadata or {})
+        file_meta_requirements = json.dumps(self.FileMetaRequirements or {})
         #print("DBDataset.save: saving")
         c.execute("""
             insert into datasets(namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp,
-                        description) 
-                values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        description, file_metadata_requirements) 
+                values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 on conflict(namespace, name) 
-                    do update set parent_namespace=%s, parent_name=%s, frozen=%s, monotonic=%s, metadata=%s, description=%s
+                    do update set parent_namespace=%s, parent_name=%s, frozen=%s, monotonic=%s, metadata=%s, description=%s, file_metadata_requirements=%s
             """,
             (namespace, self.Name, parent_namespace, self.ParentName, self.Frozen, self.Monotonic, meta, self.Creator, self.CreatedTimestamp,
-                    self.Description, 
-                    parent_namespace, self.ParentName, self.Frozen, self.Monotonic, meta, self.Description
+                    self.Description, file_meta_requirements,
+                    parent_namespace, self.ParentName, self.Frozen, self.Monotonic, meta, self.Description, file_meta_requirements
+                    
             )
         )
         if do_commit:   c.execute("commit")
@@ -1038,7 +1057,7 @@ class DBDataset(object):
 
 
 
-    def add_files(self, files, do_commit=True):
+    def add_files(self, files, do_commit=True, validate_meta=True):
         c = self.DB.cursor()
         c.execute("begin")
         
@@ -1048,6 +1067,16 @@ class DBDataset(object):
         null = r"\N"
 
         to_add = set(f.FID for f in files) - existing
+        
+        if validate_meta:
+            meta_errors = []
+            for f in files:
+                if f.FID in to_add:
+                    errors = self.validate_file_metadata(f.Metadata)
+                    if errors:
+                        meta_errors += errors
+            if meta_errors:
+                raise MetaValidationError("File metadata validation errors", meta_errors)
         
         for fid in to_add:
             csv.append("%s\t%s\t%s" % (
@@ -1097,21 +1126,25 @@ class DBDataset(object):
         c = db.cursor()
         namespace = namespace.Name if isinstance(namespace, DBNamespace) else namespace
         #print(namespace, name)
-        c.execute("""select parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp, description
+        c.execute("""select parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements
                         from datasets
                         where namespace=%s and name=%s""",
                 (namespace, name))
         tup = c.fetchone()
         if tup is None: return None
-        parent_namespace, parent_name, frozen, monotonic, meta, creator, created_timestamp, description = tup
-        dataset = DBDataset(db, namespace, name, parent_namespace, parent_name)
-        dataset.Frozen = frozen
-        dataset.Monotonic = monotonic
-        dataset.Metadata = meta or {}
+        return DBDataset.from_tuple(db, (namespace, name)+tup)
+
+
+    @staticmethod
+    def from_tuple(db, tup):
+        namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements = tup
+        dataset = DBDataset(db, namespace, name, parent_namespace=parent_namespace, 
+                parent_name=parent_name, frozen=frozen, monotonic=monotonic, metadata=metadata, file_meta_requirements=file_metadata_requirements)
         dataset.Creator = creator
         dataset.CreatedTimestamp = created_timestamp
+        dataset.Description = description
         return dataset
-
+        
     @staticmethod
     def exists(db, namespace, name):
         return DBDataset.get(db, namespace, name) is not None
@@ -1157,7 +1190,8 @@ class DBDataset(object):
             parent_name = self.ParentName,
             metadata = self.Metadata or {},
             creator = self.Creator,
-            created_timestamp = epoch(self.CreatedTimestamp)
+            created_timestamp = epoch(self.CreatedTimestamp),
+            file_meta_requirements = self.FileMetaRequirements
         )
     
     def to_json(self):
@@ -1294,6 +1328,89 @@ class DBDataset(object):
             sql = f"select namespace, name from ({sql}) as {ds_alias} {meta_where_clause}"
 
         return sql
+        
+    def validate_file_metadata(self, meta):
+        """
+        File metadata requirements:
+        [
+            "name":
+            {
+                "required":true/false,  # optional, default 'false'
+                "values":[...],         # optional
+                "min":  value,          # optional
+                "max":  value,          # optional
+                "pattern": "re pattern" # optional
+            },
+            ...
+        ]
+        """
+        errors = []
+        if self.FileMetaRequirements:
+            for k, v in meta.items():
+                reqs = self.FileMetaRequirements.get(k)
+                if reqs:
+                    if "values" in reqs:
+                        values = reqs["values"]
+                        if isinstance(v, list):
+                            if any(not x in values for x in v):
+                                errors.append(dict(name=k, value=v, reason="Invalid value"))
+                        else:
+                            if not v in values:
+                                errors.append(dict(name=k, value=v, reason="Invalid value"))
+                    if "min" in reqs:
+                        vmin = reqs["min"]
+                        if isinstance(v, list):
+                            if any(x < vmin for x in v):
+                                errors.append(dict(name=k, value=v, reason="Value out of range"))
+                        else:
+                            if v < vmin:
+                                errors.append(dict(name=k, value=v, reason="Value out of range"))
+                    if "max" in reqs:
+                        vmax = reqs["max"]
+                        if isinstance(v, list):
+                            if any(x > vmax for x in v):
+                                errors.append(dict(name=k, value=v, reason="Value out of range"))
+                        else:
+                            if v > vmax:
+                                errors.append(dict(name=k, value=v, reason="Value out of range"))
+                    if "pattern" in reqs:
+                        r = re.compile(reqs["pattern"])
+                        if isinstance(v, list) and any(isinstance(x, str) and not r.match(x) for x in v):
+                            errors.append(dict(name=k, value=v, reason="Value does not match pattern"))
+                        elif isinstance(v, str) and not r.match(v):
+                            errors.append(dict(name=k, value=v, reason="Value does not match pattern"))
+            for k, d in self.FileMetaRequirements.items():
+                print("validate_file_metadata: FileMetaRequirements:", self.FileMetaRequirements)
+                if d.get("required", False) == True and not k in meta:
+                    errors.append(dict(name=k, reason="Required parameter is missing"))
+        return errors
+        
+    @staticmethod
+    def datasets_for_files(db, files):
+        file_ids = [f.FID for f in files]
+        dataset_map = {}       # { fid -> [DBDataset, ...]}
+        datasets = {}       # {(ns,n) -> DBDataset}
+        c = db.cursor()
+        c.execute("""
+            select distinct f.id, ds.namespace, ds.name, ds.parent_namespace, ds.parent_name, ds.frozen, ds.monotonic, ds.metadata, ds.creator, ds.created_timestamp, 
+                                ds.description, ds.file_metadata_requirements
+                        from datasets ds, files f, files_datasets fd
+                        where f.id = any(%s) and
+                            fd.dataset_namespace = ds.namespace and fd.dataset_name = ds.name and fd.file_id = f.id
+                        order by f.id, ds.namespace, ds.name
+                        """, (file_ids,)
+        )
+        
+        for tup in fetch_generator(c):
+            fid = tup[0]
+            namespace, name  = tup[1:3]
+            ds = datasets.get((namespace, name))
+            if ds is None:
+                ds = datasets[(namespace, name)] = DBDataset.from_tuple(db, tup[1:])
+            dslist = dataset_map.setdefault(fid, [])
+            dslist.append(ds)
+        
+        return dataset_map
         
 class DBNamedQuery(object):
 
