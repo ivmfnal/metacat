@@ -77,7 +77,7 @@ def do_whoami(client, args):
 def do_login(client, args):
     opts, args = getopt.getopt(args, "m:c:k:")
     opts = dict(opts)
-    mechanism = opts.get("-m", "digest")
+    mechanism = opts.get("-m", "ldap")
     if mechanism == "password": mechanism = "digest"
     username = args[0]
     password = getpass.getpass("Password:")

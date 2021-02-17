@@ -11,19 +11,18 @@ from metacat.util import to_str, to_bytes, SignedToken
 from metacat.mql import MQLQuery
 from metacat import Version
 
-from auth_handler import AuthHandler
+from auth_handler import AuthHandler, AuthAppMixin
 
 
-class AuthApp(WPApp):
+class AuthApp(WPApp, AuthAppMixin):
 
     Version = Version
 
     def __init__(self, cfg, root, static_location="./static", **args):
+        AuthAppMixin.__init__(self, cfg)
         WPApp.__init__(self, root, **args)
         self.StaticLocation = static_location
         self.Cfg = cfg
-        self.LDAP_Server_URL = cfg.get("ldap", {}).get("server_url")
-        self.LDAP_DN_Template = cfg.get("ldap", {}).get("dn_template")
         
         self.DBCfg = cfg["database"]
         
@@ -31,19 +30,6 @@ class AuthApp(WPApp):
         
         self.DB = ConnectionPool(postgres=connstr, max_idle_connections=3)
                 
-        #
-        # Authentication/authtorization
-        #        
-        #self.______Users = cfg["users"]       #   { username: { "passwrord":password }, ...}
-        
-        secret = cfg.get("secret") 
-        if secret is None:    self.TokenSecret = secrets.token_bytes(128)     # used to sign tokens
-        else:         
-            h = hashlib.sha256()
-            h.update(to_bytes(secret))      
-            self.TokenSecret = h.digest()
-        self.Tokens = {}                # { token id -> token object }
-
     def connect(self):
         conn = self.DB.connect()
         #print("conn: %x" % (id(conn),), "   idle connections:", ",".join("%x" % (id(c),) for c in self.DB.IdleConnections))
