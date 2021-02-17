@@ -7,10 +7,15 @@ import getpass
 
 Usage = """
 Usage: 
-    metacat auth subommands and options:
+
+    metacat [-a <authentication server url>] <subcommand> ...
+    
+    subommands and options:
     
         login [-m <mechanism>] <username>               - request authentication token
-            Currently, only "digest" and "ldap" mechanisms are implemented
+            mechanisms are: ldap, digest, x509
+            with x509, use:
+                -c <cert file> [-k <private key file>]
         whoami [-t <token file>]                        - verify and show token
         token [-o <token file>]                         - export token
         list                                            - list tokens
@@ -69,7 +74,7 @@ def do_whoami(client, args):
     print ("Expires:", time.ctime(expiration))
 
 def do_login(client, args):
-    opts, args = getopt.getopt(args, "m:")
+    opts, args = getopt.getopt(args, "m:c:k:")
     opts = dict(opts)
     mechanism = opts.get("-m", "digest")
     if mechanism == "password": mechanism = "digest"
@@ -79,6 +84,14 @@ def do_login(client, args):
         user, expiration = client.login_ldap(username, password)
     elif mechanism == "digest":
         user, expiration = client.login_password(username, password)
+    elif mechanism == "x509":
+        if not "-c" in opts:
+            print("X.509 certificate file is unspecified")
+            print(Usage)
+            sys.exit(2)
+        cert = opts["-c"]
+        key = opts.get("-k")
+        user, expiration = client.login_x509(username, cert, key=key)
     else:
         print(f"Unknown authentication mechanism {mechanism}")
         sys.exit(2)

@@ -673,6 +673,37 @@ class MetaCatClient(HTTPClient):
             self.TokenLib[self.ServerURL] = token
         return token["user"], token.Expiration
 
+    def login_x509(self, username, cert, key=None):
+        """Performs X.509 authentication and stores the authentication token locally.
+        
+        Parameters
+        ----------
+        username : str
+        cert : str
+            Path to the file with the X.509 certificate or the certificate and private key
+        key : str
+            Path to the file with the X.509 private key
+         
+
+        Returns
+        -------
+        str
+            username of the authenticated user (same as ``usernme`` argument)
+        numeric
+            token expiration timestamp
+            
+        """
+        auth_url = self.AuthURL
+        url = f"{auth_url}/auth?method=x509&username={username}"    
+        cert_arg = cert if key is None else (cert, key)
+        response = requests.get(url, cert=cert_arg)
+        if response.status_code != 200:
+            raise ServerError(url, response.status_code, response.text)
+        self.Token = token = SignedToken.decode(response.headers["X-Authentication-Token"])
+        if self.TokenLib is not None:
+            self.TokenLib[self.ServerURL] = token
+        return token["user"], token.Expiration
+
     def auth_info(self):
         """Returns information about current authentication token.
         
