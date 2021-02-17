@@ -22,8 +22,7 @@ class AuthApp(WPApp):
         WPApp.__init__(self, root, **args)
         self.StaticLocation = static_location
         self.Cfg = cfg
-        self.LDAP_Server_URL = cfg.get("ldap", {}).get("server_url")
-        self.LDAP_DN_Template = cfg.get("ldap", {}).get("dn_template")
+        self.AuthConfig = cfg.get("authentication")
         
         self.DBCfg = cfg["database"]
         
@@ -43,6 +42,12 @@ class AuthApp(WPApp):
             h.update(to_bytes(secret))      
             self.TokenSecret = h.digest()
         self.Tokens = {}                # { token id -> token object }
+
+    def auth_config(self, method):
+        return self.AuthConfig.get(method)
+
+
+
 
     def connect(self):
         conn = self.DB.connect()
