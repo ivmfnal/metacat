@@ -80,7 +80,8 @@ def do_login(client, args):
     mechanism = opts.get("-m", "ldap")
     if mechanism == "password": mechanism = "digest"
     username = args[0]
-    password = getpass.getpass("Password:")
+    if mechanism in ("ldap","digest"):
+        password = getpass.getpass("Password:")
     if mechanism == "ldap":
         user, expiration = client.login_ldap(username, password)
     elif mechanism == "digest":
