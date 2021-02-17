@@ -550,6 +550,7 @@ class DBFile(object):
     
     @staticmethod
     def get_files(db, files, load_all=False):
+        #print("DBFile.get_files: files:", files)
         c = db.cursor()
         strio = io.StringIO()
         for f in files:
@@ -561,14 +562,21 @@ class DBFile(object):
                 name text)
                 """)
         c.copy_from(io.StringIO(strio.getvalue()), "temp_files")
+        #print("DBFile.get_files: strio:", strio.getvalue())
         
         columns = DBFile.all_columns("f")
-
-        return DBFileSet.from_sql(f"""
+        
+        sql = f"""
             select {columns}
                  from files f, temp_files t
                  where t.id = f.id or (f.namespace = t.namespace and f.name = t.name)
-        """)
+        """
+        
+        #c.execute(sql)
+        #for row in c.fetchall():
+        #    print(row)
+
+        return DBFileSet.from_sql(db, sql)
         
     @staticmethod
     def get(db, fid = None, namespace = None, name = None, with_metadata = False):
@@ -1097,9 +1105,6 @@ class DBDataset(object):
             raise
 
 
-
-
-
     def list_files(self, with_metadata=False, limit=None):
         meta = "null as metadata" if not with_metadata else "f.metadata"
         limit = f"limit {limit}" if limit else ""
@@ -1562,6 +1567,7 @@ class DBUser(object):
         
     def authenticator(self, method):
         info = self.AuthInfo.get(method)
+        #print(f"DBUser: authenticator({method}): AuthInfo:{self.AuthInfo}")
         #print(f"DBUser: authenticator({method}): info:{info}")
         return authenticator(self.Username, method, info)
         
@@ -1679,6 +1685,18 @@ class DBNamespace(object):
         ns.CreatedTimestamp = created_timestamp
         return ns
         
+    @staticmethod
+    def get_many(db, names):
+        #print("DBNamespace.get: name:", name)
+        c = db.cursor()
+        c.execute("""select name, owner_user, owner_role, description, creator, created_timestamp 
+                from namespaces where name=any(%s)""", (list(names),))
+        for name, owner_user, owner_role, description, creator, created_timestamp in c.fetchall():
+            ns = DBNamespace(db, name, owner_user, owner_role, description)
+            ns.Creator = creator
+            ns.CreatedTimestamp = created_timestamp
+            yield ns
+            
     @staticmethod
     def exists(db, name):
         return DBNamespace.get(db, name) != None

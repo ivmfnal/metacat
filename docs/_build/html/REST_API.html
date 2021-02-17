@@ -4,7 +4,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Metaserver REST API &#8212; MetaCat  documentation</title>
+    <title>MetaCat Server REST API &#8212; MetaCat  documentation</title>
     <link rel="stylesheet" href="_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     
@@ -40,8 +40,8 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <div class="section" id="metaserver-rest-api">
-<h1>Metaserver REST API<a class="headerlink" href="#metaserver-rest-api" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="metacat-server-rest-api">
+<h1>MetaCat Server REST API<a class="headerlink" href="#metacat-server-rest-api" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="client-authentication">
 <h2>Client authentication<a class="headerlink" href="#client-authentication" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="obtain-token">
@@ -79,25 +79,193 @@
 <div class="section" id="rest-methods">
 <h2>REST Methods<a class="headerlink" href="#rest-methods" title="Permalink to this headline">¶</a></h2>
 <p>All data methods return JSON structure</p>
-<p>List datasets:</p>
+<div class="section" id="namespaces">
+<h3>Namespaces<a class="headerlink" href="#namespaces" title="Permalink to this headline">¶</a></h3>
+<dl>
+<dt>Get multiple namespaces</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">GET</span><span class="o">/</span><span class="n">POST</span> <span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">namespaces</span>
+</pre></div>
+</div>
+<p>Request body: JSON stricture, list of namespace names. If the request body is empty, then the method will return
+all namespaces.</p>
+<p>Returns: list of dictionaries, one dictionary per namespace with namespace attributes</p>
+</dd>
+<dt>Get single namespace by name</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GET /data/namespace?name=&lt;namespace name&gt;
+</pre></div>
+</div>
+<p>Returns: Dictionary with namespace attributes</p>
+</dd>
+<dt>Create namespace</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">GET</span> <span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">create_namespace</span>
+    <span class="n">name</span><span class="o">=&lt;</span><span class="n">namespace</span> <span class="n">name</span><span class="o">&gt;</span>
+    <span class="p">[</span><span class="n">description</span><span class="o">=&lt;</span><span class="n">description</span><span class="p">,</span> <span class="n">URL</span> <span class="n">quoted</span><span class="o">&gt;</span><span class="p">]</span>
+    <span class="p">[</span><span class="n">owner_role</span><span class="o">=&lt;</span><span class="n">role</span> <span class="n">name</span><span class="o">&gt;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Client authentication required</p>
+<p>If owner_role is specified, the created namespace will be owned by the role. Otherwise by the
+user associated with the client.</p>
+<p>Returns: Dictionary with namespace attributes</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="datasets">
+<h3>Datasets<a class="headerlink" href="#datasets" title="Permalink to this headline">¶</a></h3>
+<dl>
+<dt>Get all datasets</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">GET</span> <span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">datasets</span>
+    <span class="p">[</span><span class="n">with_file_counts</span><span class="o">=</span><span class="p">(</span><span class="n">yes</span><span class="o">|</span><span class="n">no</span><span class="p">)</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;no&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Returns: list of dictionaries, one dictionary per dataset with dataset attributes. If with_file_counts=yes,
+each dictionary will include “file_count” field.</p>
+</dd>
+<dt>Get single dataset by name</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GET /data/dataset?dataset=&lt;namespace&gt;:&lt;name&gt;
+</pre></div>
+</div>
+<p>Returns: Dictionary with dataset attributes</p>
+</dd>
+<dt>Create dataset</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GET /data/create_dataset?dataset=&lt;namespace&gt;:&lt;name&gt;
+    [description=&lt;description, URL quoted&gt;]
+    [parent=&lt;namespace&gt;:&lt;name&gt;]
+    [frozen=(yes|no), default=&quot;no&quot;]
+    [monotonic=(yes|no), default=&quot;no&quot;]
+</pre></div>
+</div>
+<p>Client authentication required</p>
+<p>Returns: Dictionary with created dataset attributes</p>
+</dd>
+<dt>Update dataset metadata</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>POST /data/update_dataset_meta?dataset=&lt;namespace&gt;:&lt;name&gt;
+    [mode=(update|replace)]
+</pre></div>
+</div>
+<p>Request body: JSON list of dictionary with new metadata</p>
+<p>If mode=”update”, the dataset metadata will be updated with new values. Otherwise, it will be replaced.</p>
+<p>Returns: JSON dictionary with updated dataset information</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="files">
+<h3>Files<a class="headerlink" href="#files" title="Permalink to this headline">¶</a></h3>
+<dl>
+<dt>Declare new files</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>POST /data/declare_files?dataset=[&lt;namespace&gt;:]&lt;name&gt;
+    [namespace=&lt;default namespace name&gt;]
+</pre></div>
+</div>
+<p>If specified, the defaut namespace will be used for the dataset and for all the files to be declared</p>
+<p>Request body: JSON list of dictionaries, one dictionary per file:</p>
 <blockquote>
-<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GET /data/datasets?with_file_counts=(no|yes)
+<div><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>
+        <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;parents&quot;</span><span class="p">:</span> <span class="p">[</span> <span class="s2">&quot;fid1&quot;</span><span class="p">,</span> <span class="s2">&quot;fid2&quot;</span> <span class="p">],</span>
+        <span class="nt">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&quot;i&quot;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="nt">&quot;x&quot;</span><span class="p">:</span><span class="mf">3.14</span><span class="p">,</span> <span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="s2">&quot;data&quot;</span> <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;parents&quot;</span><span class="p">:</span> <span class="p">[</span> <span class="s2">&quot;fid1&quot;</span><span class="p">,</span> <span class="s2">&quot;fid2&quot;</span> <span class="p">],</span>
+        <span class="nt">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&quot;i&quot;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="nt">&quot;x&quot;</span><span class="p">:</span><span class="mf">3.14</span><span class="p">,</span> <span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="s2">&quot;data&quot;</span> <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;namespace:file_test_3.dat&quot;</span><span class="p">,</span>
+        <span class="nt">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;6452476294&quot;</span>
+    <span class="p">}</span>
+<span class="p">]</span>
 </pre></div>
 </div>
 </div></blockquote>
-<p>Show dataset:</p>
+<p>Each file dictionary contains the following fields:</p>
 <blockquote>
-<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GET /data/dataset?dataset=&lt;namespace&gt;:&lt;name&gt;
-GET /data/dataset/&lt;namespace&gt;:&lt;name&gt;
+<div><ul class="simple">
+<li><p>name - required - Can be either &lt;namespace&gt;:&lt;name&gt;, or just &lt;name&gt; if the URI contains the default namespace</p></li>
+<li><p>fid - optional - file id. If unspecified, MetaCat will generate new id.</p></li>
+<li><p>parents - optional - list of parent file ids</p></li>
+<li><p>metadata - optional - with file metadata dictionary</p></li>
+</ul>
+</div></blockquote>
+</dd>
+</dl>
+<p>Add existing files to a dataset</p>
+<blockquote>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>POST /data/declare_files?dataset=[&lt;namespace&gt;:]&lt;name&gt;
+    [namespace=&lt;default namespace name&gt;]
+</pre></div>
+</div>
+<p>If specified, the defaut namespace will be used for the dataset and for all the files to be declared</p>
+<p>Request body: JSON list of dictionaries, one dictionary per file:</p>
+<blockquote>
+<div><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>   <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span>  <span class="p">},</span>
+    <span class="p">{</span>   <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;namespace:file_test_3.dat&quot;</span> <span class="p">},</span>
+    <span class="p">{</span>   <span class="nt">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;6452476294&quot;</span>  <span class="p">}</span>
+<span class="p">]</span>
 </pre></div>
 </div>
 </div></blockquote>
-<p>Dataset file count:</p>
+<p>Each file dictionary must contain either file id or file namespace/name:</p>
 <blockquote>
-<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GET /data/dataset_count?dataset=&lt;namespace&gt;:&lt;name&gt;
-GET /data/dataset_count/&lt;namespace&gt;:&lt;name&gt;
+<div><ul class="simple">
+<li><p>name - Can be either &lt;namespace&gt;:&lt;name&gt;, or just &lt;name&gt; if the URI contains the default namespace</p></li>
+<li><p>fid - file id</p></li>
+</ul>
+</div></blockquote>
+</div></blockquote>
+<p>Update file metadata:</p>
+<blockquote>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">POST</span> <span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">update_file_meta</span>
+    <span class="p">[</span><span class="n">mode</span><span class="o">=</span><span class="p">(</span><span class="n">update</span><span class="o">|</span><span class="n">replace</span><span class="p">)]</span>
+    <span class="p">[</span><span class="n">namespace</span><span class="o">=&lt;</span><span class="n">default</span> <span class="n">namespace</span> <span class="n">name</span><span class="o">&gt;</span><span class="p">]</span>
 </pre></div>
 </div>
+<p>If specified, the defaut namespace will be used for the dataset and for all the files to be declared.</p>
+<p>mode can be either “update” or “replace”.</p>
+<p>Request body: JSON dictionary with the following frields:</p>
+<blockquote>
+<div><ul>
+<li><p>names - optional - list of &lt;namespace&gt;:&lt;name&gt;’s or &lt;name&gt;’s for the files to be updated. If
+namespace is unspecified, then the default namespace from the URI will be used.</p></li>
+<li><p>fids - optional - list of file ids for the files to be updates</p></li>
+<li><p>metadata - required - dictionary with common metadata for all the files. If mode=”replace”,
+metadata for listed files will be replaced with new metadata. Otherwise, existing metadata
+will be updated.</p>
+<p>The dictionary must contain “names” or “fids” list or both.</p>
+</li>
+</ul>
+</div></blockquote>
+</div></blockquote>
+<p>Get file information</p>
+<blockquote>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GET /data/file?name=&lt;namespace&gt;:&lt;name&gt;
+GET /data/file?fid=&lt;file id&gt;
+    [with_metadata=(yes|no), default=&quot;yes&quot;]
+    [with_provenance=(yes|no), default=&quot;yes&quot;]
+</pre></div>
+</div>
+<p>Returns: JSON dictionary with file information</p>
+</div></blockquote>
+<p>Get multiple files information</p>
+<blockquote>
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">POST</span> <span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">files</span>
+    <span class="p">[</span><span class="n">with_metadata</span><span class="o">=</span><span class="p">(</span><span class="n">yes</span><span class="o">|</span><span class="n">no</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;yes&quot;</span><span class="p">]</span>
+    <span class="p">[</span><span class="n">with_provenance</span><span class="o">=</span><span class="p">(</span><span class="n">yes</span><span class="o">|</span><span class="n">no</span><span class="p">),</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;yes&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Request body: JSON list of dictionaries, one dictionary per file:</p>
+<p>Returns: JSON dictionary with file information</p>
+<blockquote>
+<div><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+    <span class="p">{</span>   <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span>  <span class="p">},</span>
+    <span class="p">{</span>   <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;namespace:file_test_3.dat&quot;</span> <span class="p">},</span>
+    <span class="p">{</span>   <span class="nt">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;6452476294&quot;</span>  <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>Each file dictionary must contain either file id or file namespace/name:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>name - &lt;namespace&gt;:&lt;name&gt;</p></li>
+<li><p>fid - file id</p></li>
+</ul>
+</div></blockquote>
+<p>Returns: JSON list of dictionaries with file information</p>
 </div></blockquote>
 <p>File information:</p>
 <blockquote>
@@ -106,12 +274,25 @@ GET /data/file?fid=&lt;file id&gt;
 </pre></div>
 </div>
 </div></blockquote>
-<p>Query:</p>
+</div>
+<div class="section" id="query">
+<h3>Query<a class="headerlink" href="#query" title="Permalink to this headline">¶</a></h3>
 <blockquote>
-<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GET /data/query?namespace=&lt;default namespace&gt;&amp;with_meta=(yes|no)&amp;query=&lt;url encoded query&gt;
-POST (with query as text file) /data/query?namespace=&lt;default namespace&gt;&amp;with_meta=(yes|no)
+<div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GET /data/query?query=&lt;url encoded query&gt;
+POST /data/query
+    [namespace=&lt;default namespace&gt;]
+    [with_meta=(yes|no), default=&quot;no&quot;]
+    [with_provenance=(yes|no), default=&quot;no&quot;]
+    [add_to=[&lt;dataset namespace&gt;:]&lt;dataset name&gt;]
+    [save_as=[&lt;dataset namespace&gt;:]&lt;dataset name&gt;]
 </pre></div>
 </div>
+<p>Query is specified either as URL-encoded <cite>query</cite> URI argument or as the request body.</p>
+<p>namespace is default namespace for the query and for <cite>save_as</cite> and <cite>add_to</cite> datasets.</p>
+<p>Returns: JSON list with query results, a dictionary per file <cite>with_meta</cite> and <cite>with_provenance</cite> control
+whether the file metadata and provenance will be included, respectively.</p>
+<p>If <cite>add_to</cite> is specfied, the selected files will be added to the existing dataset.</p>
+<p>If <cite>save_as</cite> is specified, the selected files will be saved as the new dataset.</p>
 </div></blockquote>
 <p>Create dataset (authentication required):</p>
 <blockquote>
@@ -163,6 +344,7 @@ POST (with query as text file) /data/query?namespace=&lt;default namespace&gt;&a
 </div></blockquote>
 </div>
 </div>
+</div>
 
 
           </div>
@@ -172,7 +354,7 @@ POST (with query as text file) /data/query?namespace=&lt;default namespace&gt;&a
         <div class="sphinxsidebarwrapper">
   <h3><a href="index.html">Table of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">Metaserver REST API</a><ul>
+<li><a class="reference internal" href="#">MetaCat Server REST API</a><ul>
 <li><a class="reference internal" href="#client-authentication">Client authentication</a><ul>
 <li><a class="reference internal" href="#obtain-token">Obtain Token</a></li>
 <li><a class="reference internal" href="#check-token">Check Token</a></li>
@@ -180,7 +362,13 @@ POST (with query as text file) /data/query?namespace=&lt;default namespace&gt;&a
 <li><a class="reference internal" href="#use-token">Use Token</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#rest-methods">REST Methods</a></li>
+<li><a class="reference internal" href="#rest-methods">REST Methods</a><ul>
+<li><a class="reference internal" href="#namespaces">Namespaces</a></li>
+<li><a class="reference internal" href="#datasets">Datasets</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+<li><a class="reference internal" href="#query">Query</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

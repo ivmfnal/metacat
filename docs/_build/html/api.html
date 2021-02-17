@@ -36,13 +36,16 @@
 <h1>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h1>
 <dl class="py class">
 <dt>
-<em class="property">class </em><code class="sig-prename descclassname">metacat.webapi.</code><code class="sig-name descname">MetaCatClient</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">server_url</span></em>, <em class="sig-param"><span class="n">max_concurrent_queries</span><span class="o">=</span><span class="default_value">5</span></em><span class="sig-paren">)</span></dt>
+<em class="property">class </em><code class="sig-prename descclassname">metacat.webapi.</code><code class="sig-name descname">MetaCatClient</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">server_url</span></em>, <em class="sig-param"><span class="n">auth_server_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">max_concurrent_queries</span><span class="o">=</span><span class="default_value">5</span></em>, <em class="sig-param"><span class="n">token</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">token_file</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span></dt>
 <dd><p>Initializes the MetaCatClient object</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>server_url</strong> (<em>str</em>) – The server endpoint URL</p></li>
+<li><p><strong>auth_server_url</strong> (<em>str</em>) – The endpoint URL for the Authentication server, default = server_url + “/auth”</p></li>
 <li><p><strong>max_concurrent_queries</strong> (<em>int</em><em>, </em><em>optional</em>) – Controls the concurrency when asynchronous queries are used</p></li>
+<li><p><strong>token_file</strong> (<em>str</em>) – File path to read the authentication token from</p></li>
+<li><p><strong>token</strong> (<em>bytes</em><em> or </em><em>str</em><em> or </em><em>SignedToken</em>) – Use this token for authentication, optional</p></li>
 </ul>
 </dd>
 </dl>
@@ -195,7 +198,7 @@ It may also explicitly include file namespace, or the value of the <code class="
 
 <dl class="py method">
 <dt>
-<code class="sig-name descname">get_dataset_info</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">spec</span></em>, <em class="sig-param"><span class="n">namespace</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span></dt>
+<code class="sig-name descname">get_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">spec</span></em>, <em class="sig-param"><span class="n">namespace</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span></dt>
 <dd><p>Gets single dataset</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -215,7 +218,7 @@ It may also explicitly include file namespace, or the value of the <code class="
 
 <dl class="py method">
 <dt>
-<code class="sig-name descname">get_file_info</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">fid</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">with_metadata</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">with_provenance</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span></dt>
+<code class="sig-name descname">get_file</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">fid</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">with_metadata</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">with_provenance</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span></dt>
 <dd><p>Get one file record</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -253,7 +256,33 @@ It may also explicitly include file namespace, or the value of the <code class="
 
 <dl class="py method">
 <dt>
-<code class="sig-name descname">get_namespace_info</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span></em><span class="sig-paren">)</span></dt>
+<code class="sig-name descname">get_files</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">lookup_list</span></em>, <em class="sig-param"><span class="n">with_metadata</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">with_provenance</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span></dt>
+<dd><p>Get many file records</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lookup_list</strong> (<em>list</em>) – <dl class="simple">
+<dt>List of dictionaries, one dictionary per file. Each dictionary must have either</dt><dd><p>”name”:”namespace:name”, or
+“fid”:”file id”</p>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>with_metadata</strong> (<em>boolean</em>) – whether to include file metadata</p></li>
+<li><p><strong>with_provenance</strong> – whether to include parents and children list</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>List of file records, each record is the same as returned by get_file()</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt>
+<code class="sig-name descname">get_namespace</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span></em><span class="sig-paren">)</span></dt>
 <dd><p>Creates new namespace</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -264,6 +293,23 @@ It may also explicitly include file namespace, or the value of the <code class="
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt>
+<code class="sig-name descname">get_namespaces</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">names</span></em><span class="sig-paren">)</span></dt>
+<dd><p>Creates new namespace</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>names</strong> (<em>list of str</em>) – Namespace names</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Namespace information</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>list</p>
 </dd>
 </dl>
 </dd></dl>
@@ -306,7 +352,28 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 
 <dl class="py method">
 <dt>
-<code class="sig-name descname">login_password</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">username</span></em>, <em class="sig-param"><span class="n">password</span></em><span class="sig-paren">)</span></dt>
+<code class="sig-name descname">login_ldap</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">username</span></em>, <em class="sig-param"><span class="n">password</span></em><span class="sig-paren">)</span></dt>
+<dd><p>Performs password-based authentication and stores the authentication token locally using LDAP.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>username</strong> (<em>str</em>) – </p></li>
+<li><p><strong>password</strong> (<em>str</em>) – Password</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>str</em> – username of the authenticated user (same as <code class="docutils literal notranslate"><span class="pre">usernme</span></code> argument)</p></li>
+<li><p><em>numeric</em> – token expiration timestamp</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt>
+<code class="sig-name descname">login_password</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">username</span></em>, <em class="sig-param"><span class="n">password</span></em>, <em class="sig-param"><span class="n">save_token</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span></dt>
 <dd><p>Performs password-based authentication and stores the authentication token locally.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>

@@ -65,6 +65,10 @@ update users
     )::jsonb 
 ;
     
+update users 
+    set auth_info=auth_info || '{"x509":[]}'::jsonb 
+;
+    
 \copy roles(name) from 'data/roles.csv';
 
 \copy users_roles(username, role_name) from 'data/users_roles.csv';

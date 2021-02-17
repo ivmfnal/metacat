@@ -154,7 +154,7 @@ def do_show(client, args):
     else:
         fid = opts["-i"]
 
-    data = client.get_file_info(name=name, fid=fid)
+    data = client.get_file(name=name, fid=fid)
     
     if meta_only:
         data = data.get("metadata", {})

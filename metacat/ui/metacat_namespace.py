@@ -40,7 +40,7 @@ def do_list(client, args):
                 
     
 def do_show(client, args):
-    pprint.pprint(client.get_namespace_info(args[0]))
+    pprint.pprint(client.get_namespace(args[0]))
     
 def do_create(client, args):
     opts, args = getopt.getopt(args, "o:", ["--owner="])

@@ -161,7 +161,7 @@ class MetaCatClient(HTTPClient):
                 continue
             yield item
     
-    def get_dataset_info(self, spec, namespace=None, name=None):
+    def get_dataset(self, spec, namespace=None, name=None):
         """Gets single dataset
         
         Parameters
@@ -378,7 +378,28 @@ class MetaCatClient(HTTPClient):
         out = self.post_json(url, metadata)
         return out
         
-    def get_file_info(self, fid=None, name=None, with_metadata = True, with_provenance=True):
+    def get_files(self, lookup_list, with_metadata = True, with_provenance=True):
+        """Get many file records
+        
+        Parameters
+        ----------
+        lookup_list : list
+            List of dictionaries, one dictionary per file. Each dictionary must have either
+                "name":"namespace:name", or
+                "fid":"file id"
+        with_metadata : boolean
+            whether to include file metadata
+        with_provenance:
+            whether to include parents and children list
+
+        Returns
+        -------
+        List of file records, each record is the same as returned by get_file()
+        """
+        
+        return self.post_json("files", lookup_list) 
+        
+    def get_file(self, fid=None, name=None, with_metadata = True, with_provenance=True):
         """Get one file record
         
         Parameters
@@ -540,7 +561,7 @@ class MetaCatClient(HTTPClient):
             url += f"&description={desc}"
         return self.get_json(url)
         
-    def get_namespace_info(self, name):
+    def get_namespace(self, name):
         """Creates new namespace
         
         Parameters
@@ -555,6 +576,22 @@ class MetaCatClient(HTTPClient):
         """
         
         return self.get_json(f"data/namespace?name={name}")
+        
+    def get_namespaces(self, names):
+        """Creates new namespace
+        
+        Parameters
+        ----------
+        names : list of str
+            Namespace names
+
+        Returns
+        -------
+        list 
+            Namespace information
+        """
+        
+        return self.post_json(f"data/namespaces", names)
         
     def list_namespaces(self, pattern=None):
         """Creates new namespace

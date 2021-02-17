@@ -103,26 +103,69 @@
 		<td>
             {% if mode == "create" %}
                     {% for r in all_roles %}
-                        <input type="checkbox" name="member:{{r.Name}}"/>{{r.Name}}&nbsp;({{r.Description or ""}})<br/>
+                        <input type="checkbox" name="member:{{r.Name}}"/>{{r.Name}}&nbsp;
+						{%- if r.Description %}({{r.Description}}){% endif %}&nbsp;&nbsp;
                     {% endfor %}
             {% elif mode == "edit" %}
                 {% if admin %}
                     {% for r in all_roles %}
                         <input type="checkbox" name="member:{{r.Name}}" 
-                            {% if r.Name in role_set %}checked="checked"{% endif %}/>{{r.Name}}&nbsp;({{r.Description or ""}})<br/>
+                            {% if r.Name in role_set %}checked="checked"{% endif %}/>{{r.Name}}&nbsp;
+								{%- if r.Description %}({{r.Description}}){% endif -%}
+								&nbsp;&nbsp;
                     {% endfor %}
                 {% else %}
-                    {% for r in roles %}{{r.Name}}&nbsp;({{r.Description or ""}})<br/>{% endfor %}
+                    {% for r in roles %}{{r.Name}}&nbsp;
+								{%- if r.Description %}({{r.Description}}){% endif -%}
+								&nbsp;&nbsp;{% endfor %}
                 {% endif %}
             {% else %}
-                {% for r in roles %}{{r.Name}}&nbsp;({{r.Description or ""}})<br/>{% endfor %}
+                {% for r in roles %}{{r.Name}}&nbsp;
+								{%- if r.Description %}({{r.Description}}){% endif -%}
+								&nbsp;&nbsp;{% endfor %}
             {% endif %}
 		</td>
 	</tr>
+
+
+    {% if mode == "create" or mode == "edit" %}
+        {% if ldap_url %}
+            <tr>
+                <th>Allow LDAP authentication</th>
+                <td>
+                        <input type="checkbox" name="allow_ldap" 
+                            {%- if user.auth_method_enabled("ldap") %} checked="checked"{% endif %}
+                            {%- if not admin %} disabled="disabled"{% endif -%}
+                        />&nbsp;<span style="color:#AAA">server: {{ldap_url}}</span>
+                </td>
+            </tr>
+        {% endif %}
+		
+		<tr>
+			{% set dn_list=user.authenticator("x509").Info %}
+			<th>X.509 DNs</th>
+			<td>
+				<table class="form">
+					<tr>
+						<td><input name="new_dn" type="text" size="120"/></td>
+						<td><input type="submit" value="add" name="add_dn"/></td>
+					</tr>
+					{% for dn in dn_list %}
+						<tr>
+							<td>{{dn}}</td>
+							<td><input type="submit" value="remove" name="remove_dn:{{dn}}"/></td>
+						</tr>
+					{% endfor %}
+				</table>
+			</td>
+		</tr>
+		
+	{% endif %}
     
     
 	{% if mode == "edit" or mode == "create" %}
-		<tr><td></td><td><input type="submit" value="Save" onclick="return do_submit();"/></td>
+		<tr><td></td><td><input type="submit" value="Save" name="save_user"
+			onclick="return do_submit();"/></td>
 		</tr>
         
         <script type="text/javascript">

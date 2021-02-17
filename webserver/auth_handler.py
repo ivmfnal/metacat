@@ -45,12 +45,28 @@ class AuthHandler(BaseHandler):
             return self.App.response_with_auth_cookie(username, redirect)
         else:
             return "Authentication failed\n", 403
+
+    def _auth_x509(self, request, redirect, username):
+        if request.environ.get("HTTPS") != "on" \
+                    or request.environ.get("HTTP_X_CLIENT_VERIFY") != "SUCCESS" \
+                    or not request.environ.get("HTTP_X_DN"):
+            return "Authentication failed\n", 403
+        dn = request.environ["HTTP_X_DN"]
+            
+        db = self.App.connect()
+        u = DBUser.get(db, username)
+        if u.authenticate("x509", config, dn):
+            return self.App.response_with_auth_cookie(username, redirect)
+        else:
+            return "Authentication failed\n", 403
         
-    def auth(self, request, relpath, redirect=None, method="digest", **args):
+    def auth(self, request, relpath, redirect=None, method="digest", username=None, **args):
         if method == "digest":
             return self._auth_digest(request.environ, redirect)
         elif method == "ldap":
             return self._auth_ldap(request, redirect)
+        elif method == "x509":
+            return self._auth_x509(request, redirect, username)
         else:
             return 400, "Unknown authentication method\n"
         

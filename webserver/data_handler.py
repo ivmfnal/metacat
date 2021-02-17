@@ -69,8 +69,13 @@ class DataHandler(BaseHandler):
         
     def namespaces(self, request, relpath, **args):
         db = self.App.connect()
-        out = [ns.to_jsonable() for ns in DBNamespace.list(db)]
-        return json.dumps(out), "text/json"
+        if request.body:
+            names = json.loads(request.body)
+            lst = DBNamespace.get_many(db, names)
+        else:
+            lst = DBNamespace.list(db)
+        return json.dumps([ns.to_jsonable() for ns in lst]), "text/json"
+        
 
     def namespace(self, request, relpath, name=None, **args):
         name = name or relpath
@@ -103,6 +108,20 @@ class DataHandler(BaseHandler):
         ns.save()
         return json.dumps(ns.to_jsonable()), "text/json"
             
+    def namespace_counts(self, request, relpath, namespace=None, **args):
+        db = self.App.connect()
+        ns = DBNamespace.get(db, namespace)
+        out = json.dumps(
+            dict(
+                nfiles = ns.file_count(),
+                ndatasets = ns.dataset_count(),
+                nqueries = ns.query_count()
+            )
+        )
+        return out, {"Content-Type":"text/json",
+            "Access-Control-Allow-Origin":"*"
+        } 
+        
     def datasets(self, request, relpath, with_file_counts="no", **args):
         with_file_counts = with_file_counts == "yes"
         db = self.App.connect()
@@ -127,24 +146,10 @@ class DataHandler(BaseHandler):
         namespace, name = (dataset or relpath).split(":", 1)
         db = self.App.connect()
         nfiles = DBDataset(db, namespace, name).nfiles
-        return '{"nfiles":%d}\n' % (nfiles,), {"Content-Type":"text/json",
+        return '{"file_count":%d}\n' % (nfiles,), {"Content-Type":"text/json",
             "Access-Control-Allow-Origin":"*"
         } 
 
-    def namespace_counts(self, request, relpath, namespace=None, **args):
-        db = self.App.connect()
-        ns = DBNamespace.get(db, namespace)
-        out = json.dumps(
-            dict(
-                nfiles = ns.file_count(),
-                ndatasets = ns.dataset_count(),
-                nqueries = ns.query_count()
-            )
-        )
-        return out, {"Content-Type":"text/json",
-            "Access-Control-Allow-Origin":"*"
-        } 
-        
     def create_dataset(self, request, relpath, dataset=None, parent=None, frozen="no", monotonic="no", description="", **args):
         frozen = frozen == "yes"
         monotonic = monotonic == "yes"
@@ -590,7 +595,26 @@ class DataHandler(BaseHandler):
         if f is None:
             return "File not found", 404
         return f.to_json(with_metadata=with_metadata, with_provenance=with_provenance), "text/json"
-            
+
+    def files(self, request, relpath, with_metadata="no", with_provenance="no", **args):
+        with_metadata = with_metadata=="yes"
+        with_provenance = with_provenance=="yes"
+        file_list = json.loads(request.body)
+        lookup_lst = []
+        for f in file_list:
+            if "fid" in f:
+                lookup_lst.append({"fid":f["fid"]})
+            else:
+                namespace, name = f["name"].split(":",1)
+                lookup_lst.append({"namespace":namespace, "name":name})
+
+        db = self.App.connect()
+        files = DBFile.get_files(db, lookup_lst)
+        out = [f.to_jsonable(with_metadata = with_metadata, with_provenance = with_provenance) 
+                for f in files
+        ]
+        return json.dumps(out), "text/json"
+
     def query(self, request, relpath, query=None, namespace=None, 
                     with_meta="no", with_provenance="no", debug="no",
                     add_to=None, save_as=None, expiration=None, **args):

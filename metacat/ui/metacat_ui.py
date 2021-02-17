@@ -9,7 +9,7 @@ Usage:
     Server host:port can also be specified using environment variable METACAT_SERVER_URL
     
     Commands are:
-        auth       login, whoami, list
+        auth       login, whoami, list, token
         dataset    create, update, list, show
         namespace  create, list, show
         file       declare, update, show, add

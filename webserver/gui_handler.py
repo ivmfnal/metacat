@@ -518,25 +518,48 @@ class GUIHandler(BaseHandler):
             if me.is_admin():   u.Flags = request.POST["flags"]
             
         if me.is_admin() or me.Username == u.Username:
-            
-            password = request.POST.get("password1")
-            if password:
-                u.set_auth_info("password", None, password)
+
+            if "save_user" in request.POST:
+                password = request.POST.get("password1")
+                if password:
+                    u.set_auth_info("password", None, password)
                 
-            if me.is_admin():
-                u.set_auth_info("ldap", self.App.auth_config("ldap"), "allow_ldap" in request.POST)
+                if me.is_admin():
+                    u.set_auth_info("ldap", self.App.auth_config("ldap"), "allow_ldap" in request.POST)
                 
-            u.save()
-            if me.is_admin():
-                # update roles
-                new_roles = set()
+                u.save()
+                if me.is_admin():
+                    # update roles
+                    new_roles = set()
+                    for k, v in request.POST.items():
+                        #print("POST:", k, v)
+                        if k.startswith("member:"):
+                            r = k[len("member:"):]
+                            if v == "on":
+                                new_roles.add(r)
+                    u.roles.set(new_roles)
+            elif "add_dn" in request.POST:
+                dn = request.POST.get("new_dn")
+                if dn:
+                    dn_list = u.authenticator("x509").Info or []
+                    if not dn in dn_list:
+                        dn_list.append(dn)
+                        u.set_auth_info("x509", None, dn_list)
+                        u.save()
+            else:
                 for k, v in request.POST.items():
-                    #print("POST:", k, v)
-                    if k.startswith("member:"):
-                        r = k[len("member:"):]
-                        if v == "on":
-                            new_roles.add(r)
-                u.roles.set(new_roles)
+                    if k.startswith("remove_dn:"):
+                        dn = k.split(":",1)[-1]
+                        break
+                else:
+                    dn = None
+                if dn:
+                    dn_list = u.authenticator("x509").Info or []
+                    while dn in dn_list:
+                        dn_list.remove(dn)
+                    u.set_auth_info("x509", None, dn_list)
+                    u.save()
+                        
                                         
         self.redirect(f"./user?username={username}&message="+quote_plus("User updated"))
 #

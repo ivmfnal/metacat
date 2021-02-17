@@ -88,10 +88,8 @@ class LDAPAuthenticator(Authenticator):
         
 class X509Authenticator(Authenticator):
     
-    HashAlg = "sha1"
-    
-    def authenticate(self, dn):
-        return dn in self.Info
+    def authenticate(self, config, dn):
+        return dn in (self.Info or [])
         
 def authenticator(username, method, info=None):
     if method == "password":   a = PasswordAuthenticator(username, info)
