@@ -49,17 +49,13 @@ class AuthApp(WPApp):
         #print("conn: %x" % (id(conn),), "   idle connections:", ",".join("%x" % (id(c),) for c in self.DB.IdleConnections))
         return conn
         
-    def get_password(self, realm, username):
+    def get_digest_password(self, realm, username):
         db = self.connect()
         u = DBUser.get(db, username)
         if u is None:
             return None
-        a = u.Authenticators.get("password")
-        if a is None:
-            return None
-        hashed = a.hashed_password()
-        print("App.get_password: hashed:", hashed)
-        return a.hashed_password()
+        hashed = u.authenticator("password").password_for_digest()
+        return hashed
 
     TokenExpiration = 24*3600*7
 
