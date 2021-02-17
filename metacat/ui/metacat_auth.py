@@ -62,7 +62,7 @@ def do_list(client, args):
 def do_whoami(client, args):
     opts, args = getopt.getopt(args, "t:")
     opts = dict(opts)
-    
+    user = None
     if "-t" in opts:
         token = SignedToken.from_bytes(open(opts["-t"], "rb").read())
         user, expiration = token["user"], token.Expiration
@@ -70,8 +70,9 @@ def do_whoami(client, args):
         try:    user, expiration = client.auth_info()
         except MCAuthenticationError as e:
             print(e)
-    print ("User:   ", user)
-    print ("Expires:", time.ctime(expiration))
+    if user:
+        print ("User:   ", user)
+        print ("Expires:", time.ctime(expiration))
 
 def do_login(client, args):
     opts, args = getopt.getopt(args, "m:c:k:")

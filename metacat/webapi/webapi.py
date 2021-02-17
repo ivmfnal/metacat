@@ -633,7 +633,7 @@ class MetaCatClient(HTTPClient):
         password_for_digest = PasswordAuthenticator.make_password_for_digest(username, password)
         auth_url = self.AuthURL
         url = "%s/%s?method=digest" % (auth_url, "auth")
-        response = requests.get(url, auth=HTTPDigestAuth(username, password_for_digest))
+        response = requests.get(url, verify=False, auth=HTTPDigestAuth(username, password_for_digest))
         if response.status_code != 200:
             raise ServerError(url, response.status_code, "Authentication failed", response.text)
         #print(response)
@@ -665,7 +665,7 @@ class MetaCatClient(HTTPClient):
         data = b"%s:%s" % (to_bytes(username), to_bytes(password))
         #print("HTTPClient.post_json: url:", url)
         #print("HTTPClient.post_json: headers:", headers)
-        response = requests.post(url, data = data)
+        response = requests.post(url, verify=False, data = data)
         if response.status_code != 200:
             raise ServerError(url, response.status_code, response.text)
         self.Token = token = SignedToken.decode(response.headers["X-Authentication-Token"])
@@ -696,7 +696,7 @@ class MetaCatClient(HTTPClient):
         auth_url = self.AuthURL
         url = f"{auth_url}/auth?method=x509&username={username}"    
         cert_arg = cert if key is None else (cert, key)
-        response = requests.get(url, cert=cert_arg)
+        response = requests.get(url, verify=False, cert=cert_arg)
         if response.status_code != 200:
             raise ServerError(url, response.status_code, response.text)
         self.Token = token = SignedToken.decode(response.headers["X-Authentication-Token"])
@@ -719,7 +719,7 @@ class MetaCatClient(HTTPClient):
         token = self.Token
         if not token:
             if self.TokenLib:
-                token = self.TokenLib[server_url]
+                token = self.TokenLib.get(server_url)
         if not token:
             raise AuthenticationError("No token found")
         url = server_url + "/auth/verify"
