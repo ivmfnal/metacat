@@ -13,7 +13,7 @@ from wsdbtools import ConnectionPool
 
 from gui_handler import GUIHandler
 from data_handler import DataHandler
-from auth_handler import AuthHandler, AuthAppMixin
+from auth_handler import AuthHandler
             
 class RootHandler(WPHandler):
     
@@ -27,12 +27,11 @@ class RootHandler(WPHandler):
     def index(self, req, relpath, **args):
         return self.redirect("./gui/index")
         
-class App(WPApp, AuthAppMixin):
+class App(WPApp):
 
     Version = Version
 
     def __init__(self, cfg, root, static_location="./static", **args):
-        AuthAppMixin.__init__(self, cfg)
         WPApp.__init__(self, root, **args)
         self.StaticLocation = static_location
         self.Cfg = cfg
@@ -46,6 +45,17 @@ class App(WPApp, AuthAppMixin):
         from metacat.filters import standard_filters
         self.Filters = standard_filters
                 
+        self.AuthConfig = cfg.get("authentication")
+        secret = cfg.get("secret") 
+        if secret is None:    self.TokenSecret = secrets.token_bytes(128)     # used to sign tokens
+        else:         
+            h = hashlib.sha256()
+            h.update(to_bytes(secret))      
+            self.TokenSecret = h.digest()
+        self.Tokens = {}                # { token id -> token object }
+
+    def auth_config(self, method):
+        return self.AuthConfig.get(method)
         
     def connect(self):
         conn = self.DB.connect()

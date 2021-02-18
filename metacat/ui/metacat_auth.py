@@ -13,7 +13,7 @@ Usage:
     subommands and options:
     
         login [-m <mechanism>] <username>               - request authentication token
-            mechanisms are: ldap, digest, x509
+            mechanisms are: password, x509
             with x509, use:
                 -c <cert file> [-k <private key file>]
         whoami [-t <token file>]                        - verify and show token
@@ -77,14 +77,10 @@ def do_whoami(client, args):
 def do_login(client, args):
     opts, args = getopt.getopt(args, "m:c:k:")
     opts = dict(opts)
-    mechanism = opts.get("-m", "ldap")
-    if mechanism == "password": mechanism = "digest"
+    mechanism = opts.get("-m", "password")
     username = args[0]
-    if mechanism in ("ldap","digest"):
+    if mechanism == "password":
         password = getpass.getpass("Password:")
-    if mechanism == "ldap":
-        user, expiration = client.login_ldap(username, password)
-    elif mechanism == "digest":
         user, expiration = client.login_password(username, password)
     elif mechanism == "x509":
         if not "-c" in opts:

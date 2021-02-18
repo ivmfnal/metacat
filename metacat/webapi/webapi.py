@@ -611,7 +611,7 @@ class MetaCatClient(HTTPClient):
             if pattern is None or fnmatch.fnmatch(item["name"], pattern):
                 yield item
     
-    def login_password(self, username, password, save_token=False):
+    def login_digest(self, username, password, save_token=False):
         """Performs password-based authentication and stores the authentication token locally.
         
         Parameters
@@ -672,6 +672,17 @@ class MetaCatClient(HTTPClient):
         if self.TokenLib is not None:
             self.TokenLib[self.ServerURL] = token
         return token["user"], token.Expiration
+        
+    def login_password(self, username, password):
+        user = None
+        try:
+            user, exp = self.login_ldap(username, password)
+        except:
+            pass
+        if not user:
+            user, exp = self.login_digest(username, password)
+        return user, exp
+            
 
     def login_x509(self, username, cert, key=None):
         """Performs X.509 authentication and stores the authentication token locally.

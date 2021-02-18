@@ -3,6 +3,7 @@ from metacat.util import to_str, to_bytes, SignedToken
 from metacat import Version
 from metacat.db import DBUser
 from urllib.parse import quote_plus, unquote_plus
+import hashlib
 
 from base_handler import BaseHandler
 
@@ -61,34 +62,6 @@ class AuthHandler(BaseHandler):
         else:
             return "Authentication failed\n", 403
             
-    def _auth_password(self, request, redirect):
-        #
-        # Try LDAP first and then local password via digest
-        #
-        ok = False
-        resp = None
-        ldap_config = self.App.auth_config("ldap")
-        if ldap_config and request.body:
-            # try LDAP
-            username, password = request.body.split(b":",1)
-            username = to_str(username)
-            password = to_str(password)
-            db = self.App.connect()
-            u = DBUser.get(db, username)
-            if u.authenticate("ldap", ldap_config, password):
-                resp = self.App.response_with_auth_cookie(username, redirect)
-                ok = True
-        if not ok:
-            # then digest
-            ok, data = digest_server("metadata", request_env, self.App.get_digest_password)
-            if ok:
-                resp = self.App.response_with_auth_cookie(data, redirect)
-            elif data:
-                resp = Response("Authorization required", status=401, headers={
-                    'WWW-Authenticate': data
-                })
-        return resp or ("Authentication failed\n", 403)
-            
     def _auth_x509(self, request, redirect, username):
         if request.environ.get("HTTPS") != "on" \
                     or request.environ.get("HTTP_X_CLIENT_VERIFY") != "SUCCESS" \
@@ -106,14 +79,12 @@ class AuthHandler(BaseHandler):
     def auth(self, request, relpath, redirect=None, method="password", username=None, **args):
         if method == "x509":
             return self._auth_x509(request, redirect, username)
-        elif method == "password":
-            return self._auth_password(request, redirect)
-        #if method == "digest":
-        #    return self._auth_digest(request.environ, redirect)
-        #elif method == "ldap":
-        #    return self._auth_ldap(request, redirect)
+        elif method == "digest":
+            return self._auth_digest(request.environ, redirect)
+        elif method == "ldap":
+            return self._auth_ldap(request, redirect)
         else:
-            return 400, "Unknown authentication method\n"
+            return "Unknown authentication method\n", 400
         
             
     def logout(self, request, relpath, redirect=None, **args):

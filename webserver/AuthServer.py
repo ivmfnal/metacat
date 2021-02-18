@@ -11,15 +11,14 @@ from metacat.util import to_str, to_bytes, SignedToken
 from metacat.mql import MQLQuery
 from metacat import Version
 
-from auth_handler import AuthHandler, AuthAppMixin
+from auth_handler import AuthHandler
 
 
-class AuthApp(WPApp, AuthAppMixin):
+class AuthApp(WPApp):
 
     Version = Version
 
     def __init__(self, cfg, root, static_location="./static", **args):
-        AuthAppMixin.__init__(self, cfg)
         WPApp.__init__(self, root, **args)
         self.StaticLocation = static_location
         self.Cfg = cfg
@@ -29,6 +28,18 @@ class AuthApp(WPApp, AuthAppMixin):
         connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % self.DBCfg
         
         self.DB = ConnectionPool(postgres=connstr, max_idle_connections=3)
+
+        self.AuthConfig = cfg.get("authentication")
+        secret = cfg.get("secret") 
+        if secret is None:    self.TokenSecret = secrets.token_bytes(128)     # used to sign tokens
+        else:         
+            h = hashlib.sha256()
+            h.update(to_bytes(secret))      
+            self.TokenSecret = h.digest()
+        self.Tokens = {}                # { token id -> token object }
+
+    def auth_config(self, method):
+        return self.AuthConfig.get(method)
                 
     def connect(self):
         conn = self.DB.connect()
