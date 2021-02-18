@@ -491,7 +491,20 @@ class GUIHandler(BaseHandler):
             ldap_url = ldap_url, 
             error = unquote_plus(error), message=unquote_plus(message),
             mode = "edit" if (me.is_admin() or me.Username==username) else "view", 
+            its_me = me.Username==username,
             admin=me.is_admin())
+            
+    def my_token(self, request, relpath, **args):
+        token = self.App.encoded_token_from_request(request)
+        if not token:
+            return "Token not found", 404
+        else:
+            return token, {
+                "Content-Type":"text/plain"
+                , "Content-Disposition":"attachment"
+            }
+            
+            
         
     def create_user(self, request, relpath, error="", **args):
         db = self.App.connect()
@@ -603,16 +616,13 @@ class GUIHandler(BaseHandler):
         return self.render_to_response("namespace.html", user=me, roles=roles, create=True, edit=False, error=unquote_plus(error))
         
     def save_namespace(self, request, relpath, **args):
-        print("save_namespace")
         db = self.App.connect()
         me = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/namespaces")
             
         admin = me.is_admin()
-        print("save_namespace: POST:", list(request.POST.items()))
         name = request.POST["name"]
-        print("save_namespace: POST['name']:", name)
         description = request.POST["description"]
         create = request.POST["create"] == "yes"
 
@@ -624,7 +634,6 @@ class GUIHandler(BaseHandler):
 
         owner_role = owner_user = None
         owner = request.POST.get("owner", "")
-        print("save_namespace: owner:", owner)
         if owner.startswith("u:"):  owner_user = owner[2:]
         elif owner.startswith("r:"):  owner_role = owner[2:]
 

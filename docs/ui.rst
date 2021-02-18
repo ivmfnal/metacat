@@ -42,18 +42,63 @@ General command looks like this:
     .. code-block:: shell
     
         $ export METACAT_SERVER_URL="http://server:port/path"
+        $ # optionally: export METACAT_AUTH_SERVER_URL="http://auth_server:port/auth_path"
         $ metacat <command> [command options] [arguments ...]
     
 
 
-Authentication
---------------
+User Authentication
+-------------------
+
+Main purpose of authentication commands is to obtain an authentication token and store it in
+the MetaCat *token library* located at ~/.metacat_tokens. The library may contain multiple
+tokens, one per MetaCat server instance the user communicates with. The instances are identified
+by their URL.
+
+To obtain a new token, use ``metacat auth login`` command. Currently, 3 authentication mechanisms
+are implemented: LDAP password, "local" password and X.509 certificates. "Local" password authentication
+hashes the user password first and then uses RFC2617 digest mechanism to authenticate the client.
+LDAP password is sent as plain text over HTTPS connection.
+
+LDAP password and "local" password authentication mechanisms are combined into single "password" method.
+It tries LDAP mechanism first and then, if it fails, tries "local" password authentication.
+
+Token obtained using CLI ``metacat auth login`` command can be used by both CLI and API.
+
+To obtain a new token using password authentication, use the following command:
 
 .. code-block:: shell
     
-    metacat auth login <username>           # login, will create/update ~/.metacat_tokens
-    metacat auth whomi                      # shows current token username and expiration
-        
+    metacat auth login <username>           
+	
+To use X.805 authentication
+
+.. code-block:: shell
+    
+    metacat auth login -m x509 -c <cert file> -k <key file> <username>
+
+Currently, only certificates issued by trusted CA will be accepted. Short-lived GLOBUS proxies are not accepted.
+
+List available tokens
+
+.. code-block:: shell
+    
+    metacat auth list
+
+Export token to a file or to stdout
+
+.. code-block:: shell
+    
+    metacat auth token [-o <token file>]
+	
+Verify a token
+
+.. code-block:: shell
+    
+    metacat auth whoami [-t <token file>]
+	
+
+
 Namespaces
 ----------
 

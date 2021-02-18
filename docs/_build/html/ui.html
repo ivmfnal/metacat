@@ -17,7 +17,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Regular Expressions Cheat Sheet" href="regexp.html" />
-    <link rel="prev" title="Metaserver REST API" href="REST_API.html" /> 
+    <link rel="prev" title="MetaCat Server REST API" href="REST_API.html" /> 
   </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
@@ -29,7 +29,7 @@
           <a href="regexp.html" title="Regular Expressions Cheat Sheet"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="REST_API.html" title="Metaserver REST API"
+          <a href="REST_API.html" title="MetaCat Server REST API"
              accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li> 
       </ul>
@@ -77,15 +77,43 @@ $ python setup.py install --user
 <p>-s option specified the server URL. Alternativey, you can define the METACAT_SERVER_URL environment variable:</p>
 <blockquote>
 <div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">METACAT_SERVER_URL</span><span class="o">=</span><span class="s2">&quot;http://server:port/path&quot;</span>
+$ <span class="c1"># optionally: export METACAT_AUTH_SERVER_URL=&quot;http://auth_server:port/auth_path&quot;</span>
 $ metacat &lt;command&gt; <span class="o">[</span><span class="nb">command</span> options<span class="o">]</span> <span class="o">[</span>arguments ...<span class="o">]</span>
 </pre></div>
 </div>
 </div></blockquote>
 </div>
-<div class="section" id="authentication">
-<h2>Authentication<a class="headerlink" href="#authentication" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth login &lt;username&gt;           <span class="c1"># login, will create/update ~/.metacat_tokens</span>
-metacat auth whomi                      <span class="c1"># shows current token username and expiration</span>
+<div class="section" id="user-authentication">
+<h2>User Authentication<a class="headerlink" href="#user-authentication" title="Permalink to this headline">¶</a></h2>
+<p>Main purpose of authentication commands is to obtain an authentication token and store it in
+the MetaCat <em>token library</em> located at ~/.metacat_tokens. The library may contain multiple
+tokens, one per MetaCat server instance the user communicates with. The instances are identified
+by their URL.</p>
+<p>To obtain a new toke, use <code class="docutils literal notranslate"><span class="pre">metacat</span> <span class="pre">auth</span> <span class="pre">login</span></code> command. Currently, 3 authentication mechanisms
+are implemented: LDAP password, “local” password and X.509 certificates. “Local” password authentication
+hashes the user password first and then uses RFC2617 digest mechanism to authenticate the client.
+LDAP password is sent as plain text over HTTPS connection.</p>
+<p>LDAP password and “local” password authentication mechanisms are combined into single “password” method.
+It tries LDAP mechanism first and then, if it fails, tries “local” password authentication.</p>
+<p>To obtain a new token using password authentication, use the following command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth login &lt;username&gt;
+</pre></div>
+</div>
+<p>To use X.805 authentication</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth login -m x509 -c &lt;cert file&gt; -k &lt;key file&gt; &lt;username&gt;
+</pre></div>
+</div>
+<p>Currently, only certificates issued by trusted CA will be accepted. Short-lived GLOBUS proxies are not accepted.</p>
+<p>List available tokens</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth list
+</pre></div>
+</div>
+<p>Export token to a file or to stdout</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth token <span class="o">[</span>-o &lt;token file&gt;<span class="o">]</span>
+</pre></div>
+</div>
+<p>Verify a token</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth whoami <span class="o">[</span>-t &lt;token file&gt;<span class="o">]</span>
 </pre></div>
 </div>
 </div>
@@ -240,7 +268,7 @@ Options:
 <li><a class="reference internal" href="#">Command Line Interface</a><ul>
 <li><a class="reference internal" href="#installation">Installation</a></li>
 <li><a class="reference internal" href="#general-cli-command-syntax">General CLI command syntax</a></li>
-<li><a class="reference internal" href="#authentication">Authentication</a></li>
+<li><a class="reference internal" href="#user-authentication">User Authentication</a></li>
 <li><a class="reference internal" href="#namespaces">Namespaces</a></li>
 <li><a class="reference internal" href="#datasets">Datasets</a></li>
 <li><a class="reference internal" href="#declaring-new-files">Declaring new Files</a></li>
@@ -257,7 +285,7 @@ Options:
 
   <h4>Previous topic</h4>
   <p class="topless"><a href="REST_API.html"
-                        title="previous chapter">Metaserver REST API</a></p>
+                        title="previous chapter">MetaCat Server REST API</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="regexp.html"
                         title="next chapter">Regular Expressions Cheat Sheet</a></p>
@@ -292,7 +320,7 @@ Options:
           <a href="regexp.html" title="Regular Expressions Cheat Sheet"
              >next</a> |</li>
         <li class="right" >
-          <a href="REST_API.html" title="Metaserver REST API"
+          <a href="REST_API.html" title="MetaCat Server REST API"
              >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li> 
       </ul>

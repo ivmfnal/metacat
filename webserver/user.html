@@ -6,17 +6,19 @@
 
 
 {% block headline %}
-	{% if create %}
+	{% if mode=="create" %}
 		Create User
-	{% elif edit %}
-		Edit user {{user.Username}} {{user.Name}}
+	{% elif mode=="edit" %}
+		Edit user {{user.Username}} ({{user.Name}})
     {% else %}
-    
+        User {{user.Username}} ({{user.Name}})
 	{% endif %}
 {% endblock %}
 
 {% block content %}
 
+{% if its_me %}<p>my <a href="./my_token">token</a></p>
+{% endif %}
 
 <form method=POST action="./save_user" id="the_form">
     

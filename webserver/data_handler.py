@@ -82,7 +82,7 @@ class DataHandler(BaseHandler):
         db = self.App.connect()
         ns = DBNamespace.get(db, name)
         if ns is None:
-            return "Not found", 400
+            return "Not found", 404
         return json.dumps(ns.to_jsonable()), "text/json"
         
     def create_namespace(self, request, relpath, name=None, owner_role=None, description=None, **args):
