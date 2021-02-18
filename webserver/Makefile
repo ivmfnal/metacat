@@ -8,8 +8,9 @@ FILES = AuthServer.py Server.py rfc2617.py \
 
 build:	$(SERVER_DIR)
 	cp $(FILES) $(SERVER_DIR)
-	mkdir -p $(SERVER_DIR)/static/js
+	mkdir -p $(SERVER_DIR)/static/js $(SERVER_DIR)/static/images
 	cp static/js/*.js $(SERVER_DIR)/static/js
+	cp static/images/*.png static/images/*.jpg $(SERVER_DIR)/static/images
 	cp -R static/fonts $(SERVER_DIR)/static
 	
 $(SERVER_DIR):

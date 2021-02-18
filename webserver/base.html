@@ -1,6 +1,9 @@
 <html>
 
 <head>
+
+	<link rel="shortcut icon" href="{{GLOBAL_AppTopPath}}/static/images/favicon.png" type="image/x-icon"/>
+
     <style type="text/css">
 
         @font-face {
@@ -22,6 +25,15 @@
             margin-top: 20px;
 	    width: 100%;
         }
+		
+	div#banner {
+		padding: 30px 10px;
+	}
+	
+	#b-anner td {
+		vertical-align: middle;
+		padding: 0px 20px;
+	}
 
 	div#body {
             margin-right: 30px;
@@ -197,6 +209,8 @@
     <script src="{{GLOBAL_AppTopPath}}/static/js/request.js"></script>
     
     {% block html_head %}{% endblock %}
+	
+	<title>{% block page_title %}{{GLOBAL_SiteTitle}}{% endblock %}</title>
 </head>
 
 <body>
@@ -212,11 +226,45 @@
     GLOBAL_User:  "{{GLOBAL_User}}"
 -->
     
-
+<div id="banner">
+	<table class="placement">
+		<tr>
+			<td style="vertical-align: middle; padding: 0px 20px;">
+				<img src="{{GLOBAL_AppTopPath}}/static/images/logo.png" heights=100 width=100>
+			</td>
+			<td style="vertical-align: middle; padding: 0px 20px; width:100%">
+				<h1>{{GLOBAL_SiteTitle}}</h1>
+			    <div id="main_menu">
+					<table class="placement link_menu" width="100%">
+					<tr>
+					    <td><a href="{{GLOBAL_AppTopPath}}/gui/users">users</a></td>
+					    <td><a href="{{GLOBAL_AppTopPath}}/gui/roles">roles</a></td>
+					    <td><a href="{{GLOBAL_AppTopPath}}/gui/namespaces">namepaces</a></td>
+					    <td><a href="{{GLOBAL_AppTopPath}}/gui/datasets">datasets</a></td>
+					    <td><a href="{{GLOBAL_AppTopPath}}/gui/categories/index">categories</a></td>
+					    <td><a href="{{GLOBAL_AppTopPath}}/gui/query">query</a></td>
+					    <td><a href="{{GLOBAL_AppTopPath}}/gui/named_queries">named queries</a></td>
+					    <td width="100%" align="right">
+							<a href="{{GLOBAL_AppTopPath}}/static/docs/html/index.html" target="_new">docs</a>
+						</td>
+						<td>
+			                        {% if GLOBAL_User %}
+			                            <span style="color:#AAA">logged in as {{GLOBAL_User.Name or ""}}&nbsp;<a href="./user?username={{GLOBAL_User.Username}}">{{GLOBAL_User.Username}}</a>&nbsp;</span><a href="{{GLOBAL_AppTopPath}}/auth/logout?redirect={{GLOBAL_AppTopPath}}/gui/index">log out</a>
+			                        {% else %}
+			                            <a href="{{GLOBAL_AppTopPath}}/auth/login?redirect={{GLOBAL_AppTopPath}}/gui/index">log in</a>
+			                        {% endif %}
+						</td>
+					</tr>
+				</table>
+			    </div>
+			</td>
+		</tr>
+	</table>
+</div>
 
 <div id="body">
-    <h1>{{GLOBAL_SiteTitle}}</h1>
 
+	{#
     <div id="main_menu">
 	<table class="placement link_menu">
 		<tr>
@@ -240,6 +288,7 @@
 		</tr>
 	</table>
     </div>
+	#}
     
     <div id="headline" style="clear:both">
 	<h2>{% block headline %}{% endblock %}</h2>
