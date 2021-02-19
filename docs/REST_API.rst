@@ -9,7 +9,9 @@ Obtain Token
 
 .. code-block:: bash
 
-    curl --digest -u user:password -c cookie.jar "http://host:port/auth/auth"
+    curl --digest -u user:password -c cookie.jar "https://host:port/auth/auth?method=digest"
+    curl -T password_file.txt -c cookie.jar      "https://host:port/auth/auth?method=ldap&username=user"
+    curl --cert=... --key=... -c cookie.jar      "https://host:port/auth/auth?method=x509&username=user"
     
 The token will be stored in the cookie.jar file
     
@@ -18,14 +20,14 @@ Check Token
 
 .. code-block:: bash
 
-    curl -b cookie.jar "http://host:port/auth/whoami"
+    curl -b cookie.jar "https://host:port/auth/whoami"
     
 Extract token as string:
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-    curl -b cookie.jar -o token.file "http://host:port/auth/token"
+    curl -b cookie.jar -o token.file "https://host:port/auth/token"
 
 this will save the token in the "token.file"
 
@@ -53,23 +55,6 @@ All data methods return JSON structure
 Namespaces
 ~~~~~~~~~~
 
-Get multiple namespaces
-    .. code-block::
-
-        GET/POST /data/namespaces
-    
-    Request body: JSON stricture, list of namespace names. If the request body is empty, then the method will return
-    all namespaces.
-    
-    Returns: list of dictionaries, one dictionary per namespace with namespace attributes
-    
-Get single namespace by name
-    .. code-block::
-
-        GET /data/namespace?name=<namespace name>
-    
-    Returns: Dictionary with namespace attributes
-
 Create namespace
     .. code-block::
 
@@ -84,7 +69,32 @@ Create namespace
     user associated with the client.
     
     Returns: Dictionary with namespace attributes
+	
+Get single namespace by name
+    .. code-block::
 
+        GET /data/namespace?name=<namespace name>
+    
+    Returns: Dictionary with namespace attributes
+
+Get multiple namespaces
+    .. code-block::
+
+        GET/POST /data/namespaces
+    
+    Request body: JSON stricture, list of namespace names. If the request body is empty, then the method will return
+    all namespaces.
+    
+    Returns: list of dictionaries, one dictionary per namespace with namespace attributes
+    
+Get namespace members counts
+
+    .. code-block::
+
+        GET /data/namespace_counts?name=<namespace name>
+    
+    Returns: Dictionary with counts of files, datasets and saved queries in the namespace
+	
 Datasets
 ~~~~~~~~
 
@@ -129,9 +139,18 @@ Update dataset metadata
     If mode="update", the dataset metadata will be updated with new values. Otherwise, it will be replaced.
     
     Returns: JSON dictionary with updated dataset information
+	
+Get file count in a dataset
 
-Files
-~~~~~
+    .. code-block::
+
+        GET /data/dataset_count?dataset=<namespace>:<name>
+
+    Returns: JSON dictionary ``{"file_count":n}``
+
+
+File Metadata
+~~~~~~~~~~~~~
 
 Declare new files
     .. code-block::
@@ -254,15 +273,8 @@ Get multiple files information
 
     Returns: JSON list of dictionaries with file information
 
-File information:
-
-    .. code-block::
-
-        GET /data/file?spec=<namespace>:<name>
-        GET /data/file?fid=<file id>
-    
-Query
-~~~~~
+Queries
+~~~~~~~
 
     .. code-block::
 
@@ -274,67 +286,16 @@ Query
             [add_to=[<dataset namespace>:]<dataset name>]
             [save_as=[<dataset namespace>:]<dataset name>]
 
-    Query is specified either as URL-encoded `query` URI argument or as the request body.
+    Query is specified either as URL-encoded ``query`` URI argument or as the request body.
     
-    namespace is default namespace for the query and for `save_as` and `add_to` datasets.
+    ``namespace`` is default namespace for the query and for ``save_as`` and ``add_to`` datasets.
     
-    Returns: JSON list with query results, a dictionary per file `with_meta` and `with_provenance` control
+    Returns: JSON list with query results, a dictionary per file ``with_meta`` and ``with_provenance`` control
     whether the file metadata and provenance will be included, respectively.
 
-    If `add_to` is specfied, the selected files will be added to the existing dataset.
+    If ``add_to`` is specfied, the selected files will be added to the existing dataset.
     
-    If `save_as` is specified, the selected files will be saved as the new dataset.
-    
-    
-Create dataset (authentication required): 
-
-    .. code-block::
-    
-        POST /data/create_dataset?dataset=<namespace>:<name>
-    
-Add files to a dataset (authentication required):
-
-    Create a JSON file:
-    
-    .. code-block:: json
-    
-        [
-            {       
-                "name": "file_test_1.dat",
-                "parents": [ "fid1", "fid2" ],             
-                "metadata": { "i":3, "x":3.14, "type":"data" }      
-            },
-            {       
-                "name": "file_test_2.dat",
-                "parents": [ "fid3", "fid4" ],             
-                "metadata": { "i":5, "x":7.14, "type":"data" }      
-            }
-        ]
-    
-    .. code-block::
-    
-        POST (with the JSON file as the body) /data/add_files?namespace=<file namespace>&datasets=<namespace1>:<name1>,<namespace2>:<name2> 
-
-Update multiple file metadata (authentication required):
-
-    Create a JSON file:
-    
-    .. code-block:: json
-    
-        [
-            {       
-                "spec": "test:file_test_1.dat",
-                "parents": [ "fid1", "fid2" ],             
-                "metadata": { "i":3, "x":3.14, "type":"data" }      
-            },
-            {       
-                "fid": "file_id",
-                "parents": [ "fid3", "fid4" ],             
-                "metadata": { "i":5, "x":7.14, "type":"data" }      
-            }
-        ]
-
-    .. code-block::
-    
-        POST (with the JSON file as the body) /data/update_file_meta 
+    If ``save_as`` is specified, the selected files will be saved as the new dataset. If the dataset already exists, 
+    the request will fail with an error.
+	
     

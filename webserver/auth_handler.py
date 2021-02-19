@@ -47,13 +47,16 @@ class AuthHandler(BaseHandler):
         else:
             return "Authentication failed\n", 403
 
-    def _auth_ldap(self, request, redirect):
+    def _auth_ldap(self, request, redirect, username):
         
         # check HTTPS here
         
-        username, password = request.body.split(b":",1)
-        username = to_str(username)
-        password = to_str(password)
+        if username:
+            password = to_str(request.body.strip())
+        else:
+            username, password = request.body.split(b":",1)
+            username = to_str(username)
+            password = to_str(password)
         db = self.App.connect()
         u = DBUser.get(db, username)
         config = self.App.auth_config("ldap")
@@ -82,7 +85,7 @@ class AuthHandler(BaseHandler):
         elif method == "digest":
             return self._auth_digest(request.environ, redirect)
         elif method == "ldap":
-            return self._auth_ldap(request, redirect)
+            return self._auth_ldap(request, redirect, username)
         else:
             return "Unknown authentication method\n", 400
         

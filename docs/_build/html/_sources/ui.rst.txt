@@ -55,13 +55,15 @@ the MetaCat *token library* located at ~/.metacat_tokens. The library may contai
 tokens, one per MetaCat server instance the user communicates with. The instances are identified
 by their URL.
 
-To obtain a new toke, use ``metacat auth login`` command. Currently, 3 authentication mechanisms
+To obtain a new token, use ``metacat auth login`` command. Currently, 3 authentication mechanisms
 are implemented: LDAP password, "local" password and X.509 certificates. "Local" password authentication
 hashes the user password first and then uses RFC2617 digest mechanism to authenticate the client.
 LDAP password is sent as plain text over HTTPS connection.
 
 LDAP password and "local" password authentication mechanisms are combined into single "password" method.
 It tries LDAP mechanism first and then, if it fails, tries "local" password authentication.
+
+Token obtained using CLI ``metacat auth login`` command can be used by both CLI and API.
 
 To obtain a new token using password authentication, use the following command:
 

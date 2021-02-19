@@ -446,7 +446,7 @@ class MetaCatClient(HTTPClient):
             url += f"&fid={fid}"        
         return self.get_json(url)
 
-    def run_query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None, add_to=None):
+    def query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None, add_to=None):
         """Run file query. Requires client authentication if save_as or add_to are used.
         
         Parameters
@@ -519,7 +519,7 @@ class MetaCatClient(HTTPClient):
             def run(self):
                 #print("QueryTask: started:", self.Query)
                 try:    
-                    results = self.Client.run_query(self.Query, **self.Args)
+                    results = self.Client.query(self.Query, **self.Args)
                 except Exception:
                     self.Promise.exception(*sys.exc_info())
                 else:

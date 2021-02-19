@@ -108,7 +108,7 @@ class DataHandler(BaseHandler):
         ns.save()
         return json.dumps(ns.to_jsonable()), "text/json"
             
-    def namespace_counts(self, request, relpath, namespace=None, **args):
+    def namespace_counts(self, request, relpath, name=None, **args):
         db = self.App.connect()
         ns = DBNamespace.get(db, namespace)
         out = json.dumps(

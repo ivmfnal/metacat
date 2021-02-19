@@ -38,7 +38,7 @@
             <script>
 		        var out = document.getElementById("file_count:{{ns.Name}}");
 		        out.data_received = function(data, param) { this.innerHTML = "" + data.nfiles; };
-                HTTPRequest("{{GLOBAL_AppTopPath}}/data/namespace_counts?namespace={{ns.Name}}", 
+                HTTPRequest("{{GLOBAL_AppTopPath}}/data/namespace_counts?name={{ns.Name}}", 
 			        out, null, "json");
             </script>
 	{% endfor %}

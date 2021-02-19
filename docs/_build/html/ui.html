@@ -89,12 +89,13 @@ $ metacat &lt;command&gt; <span class="o">[</span><span class="nb">command</span
 the MetaCat <em>token library</em> located at ~/.metacat_tokens. The library may contain multiple
 tokens, one per MetaCat server instance the user communicates with. The instances are identified
 by their URL.</p>
-<p>To obtain a new toke, use <code class="docutils literal notranslate"><span class="pre">metacat</span> <span class="pre">auth</span> <span class="pre">login</span></code> command. Currently, 3 authentication mechanisms
+<p>To obtain a new token, use <code class="docutils literal notranslate"><span class="pre">metacat</span> <span class="pre">auth</span> <span class="pre">login</span></code> command. Currently, 3 authentication mechanisms
 are implemented: LDAP password, “local” password and X.509 certificates. “Local” password authentication
 hashes the user password first and then uses RFC2617 digest mechanism to authenticate the client.
 LDAP password is sent as plain text over HTTPS connection.</p>
 <p>LDAP password and “local” password authentication mechanisms are combined into single “password” method.
 It tries LDAP mechanism first and then, if it fails, tries “local” password authentication.</p>
+<p>Token obtained using CLI <code class="docutils literal notranslate"><span class="pre">metacat</span> <span class="pre">auth</span> <span class="pre">login</span></code> command can be used by both CLI and API.</p>
 <p>To obtain a new token using password authentication, use the following command:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth login &lt;username&gt;
 </pre></div>
