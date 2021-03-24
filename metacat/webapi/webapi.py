@@ -79,13 +79,15 @@ class HTTPClient(object):
         if self.Token is not None:
             headers["X-Authentication-Token"] = self.Token.encode()
         #print("HTTPClient.post_json: url:", url)
-        #print("HTTPClient.post_json: headers:", headers)
+        print("HTTPClient.post_json: data:", data)
+        
         response = requests.post(url, data = data, headers = headers)
         if response.status_code == INVALID_METADATA_ERROR_CODE:
             #print("raising InvalidMetadataError")
             raise InvalidMetadataError(url, response.status_code, response.text)
         if response.status_code != 200:
             raise WebAPIError(url, response.status_code, response.text)
+        print("response.text:", response.text)
         data = json.loads(response.text)
         return data
         
@@ -397,7 +399,7 @@ class MetaCatClient(HTTPClient):
         List of file records, each record is the same as returned by get_file()
         """
         
-        return self.post_json("files", lookup_list) 
+        return self.post_json("data/files", lookup_list) 
         
     def get_file(self, fid=None, name=None, with_metadata = True, with_provenance=True):
         """Get one file record

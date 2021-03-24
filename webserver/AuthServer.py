@@ -120,12 +120,25 @@ cookie_path = config.get("cookie_path", "/metadata")
 #static_location = config.get("static_location", static_location)
 application=AuthApp(config, AuthHandler)
 
-port = int(config.get("auth_port", 8080))
-
 if __name__ == "__main__":
-    from webpie import HTTPServer
-    import sys
-    server = HTTPServer(port, application, debug=sys.stdout)
+    from webpie import HTTPSServer
+    import sys, getopt
+    
+    port = int(config.get("auth_port", 8443))
+
+    Usage = """
+    python AuthServer.py [-p <port>] -c <cert> -k <key> -C <ca file>
+    """
+    
+    opts, args = getopt.getopt(sys.argv[1:], "p:c:k:C:")
+    opts = dict(opts)
+    key = opts["-k"]
+    cert = opts["-c"]
+    ca = opts["-C"]
+    port = int(opts.get("-p", 8443))
+    
+    server = HTTPSServer(port, application, cert, key, verify="optional", ca_file=ca, 
+        debug=sys.stdout)
     server.run()
     #application.run_server(port)
 else:

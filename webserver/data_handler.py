@@ -279,7 +279,7 @@ class DataHandler(BaseHandler):
         default_namespace = namespace
         user = self.authenticated_user()
         if user is None:
-            print("Unauthenticated user")
+            #print("Unauthenticated user")
             return "Unauthenticated user", 401
             
         if dataset is None:
@@ -367,7 +367,7 @@ class DataHandler(BaseHandler):
         except IntegrityError as e:
             return f"Integrity error: {e}", 404
             
-        print("server:declare_files(): calling ds.add_files...")
+        #print("server:declare_files(): calling ds.add_files...")
         try:    ds.add_files(files, do_commit=True, validate_meta=False)
         except MetaValidationError as e:
             return e.as_json(), METADATA_ERROR_CODE, "text/json"
@@ -436,7 +436,7 @@ class DataHandler(BaseHandler):
             )
             
         if metadata_errors:
-            print("update_files_bulk:", metadata_errors)
+            #print("update_files_bulk:", metadata_errors)
             return json.dumps({
                 "message":"Metadata validation errors",
                 "metadata_errors":metadata_errors
@@ -609,7 +609,7 @@ class DataHandler(BaseHandler):
                 lookup_lst.append({"namespace":namespace, "name":name})
 
         db = self.App.connect()
-        files = DBFile.get_files(db, lookup_lst)
+        files = list(DBFile.get_files(db, lookup_lst))
         out = [f.to_jsonable(with_metadata = with_metadata, with_provenance = with_provenance) 
                 for f in files
         ]

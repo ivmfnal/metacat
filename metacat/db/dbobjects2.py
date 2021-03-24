@@ -550,6 +550,11 @@ class DBFile(object):
     
     @staticmethod
     def get_files(db, files, load_all=False):
+        
+        #
+        # NOT THREAD SAFE !!
+        #
+        
         #print("DBFile.get_files: files:", files)
         c = db.cursor()
         strio = io.StringIO()
@@ -559,7 +564,8 @@ class DBFile(object):
             temp_files (
                 id text,
                 namespace text,
-                name text)
+                name text);
+            truncate table temp_files;
                 """)
         c.copy_from(io.StringIO(strio.getvalue()), "temp_files")
         #print("DBFile.get_files: strio:", strio.getvalue())
