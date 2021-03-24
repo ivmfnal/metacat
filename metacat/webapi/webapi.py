@@ -399,7 +399,11 @@ class MetaCatClient(HTTPClient):
         List of file records, each record is the same as returned by get_file()
         """
         
-        return self.post_json("data/files", lookup_list) 
+        with_metadata = "yes" if with_metadata else "no",
+        with_provenance = "yes" if with_provenance else "no"
+        
+        return self.post_json("data/files?with_metadata=%s&with_provenance=%s" % (with_metadata, with_provenance), 
+            lookup_list) 
         
     def get_file(self, fid=None, name=None, with_metadata = True, with_provenance=True):
         """Get one file record
