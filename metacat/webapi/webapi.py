@@ -79,7 +79,7 @@ class HTTPClient(object):
         if self.Token is not None:
             headers["X-Authentication-Token"] = self.Token.encode()
         #print("HTTPClient.post_json: url:", url)
-        print("HTTPClient.post_json: data:", data)
+        #print("HTTPClient.post_json: data:", data)
         
         response = requests.post(url, data = data, headers = headers)
         if response.status_code == INVALID_METADATA_ERROR_CODE:
@@ -87,7 +87,7 @@ class HTTPClient(object):
             raise InvalidMetadataError(url, response.status_code, response.text)
         if response.status_code != 200:
             raise WebAPIError(url, response.status_code, response.text)
-        print("response.text:", response.text)
+        #print("response.text:", response.text)
         data = json.loads(response.text)
         return data
         

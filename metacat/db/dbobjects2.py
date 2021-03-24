@@ -559,7 +559,17 @@ class DBFile(object):
         c = db.cursor()
         strio = io.StringIO()
         for f in files:
-            strio.write("%s\t%s\t%s\n" % (f.get("fid") or r'\N', f.get("namespace") or r'\N', f.get("name") or r'\N'))
+            fid = ns = n = None
+            if isinstance(f, str):
+                if ':' in f:
+                    ns, n = f.split(':', 1)
+                else:
+                    fid = f
+            else:
+                fid = f.get("fid")
+                ns = f.get("namespace")
+                n = f.get("name")
+            strio.write("%s\t%s\t%s\n" % (fid or r'\N', ns or r'\N', n or r'\N'))
         c.execute("""create temp table if not exists
             temp_files (
                 id text,
@@ -668,7 +678,7 @@ class DBFile(object):
         data = dict(
             fid = self.FID,
             namespace = self.Namespace,
-            name = ns
+            name = self.Name
         )
         if self.Checksums is not None:  data["checksums"] = self.Checksums
         if self.Size is not None:       data["size"] = self.Size
@@ -676,8 +686,8 @@ class DBFile(object):
         if self.CreatedTimestamp is not None:    data["created_timestamp"] = epoch(self.CreatedTimestamp)
         if with_metadata:     data["metadata"] = self.metadata()
         if with_provenance:   
-            data["parents"] = self.parents()
-            data["children"] = self.children()
+            data["parents"] = [f.FID for f in self.parents()]
+            data["children"] = [f.FID for f in self.children()]
         if with_datasets:
             data["datasets"] = ["%s:%s" % tup for ds in self.datasets]
         return data
@@ -685,14 +695,14 @@ class DBFile(object):
     def to_json(self, with_metadata = False, with_provenance=False):
         return json.dumps(self.to_jsonable(with_metadata=with_metadata, with_provenance=with_provenance))
         
-    def children(self, with_metadata = False):
+    def children(self, as_files=False, with_metadata = False):
         if self.Children is None:
-            self.Children = [f.FID for f in DBFileSet(self.DB, [self]).children(with_metadata)]
+            self.Children = list(DBFileSet(self.DB, [self]).children(with_metadata))
         return self.Children
         
-    def parents(self, with_metadata = False):
+    def parents(self, as_files=False, with_metadata = False):
         if self.Parents is None:
-            self.Parents = [f.FID for f in DBFileSet(self.DB, [self]).parents(with_metadata)]
+            self.Parents = list(DBFileSet(self.DB, [self]).parents(with_metadata))
         return self.Parents
         
     def add_child(self, child, do_commit=True):

@@ -682,17 +682,6 @@ class DataHandler(BaseHandler):
 
         if query_type == "file":
 
-            def format_file_data(f, with_meta, with_provenance):
-                data = { 
-                    "name":"%s:%s" % (f.Namespace, f.Name),
-                    "fid":f.FID,
-                }
-                if with_meta:
-                    data["metadata"] = f.Metadata or {}
-                if with_provenance:
-                    data["parents"] = f.Parents
-                    data["children"] = f.Children
-                
             if save_as:
                 results = list(results)
                 ds = DBDataset(db, ds_namespace, ds_name)
