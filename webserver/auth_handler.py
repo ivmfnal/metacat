@@ -66,11 +66,9 @@ class AuthHandler(BaseHandler):
             return "Authentication failed\n", 403
             
     def _auth_x509(self, request, redirect, username):
-        if request.environ.get("HTTPS") != "on" \
-                    or request.environ.get("HTTP_X_CLIENT_VERIFY") != "SUCCESS" \
-                    or not request.environ.get("HTTP_X_DN"):
+        ssl = request.environ.get("HTTPS") == "on" or request.environ.get("REQUEST_SCHEME") == "https"
+        if not ssl:
             return "Authentication failed\n", 403
-        dn = request.environ["HTTP_X_DN"]
             
         db = self.App.connect()
         u = DBUser.get(db, username)
@@ -91,8 +89,16 @@ class AuthHandler(BaseHandler):
             return self._auth_ldap(request, redirect, username)
         else:
             return "Unknown authentication method\n", 400
-        
             
+    def mydn(self, request, relpath):
+        ssl = request.environ.get("HTTPS") == "on" or request.environ.get("REQUEST_SCHEME") == "https"
+        if not ssl:
+            return "Use HTTPS connection\n", 400
+        return [
+            "Subject: %s\n" % (request.environ.get("SSL_CLIENT_S_DN",""),),
+            "Issuer: %s\n" % (request.environ.get("SSL_CLIENT_I_DN",""),)
+        ], text/plain
+        
     def logout(self, request, relpath, redirect=None, **args):
         return self.App.response_with_unset_auth_cookie(redirect)
 
