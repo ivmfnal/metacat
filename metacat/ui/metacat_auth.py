@@ -78,11 +78,15 @@ def do_login(client, args):
     opts, args = getopt.getopt(args, "m:c:k:d")
     opts = dict(opts)
     mechanism = opts.get("-m", "password")
-    username = args[0]
     if mechanism == "password":
+        username = args[0]
         password = getpass.getpass("Password:")
         user, expiration = client.login_password(username, password)
     elif mechanism == "x509":
+        if "-d" in opts:
+            response = client.my_x509_dn(cert, key)
+            print(response)
+            return
         cert = opts.get("-c") or os.environ.get("X509_USER_PROXY") or os.environ.get("X509_USER_CERT")
         if not cert:
             print("X.509 certificate file is unspecified.\n")
@@ -90,11 +94,8 @@ def do_login(client, args):
             print(Usage)
             sys.exit(2)
         key = opts.get("-k") or os.environ.get("X509_USER_KEY") or cert
-        if "-d" in options:
-            response = client.my_x509_dn(cert, key)
-            print(response)
-            return
         else:
+            username = args[0]
             user, expiration = client.login_x509(username, cert, key=key)
     else:
         print(f"Unknown authentication mechanism {mechanism}")
