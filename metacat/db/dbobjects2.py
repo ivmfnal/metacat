@@ -1,4 +1,4 @@
-import uuid, json, hashlib, re, time, io, traceback
+import uuid, json, hashlib, re, time, io, traceback, base64
 from metacat.util import to_bytes, to_str, epoch
 from metacat.util.authenticators import authenticator
 from psycopg2 import IntegrityError
@@ -367,7 +367,7 @@ class DBFile(object):
         
         assert (namespace is None) == (name is None)
         self.DB = db
-        self.FID = fid or uuid.uuid4().hex
+        self.FID = fid or self.generate_id()
         self.FixedFID = (fid is not None)
         self.Namespace = namespace
         self.Name = name
@@ -379,18 +379,9 @@ class DBFile(object):
         self.Parents = parents      # list of file ids
         self.Children = children    # list of file ids
     
-    ID_BITS = 64
-    ID_NHEX = ID_BITS/4
-    ID_FMT = f"%0{ID_NHEX}x"
-    ID_MASK = (1<<ID_BITS) - 1
-    
-    def generate_id(self):          # not used. Use 128 bit uuid instead to guarantee uniqueness
-        x = uuid.uuid4().int
-        fid = 0
-        while x:
-            fid ^= (x & self.ID_MASK)
-            x >>= self.ID_BITS
-        return self.ID_FMT % fid
+    @staticmethod
+    def generate_id():
+        return uuid.uuid4().hex
         
     def __str__(self):
         return "[DBFile %s %s:%s]" % (self.FID, self.Namespace, self.Name)
@@ -549,7 +540,7 @@ class DBFile(object):
         for f in files: f.DB = db
     
     @staticmethod
-    def get_files(db, files, load_all=False):
+    def get_files(db, files):
         
         #
         # NOT THREAD SAFE !!

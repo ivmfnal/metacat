@@ -74,7 +74,10 @@ class AuthHandler(BaseHandler):
             
         db = self.App.connect()
         u = DBUser.get(db, username)
-        if u.authenticate("x509", None, dn):
+        if u.authenticate("x509", None, {
+            "subject_dn":   request.environ.get("SSL_CLIENT_S_DN"),
+            "issuer_dn":    request.environ.get("SSL_CLIENT_I_DN")
+        }):
             return self.App.response_with_auth_cookie(username, redirect)
         else:
             return "Authentication failed\n", 403

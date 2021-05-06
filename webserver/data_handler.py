@@ -599,6 +599,8 @@ class DataHandler(BaseHandler):
     def files(self, request, relpath, with_metadata="no", with_provenance="no", **args):
         with_metadata = with_metadata=="yes"
         with_provenance = with_provenance=="yes"
+        #print("data_handler.files(): with_metadata:", with_metadata,"  with_provenance:", with_provenance)
+        #print("environ:", request.environ)
         file_list = json.loads(request.body)
         lookup_lst = []
         for f in file_list:

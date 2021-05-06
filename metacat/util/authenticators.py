@@ -88,8 +88,13 @@ class LDAPAuthenticator(Authenticator):
         
 class X509Authenticator(Authenticator):
     
-    def authenticate(self, config, dn):
-        return dn in (self.Info or [])
+    def authenticate(self, config, dns):
+        subject = dns.get("subject_dn")
+        issuer = dns.get("issuer_dn")
+        return (
+            subject in (self.Info or []) or                     # cert
+            issuer in (self.Info or []) and issuer in subject   # proxy
+        )
         
 def authenticator(username, method, info=None):
     if method == "password":   a = PasswordAuthenticator(username, info)
