@@ -3,7 +3,7 @@ from metacat.util import to_str, to_bytes, SignedToken
 
 
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
-import psycopg2, json, time, secrets, traceback, hashlib, pprint
+import psycopg2, json, time, secrets, traceback, hashlib, pprint, os, yaml
 from metacat.db import DBUser
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
@@ -104,8 +104,7 @@ class AuthApp(WPApp):
         return True, None
         
 def create_application(config_path=None):
-    if config_path is None:
-        config_path = os.environ.get("METACAT_SERVER_CFG")
+    config_path = config_path or os.environ.get("METACAT_SERVER_CFG")
     if not config_path:
         print("Config file is not defined. Use METACAT_SERVER_CFG environment variable")
     config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
@@ -116,7 +115,7 @@ application = create_application()
 
 if __name__ == "__main__":
     from webpie import HTTPSServer
-    import sys, getopt, yaml, os
+    import sys, getopt
     
     Usage = """
     python AuthServer.py [-p <port>] [-c <config.yaml>]
