@@ -1,0 +1,20 @@
+site_title: DUNE Metadata
+static_location:    product/server/static
+templates:      product/server
+auth_port:      8443
+
+secret: "werkjfhblqekrjgfolwiehrgquoygefougb13lqbefouqegrflq2kg5to871yr5"
+
+database:
+    port: 5432
+    host: ifdb02.fnal.gov
+    user: ivm
+    password: ivm123
+    dbname: dune_metadata
+
+authentication:
+  ldap:
+    server_url: ldaps://ldaps.fnal.gov
+    dn_template:  'cn=%s,ou=FermiUsers,dc=services,dc=fnal,dc=gov'
+
+

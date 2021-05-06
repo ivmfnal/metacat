@@ -11,11 +11,11 @@ FROM conda/miniconda3-centos7
 
 WORKDIR /tmp
 
-RUN yum install -y python3 \
-    && yum clean all \
-    && rm -rf /var/cache/yum
+#RUN yum install -y python3 \
+#    && yum clean all \
+#    && rm -rf /var/cache/yum
 
-RUN yum install -y epel-release.noarch gcc httpd httpd-devel mod_ssl openssl-devel.x86_64 \
+RUN yum install -y epel-release.noarch git gcc httpd httpd-devel mod_ssl openssl-devel.x86_64 \
     && yum clean all \
     && rm -rf /var/cache/yum
 
@@ -23,22 +23,30 @@ RUN yum install -y gridsite less curl \
     && yum clean all \
     && rm -rf /var/cache/yum
 
-RUN pip install mod_wsgi webpie \
+#RUN conda update -n base -c defaults conda \
+#	&& conda clean --all
+
+RUN pip install mod_wsgi webpie lark pyyaml psycopg2-binary \
     && rm -rf ~/.chache/pip
-   
 
-
-
-
-#python-pip libaio gcc python-devel.x86_64 mod_ssl openssl-devel.x86_64
-	
-
-
-ADD metacat.conf /etc/httpd/conf.d/
 ADD metacat /metacat/
-ADD host_cert.pem host_key.pem /metacat/
+RUN ln -s /metacat/metacat.conf /etc/httpd/conf.d/
 RUN rm -f /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/userdir.conf /etc/httpd/conf.d/ssl.conf
 RUN mod_wsgi-express module-config > /etc/httpd/conf.modules.d/10-wsgi.conf
+
+RUN echo 4
+
+WORKDIR /tmp
+RUN git clone https://github.com/ivmfnal/metacat.git
+WORKDIR /tmp/metacat
+RUN make; mv ~/build/metacat /metacat/product
+
+WORKDIR /tmp
+RUN git clone http://cdcvs.fnal.gov/projects/rwsi-wsdbtools
+WORKDIR /tmp/rwsi-wsdbtools
+RUN make; mv ~/build/wsdbtools /metacat
+
+WORKDIR /metacat
 
 EXPOSE 8080
 EXPOSE 8443
