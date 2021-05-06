@@ -130,7 +130,7 @@ if __name__ == "__main__":
         sys.exit(1)
     
     config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
-    port = int(opts.get("-p", config.get("auth_port", -1))
+    port = int(opts.get("-p", config.get("auth_port", -1)))
     if port == -1:
         print("AuthServer port is not configured")
         sys.exit(1)
