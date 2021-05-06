@@ -97,7 +97,7 @@ class AuthHandler(BaseHandler):
         return [
             "Subject: %s\n" % (request.environ.get("SSL_CLIENT_S_DN",""),),
             "Issuer: %s\n" % (request.environ.get("SSL_CLIENT_I_DN",""),)
-        ], text/plain
+        ], "text/plain"
         
     def logout(self, request, relpath, redirect=None, **args):
         return self.App.response_with_unset_auth_cookie(redirect)
