@@ -107,7 +107,7 @@ def create_application(config_path=None):
     config_path = config_path or os.environ.get("METACAT_SERVER_CFG")
     if not config_path:
         print("Config file is not defined. Use METACAT_SERVER_CFG environment variable")
-    config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
+    config = yaml.load(open(config_path, "r"), Loader=yaml.SafeLoader)  
     cookie_path = config.get("cookie_path", "/metadata")        # not used ???
     return AuthApp(config, AuthHandler)
     
