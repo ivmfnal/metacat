@@ -103,46 +103,46 @@ class AuthApp(WPApp):
             return False, e
         return True, None
         
-
-import yaml, os
-import sys, getopt
-
-opts, args = getopt.getopt(sys.argv[1:], "c:")
-opts = dict(opts)
-config = opts.get("-c", os.environ.get("METACAT_SERVER_CFG"))
-if not config:
-    print("Configuration file must be provided either using -c command line option or via METADATA_SERVER_CFG environment variable")
-    sys.exit(1)
+def create_application(config_path=None):
+    if config_path is None:
+        config_path = os.environ.get("METACAT_SERVER_CFG")
+    if not config_path:
+        print("Config file is not defined. Use METACAT_SERVER_CFG environment variable")
+    config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
+    cookie_path = config.get("cookie_path", "/metadata")        # not used ???
+    return AuthApp(config, AuthHandler)
     
-config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
-cookie_path = config.get("cookie_path", "/metadata")
-#static_location = os.environ.get("METACAT_SERVER_STATIC_DIR", "./static")
-#static_location = config.get("static_location", static_location)
-application=AuthApp(config, AuthHandler)
+application = create_application()
 
 if __name__ == "__main__":
     from webpie import HTTPSServer
-    import sys, getopt
+    import sys, getopt, yaml, os
     
-    port = int(config.get("auth_port", 8443))
-
     Usage = """
-    python AuthServer.py [-p <port>] -c <cert> -k <key> -C <ca file>
+    python AuthServer.py [-p <port>] [-c <config.yaml>]
     """
-    
-    opts, args = getopt.getopt(sys.argv[1:], "p:c:k:C:")
+
+    opts, args = getopt.getopt(sys.argv[1:], "c:p:")
     opts = dict(opts)
-    key = opts["-k"]
-    cert = opts["-c"]
-    ca = opts["-C"]
-    port = int(opts.get("-p", 8443))
+    config_file = opts.get("-c", os.environ.get("METACAT_SERVER_CFG"))
+    if not config:
+        print("Configuration file must be provided either using -c command line option or via METADATA_SERVER_CFG environment variable")
+        sys.exit(1)
     
-    server = HTTPSServer(port, application, cert, key, verify="optional", ca_file=ca, 
+    config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
+    port = int(opts.get("-p", config.get("auth_port", -1))
+    if port == -1:
+        print("AuthServer port is not configured")
+        sys.exit(1)
+
+    key = cert = ca_file = None
+    if "ssl" in config:
+        key = config["ssl"]["key"]
+        cert = config["ssl"]["cert"]
+        ca_file = config["ssl"]["ca_file"]
+        
+    application = create_application(config_file)
+    
+    server = HTTPSServer(port, application, cert, key, verify="optional", ca_file=ca_file, 
         debug=sys.stdout)
     server.run()
-    #application.run_server(port)
-else:
-    # running under uwsgi
-    pass
-    
-    
