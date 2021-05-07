@@ -691,6 +691,14 @@ class MetaCatClient(HTTPClient):
             user, exp = self.login_digest(username, password)
         return user, exp
             
+    def my_x509_dn(self, cert, key=None):
+        auth_url = self.AuthURL
+        url = f"{auth_url}/mydn"    
+        cert_arg = (cert, cert) if key is None else (cert, key)
+        response = requests.get(url, verify=False, cert=cert_arg)
+        if response.status_code != 200:
+            raise ServerError(url, response.status_code, response.text)
+        return response.text
 
     def login_x509(self, username, cert, key=None):
         """Performs X.509 authentication and stores the authentication token locally.
@@ -714,7 +722,7 @@ class MetaCatClient(HTTPClient):
         """
         auth_url = self.AuthURL
         url = f"{auth_url}/auth?method=x509&username={username}"    
-        cert_arg = cert if key is None else (cert, key)
+        cert_arg = (cert, cert) if key is None else (cert, key)
         response = requests.get(url, verify=False, cert=cert_arg)
         if response.status_code != 200:
             raise ServerError(url, response.status_code, response.text)
