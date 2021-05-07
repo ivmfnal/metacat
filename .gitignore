@@ -12,3 +12,5 @@ token
 __pycache__
 !.readthedocs.yml
 *-hide
+*.pem
+*.yaml
