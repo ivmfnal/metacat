@@ -88,12 +88,12 @@ def do_login(client, args):
             print(response)
             return
         cert = opts.get("-c") or os.environ.get("X509_USER_PROXY") or os.environ.get("X509_USER_CERT")
+        key = opts.get("-k") or os.environ.get("X509_USER_KEY") or cert
         if not cert:
             print("X.509 certificate file is unspecified.\n")
             print("  Use -c <cert file> or set env. variable X509_USER_PROXY or X509_USER_CERT")
             print(Usage)
             sys.exit(2)
-        key = opts.get("-k") or os.environ.get("X509_USER_KEY") or cert
         else:
             username = args[0]
             user, expiration = client.login_x509(username, cert, key=key)
