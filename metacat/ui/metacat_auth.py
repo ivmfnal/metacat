@@ -19,7 +19,6 @@ Usage:
                    X509_USER_PROXY, X509_USER_CERT, X509_USER_KEY environment variables are supported too
         whoami [-t <token file>]                        - verify and show token
         mydn [-i] -c <cert or proxy file> [-k <private key file>]  - print my X.509 subject DN
-                -c <cert or proxy file> [-k <private key file>]
                 -i prints the issuer DN instead
         token [-o <token file>]                         - export token
         list                                            - list tokens
