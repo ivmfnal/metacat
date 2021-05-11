@@ -76,11 +76,23 @@ def do_whoami(client, args):
     if user:
         print ("User:   ", user)
         print ("Expires:", time.ctime(expiration))
+        
+def get_x509_cert_key(opts):
+    cert = opts.get("-c") or os.environ.get("X509_USER_PROXY") or os.environ.get("X509_USER_CERT")
+    key = opts.get("-k") or os.environ.get("X509_USER_KEY") or cert
+    if not cert:
+        print("X.509 certificate file is unspecified.\n")
+        print("  Use -c <cert file> or set env. variable X509_USER_PROXY or X509_USER_CERT")
+        print(Usage)
+        sys.exit(2)
+    return cert, key
+    
 
 def do_mydn(client, args):
-    opts, args = getopt.getopt(args, "i")
+    opts, args = getopt.getopt(args, "ik:c:")
     opts = dict(opts)
-    names = client.my_x509_dn()
+    cert, key = get_x509_cert_key(opts)
+    names = client.my_x509_dn(cert, key)
     print (names.get("issuer" if "-i" in opts else "subject", "not recognized"))
 
 def do_login(client, args):
@@ -92,20 +104,9 @@ def do_login(client, args):
         password = getpass.getpass("Password:")
         user, expiration = client.login_password(username, password)
     elif mechanism == "x509":
-        if "-d" in opts:
-            response = client.my_x509_dn(cert, key)
-            print(response)
-            return
-        cert = opts.get("-c") or os.environ.get("X509_USER_PROXY") or os.environ.get("X509_USER_CERT")
-        key = opts.get("-k") or os.environ.get("X509_USER_KEY") or cert
-        if not cert:
-            print("X.509 certificate file is unspecified.\n")
-            print("  Use -c <cert file> or set env. variable X509_USER_PROXY or X509_USER_CERT")
-            print(Usage)
-            sys.exit(2)
-        else:
-            username = args[0]
-            user, expiration = client.login_x509(username, cert, key=key)
+        cert, key = get_x509_cert_key(opts)
+        username = args[0]
+        user, expiration = client.login_x509(username, cert, key=key)
     else:
         print(f"Unknown authentication mechanism {mechanism}")
         sys.exit(2)
