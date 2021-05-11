@@ -698,7 +698,8 @@ class MetaCatClient(HTTPClient):
         response = requests.get(url, verify=False, cert=cert_arg)
         if response.status_code != 200:
             raise ServerError(url, response.status_code, response.text)
-        return response.text
+        data = json.loads(response.text)
+        return data
 
     def login_x509(self, username, cert, key=None):
         """Performs X.509 authentication and stores the authentication token locally.

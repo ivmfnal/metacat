@@ -15,8 +15,11 @@ Usage:
         login [-m <mechanism>] <username>               - request authentication token
             mechanisms are: password, x509
             with x509, use:
-                -c <cert file> [-k <private key file>]
+                -c <cert or proxy file> [-k <private key file>]
+                   X509_USER_PROXY, X509_USER_CERT, X509_USER_KEY environment variables are supported too
         whoami [-t <token file>]                        - verify and show token
+        mydn [-i]                                       - print my X.509 subject DN
+                -i prints the issuer DN instead
         token [-o <token file>]                         - export token
         list                                            - list tokens
 """
@@ -73,6 +76,12 @@ def do_whoami(client, args):
     if user:
         print ("User:   ", user)
         print ("Expires:", time.ctime(expiration))
+
+def do_mydn(client, args):
+    opts, args = getopt.getopt(args, "i")
+    opts = dict(opts)
+    names = client.my_x509_dn()
+    print (names.get("issuer" if "-i" in opts else "subject", "not recognized"))
 
 def do_login(client, args):
     opts, args = getopt.getopt(args, "m:c:k:d")
@@ -134,6 +143,7 @@ def do_auth(server_url, auth_server_url, args):
         "list":         do_list,
         "login":        do_login,
         "whoami":       do_whoami,
+        "mydn":         do_mydn,
         "token":        do_token
     }[command](client, args[1:])
 
