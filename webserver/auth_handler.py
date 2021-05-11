@@ -3,7 +3,7 @@ from metacat.util import to_str, to_bytes, SignedToken
 from metacat import Version
 from metacat.db import DBUser
 from urllib.parse import quote_plus, unquote_plus
-import hashlib
+import hashlib, json
 
 from base_handler import BaseHandler
 
