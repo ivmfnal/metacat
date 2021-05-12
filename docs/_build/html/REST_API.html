@@ -46,20 +46,22 @@
 <h2>Client authentication<a class="headerlink" href="#client-authentication" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="obtain-token">
 <h3>Obtain Token<a class="headerlink" href="#obtain-token" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl --digest -u user:password -c cookie.jar <span class="s2">&quot;http://host:port/auth/auth&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl --digest -u user:password -c cookie.jar <span class="s2">&quot;https://host:port/auth/auth?method=digest&quot;</span>
+curl -T password_file.txt -c cookie.jar      <span class="s2">&quot;https://host:port/auth/auth?method=ldap&amp;username=user&quot;</span>
+curl --cert<span class="o">=</span>... --key<span class="o">=</span>... -c cookie.jar      <span class="s2">&quot;https://host:port/auth/auth?method=x509&amp;username=user&quot;</span>
 </pre></div>
 </div>
 <p>The token will be stored in the cookie.jar file</p>
 </div>
 <div class="section" id="check-token">
 <h3>Check Token<a class="headerlink" href="#check-token" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -b cookie.jar <span class="s2">&quot;http://host:port/auth/whoami&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -b cookie.jar <span class="s2">&quot;https://host:port/auth/whoami&quot;</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="extract-token-as-string">
 <h3>Extract token as string:<a class="headerlink" href="#extract-token-as-string" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -b cookie.jar -o token.file <span class="s2">&quot;http://host:port/auth/token&quot;</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -b cookie.jar -o token.file <span class="s2">&quot;https://host:port/auth/token&quot;</span>
 </pre></div>
 </div>
 <p>this will save the token in the “token.file”</p>

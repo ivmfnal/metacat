@@ -34,19 +34,19 @@ General command looks like this:
 
     .. code-block:: shell
     
-        $ metacat [-s <server URL>] <command> [command options] [arguments ...]
+        $ metacat [-s <server URL>] [-a <auth server URL>] <command> [command options] [arguments ...]
     
     
--s option specified the server URL. Alternativey, you can define the METACAT_SERVER_URL environment variable:
+-a is used to specify the URL for the authenticartion server. It is used only for authentication commands.
+-s option specified the server URL. Alternativey, you can define the METACAT_AUTH_SERVER_URL and METACAT_SERVER_URL environment variables:
 
     .. code-block:: shell
     
         $ export METACAT_SERVER_URL="http://server:port/path"
         $ # optionally: export METACAT_AUTH_SERVER_URL="http://auth_server:port/auth_path"
         $ metacat <command> [command options] [arguments ...]
+        
     
-
-
 User Authentication
 -------------------
 
@@ -55,29 +55,48 @@ the MetaCat *token library* located at ~/.metacat_tokens. The library may contai
 tokens, one per MetaCat server instance the user communicates with. The instances are identified
 by their URL.
 
-To obtain a new token, use ``metacat auth login`` command. Currently, 3 authentication mechanisms
-are implemented: LDAP password, "local" password and X.509 certificates. "Local" password authentication
-hashes the user password first and then uses RFC2617 digest mechanism to authenticate the client.
-LDAP password is sent as plain text over HTTPS connection.
+To obtain a new token, use ``metacat auth login`` command. Currently, 2 authentication mechanisms
+are implemented: password and X.509 certificates. LDAP or MetacCat server "local" password can be used with the
+password autentication. X.509 method supports both X.509 certificates and proxies.
 
-LDAP password and "local" password authentication mechanisms are combined into single "password" method.
-It tries LDAP mechanism first and then, if it fails, tries "local" password authentication.
-
-Token obtained using CLI ``metacat auth login`` command can be used by both CLI and API.
+Token obtained using CLI ``metacat auth login`` command can be further used by both CLI and API until it expires.
 
 To obtain a new token using password authentication, use the following command:
 
 .. code-block:: shell
     
-    metacat auth login <username>           
+    $ metacat auth login <username>           
 	
 To use X.805 authentication
 
 .. code-block:: shell
     
-    metacat auth login -m x509 -c <cert file> -k <key file> <username>
+    $ metacat auth login -m x509 -c <cert file> -k <key file> <username>
+    $ metacat auth login -m x509 -c <proxy file> <username>
 
-Currently, only certificates issued by trusted CA will be accepted. Short-lived GLOBUS proxies are not accepted.
+Environment variables X509_USER_CERT, X509_USER_KEY and X509_USER_PROXY can be used instead of -c and -k options:
+
+.. code-block:: shell
+    
+    $ export X509_USER_PROXY=~/user_proxy
+    $ metacat auth login -m x509 <username>
+
+Before X.509 method is enabled for the user, the user needs to contact the MetaCat amdinistrator to enter their
+subject DN into MetaCat user database. In order to obtain the DN of the user certificate, use ``metacat auth mydn`` command:
+
+.. code-block:: shell
+    
+    $ metacat auth mydn -c my_cert.pem -k my_key.pem 
+    CN=UID:jjohnson,CN=John Johnson,OU=People,O=Fermi National Accelerator Laboratory,C=US,DC=cilogon,DC=org
+
+If you want to use your X.509 proxy, then you need to send the issuer DN instead of the subject DN to the administrator. Use ``-i``
+option with ``mydn`` command to get the issuer DN:
+
+.. code-block:: shell
+    
+    $ metacat auth mydn -c my_proxy -i
+    CN=UID:jjohnson,CN=John Johnson,OU=People,O=Fermi National Accelerator Laboratory,C=US,DC=cilogon,DC=org
+
 
 List available tokens
 

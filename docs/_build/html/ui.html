@@ -70,11 +70,12 @@ $ python setup.py install --user
 <h2>General CLI command syntax<a class="headerlink" href="#general-cli-command-syntax" title="Permalink to this headline">¶</a></h2>
 <p>General command looks like this:</p>
 <blockquote>
-<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat <span class="o">[</span>-s &lt;server URL&gt;<span class="o">]</span> &lt;command&gt; <span class="o">[</span><span class="nb">command</span> options<span class="o">]</span> <span class="o">[</span>arguments ...<span class="o">]</span>
+<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat <span class="o">[</span>-s &lt;server URL&gt;<span class="o">]</span> <span class="o">[</span>-a &lt;auth server URL&gt;<span class="o">]</span> &lt;command&gt; <span class="o">[</span><span class="nb">command</span> options<span class="o">]</span> <span class="o">[</span>arguments ...<span class="o">]</span>
 </pre></div>
 </div>
 </div></blockquote>
-<p>-s option specified the server URL. Alternativey, you can define the METACAT_SERVER_URL environment variable:</p>
+<p>-a is used to specify the URL for the authenticartion server. It is used only for authentication commands.
+-s option specified the server URL. Alternativey, you can define the METACAT_AUTH_SERVER_URL and METACAT_SERVER_URL environment variables:</p>
 <blockquote>
 <div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">METACAT_SERVER_URL</span><span class="o">=</span><span class="s2">&quot;http://server:port/path&quot;</span>
 $ <span class="c1"># optionally: export METACAT_AUTH_SERVER_URL=&quot;http://auth_server:port/auth_path&quot;</span>
@@ -89,22 +90,36 @@ $ metacat &lt;command&gt; <span class="o">[</span><span class="nb">command</span
 the MetaCat <em>token library</em> located at ~/.metacat_tokens. The library may contain multiple
 tokens, one per MetaCat server instance the user communicates with. The instances are identified
 by their URL.</p>
-<p>To obtain a new token, use <code class="docutils literal notranslate"><span class="pre">metacat</span> <span class="pre">auth</span> <span class="pre">login</span></code> command. Currently, 3 authentication mechanisms
-are implemented: LDAP password, “local” password and X.509 certificates. “Local” password authentication
-hashes the user password first and then uses RFC2617 digest mechanism to authenticate the client.
-LDAP password is sent as plain text over HTTPS connection.</p>
-<p>LDAP password and “local” password authentication mechanisms are combined into single “password” method.
-It tries LDAP mechanism first and then, if it fails, tries “local” password authentication.</p>
-<p>Token obtained using CLI <code class="docutils literal notranslate"><span class="pre">metacat</span> <span class="pre">auth</span> <span class="pre">login</span></code> command can be used by both CLI and API.</p>
+<p>To obtain a new token, use <code class="docutils literal notranslate"><span class="pre">metacat</span> <span class="pre">auth</span> <span class="pre">login</span></code> command. Currently, 2 authentication mechanisms
+are implemented: password and X.509 certificates. LDAP or MetacCat server “local” password can be used with the
+password autentication. X.509 method supports both X.509 certificates and proxies.</p>
+<p>Token obtained using CLI <code class="docutils literal notranslate"><span class="pre">metacat</span> <span class="pre">auth</span> <span class="pre">login</span></code> command can be further used by both CLI and API until it expires.</p>
 <p>To obtain a new token using password authentication, use the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth login &lt;username&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat auth login &lt;username&gt;
 </pre></div>
 </div>
 <p>To use X.805 authentication</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth login -m x509 -c &lt;cert file&gt; -k &lt;key file&gt; &lt;username&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat auth login -m x509 -c &lt;cert file&gt; -k &lt;key file&gt; &lt;username&gt;
+$ metacat auth login -m x509 -c &lt;proxy file&gt; &lt;username&gt;
 </pre></div>
 </div>
-<p>Currently, only certificates issued by trusted CA will be accepted. Short-lived GLOBUS proxies are not accepted.</p>
+<p>Environment variables X509_USER_CERT, X509_USER_KEY and X509_USER_PROXY can be used instead of -c and -k options:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">X509_USER_PROXY</span><span class="o">=</span>~/user_proxy
+$ metacat auth login -m x509 &lt;username&gt;
+</pre></div>
+</div>
+<p>Before X.509 method is enabled for the user, the user needs to contact the MetaCat amdinistrator to enter their
+subject DN into MetaCat user database. In order to obtain the DN of the user certificate, use <code class="docutils literal notranslate"><span class="pre">metacat</span> <span class="pre">auth</span> <span class="pre">mydn</span></code> command:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat auth mydn -c my_cert.pem -k my_key.pem
+<span class="nv">CN</span><span class="o">=</span>UID:jjohnson,CN<span class="o">=</span>John Johnson,OU<span class="o">=</span>People,O<span class="o">=</span>Fermi National Accelerator Laboratory,C<span class="o">=</span>US,DC<span class="o">=</span>cilogon,DC<span class="o">=</span>org
+</pre></div>
+</div>
+<p>If you want to use your X.509 proxy, then you need to send the issuer DN instead of the subject DN to the administrator. Use <code class="docutils literal notranslate"><span class="pre">-i</span></code>
+option with <code class="docutils literal notranslate"><span class="pre">mydn</span></code> command to get the issuer DN:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat auth mydn -c my_proxy -i
+<span class="nv">CN</span><span class="o">=</span>UID:jjohnson,CN<span class="o">=</span>John Johnson,OU<span class="o">=</span>People,O<span class="o">=</span>Fermi National Accelerator Laboratory,C<span class="o">=</span>US,DC<span class="o">=</span>cilogon,DC<span class="o">=</span>org
+</pre></div>
+</div>
 <p>List available tokens</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth list
 </pre></div>

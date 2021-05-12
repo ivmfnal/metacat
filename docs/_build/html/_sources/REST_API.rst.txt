@@ -9,7 +9,9 @@ Obtain Token
 
 .. code-block:: bash
 
-    curl --digest -u user:password -c cookie.jar "http://host:port/auth/auth"
+    curl --digest -u user:password -c cookie.jar "https://host:port/auth/auth?method=digest"
+    curl -T password_file.txt -c cookie.jar      "https://host:port/auth/auth?method=ldap&username=user"
+    curl --cert=... --key=... -c cookie.jar      "https://host:port/auth/auth?method=x509&username=user"
     
 The token will be stored in the cookie.jar file
     
@@ -18,14 +20,14 @@ Check Token
 
 .. code-block:: bash
 
-    curl -b cookie.jar "http://host:port/auth/whoami"
+    curl -b cookie.jar "https://host:port/auth/whoami"
     
 Extract token as string:
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-    curl -b cookie.jar -o token.file "http://host:port/auth/token"
+    curl -b cookie.jar -o token.file "https://host:port/auth/token"
 
 this will save the token in the "token.file"
 
