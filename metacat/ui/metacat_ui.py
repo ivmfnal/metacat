@@ -1,11 +1,13 @@
 from metacat.webapi import MCAuthenticationError, MCWebAPIError
+from metacat import Version
 import sys, getopt, os
 
 import warnings
 warnings.simplefilter("ignore")
 
 
-Usage = """
+Usage = f"""
+MetaCat version {Version}
 Usage: 
     metacat [-s <server URL>] [-a <auth server URL>] command argsuments
     metacat help
