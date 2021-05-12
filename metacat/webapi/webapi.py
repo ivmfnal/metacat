@@ -750,7 +750,7 @@ class MetaCatClient(HTTPClient):
                 token = self.TokenLib.get(server_url)
         if not token:
             raise AuthenticationError("No token found")
-        url = self.AuthURL + "/auth/verify"
+        url = self.AuthURL + "/verify"
         response = requests.get(url, headers={
                 "X-Authentication-Token":token.encode()
         })
