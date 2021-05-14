@@ -8,11 +8,12 @@ warnings.simplefilter("ignore")
 
 Usage = f"""
 MetaCat version {Version}
+
 Usage: 
     metacat [-s <server URL>] [-a <auth server URL>] command argsuments
     metacat help
 
-    Server host:port can also be specified using environment variable METACAT_SERVER_URL
+    Server host:port can also be specified using environment variables METACAT_SERVER_URL and METACAT_AUTH_SERVER_URL
     
     Commands are:
         auth       login, whoami, list, token
