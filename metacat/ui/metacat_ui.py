@@ -16,7 +16,7 @@ Usage:
     Server host:port can also be specified using environment variables METACAT_SERVER_URL and METACAT_AUTH_SERVER_URL
     
     Commands are:
-        auth       login, whoami, list, token
+        auth       login, whoami, list, token, mydn
         dataset    create, update, list, show
         namespace  create, list, show
         file       declare, update, show, add
@@ -44,16 +44,12 @@ def main():
     auth_server_url = opts.get("-a") or os.environ.get("METACAT_AUTH_SERVER_URL")
     if not auth_server_url:
         print("Warning: MetaCat server URL is not set. Using default:", server_url+"/auth")
-    
-    auth_server_url = server_url+"/auth"
+        auth_server_url = server_url+"/auth"
         
     if not cmd in Commands:
         print("Unrecognized command", cmd)
         print(Usage)
         sys.exit(2)
-
-    if not auth_server_url:
-        auth_server_url = server_url + "/auth"
 
     if cmd == "admin":
         # does not require server configuration
