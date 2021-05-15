@@ -36,11 +36,16 @@ def main():
         
     cmd, args = args[0], args[1:]
     server_url = opts.get("-s") or os.environ.get("METACAT_SERVER_URL")
-    auth_server_url = opts.get("-a") or os.environ.get("METACAT_AUTH_SERVER_URL") or server_url+"/auth"
     
     if not server_url:
         print("Server address must be specified either using -s option or using environment variable METACAT_SERVER_URL")
         sys.exit(2)
+
+    auth_server_url = opts.get("-a") or os.environ.get("METACAT_AUTH_SERVER_URL")
+    if not auth_server_url:
+        print("Warning: MetaCat server URL is not set. Using default:", server_url+"/auth")
+    
+    auth_server_url = server_url+"/auth"
         
     if not cmd in Commands:
         print("Unrecognized command", cmd)
