@@ -48,6 +48,8 @@ RUN make; mv ~/build/wsdbtools /metacat
 
 WORKDIR /metacat
 
-EXPOSE 8080
-EXPOSE 8443
+EXPOSE 8180
+EXPOSE 8143
+
+ENTRYPOINT /metacat/run_server.sh
 
