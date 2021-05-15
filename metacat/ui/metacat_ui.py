@@ -35,8 +35,8 @@ def main():
         sys.exit(2)
         
     cmd, args = args[0], args[1:]
-    server_url = opts.get("-s", os.environ.get("METACAT_SERVER_URL"))
-    auth_server_url = opts.get("-a", os.environ.get("METACAT_AUTH_SERVER_URL")) or server_url+"/auth"
+    server_url = opts.get("-s") or os.environ.get("METACAT_SERVER_URL")
+    auth_server_url = opts.get("-a") or os.environ.get("METACAT_AUTH_SERVER_URL") or server_url+"/auth"
     
     if not server_url:
         print("Server address must be specified either using -s option or using environment variable METACAT_SERVER_URL")
