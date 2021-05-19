@@ -157,7 +157,7 @@
     }
 
     p.error {
-        border-left: solid 3px #A11;
+        border-left: solid 5px #A11;
         padding: 0px 5px;
     }
         
@@ -293,10 +293,10 @@
     <div id="headline" style="clear:both">
 	<h2>{% block headline %}{% endblock %}</h2>
     </div>
-    {% if message %}
+    {% if message is defined and message %}
         <p class=message>{{message}}</p>
     {% endif %}
-    {% if error %}
+    {% if error is defined and error %}
         <p class=error>{{error}}</p>
     {% endif %}
     <div id=content style="clear:both">{% block content %}{% endblock %}</div>

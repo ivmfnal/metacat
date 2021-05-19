@@ -28,10 +28,5 @@ class BaseHandler(WPHandler):
         return DBUser.get(db, username)
 
     def messages(self, args):
-        unquoted = {}
-        for k in ("error", "message"):
-            m = args.get(k)
-            if m:
-                unquoted[k] = unquote_plus(m)
-        return unquoted
+        return {k: unquote_plus(args.get(k,"")) for k in ("error", "message")}
         

@@ -128,11 +128,11 @@ class App(WPApp):
 def create_application(config_file=None):
     config_file = config_file or os.environ.get("METACAT_SERVER_CFG")
     if not config_file:
-        print("Configuration file must be provided using METADATA_SERVER_CFG environment variable")
+        print("Configuration file must be provided using METACAT_SERVER_CFG environment variable")
         return None
     config = yaml.load(open(config_file, "r"), Loader=yaml.SafeLoader)  
     cookie_path = config.get("cookie_path", "/metacat")
-    static_location = config.get("static_location", os.environ.get("METACAT_SERVER_STATIC_DIR", "./static"))
+    static_location = config.get("static_location", os.environ.get("METACAT_SERVER_STATIC_DIR", "static"))
     application=App(config, RootHandler, static_location=static_location)
 
     templdir = config.get("templates", "")
