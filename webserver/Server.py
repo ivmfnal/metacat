@@ -1,3 +1,5 @@
+import yaml, os, getopt, sys
+
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
 from metacat.db import DBUser, DBRole
 
@@ -122,45 +124,48 @@ class App(WPApp):
 
     def filters(self):
         return self.Filters
-       
-import yaml, os
-import sys, getopt
+        
+def create_application(config_file=None):
+    config_file = config_file or os.environ.get("METACAT_SERVER_CFG")
+    if not config_file:
+        print("Configuration file must be provided using METADATA_SERVER_CFG environment variable")
+        return None
+    config = yaml.load(open(config_file, "r"), Loader=yaml.SafeLoader)  
+    cookie_path = config.get("cookie_path", "/metacat")
+    static_location = config.get("static_location", os.environ.get("METACAT_SERVER_STATIC_DIR", "./static"))
+    application=App(config, RootHandler, static_location=static_location)
 
-opts, args = getopt.getopt(sys.argv[1:], "c:")
-opts = dict(opts)
-config = opts.get("-c", os.environ.get("METACAT_SERVER_CFG"))
-if not config:
-    print("Configuration file must be provided either using -c command line option or via METADATA_SERVER_CFG environment variable")
-    sys.exit(1)
+    templdir = config.get("templates", "")
+    if templdir.startswith("$"):
+        templdir = os.environ[templdir[1:]]
+
+    application.initJinjaEnvironment(
+        tempdirs=[templdir, "."],
+        globals={
+            "GLOBAL_Version": Version, 
+            "GLOBAL_SiteTitle": config.get("site_title", "DEMO Metadata Catalog")
+        }
+    )
     
-config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
-cookie_path = config.get("cookie_path", "/metacat")
-static_location = os.environ.get("METACAT_SERVER_STATIC_DIR", "./static")
-static_location = config.get("static_location", static_location)
-application=App(config, RootHandler, static_location=static_location)
-
-templdir = config.get("templates", "")
-if templdir.startswith("$"):
-    templdir = os.environ[templdir[1:]]
-
-application.initJinjaEnvironment(
-    tempdirs=[templdir, "."],
-    globals={
-        "GLOBAL_Version": Version, 
-        "GLOBAL_SiteTitle": config.get("site_title", "DEMO Metadata Catalog")
-    }
-)
-port = int(config.get("port", 8080))
+    return application
 
 if __name__ == "__main__":
     from webpie import HTTPServer
     import sys
-    server = HTTPServer(port, application, debug=sys.stdout)
+    import yaml, os
+    import sys, getopt
+
+    opts, args = getopt.getopt(sys.argv[1:], "c:p:")
+    opts = dict(opts)
+    port = int(opts.get("-p", 8080))
+    config_file = opts.get("-c")
+    
+    server = HTTPServer(port, create_application(config_file), debug=sys.stdout)
     server.run()
     #application.run_server(port)
 else:
     # running under uwsgi
-    pass
+    application = create_application()
     
     
         
