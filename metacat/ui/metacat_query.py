@@ -54,7 +54,7 @@ def do_query(server_url, args):
         
     #print("with_meta=", with_meta)
         
-    results = client.run_query(query_text, namespace=namespace, with_metadata = with_meta, 
+    results = client.query(query_text, namespace=namespace, with_metadata = with_meta, 
             save_as=save_as, add_to=add_to,
             with_provenance=with_provenance)
 
