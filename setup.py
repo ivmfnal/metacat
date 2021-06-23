@@ -25,7 +25,7 @@ setup(
     url = "https://github.com/ivmfnal/metacat",
     packages=['metacat', 'metacat.mql', 'metacat.db', 'metacat.util', 'metacat.webapi','metacat.ui'],
     long_description=read('README.rst'),
-    install_requires=["pythreader >= 1.7"],
+    install_requires=["pythreader >= 1.7", "pyjwt"],
     zip_safe = False,
     classifiers=[
     ],
