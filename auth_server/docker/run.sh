@@ -1,7 +1,19 @@
 #!/bin/bash
 
-if [ "$1" == "-i" ]; then
-	docker run -ti --rm -v `pwd`/config:/config -p 8243:8243 -p 8280:8280 --entrypoint /bin/bash metacat_auth_server 
+docker=docker
+
+if [ "$1" == "podman" ]; then
+	docker=podman
+	mount=`pwd`/config:/config:z
+	#user="--user `id -u`"
+	shift
 else
-	docker run     --rm -v `pwd`/config:/config -p 8243:8243 -p 8280:8280                        metacat_auth_server
+	mount=`pwd`/config:/config
+	user=""
+fi
+
+if [ "$1" == "-i" ]; then
+	$docker run -ti --rm $user -v $mount -p 8143:8143 -p 8280:8280 --entrypoint /bin/bash metacat_auth_server 
+else
+	$docker run -d  --rm $user -v $mount -p 8143:8143 -p 8280:8280                        metacat_auth_server
 fi

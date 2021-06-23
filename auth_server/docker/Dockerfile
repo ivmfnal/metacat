@@ -26,7 +26,12 @@ RUN yum install -y gridsite less curl \
 #RUN conda update -n base -c defaults conda \
 #	&& conda clean --all
 
-RUN pip install mod_wsgi webpie lark pyyaml psycopg2-binary \
+#RUN pip install psycopg2-binary \
+#    && rm -rf ~/.chache/pip
+
+RUN conda install -y -c anaconda psycopg2
+
+RUN pip install mod_wsgi webpie lark pyyaml pyjwt requests python-ldap \
     && rm -rf ~/.chache/pip
 
 ADD metacat /metacat/
