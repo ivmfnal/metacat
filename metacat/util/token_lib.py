@@ -20,13 +20,19 @@ class TokenLib(object):
                 line = line.strip()
                 url, encoded = line.split(None, 1)
                 try:
-                    token = SignedToken.decode(encoded, verify_times=True)
+                    token = SignedToken.decode(encoded)
+                    #print("TokenLib.load: token:", token)
+                    token.verify()      # this will verify expiration/maturity times only
+                    #print("  token verified. Exp:", token.Expiration)
                 except SignedTokenExpiredError:
+                    #print("TokenLib.load: token expired")
                     token = None
                 except SignedTokenImmatureError:
+                    #print("TokenLib.load: token immature")
                     pass
                 if token is not None:
                     out[url] = token
+            #print("TokenLib.load: out:", out)
             return out
 
         def save_tokens(self):

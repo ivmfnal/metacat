@@ -25,7 +25,8 @@ class AuthAppMixin(object):
 class AuthHandler(BaseHandler):
 
     def whoami(self, request, relpath, **args):
-        return str(self.App.user_from_request(request)), "text/plain"
+        user, error = self.App.user_from_request(request)
+        return user or "", "text/plain"
         
     def token(self, request, relpath, **args):
         return self.App.encoded_token_from_request(request)+"\n"
@@ -127,6 +128,6 @@ class AuthHandler(BaseHandler):
         return self.App.response_with_auth_cookie(username, redirect)
 
     def verify(self, request, relpath, **args):
-        username = self.App.user_from_request(request)
-        return "OK" if username else ("Token verification error", 403)
+        username, error = self.App.user_from_request(request)
+        return ("OK","text/plain") if username else (error, 403)
 

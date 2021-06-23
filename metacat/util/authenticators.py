@@ -73,7 +73,7 @@ class LDAPAuthenticator(Authenticator):
             result = True
         except ldap.INVALID_CREDENTIALS:
             result = False
-        print("ldap:", result)
+        #print("ldap:", result)
         return result
         
         

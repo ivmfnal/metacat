@@ -47,7 +47,7 @@ def do_list(client, args):
     tl = client.TokenLib
     now = time.time()
     lst = [(token.TID, url, token["user"], time.ctime(token.Expiration), time_delta(token.Expiration - now)) for url, token in tl.items()
-                if token.Expiration > now]
+                        if token.Expiration is None or token.Expiration > time.time()]
     max_tid, max_url, max_user, max_exp = len("Token id"), len("Server URL"), len("User"), len("Expiration")
     for tid, url, user, et, delta in lst:
         max_tid = max(len(tid), max_tid)

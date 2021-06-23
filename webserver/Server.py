@@ -77,14 +77,23 @@ class App(WPApp):
     def user_from_request(self, request):
         encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
         if not encoded: 
-            #print("App: no token:", list(request.headers.items()) )
-            
-            return None
-        try:    token = SignedToken.decode(encoded, self.TokenSecret, verify_times=True)
-        except:
-            #print("App: token error:", traceback.format_exc()) 
-            return None             # invalid token
-        return token.Payload.get("user")
+            return None, "Token not found"
+        try:    
+            token = SignedToken.from_bytes(encoded)
+            token.verify(self.TokenSecret)
+        except SignedTokenExpiredError:
+            return None, "Token expired"           
+        except SignedTokenImmatureError:
+            return None, "Token immature"           
+        except SignedTokenUnacceptedAlgorithmError:
+            return None, "Invalid token algorithm"           
+        except SignedTokenSignatureVerificationError:
+            return None, "Invalid token"           
+        except Exception as e:
+            return None, str(e)
+        else:
+            return token.Payload.get("user"), None
+
 
     def encoded_token_from_request(self, request):
         encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
@@ -95,14 +104,16 @@ class App(WPApp):
 
     def response_with_auth_cookie(self, user, redirect):
         #print("response_with_auth_cookie: user:", user, "  redirect:", redirect)
-        token = SignedToken({"user": user}, expiration=self.TokenExpiration).encode(self.TokenSecret)
+        token = SignedToken({"user": user}, expiration=self.TokenExpiration)
+        encoded = token.encode(self.TokenSecret)
+        #print("Server.App.response_with_auth_cookie: new token created:", token.TID)
         if redirect:
             resp = Response(status=302, headers={"Location": redirect})
         else:
             resp = Response(status=200, content_type="text/plain")
         #print ("response:", resp, "  reditrect=", redirect)
-        resp.headers["X-Authentication-Token"] = to_str(token)
-        resp.set_cookie("auth_token", token, max_age = int(self.TokenExpiration))
+        resp.headers["X-Authentication-Token"] = to_str(encoded)
+        resp.set_cookie("auth_token", encoded, max_age = int(self.TokenExpiration))
         return resp
 
     def response_with_unset_auth_cookie(self, redirect):

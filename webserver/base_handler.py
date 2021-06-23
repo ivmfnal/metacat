@@ -22,7 +22,7 @@ class BaseHandler(WPHandler):
             yield "".join(buf)
             
     def authenticated_user(self):
-        username = self.App.user_from_request(self.Request)
+        username, error = self.App.user_from_request(self.Request)
         if not username:    return None
         db = self.App.connect()
         return DBUser.get(db, username)

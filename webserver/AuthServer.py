@@ -59,14 +59,25 @@ class AuthApp(WPApp):
     def user_from_request(self, request):
         encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
         if not encoded: 
-            #print("App: no token:", list(request.headers.items()) )
-            
-            return None
-        try:    token = SignedToken.decode(encoded, self.TokenSecret, verify_times=True)
-        except:
-            #print("App: token error:", traceback.format_exc()) 
-            return None             # invalid token
-        return token.Payload.get("user")
+            return None, "Token not found"
+        try:    
+            token = SignedToken.from_bytes(encoded)
+            token.verify(self.TokenSecret)
+        except SignedTokenExpiredError:
+            return None, "Token expired"           
+        except SignedTokenImmatureError:
+            return None, "Token immature"           
+        except SignedTokenUnacceptedAlgorithmError:
+            return None, "Invalid token algorithm"           
+        except SignedTokenSignatureVerificationError:
+            return None, "Invalid token"           
+        except Exception as e:
+            return None, str(e)
+        else:
+            return token.Payload.get("user"), None
+
+
+
 
     def encoded_token_from_request(self, request):
         encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")

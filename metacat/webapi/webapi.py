@@ -754,6 +754,7 @@ class MetaCatClient(HTTPClient):
         response = requests.get(url, headers={
                 "X-Authentication-Token":token.encode()
         })
+        print("web_api.auth_info:", response.status_code, response.text)
         if response.status_code/100 == 2:
             return token["user"], token.Expiration
         else:
