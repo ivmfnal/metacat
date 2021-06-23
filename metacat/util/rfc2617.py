@@ -1,7 +1,7 @@
-import re, hashlib, requests, base64, time
-from requests.auth import HTTPDigestAuth
+import re, hashlib, base64, time
 
 def digest_client(url, username, password):
+    from requests.auth import HTTPDigestAuth
     response = requests.get(url, auth=HTTPDigestAuth(username, password))
     return response.status_code, response.content
 
