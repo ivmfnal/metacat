@@ -1,4 +1,4 @@
-import requests, json, fnmatch, sys
+import requests, json, fnmatch, sys, os
 from metacat.util import to_str, to_bytes, password_hash, SignedToken, TokenLib
 from pythreader import Task, TaskQueue, Promise
 from urllib.parse import quote_plus, unquote_plus
@@ -94,7 +94,7 @@ class HTTPClient(object):
 
 class MetaCatClient(HTTPClient):
     
-    def __init__(self, server_url, auth_server_url=None, max_concurrent_queries = 5,
+    def __init__(self, server_url=None, auth_server_url=None, max_concurrent_queries = 5,
                 token = None, token_file = None):    
 
         """Initializes the MetaCatClient object
@@ -102,7 +102,7 @@ class MetaCatClient(HTTPClient):
         Parameters
         ----------
         server_url : str
-            The server endpoint URL
+            The server endpoint URL, defult = from METACAT_SERVER_URL environment variable 
         auth_server_url : str
             The endpoint URL for the Authentication server, default = server_url + "/auth"
         max_concurrent_queries : int, optional
@@ -126,7 +126,11 @@ class MetaCatClient(HTTPClient):
         if token is None:
             self.TokenLib = TokenLib()
             token = self.TokenLib.get(server_url)
-            
+        
+        server_url = server_url or os.environ.get("METACAT_SERVER_URL")
+        if not server_url:
+            raise RuntimeError("MetaCat server URL unspecified")
+        
         HTTPClient.__init__(self, server_url, token)
         self.AuthURL = auth_server_url or server_url + "/auth"
         self.QueryQueue = TaskQueue(max_concurrent_queries)       
