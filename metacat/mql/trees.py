@@ -85,14 +85,14 @@ class Node(object):
         out = [head]
 
         for k, v in self.D.items():
-            key = f"{k}: "
+            key = f"{k}="
             if isinstance(v, Node) or hasattr(v, "_pretty"):
                 key_len = len(key)
                 shift = " "*key_len
                 #print("calling _pretty for %s" % (v,))
-                out += v._pretty(indent = indent + ". " + shift, headline_indent = indent + ". " + key)
+                out += v._pretty(indent = indent + "| " + shift, headline_indent = indent + "| " + key)
             else:
-                out.append(indent + f". {key}{repr(v)}")
+                out.append(indent + f"| {key}{repr(v)}")
         
         nc = len(self.C)
         for i, c in enumerate(self.C):
@@ -227,7 +227,7 @@ class Descender(object):
         
 class Ascender(object):
 
-    def walk(self, node):
+    def walk(self, node, debug=False):
         if not isinstance(node, Node):
             return node
         node_type, children = node.T, node.C
@@ -245,11 +245,14 @@ class Ascender(object):
             out = method(node)
         else:
             named_children = {
-                name:(self.walk(c) if isinstance(c, Node) else c) 
+                name:(self.walk(c, debug) if isinstance(c, Node) else c) 
                 for name, c in node.D.items()
             }
-            children = [self.walk(c) for c in children]
+            node.C = children = [self.walk(c, debug) for c in children]
             out = method(node, *children, **named_children)
+            if debug:
+                me = self.__class__.__name__
+                print(f"{me}: method {node_type} returned:", out.pretty("      "))
         return out
         
     def _default(self, node, *children, **named):

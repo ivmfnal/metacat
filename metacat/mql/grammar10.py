@@ -7,11 +7,11 @@ query:  ("with" param_def_list)? params_applied_query
 top_file_query          :    file_query
 top_dataset_query       :    dataset_query
 
-?file_query: limited_file_query_expression                                  
-    | file_query "-" limited_file_query_expression                          -> minus
+?file_query: meta_filter                                  
+    | file_query "-" meta_filter                          -> minus
 
-?limited_file_query_expression: meta_filter "limit" SIGNED_INT
-    | meta_filter                   
+//?limited_file_query_expression: meta_filter "limit" SIGNED_INT
+//    | meta_filter                   
 
 ?meta_filter: file_query_exression "where" meta_exp     
     |   file_query_exression                             
@@ -23,10 +23,12 @@ top_dataset_query       :    dataset_query
     |   "{" file_query_list "}"                          -> join
     |   "parents" "(" file_query ")"                     -> parents_of
     |   "children" "(" file_query ")"                    -> children_of
-    |   "(" file_query ")"                               
+    |   file_query "limit" SIGNED_INT                    -> limit              
+    |   file_query "skip" SIGNED_INT                     -> skip              
+    |   "(" file_query ")"           
 
 term_file_query: "files" ("from" datasets_selector)?                                -> basic_file_query
-    |   "filter" FNAME "(" constant_list ")" "(" file_query_list ")"       -> filter
+    |   "filter" FNAME "(" constant_list ")" "(" file_query_list ")"                -> filter
     |   "query" qualified_name                                                      -> named_query
     |   "files" STRING ("," STRING)*                                                -> file_list
     

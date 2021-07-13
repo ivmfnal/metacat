@@ -20,7 +20,7 @@ def skip(it, n):
         else:
             yield n
         
-def accepts_limit(filter):
+def implement_limit(filter):
     def decorated(self, inputs, params, limit=None, **args):
         unlimited = filter(self, inputs, params, limit=None, **args)
         if limit is not None:
@@ -29,7 +29,7 @@ def accepts_limit(filter):
             return unlimited
     return decorated
 
-def accepts_skip(filter):
+def implement_skip(filter):
     def decorated(self, inputs, params, skip=None, **args):
         results = filter(self, inputs, params, skip=None, **args)
         if skip is not None:
@@ -39,14 +39,41 @@ def accepts_skip(filter):
     return decorated
 
 class MetaCatFilter(object):
+
+    def apply_selection(self, inp, skip, limit, stride):
+        stride_n = stride_i = None
+        if stride is not None:
+            stride_n, stride_i = stride
+        i = 0
+        for f in inp:
+            if skip is not None and skip > 0:
+                skip -= 1
+            else:
+                if limit == 0:  break
+                if stride_n is not None:
+                    if i % stride_n == stride_i:
+                        yield f
+                    i += 1
+                else:
+                    yield f
+                if limit is not None:
+                    limit -= 1
     
-    def filter(inputs, params, limit=None, skip=None):
+    def run(self, inputs, params, limit=None, skip=None, stride=None):
+        #
+        # selection application order: skip -> limit -> stride
+        #
+        if len(inputs) == 1:
+            # selections can be applied before the user code
+            inp = inputs[0]
+            yield from self.filter([self.apply_selection(inp, skip, limit, stride)], params)
+        else:
+            yield from self.apply_selection(self.filter(inputs, params), skip, limit, stride)
+                        
         raise NotImplementedError()
 
 class Sample(MetaCatFilter):
     
-    @accepts_limit
-    @accepts_skip
     def filter(self, inputs, params, **ignore):
         file_set = inputs[0]
         fraction = params[0]
@@ -66,8 +93,6 @@ class Limit(MetaCatFilter):
 
 class EveryNth(MetaCatFilter):
     
-    @accepts_limit
-    @accepts_skip
     def filter(self, inputs, params, **ignore):
         from zlib import adler32
         file_set = inputs[0]
@@ -80,8 +105,6 @@ class EveryNth(MetaCatFilter):
             
 class Hash(MetaCatFilter):
     
-    @accepts_limit
-    @accepts_skip
     def filter(self, inputs, params, **ignore):
         from zlib import adler32
         file_set = inputs[0]
@@ -93,9 +116,6 @@ class Hash(MetaCatFilter):
             
 class Mix(MetaCatFilter):
     
-    @accepts_limit
-    @accepts_skip
-
     def filter(self, inputs, ratios, **ignore):
         import types
         assert len(inputs) == len(ratios)

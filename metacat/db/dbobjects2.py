@@ -3,7 +3,7 @@ from metacat.util import to_bytes, to_str, epoch
 from metacat.util.authenticators import authenticator
 from psycopg2 import IntegrityError
 
-Debug = False
+Debug = True
 
 def debug(*parts):
     if Debug:
@@ -63,6 +63,18 @@ def limited(iterable, n):
                 break
             n -= 1
             
+def strided(iterable, n, i=0):
+    for j, f in enumerate(iterable):
+        if j%n == i:
+            yield f
+            
+def skipped(iterable, n):
+    for f in iterable:
+        if n > 0:
+            n -= 1
+        else:
+            yield f
+            
 class MetaValidationError(Exception):
     
     def __init__(self, message, errors):
@@ -79,14 +91,20 @@ class MetaValidationError(Exception):
     
 class DBFileSet(object):
     
-    def __init__(self, db, files=[], limit=None):
+    def __init__(self, db, files=[]):
         self.DB = db
         self.Files = files
-        self.Limit = limit
         self.SQL = None
 
     def limit(self, n):
-        return DBFileSet(self.DB, self.Files, n)
+        return DBFileSet(self.DB, limited(self.Files, n))
+        
+    def skip(self, n):
+        if n == 0:  return self
+        return DBFileSet(self.DB, skipped(self.Files, n))
+        
+    def stride(self, n, i=0):
+        return DBFileSet(self.DB, strided(self.Files, n, i))
         
     @staticmethod
     def from_tuples(db, g):
@@ -123,7 +141,7 @@ class DBFileSet(object):
         return DBFileSet.from_tuples(db, selected)
         
     def __iter__(self):
-        return limited(self.Files, self.Limit)
+        return self.Files
                         
     def as_list(self):
         # list(DBFileSet) should work too
@@ -230,6 +248,10 @@ class DBFileSet(object):
             print("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
         limit = basic_file_query.Limit
         limit = "" if limit is None else f"limit {limit}"
+        offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
+        if Debug:
+            print("sql_for_basic_query: offset:", offset)
+            
         
         f = alias("f")
 
@@ -255,7 +277,7 @@ class DBFileSet(object):
                     select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
                         {meta_where_clause}
-                        {limit}
+                        {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """
         else:
@@ -276,7 +298,7 @@ class DBFileSet(object):
                                 selected_datasets.namespace = {fd}.dataset_namespace 
                                 and selected_datasets.name = {fd}.dataset_name 
                         {meta_where_clause}
-                        {limit}
+                        {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """
         if Debug:

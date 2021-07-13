@@ -84,12 +84,13 @@ class BasicFileQuery(object):
         self.Limit = None
         self.WithMeta = False       
         self.WithProvenance = False
-        
+        self.Skip = 0
         
     def __str__(self):
-        return "BasicFileQuery(selector:%s, limit:%s, %s meta, %s provenance)" % (self.DatasetSelector, self.Limit,
-            "with" if self.WithMeta else "without",
-            "with" if self.WithProvenance else "without",
+        return "BasicFileQuery(selector:%s, limit:%s, skip:%s, %smeta, %sprovenance)" % (self.DatasetSelector, 
+            self.Limit, self.Skip,
+            "+" if self.WithMeta else "-",
+            "+" if self.WithProvenance else "-",
             )
         
     def _pretty(self, indent="", headline_indent=None):
@@ -97,7 +98,7 @@ class BasicFileQuery(object):
         if headline_indent is None: headline_indent = indent
         lines = ["%s%s" % (headline_indent, self)]
         if self.Wheres is not None:
-            lines += self.Wheres._pretty(indent + ". ", headline_indent = indent + ". where: ")
+            lines += self.Wheres._pretty(indent + "| ", headline_indent = indent + "| where=")
         return lines
 
     def pretty(self, indent=""):
@@ -120,6 +121,11 @@ class BasicFileQuery(object):
     def addLimit(self, limit):
         if self.Limit is None:   self.Limit = limit
         else:   self.Limit = min(self.Limit, limit)
+        
+    def addSkip(self, nskip):
+        if self.Limit is not None:
+            raise ValueError("Query already has limit")
+        self.Skip += nskip
         
     def apply_params(self, params):
         if self.DatasetSelector is not None:
@@ -197,7 +203,7 @@ class FileQuery(object):
             self.Assembled = self.Tree
         return self.Assembled
         
-    def optimize(self, debug=False):
+    def optimize(self, debug=False, default_namespace=None, skip=0, limit=None):
         #print("Query.optimize: entry")
         assert self.Assembled is not None
         if self.Optimized is None:
@@ -210,16 +216,30 @@ class FileQuery(object):
             if debug:
                 print("Query.optimize: after _MetaExpPusher:----")
                 print(optimized.pretty("    "))
-            
-            #optimized = _ProvenancePusher().walk(optimized, None)
-            #if debug:
-            #    print("Query.optimize: after _ProvenancePusher:----")
-            #    print(optimized.pretty("    "))
 
+            optimized = _SkipLimitApplier().walk(optimized, (skip, limit))
+            if debug:
+                print("Query.optimize: after 1st _SkipLimitApplier:----")
+                print(optimized.pretty("    "))
+                
+            optimized = _RemoveEmpty().walk(optimized, debug)
+            if debug:
+                print("Query.optimize: after _RemoveEmpty:----")
+                print(optimized.pretty("    "))
+            
+            optimized = _SkipLimitApplier().walk(optimized)
+            if debug:
+                print("Query.optimize: after 2nd _SkipLimitApplier:----")
+                print(optimized.pretty("    "))
+            
+            if default_namespace is not None:
+                optimized = _WithParamsApplier().walk(optimized, {"namespace":default_namespace})
+                
+                
             self.Optimized = optimized
         return self.Optimized
 
-    def run(self, db, filters={}, limit=None, with_meta=True, with_provenance=True, default_namespace=None, debug=False):
+    def run(self, db, filters={}, skip=0, limit=None, with_meta=True, with_provenance=True, default_namespace=None, debug=False):
         #print("Query.run: DefaultNamespace:", self.DefaultNamespace)
         
         #print("assemble()...")
@@ -227,17 +247,8 @@ class FileQuery(object):
         #print("Query.run: assemled:", self.Assembled.pretty())
         
         #print("optimize()...")
-        optimized = self.optimize(debug=debug)
+        optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
         #print("Query.run: optimized: ----\n", optimized.pretty())
-        
-        if default_namespace is not None:
-            optimized = _WithParamsApplier().walk(optimized, {"namespace":default_namespace})
-        
-        #print("starting _LimitApplier...")
-        optimized = _QueryLimitApplier().walk(optimized, limit)
-        if debug:
-            print("after _QueryLimitApplier:", optimized.pretty())
-        
         
         optimized = _QueryOptionsApplier().walk(optimized, 
             dict(
@@ -306,6 +317,26 @@ class _Converter(Transformer):
             child["limit"] = limit
         return Node("limit", [child], limit = limit)
         #return Node("file_query", [args[0]], meta = {"limit":int(args[1].value)})
+        
+    def limit(self, args):
+        assert len(args) == 2
+        child = args[0]
+        limit = int(args[1])
+        return Node("limit", [args[0]], limit=limit)
+
+    def skip(self, args):
+        assert len(args) == 2
+        skip=int(args[1])
+        if skip == 0:   return args[0]
+        else:   return Node("skip", [args[0]], skip=skip)
+
+    def stride(self, args):
+        assert len(args) in (2,3)
+        q, n = args[:2]
+        n, i = int(n), 0
+        if len(args) == 3:
+            i = int(args[2])
+        return Node("stride", [args[0]], stride=(n, i))
 
     def meta_filter(self, args):
         q, meta_exp = args
@@ -331,7 +362,7 @@ class _Converter(Transformer):
         #print("datasets_selector: having_exp:", having_exp.pretty("    "))
         ds = DatasetSelector(spec_list, with_children, recursively, having_exp)
         return Node("datasets_selector", selector = ds)
-
+        
     def basic_file_query(self, args):
         assert len(args) == 0 or len(args) == 1 and args[0].T == "datasets_selector"
         dataset_selector = args[0]["selector"] if args else None
@@ -671,6 +702,132 @@ class _WithParamsApplier(Descender):
             if node["namespace"] is None:   node["namespace"] = params.get("namespace")
         return node
         
+class _SkipLimitApplier(Descender):
+    #
+    # Optimize skip/limit: combine them if in the right order, push them into BFQs when possible
+    #
+    
+    #def skip(self, node, skip_limit):
+    #    skip, limit = skip_limit
+    #    node_skip = node["skip"]
+    #    return self.walk(node.C[0], (skip+node_skip, limit))
+    
+    def walk(self, node, skip_walk=(0, None)):
+        return Descender.walk(self, node, skip_walk)
+    
+    def combine_limits(self, l1, l2):
+        if l1 is None:  return l2
+        if l2 is None:  return l1
+        return min(l1, l2)
+
+    def skip_limit(self, node, skip_limit):
+        #print("_SkipLimitApplier: skip_limit: args:", skip_limit)
+        skip, limit = skip_limit
+        node_skip = node.get("skip", 0) 
+        node_limit = node.get("limit")
+        print("                               node:", node_skip, node_limit)
+        combine = False
+        combined_skip = skip + node_skip
+        if node_limit is None:
+            combined_limit = limit
+            combine = True
+        else:
+            if node_limit <= skip:
+                print("                             -> empty")
+                return Node("empty")
+            combined_limit = self.combine_limits(node_limit-skip, limit)
+            combine = True
+
+        if combine:
+            #print("                             -> combined to", combined_skip, combined_limit)
+            return self.walk(node.C[0], (combined_skip, combined_limit))
+        else:
+            #print("                             using default")
+            return self._default(node, skip_limit)
+            
+    limit = skip_limit
+    skip = skip_limit
+        
+    def basic_file_query(self, node, skip_limit):
+        query = node["query"]
+        #print("_SkipLimitApplier: applying skip_limit", skip_limit, " to BFQ:", query)
+        skip, limit = skip_limit
+        try:
+            if skip:
+                query.addSkip(skip)
+            if limit is not None:
+                query.addLimit(limit)
+            return node
+        except Exception as e:
+            #print("   ", e)
+            return self._default(node, skip_limit)
+
+    def union(self, node, skip_limit):
+        #print("_SkipLimitApplier: skip_limit:", skip_limit, "  children:", node.C)
+        skip, limit = skip_limit
+        if limit or skip:
+            return Node("skip_limit", 
+                [Node("union", 
+                    [self.walk(c) for c in node.C]
+                    )
+                ], limit=limit, skip=skip)     # skip is 0 here
+        else:
+            return Node("union", 
+                    [self.walk(c) for c in node.C]
+                    )
+                
+        
+    def filter(self, node, skip_limit):
+        skip, limit = skip_limit
+        return Node("filter", [self.walk(c) for c in node.C], limit=limit, skip=skip)
+
+    def file_list(self, node, skip_limit):
+        skip, limit = skip_limit
+        node["limit"] = limit
+        node["skip"] = skip
+        return node
+    
+    def empty(self, node, skip_limit):
+        return node
+        
+    def _default(self, node, skip_limit):
+        #print("_LimitApplier._default: node:", node.pretty())
+        if skip_limit is None:
+            return node
+        skip, limit = skip_limit
+        return Node("skip_limit", [self.walk(node)], limit=limit, skip=skip)
+        
+class _RemoveEmpty(Ascender):
+    
+    def union(self, node, *children):
+        children = [c for c in children if c.T != "empty"]
+        #print("_RemoveEmpty.union: filtered children:", children)
+        if not children:
+            return Node("empty")
+        elif len(children) == 1:
+            #print("         returning:", children[0])
+            return children[0]
+        else:
+            return Node("union", children)
+
+    def join(self, node, *children):
+        if any(c.T == "empty" for c in children):
+            return Node("empty")
+        else:
+            return node
+            
+    def minus(self, node, left, right):
+        if right.T == "empty" or left.T == "empty":
+            return left
+        else:
+            return node
+            
+    def skip_limit(self, node, child, skip=0, limit=None):
+        if child.T == "empty":
+            return child
+        else:
+            return node
+            
 class _QueryLimitApplier(Descender):
     
     def limit(self, node, limit):
@@ -737,7 +894,7 @@ class _QueryOptionsApplier(Descender):
         return self.visit_children(node, new_params)
 
     def parents_of(self, node, params):
-        print("_QueryOptionsApplier.parents_of/children_of: params:", params)
+        #print("_QueryOptionsApplier.parents_of/children_of: params:", params)
         node["with_provenance"] = params.get("with_provenance", False)
         node["with_meta"] = params.get("with_meta", False)
         new_params = params.copy()
@@ -831,65 +988,6 @@ class _DatasetEvaluator(Ascender):
         #print("_DatasetEvaluator.datasets_selector: out:", out)
         return out
         
-class _FileEvaluator(Ascender):
-
-    def __init__(self, db, filters, with_meta, limit):
-        Ascender.__init__(self)
-        self.Filters = filters
-        self.DB = db
-        self.WithMeta = with_meta
-        self.Limit = limit
-        
-    def file_query(self, node, query, limit=None):
-        return query if limit is None else limited(query, limit)
-        
-    def meta_filter(self, node, files=None, meta_exp=None):
-        #print("meta_filter: args:", args)
-        evaluator = MetaEvaluator()
-        if meta_exp is not None:
-            out = []
-            for f in files:
-                if evaluator(f.metadata(), meta_exp):
-                    out.append(f)
-            return DBFileSet(self.DB, out)
-            return DBFileSet(self.DB, (f for f in files if evaluator(f.metadata(), meta_exp)))
-        else:
-            return files
-
-    def parents_of(self, node, files):
-        return files.parents(with_metadata=True)
-
-    def children_of(self, node, files):
-        return files.children(with_metadata=True)
-
-    def limit(self, node, files, limit=None):
-        #print("FileEvaluator.limit(): args:", args)
-        assert isinstance(files, DBFileSet)
-        return files if limit is None else files.limit(limit)
-            
-    def basic_file_query(self, node, *args, query=None):
-        assert isinstance(query, BasicFileQuery)
-        #print("_FileEvaluator:basic_file_query: query:", query.pretty())
-        #print("FileEvaluator.basic_file_query: query.WithMeta:", query.WithMeta)
-        return DBFileSet.from_basic_query(self.DB, query, self.WithMeta or query.WithMeta, self.Limit)
-        
-    def union(self, node, *args):
-        #print("Evaluator.union: args:", args)
-        return DBFileSet.union(self.DB, args)
-        
-    def join(self, node, *args):
-        return DBFileSet.join(self.DB, args)
-        
-    def minus(self, node, left, right):
-        assert isinstance(left, DBFileSet)
-        assert isinstance(right, DBFileSet)
-        return left - right
-
-    def filter(self, node, *queries, name=None, params=[]):
-        #print("Evaluator.filter: inputs:", inputs)
-        assert name is not None
-        filter_function = self.Filters[name]
-        return DBFileSet(self.DB, filter_function(queries, params))
         
 def parse_query(text, debug=False):
     # remove comments
