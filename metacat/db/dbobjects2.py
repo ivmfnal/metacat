@@ -3,7 +3,7 @@ from metacat.util import to_bytes, to_str, epoch
 from metacat.util.authenticators import authenticator
 from psycopg2 import IntegrityError
 
-Debug = True
+Debug = False
 
 def debug(*parts):
     if Debug:

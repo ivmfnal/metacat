@@ -644,9 +644,9 @@ class _Assembler(Ascender):
         self.DB = db
         self.DefaultNamespace = default_namespace
         
-    def walk(self, inp):
+    def ____walk(self, inp, debug=False):
         #print("_Assembler.walk(): in:", inp.pretty() if isinstance(inp, Node) else repr(inp))
-        out = Ascender.walk(self, inp)
+        out = Ascender.walk(self, inp, debug)
         #print("_Assembler.walk(): out:", out.pretty() if isinstance(out, Node) else repr(out))
         return out
         
@@ -725,7 +725,7 @@ class _SkipLimitApplier(Descender):
         skip, limit = skip_limit
         node_skip = node.get("skip", 0) 
         node_limit = node.get("limit")
-        print("                               node:", node_skip, node_limit)
+        #print("                               node:", node_skip, node_limit)
         combine = False
         combined_skip = skip + node_skip
         if node_limit is None:
@@ -733,7 +733,7 @@ class _SkipLimitApplier(Descender):
             combine = True
         else:
             if node_limit <= skip:
-                print("                             -> empty")
+                #print("                             -> empty")
                 return Node("empty")
             combined_limit = self.combine_limits(node_limit-skip, limit)
             combine = True
