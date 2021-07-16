@@ -141,7 +141,10 @@ class DBFileSet(object):
         return DBFileSet.from_tuples(db, selected)
         
     def __iter__(self):
-        return self.Files
+        if isinstance(self.Files, list):
+            return (f for f in self.Files)
+        else:
+            return self.Files
                         
     def as_list(self):
         # list(DBFileSet) should work too
