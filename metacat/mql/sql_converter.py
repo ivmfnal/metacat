@@ -20,8 +20,8 @@ class SQLConverter(Ascender):
         return f"{t}.id, {t}.namespace, {t}.name, {meta}, {t}.creator, {t}.created_timestamp, {t}.size, {t}.checksums, {parents}, {children}"
         
     def debug(self, *params, **args):
-        parts = ["SQLConverter:"]+list(params)
         if self.Debug:
+            parts = ["SQLConverter:"]+list(params)
             print(*parts, **args)
             
     def convert(self, tree):
@@ -39,7 +39,7 @@ class SQLConverter(Ascender):
         elif node.T == "empty":
             file_set = DBFileSet(self.DB)
         else:
-            print(node)
+            #print(node)
             file_set = node["file_set"]
         return file_set
         
@@ -47,6 +47,9 @@ class SQLConverter(Ascender):
     #
     # Tree node methods
     #
+    
+    def empty(self, node, *args):
+        return DBFileSet(self.DB)
         
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
         #print("meta_filter: args:", args)
