@@ -49,7 +49,7 @@ class SQLConverter(Ascender):
     #
     
     def empty(self, node, *args):
-        return DBFileSet(self.DB)
+        return Node("file_set", file_set=DBFileSet(self.DB))    # empty file set
         
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
         #print("meta_filter: args:", args)
