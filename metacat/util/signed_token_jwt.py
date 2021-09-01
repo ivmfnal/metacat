@@ -26,7 +26,7 @@ class SignedToken(object):
     @staticmethod   
     def from_bytes(encoded):
         payload = jwt.decode(encoded, options={"verify_signature":False})
-        tid = payload.get("tid")
+        tid = payload.get("jti") or payload.get("tid")
         exp = payload.get("exp")
         sub = payload.get("sub")
         iat = payload.get("iat")
@@ -46,10 +46,11 @@ class SignedToken(object):
         payload = {}
         payload.update(self.Payload)
         payload["iat"] = self.IssuedAt
+        payload["iss"] = "metacat"
         if self.Expiration is not None: payload["exp"] = self.Expiration
         if self.NotBefore is not None: payload["nbf"] = self.NotBefore
         if self.Subject is not None: payload["sub"] = self.Subject
-        if self.TID: payload["tid"] = self.TID
+        if self.TID: payload["jti"] = self.TID
         encoded = jwt.encode(payload, 
             key if private_key is None else private_key,
             algorithm="HS256" if private_key is None else "RS256"
