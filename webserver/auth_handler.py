@@ -1,5 +1,5 @@
 from webpie import Response, WPApp
-from metacat.util import to_str, to_bytes, SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
+from metacat.util import digest_server, to_str, to_bytes, SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
 from metacat import Version
 from metacat.db import DBUser
 from urllib.parse import quote_plus, unquote_plus
@@ -32,7 +32,6 @@ class AuthHandler(BaseHandler):
         return self.App.encoded_token_from_request(request)+"\n"
         
     def _auth_digest(self, request_env, redirect):
-        from metacat.util import digest_server
         # give them cookie with the signed token
         
         ok, data = digest_server("metadata", request_env, self.App.get_digest_password)
