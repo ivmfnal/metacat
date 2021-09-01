@@ -883,8 +883,8 @@ class MetaExpressionDNF(object):
                 negate = exp["neg"]
                 aname = arg["name"]
                 if not '.' in aname:
-                    assert arg.T == "scalar"
-                    assert aname in DBFile.ColumnAttributes
+                    assert arg.T == "scalar", f"File attribute {aname} value must be a scalar. Got {arg.T} instead"
+                    assert aname in DBFile.ColumnAttributes, f"Unrecognized file attribute {aname}"
                     
                 if arg.T == "array_subscript":
                     # a[i] = x
