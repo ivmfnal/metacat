@@ -1156,8 +1156,6 @@ class DBDataset(object):
             f.CreatedTimestamp = created_timestamp
             yield f
         
-        
-        
     @staticmethod
     def get(db, namespace, name):
         c = db.cursor()

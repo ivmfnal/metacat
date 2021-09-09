@@ -96,7 +96,7 @@ def do_query(server_url, args):
             if "--ids" in opts or "-i" in opts:
                 print("%s%s" % (f["fid"],meta_out))
             else:
-                print("%s%s" % (f["name"],meta_out))
+                print("%s:%s%s" % (f["namespace"], f["name"], meta_out))
         
                 
     

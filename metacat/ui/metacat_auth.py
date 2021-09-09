@@ -20,7 +20,8 @@ Usage:
         whoami [-t <token file>]                        - verify and show token
         mydn [-i] -c <cert or proxy file> [-k <private key file>]  - print my X.509 subject DN
                 -i prints the issuer DN instead
-        token [-o <token file>]                         - export token
+        export [-o <token file>]                        - export token
+        import [-i <token file>] [-s <server_url>]      - import token and use it for new server
         list                                            - list tokens
 """
 
@@ -46,7 +47,8 @@ def time_delta(dt):
 def do_list(client, args):
     tl = client.TokenLib
     now = time.time()
-    lst = [(token.TID, url, token["user"], time.ctime(token.Expiration), time_delta(token.Expiration - now)) for url, token in tl.items()
+    lst = [(token.TID, url, token["user"], time.ctime(token.Expiration), time_delta(token.Expiration - now)) 
+                        for url, token in tl.items()
                         if token.Expiration is None or token.Expiration > time.time()]
     max_tid, max_url, max_user, max_exp = len("Token id"), len("Server URL"), len("User"), len("Expiration")
     for tid, url, user, et, delta in lst:
@@ -113,7 +115,7 @@ def do_login(client, args):
     print ("User:   ", user)
     print ("Expires:", time.ctime(expiration))
     
-def do_token(client, args):
+def do_export(client, args):
     opts, args = getopt.getopt(args, "o:")
     opts = dict(opts)
     
@@ -132,6 +134,16 @@ def do_token(client, args):
     else:
         print(to_str(token.encode()))
         
+def do_import(client, args):
+    opts, args = getopt.getopt(args, "i:s:")
+    opts = dict(opts)
+
+    target_server_url = opts.get("-s", client.ServerURL)
+    inp_file = open(opts["-i"], "r") if "-i" in opts else sys.stdin
+    token = inp_file.read().strip()
+    
+    tl = client.TokenLib
+    tl[target_server_url] = token
     
 def do_auth(server_url, auth_server_url, args):
     if not args:
@@ -145,6 +157,7 @@ def do_auth(server_url, auth_server_url, args):
         "login":        do_login,
         "whoami":       do_whoami,
         "mydn":         do_mydn,
-        "token":        do_token
+        "export":       do_export,
+        "import":       do_import
     }[command](client, args[1:])
 

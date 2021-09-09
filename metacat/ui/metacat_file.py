@@ -7,9 +7,13 @@ Show file info:
 
     show <options> <namespace>:<name>
     show <options> -i <file id>
-        -m|--meta-only  - metadata only
-        -j|--json       - as JSON
-        -p|--pretty     - pretty-print information
+        -m|--meta-only            - metadata only
+        -j|--json                 - as JSON
+        -p|--pretty               - pretty-print information
+        -l|--lineage|--provenance (p|c)        - parents or children instead of the file itself
+        -n|--name-only            - print namespace:name only
+        -I|--ids-only             - for parents and children, print file IDs only
+        
     
 Declare new files:
 
@@ -128,7 +132,7 @@ def do_declare(client, args):
 
 
 def do_show(client, args):
-    opts, args = getopt.getopt(args, "jmpi:", ["json","meta-only","pretty"])
+    opts, args = getopt.getopt(args, "jmpi:l:In", ["json","meta-only","pretty","names-only","lineage","provenance","ids"])
     opts = dict(opts)
     
     if not args:
@@ -143,9 +147,12 @@ def do_show(client, args):
 
     #print("opts:", opts,"    args:", args)
     
-    meta_only = "--meta-only" in opts or "-m" in opts
     as_json = "--json" in opts or "-j" in opts
     pretty = "-p" in opts or "--pretty" in opts
+    provenance = opts.get("-l") or opts.get("--lineage") or opts.get("--provenance")
+    names_only = "--names-only" in opts or "-n" in opts
+    ids_only = "--ids-only" in opts or "-I" in opts
+    meta_only = "--meta-only" in opts or "-m" in opts
     
     name = fid = None
     
@@ -154,21 +161,37 @@ def do_show(client, args):
     else:
         fid = opts["-i"]
 
-    data = client.get_file(name=name, fid=fid)
-    
-    if meta_only:
-        data = data.get("metadata", {})
-    if pretty:
-        pprint.pprint(data)
-    elif as_json:
-        print(json.dumps(data))
+    data = client.get_file(name=name, fid=fid, with_provenance=True)
+    if provenance:
+        ids = data["parents"] if provenance == "p" else data["children"]
+        if ids:
+            lst = [dict(fid=fid) for fid in ids]
+            related = client.get_files(lst)
+            if as_json:
+                print(json.dumps(related))
+            elif pretty:
+                pprint.pprint(related)
+            else:
+                for f in related:
+                    if ids_only:
+                        print(f["fid"])
+                    else:
+                        print("%(namespace)s:%(name)s" % f)
     else:
-        for k, v in sorted(data.items()):
-            if k != "metadata":
-                print("%-15s:\t%s" % (k, v))
-        if "metadata" in data:
-            print("%-15s:\t" % ("metadata",), end="")
-            pprint.pprint(data["metadata"])
+        if meta_only:
+            data = data.get("metadata", {})
+        if pretty:
+            pprint.pprint(data)
+        elif as_json:
+            print(json.dumps(data))
+        else:
+            for k, v in sorted(data.items()):
+                if k != "metadata":
+                    print("%-15s:\t%s" % (k, v))
+            if "metadata" in data:
+                print("%-15s:\t" % ("metadata",), end="")
+                pprint.pprint(data["metadata"])
+
 _update_smaple = [
     {        
         "name":"test:file1.dat",
@@ -279,8 +302,6 @@ def do_add(client, args):
     namespace = opts.get("-N") or opts.get("--namespace")
     out = client.add_files(dataset, file_list, namespace=namespace)
     print(out)
-
-
 
 def do_file(server_url, args):
     if not args:

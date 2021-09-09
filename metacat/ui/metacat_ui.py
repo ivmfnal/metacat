@@ -16,7 +16,7 @@ Usage:
     Server host:port can also be specified using environment variables METACAT_SERVER_URL and METACAT_AUTH_SERVER_URL
     
     Commands are:
-        auth       login, whoami, list, token, mydn
+        auth       login, whoami, list, mydn, export, import
         dataset    create, update, list, show
         namespace  create, list, show
         file       declare, update, show, add
