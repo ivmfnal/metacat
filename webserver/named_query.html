@@ -44,9 +44,9 @@
 		</td>
 	</tr>
 	<tr>
-		<th>Source</th>
+		<th>Query</th>
 		<td>	{% if edit or create %}
-				<textarea name="source" cols=80 rows=10>{% if not create %}{{query.Source}}{% endif %}</textarea>
+				<textarea name="text" cols=80 rows=10>{% if not create %}{{query.Source}}{% endif %}</textarea>
 			{% else %}
 				<pre class="source">{{query.Source}}</pre>
 			{% endif %}
