@@ -30,6 +30,9 @@ class RootHandler(WPHandler):
     def index(self, req, relpath, **args):
         return self.redirect("./gui/index")
         
+    def version(self, req, relpath, **args):
+        return Version
+        
 class App(WPApp):
 
     Version = Version
