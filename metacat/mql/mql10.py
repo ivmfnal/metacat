@@ -533,6 +533,16 @@ class _Converter(Transformer):
         node = Node("cmp_op", [args[0], args[2]], op=args[1].value, neg=False)
         return self._convert_array_all(node)
         
+    def constant_in_array(self, args):
+        return Node("cmp_op",
+            [Node("array_any", name=args[1].value), args[0]], op="=", neg=False
+        )
+        
+    def constant_not_in_array(self, args):
+        return Node("cmp_op",
+            [Node("array_any", name=args[1].value), args[0]], op="=", neg=True
+        )
+        
     def in_range(self, args):
         assert len(args) == 3 and args[1].T in ("string", "int", "float") and args[2].T in ("string", "int", "float")
         assert args[1].T == args[2].T, "Range ends must be of the same type"

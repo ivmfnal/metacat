@@ -186,7 +186,32 @@ class Visitor(object):	# deprecated
     def _default(self, node, context):
         return True
         
-class Descender(object):
+class Traveler(object):
+
+    def indent(self, text, rel_level=0, level=None, pad='  ', indent=None):
+        if level is None:
+            level = self.WalkLevel+rel_level          # concrete subclass must set it
+        if indent is None:
+            indent = level * pad
+        min_indent = None
+        lines = text.split("\n")
+        for line in lines:
+            if line:
+                line = line.expandtabs()
+                l = len(line) - len(line.lstrip())
+                if min_indent is None or l < min_indent:
+                    min_indent = l
+        #print("min_indent:", min_indent)
+        if min_indent:
+            out_lines = []
+            for line in lines:
+                out_lines.append(indent + line[min_indent:])
+                #print(f"line -> [{line}]")
+            text = '\n'.join(out_lines)
+        return text
+
+
+class Descender(Traveler):
 
     #
     # Descends nodes top to bottom, possibly replacing them
@@ -195,64 +220,86 @@ class Descender(object):
     # Default method does visit children
     #
 
-    def walk(self, node, context=None):
+    def walk(self, tree, context=None, level=0):
+        self.WalkLevel = level
+        try:
+            return self._walk(tree, context)
+        finally:
+            self.WalkLevel = level
 
-        if not isinstance(node, Node):
-            return node
+    def _walk(self, node, context=None):
+        self.WalkLevel += 1
+        try:
+            if not isinstance(node, Node):
+                return node
 
-        node_type = node.T
+            node_type = node.T
         
-        if hasattr(self, node_type):
-            method = getattr(self, node_type)
-            new_node = method(node, context)
-        else:
-            new_node = self._default(node, context)
+            if hasattr(self, node_type):
+                method = getattr(self, node_type)
+                new_node = method(node, context)
+            else:
+                new_node = self._default(node, context)
 
-        if new_node is None:
-            new_node = node
+            if new_node is None:
+                new_node = node
 
-        return new_node
+            return new_node
+
+        finally:
+            self.WalkLevel -= 1
 
     def visit_children(self, node, context):
         node.C = [self.walk(c, context) for c in node.C]
         node.D = {
-            key:self.walk(n, context)
+            key:self._walk(n, context)
             for key, n in node.D.items()
         }
         return node
-        
+
     def _default(self, node, context):
         #print("Descender._default: node:", node.pretty())
         return self.visit_children(node, context)
         
-class Ascender(object):
+class Ascender(Traveler):
+    
+    def walk(self, tree, debug=False, level=0):
+        self.WalkLevel = level
+        try:
+            return self._walk(tree, debug)
+        finally:
+            self.WalkLevel = level
+            
+    def _walk(self, node, debug=False):
+        self.WalkLevel += 1
+        try:
+            if not isinstance(node, Node):
+                return node
+            node_type, children = node.T, node.C
+            assert isinstance(node_type, str)
 
-    def walk(self, node, debug=False):
-        if not isinstance(node, Node):
-            return node
-        node_type, children = node.T, node.C
-        assert isinstance(node_type, str)
+            method = self._default
+            pass_node = False
 
-        method = self._default
-        pass_node = False
-
-        if hasattr(self, node_type):
-            method = getattr(self, node_type)
-            if hasattr(method, "__pass_node__") and getattr(method, "__pass_node__"):
-                pass_node = True
+            if hasattr(self, node_type):
+                method = getattr(self, node_type)
+                if hasattr(method, "__pass_node__") and getattr(method, "__pass_node__"):
+                    pass_node = True
         
-        if pass_node:
-            out = method(node)
-        else:
-            named_children = {
-                name:(self.walk(c, debug) if isinstance(c, Node) else c) 
-                for name, c in node.D.items()
-            }
-            node.C = children = [self.walk(c, debug) for c in children]
-            out = method(node, *children, **named_children)
-            if debug:
-                me = self.__class__.__name__
-                print(f"{me}: method {node_type} returned:", out.pretty("      "))
+            if pass_node:
+                out = method(node)
+            else:
+                named_children = {
+                    name:(self.walk(c, debug) if isinstance(c, Node) else c) 
+                    for name, c in node.D.items()
+                }
+                node.C = children = [self._walk(c, debug) for c in children]
+                out = method(node, *children, **named_children)
+                if debug:
+                    me = self.__class__.__name__
+                    print(f"{me}: method {node_type} returned:", out.pretty("      "))
+        finally:
+            self.WalkLevel -= 1
         return out
         
     def _default(self, node, *children, **named):

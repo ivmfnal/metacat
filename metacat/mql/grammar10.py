@@ -64,6 +64,8 @@ meta_and:   term_meta ( "and" term_meta )*
     | scalar "not" "in" "(" constant_list ")"       -> not_in_set
     | ANAME "present"?                              -> present                   
     | ANAME "not" "present"                         -> not_present                   
+    | constant "in" ANAME                           -> constant_in_array
+    | constant "not" "in" ANAME                     -> constant_not_in_array
     | "(" meta_exp ")"                              
     | "!" term_meta                                 -> meta_not
 
