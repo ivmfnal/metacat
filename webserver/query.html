@@ -123,11 +123,45 @@
     </p>
 
     {% if meta_stats %}
+        <script type="text/javascript">
+            var values_shown = {};
+        </script>
+    
         <h3><a href="javascript:toggle_meta_stats()" id="meta_stats_toggle" class="button">+</a>&nbsp;&nbsp;&nbsp;Metadata values distribution</h3>
         <table class="file_metadata" id="meta_stats_table" style="display:none; visibility:hidden">
             <tr>
-                <th>Attribute</th><th>Value</th><th>Count</th>
+                <th>Attribute</th><th>Values</th>
             </tr>
+            {% for name, counts in meta_stats %}
+                    {% set nvals = counts|length %}
+                    <tr>
+                        <td class="attr_name">{{name}}</td>
+                        <td class="attr_value"><a href="javascript:toggle_values('{{name}}')" id="values_toggle_{{name}}" class="button">+</a>
+                            <span id="value_count_{{name}}">{{nvals}} values</span>
+                            <!-- <span id="value_table_{{name}}" style="display:none; visibility:hidden">
+                                {% for v, c in counts %}
+                                    {{v}}<span class="value_count">: {{c}}</span>
+                                {% endfor %}
+                            </span>
+                            -->
+                                <table id="value_table_{{name}}" style="display:none; visibility:hidden">
+                                {% for v, c in counts %}
+                                    {{ loop.cycle("<tr>", "", "", "", "", "", "", "", "", "") }}
+                                        <td class="attr_value">{{v}}</td><td class="attr_count">{{c}}</td>
+                                    {{ loop.cycle("", "", "", "", "", "", "", "", "", "</tr>") }}
+                                    {% if loop.last %}
+                                        {{ loop.cycle("</tr>", "</tr>", "</tr>", "</tr>", "</tr>", "</tr>", "</tr>", "</tr>", "</tr>", "") }}
+                                    {% endif %}
+                                {% endfor %}
+                                </table>
+                        </td>
+                    </tr>
+                    <script type="text/javascript">
+                        values_shown["{{name}}"] = false;
+                    </script>
+            {% endfor %}
+            <!-- 
+            {# saved ---
             {% for name, counts in meta_stats %}
                 {% for v, c in counts %}
                     <tr>
@@ -136,6 +170,8 @@
                     </tr>
                 {% endfor %}
             {% endfor %}
+            --- saved #}
+            -->
         </table>
         
         <script type="text/javascript">
@@ -158,6 +194,32 @@
                     t.style.display = "";
                     b.innerHTML = "-";
                     meta_stats_shown=true;
+                }
+            }
+
+            function toggle_values(name)
+            {
+                var count_span = document.getElementById("value_count_"+name);
+                var table_span = document.getElementById("value_table_"+name);
+                var toggle = document.getElementById("values_toggle_"+name);
+
+                if (values_shown[name])
+                {
+                    table_span.style.visibility = "hidden";
+                    table_span.style.display = "none";
+                    count_span.style.visibility = "visible";
+                    count_span.style.display = "";
+                    toggle.innerHTML = "+";
+                    values_shown[name]=false;
+                }
+                else
+                {
+                    count_span.style.visibility = "hidden";
+                    count_span.style.display = "none";
+                    table_span.style.visibility = "visible";
+                    table_span.style.display = "";
+                    toggle.innerHTML = "-";
+                    values_shown[name]=true;
                 }
             }
         </script>
