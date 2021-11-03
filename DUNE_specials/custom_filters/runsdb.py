@@ -19,8 +19,8 @@ class RunsDB(MetaCatFilter):
         assert len(inputs) == 1
 
         filter = "" 
-        if daq_inter_version:
-            filter += f" and daqinterface_commit='{daq_inter_version}' "
+        if daqinterface_commit:
+            filter += f" and daqinterface_commit='{daqinterface_commit}' "
         if mode:
             filter += f" and mode='{mode}' "
 
