@@ -12,7 +12,7 @@ class RunsDB(MetaCatFilter):
         self.IncludeColumns = self.Config["columns"]
         self.MetaPrefix = self.Config.get("meta_prefix", "runs_history")
     
-    def filter(self, inputs, *params, daq_inter_version=None, mode=None, **ignore):
+    def filter(self, inputs, *params, daqinterface_commit=None, mode=None, **ignore):
         db = self.ConnPool.connect()
         cursor = db.cursor()
 
