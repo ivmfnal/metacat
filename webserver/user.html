@@ -8,17 +8,17 @@
 {% block headline %}
 	{% if mode=="create" %}
 		Create User
-	{% elif mode=="edit" %}
-		Edit user {{user.Username}} ({{user.Name}})
     {% else %}
-        User {{user.Username}} ({{user.Name}})
+		User profile {{user.Username}} ({{user.Name}})
 	{% endif %}
 {% endblock %}
 
 {% block content %}
 
-{% if its_me %}<p>my <a href="./my_token">token</a></p>
-{% endif %}
+{#
+    {% if its_me %}<p>my <a href="./my_token">token</a></p>
+    {% endif %}
+#}
 
 <form method=POST action="./save_user" id="the_form">
     
@@ -208,9 +208,29 @@
         
         
 	{% endif %}
+    
 </table>
-
 </form>
+
+{% if its_me %}
+    <form action="./generate_token" method="POST">
+        <table class="form">
+            <tr>
+                <th>Generate token</th>
+                <td>Expiration:&nbsp;<select name="token_expiration">
+                            <option value="180">30 minutes</option>
+                            <option value="{{6*3600}}">6 hours</option>
+                            <option value="{{24*3600}}" selected="selected">1 day</option>
+                            <option value="{{7*24*3600}}">1 week</option>
+                            <option value="{{30*24*3600}}">30 days</option>
+                            <option value="{{365*24*3600}}">365 days</option>
+                        </select>&nbsp;&nbsp;&nbsp;
+                        <input type="submit" value="Generate" name="generate_token"/>
+                </td>
+            </tr>
+        </table>
+    </form>
+{% endif %}
 
 {% endblock %}
 	

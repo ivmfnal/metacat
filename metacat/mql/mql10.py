@@ -480,7 +480,9 @@ class _Converter(Transformer):
         for q in queries:
             for bfq in q.find_all("basic_file_query"):
                 bfq["query"].WithMeta = True
-        return Node("filter", queries, name = name.value, params=params)
+        node = Node("filter", queries, name = name.value, params=params)
+        print("filter created:", node.pretty())
+        return node
         
     def scalar(self, args):
         (t,) = args
@@ -779,7 +781,10 @@ class _SkipLimitApplier(Descender):
         
     def filter(self, node, skip_limit):
         skip, limit = skip_limit
-        return Node("filter", [self.walk(c) for c in node.C], limit=limit, skip=skip)
+        node["limit"] = limit
+        node["skip"] = skip
+        node.C = [self.walk(c) for c in node.C]
+        return node
 
     def file_list(self, node, skip_limit):
         skip, limit = skip_limit

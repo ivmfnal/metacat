@@ -40,7 +40,8 @@ def implement_skip(filter):
 
 class MetaCatFilter(object):
 
-    def apply_selection(self, inp, skip, limit, stride):
+    def apply_selection(self, inp, skip, limit, stride=None):
+        # stride is not used
         stride_n = stride_i = None
         if stride is not None:
             stride_n, stride_i = stride
@@ -59,18 +60,11 @@ class MetaCatFilter(object):
                 if limit is not None:
                     limit -= 1
     
-    def run(self, inputs, params, limit=None, skip=None, stride=None):
+    def run(self, inputs, params, limit=None, skip=None):
         #
         # selection application order: skip -> limit -> stride
         #
-        if len(inputs) == 1:
-            # selections can be applied before the user code
-            inp = inputs[0]
-            yield from self.filter([self.apply_selection(inp, skip, limit, stride)], params)
-        else:
-            yield from self.apply_selection(self.filter(inputs, params), skip, limit, stride)
-                        
-        raise NotImplementedError()
+        yield from self.apply_selection(self.filter(inputs, params), skip, limit)
 
 class Sample(MetaCatFilter):
     
@@ -152,10 +146,10 @@ class Mix(MetaCatFilter):
                         sent = True
 
 standard_filters = {
-    "sample":       Sample,
-    "limit":        Limit,
-    "every_nth":    EveryNth,
-    "mix":          Mix,
-    "hash":         Hash
+    "sample":       Sample(),
+    "limit":        Limit(),
+    "every_nth":    EveryNth(),
+    "mix":          Mix(),
+    "hash":         Hash()
 }
             

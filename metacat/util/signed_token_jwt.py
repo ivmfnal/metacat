@@ -11,27 +11,46 @@ SignedTokenSignatureVerificationError = jwt.InvalidSignatureError
 
 class SignedToken(object):
     
-    def __init__(self, payload, issued_at=None, subject=None, expiration=None, not_before=None, tid=None):
-        self.TID = tid or uuid.uuid4().hex[-8:]
+    def __init__(self, payload={}, subject=None, expiration=None, issuer="metacat", **claims):
         self.Encoded = None
-        self.Payload = payload
-        self.Subject = subject
-        self.IssuedAt = time.time() if issued_at is None else issued_at
-        self.NotBefore = not_before if (not_before is None or not_before > 365*24*3600) else self.IssuedAt + not_before
-        self.Expiration = expiration if (expiration is None or expiration > 365*24*3600) else self.IssuedAt + expiration
-            
+        
+        now = time.time()
+        
+        self.Payload = {
+            "iat":  now,
+            "nbf":  now,
+            "sub":  subject,
+            "iss":  issuer,
+            "exp":  expiration if (expiration is None or expiration > 10*365*24*3600) else now + expiration,
+            "jti":  uuid.uuid4().hex[-8:]
+        }
+        self.Payload.update(claims)
+        self.Payload.update(payload)
+
+    @property
+    def expiration(self):
+        return self.Payload.get("exp")
+
+    @property
+    def issuer(self):
+        return self.Payload.get("iss")
+
+    @property
+    def subject(self):
+        return self.Payload.get("sub")
+
+    @property
+    def tid(self):
+        return self.Payload.get("jti")
+
     def __str__(self):
-        return "[SignedToken %s]" % (to_str(self.TID),)
+        return "[SignedToken %s]" % (to_str(self.tid),)
     
     @staticmethod   
     def from_bytes(encoded):
+        encoded = b"".join(to_bytes(encoded).split())   # convert to bytes and remove all white space
         payload = jwt.decode(encoded, options={"verify_signature":False})
-        tid = payload.get("jti") or payload.get("tid")
-        exp = payload.get("exp")
-        sub = payload.get("sub")
-        iat = payload.get("iat")
-        nbf = payload.get("nbf")
-        token = SignedToken(payload, issued_at=iat, subject=sub, expiration=exp, not_before=nbf, tid=tid)
+        token = SignedToken(payload=payload)
         token.Encoded = encoded
         return token
 
@@ -43,15 +62,7 @@ class SignedToken(object):
             else:
                 raise ValueError("Key is required")
         k = key or private_key
-        payload = {}
-        payload.update(self.Payload)
-        payload["iat"] = self.IssuedAt
-        payload["iss"] = "metacat"
-        if self.Expiration is not None: payload["exp"] = self.Expiration
-        if self.NotBefore is not None: payload["nbf"] = self.NotBefore
-        if self.Subject is not None: payload["sub"] = self.Subject
-        if self.TID: payload["jti"] = self.TID
-        encoded = jwt.encode(payload, 
+        encoded = jwt.encode(self.Payload, 
             key if private_key is None else private_key,
             algorithm="HS256" if private_key is None else "RS256"
         )
@@ -104,6 +115,7 @@ class SignedToken(object):
     def items(self):
         return self.Payload.items()
     
+    claims = items
 
         
 if __name__ == "__main__":

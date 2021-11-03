@@ -653,7 +653,7 @@ class MetaCatClient(HTTPClient):
         self.Token = token = SignedToken.decode(response.headers["X-Authentication-Token"])
         if self.TokenLib is not None:
             self.TokenLib[self.ServerURL] = token
-        return token["user"], token.Expiration
+        return token.subject, token.expiration
 
     def login_ldap(self, username, password):
         """Performs password-based authentication and stores the authentication token locally using LDAP.
@@ -683,7 +683,7 @@ class MetaCatClient(HTTPClient):
         self.Token = token = SignedToken.decode(response.headers["X-Authentication-Token"])
         if self.TokenLib is not None:
             self.TokenLib[self.ServerURL] = token
-        return token["user"], token.Expiration
+        return token.subject, token.expiration
         
     def login_password(self, username, password):
         user = None
@@ -734,7 +734,7 @@ class MetaCatClient(HTTPClient):
         self.Token = token = SignedToken.decode(response.headers["X-Authentication-Token"])
         if self.TokenLib is not None:
             self.TokenLib[self.ServerURL] = token
-        return token["user"], token.Expiration
+        return token.subject, token.expiration
 
     def auth_info(self):
         """Returns information about current authentication token.
@@ -758,8 +758,8 @@ class MetaCatClient(HTTPClient):
         response = requests.get(url, headers={
                 "X-Authentication-Token":token.encode()
         })
-        print("web_api.auth_info:", response.status_code, response.text)
+        #print("web_api.auth_info:", response.status_code, response.text)
         if response.status_code/100 == 2:
-            return token["user"], token.Expiration
+            return token.subject, token.expiration
         else:
             raise ServerError(url, response.status_code, "Verification failed")

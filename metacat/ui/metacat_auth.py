@@ -47,9 +47,9 @@ def time_delta(dt):
 def do_list(client, args):
     tl = client.TokenLib
     now = time.time()
-    lst = [(token.TID, url, token["user"], time.ctime(token.Expiration), time_delta(token.Expiration - now)) 
+    lst = [(token.tid, url, token.subject, time.ctime(token.expiration), time_delta(token.expiration - now)) 
                         for url, token in tl.items()
-                        if token.Expiration is None or token.Expiration > time.time()]
+                        if token.expiration is None or token.expiration > time.time()]
     max_tid, max_url, max_user, max_exp = len("Token id"), len("Server URL"), len("User"), len("Expiration")
     for tid, url, user, et, delta in lst:
         max_tid = max(len(tid), max_tid)
@@ -70,7 +70,7 @@ def do_whoami(client, args):
     user = None
     if "-t" in opts:
         token = SignedToken.from_bytes(open(opts["-t"], "rb").read())
-        user, expiration = token["user"], token.Expiration
+        user, expiration = token.subject, token.expiration
     else:
         try:    user, expiration = client.auth_info()
         except MCAuthenticationError as e:

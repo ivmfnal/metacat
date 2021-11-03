@@ -254,7 +254,7 @@ class SQLConverter(Ascender):
     def filter(self, node, *queries, name=None, params=[], **kv):
         #print("Evaluator.filter: inputs:", inputs)
         assert name is not None
-        filter_object = self.Filters[name]()
+        filter_object = self.Filters[name]
         queries = [self.node_to_file_set(q) for q in queries]
         limit = node.get("limit")
         skip = node.get("skip", 0)

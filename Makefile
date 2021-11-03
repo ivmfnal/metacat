@@ -10,22 +10,28 @@ UI_DIR=$(BUILD_DIR)/ui
 SERVER_TAR=$(TARDIR)/$(PRODUCT)_server_$(VERSION).tar
 
 all:
-	make VERSION=`python metacat/version.py` all_with_version_defined
+	echo Use "make dune" or "make generic"
 	
-clean:
-	make VERSION=`python metacat/version.py` clean_with_version_defined
+dune:
+	make VERSION=`python metacat/version.py` dune_with_version_defined
 
-clean_with_version_defined:
-	rm -rf $(BUILD_DIR) $(TAR_FILE)
+generic:
+	make VERSION=`python metacat/version.py` generic_with_version_defined
 
-all_with_version_defined:	tars
+dune_with_version_defined:	build dune_specifics
+	make VERSION=$(VERSION) tars
+	
+generic_with_version_defined:	build
+	make VERSION=$(VERSION) tars
 
-tars:   build $(TARDIR)
+tars:  $(TARDIR)
 	cd $(BUILD_DIR); tar cf $(SERVER_TAR) lib server docs
 	@echo \|
 	@echo \| tarfile is created: $(SERVER_TAR)
 	@echo \|
-	
+
+dune_specifics:
+	cd DUNE_specials; make SERVER_DIR=$(SERVER_DIR) build
 
 build:  clean $(BUILD_DIR) 
 	cd src; make LIBDIR=$(LIBDIR) VERSION=$(VERSION) build

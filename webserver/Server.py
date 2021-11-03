@@ -2,7 +2,7 @@ import yaml, os, getopt, sys
 
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
 from metacat.db import DBUser, DBRole
-
+from datetime import datetime
 #import webpie
 #print("webpie imported from:", webpie.__file__)
 
@@ -46,8 +46,18 @@ class App(WPApp):
         
         self.DB = ConnectionPool(postgres=connstr, max_idle_connections=3)
         from metacat.filters import standard_filters
-        self.Filters = standard_filters
-                
+
+        self.Filters = {}
+        self.Filters.update(standard_filters)
+
+        try:
+            from custom_filters import create_filters
+            custom_filters = create_filters(self.Cfg.get("custom_filters", {}))
+            print("Custom filters imported:", ",".join(custom_filters.keys()))
+            self.Filters.update(custom_filters)
+        except:
+            pass
+
         self.AuthConfig = cfg.get("authentication")
         secret = cfg.get("secret") 
         if secret is None:    self.TokenSecret = secrets.token_bytes(128)     # used to sign tokens
@@ -93,8 +103,12 @@ class App(WPApp):
         except Exception as e:
             return None, str(e)
         else:
-            return token.Payload.get("user"), None
-
+            return token.get("sub") or token.get("user"), None
+            
+    def generate_token(self, user, payload={}, expiration=None):
+        expiration = expiration or self.TokenExpiration
+        token = SignedToken(payload, subject=user, expiration=expiration)
+        return token, token.encode(self.TokenSecret)
 
     def encoded_token_from_request(self, request):
         encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
@@ -105,8 +119,7 @@ class App(WPApp):
 
     def response_with_auth_cookie(self, user, redirect):
         #print("response_with_auth_cookie: user:", user, "  redirect:", redirect)
-        token = SignedToken({"user": user}, expiration=self.TokenExpiration)
-        encoded = token.encode(self.TokenSecret)
+        _, encoded = self.generate_token(user, {"user": user})
         #print("Server.App.response_with_auth_cookie: new token created:", token.TID)
         if redirect:
             resp = Response(status=302, headers={"Location": redirect})
@@ -137,6 +150,20 @@ class App(WPApp):
     def filters(self):
         return self.Filters
         
+def as_dt_utc(t):
+    # datetim in UTC
+    if t is None:
+        return ""
+    dt = datetime.utcfromtimestamp(t)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+def as_dt_local(t):
+    # datetim in UTC
+    if t is None:
+        return ""
+    dt = datetime.fromtimestamp(t)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
 def create_application(config_file=None):
     config_file = config_file or os.environ.get("METACAT_SERVER_CFG")
     if not config_file:
@@ -152,6 +179,9 @@ def create_application(config_file=None):
         templdir = os.environ[templdir[1:]]
 
     application.initJinjaEnvironment(
+        filters={"as_dt_utc":as_dt_utc,
+            "as_dt_local":as_dt_local
+        },
         tempdirs=[templdir, "."],
         globals={
             "GLOBAL_Version": Version, 

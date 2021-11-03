@@ -20,7 +20,7 @@ class TokenBox(object):
                 t = SignedToken.decode(encoded)
                 self.Token = t
                 self.Encoded = encoded
-                self.Expiration = t.Expiration
+                self.Expiration = t.expiration
             else:
                 raise SignedTokenAuthoriztionError(body)
     

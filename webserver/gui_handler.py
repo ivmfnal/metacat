@@ -503,8 +503,6 @@ class GUIHandler(BaseHandler):
                 "Content-Type":"text/plain"
                 , "Content-Disposition":"attachment"
             }
-            
-            
         
     def create_user(self, request, relpath, error="", **args):
         db = self.App.connect()
@@ -559,7 +557,7 @@ class GUIHandler(BaseHandler):
                         dn_list.append(dn)
                         u.set_auth_info("x509", None, dn_list)
                         u.save()
-            else:
+            elif "remove_dn" in request.POST:
                 for k, v in request.POST.items():
                     if k.startswith("remove_dn:"):
                         dn = k.split(":",1)[-1]
@@ -575,6 +573,17 @@ class GUIHandler(BaseHandler):
                         
                                         
         self.redirect(f"./user?username={username}&message="+quote_plus("User updated"))
+
+    def generate_token(self, request, relpath, **args):
+        db = self.App.connect()
+        me = self.authenticated_user()
+        expiration = int(request.POST["token_expiration"])
+        token, encoded = self.App.generate_token(me.Username, expiration=expiration)
+        n = len(encoded)
+        encoded_lines = [encoded[i:i+64] for i in range(0, n, 64)]
+        #print(payload)
+        return self.render_to_response("show_token.html", user=me, token=token, encoded=encoded, encoded_lines=encoded_lines)
+
 #
 # --- namespaces
 #

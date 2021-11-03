@@ -106,6 +106,16 @@ class DBFileSet(object):
     def stride(self, n, i=0):
         return DBFileSet(self.DB, strided(self.Files, n, i))
         
+    def chunked(self, chunk_size=100):
+        chunk = []
+        for f in self.Files:
+            chunk.append(f)
+            if len(chunk) >= chunk_size:
+                yield chunk
+                chunk = []
+        if chunk:
+            yield chunk
+        
     @staticmethod
     def from_tuples(db, g):
         # must be in sync with DBFile.all_columns()

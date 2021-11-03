@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block headline %}
+    Token for user {{user.Username}}
+{% endblock %}
+
+{% block content %}
+
+<script type="text/javascript">
+    function copy_token_to_clipboard()
+    {
+        navigator.clipboard.writeText("{{encoded}}");
+        document.getElementById("copy_button").innerHTML="copied";
+    }
+</script>
+
+<table class="form">
+	<tr>
+		<th>Token:</th>
+		<td>
+            <pre class="code">
+                {%- for l in encoded_lines %}
+{{ l }}
+                {%- endfor -%}
+            </pre>
+        </td>
+    </tr>
+    <tr>
+        <td></td>
+        <td><button onclick="copy_token_to_clipboard()" id="copy_button">copy to clipboard</td>
+    </tr>
+    <tr>
+        <th>Token ID:</th><td>{{token.jti}}</td>
+    </tr>    
+    <tr>
+        <th>Issuer:</th><td>{{token.issuer}}</td>
+    </tr>
+    <tr>
+        <th>Subject:</th><td>{{token.subject}}</td>
+    </tr>
+    <tr>
+        <th>Expiration:</th><td>{{token.expiration|as_dt_local}} ({{token.expiration|as_dt_utc}} UTC)</td>
+    </tr>
+</table>
+
+<p>
+    You can import this token to MetaCat client:
+        
+        <pre class=code>
+$ metacat auth import
+[paste from clipboard]
+        </pre>
+</p>
+
+{% endblock %}
