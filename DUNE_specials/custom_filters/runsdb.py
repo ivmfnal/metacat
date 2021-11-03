@@ -12,31 +12,33 @@ class RunsDB(MetaCatFilter):
         self.IncludeColumns = self.Config["columns"]
         self.MetaPrefix = self.Config.get("meta_prefix", "runs_history")
     
-    def filter(self, inputs, params, **ignore):
-        daq_inter_version = None
-        if params:
-            daq_inter_version, = params
+    def filter(self, inputs, *params, daq_inter_version=None, mode=None, **ignore):
         db = self.ConnPool.connect()
         cursor = db.cursor()
+
         assert len(inputs) == 1
 
-        filter = "" if not daq_inter_version else f"and daqinterface_commit='{daq_inter_version}'"
+        filter = "" 
+        if daq_inter_version:
+            filter += f" and daqinterface_commit='{daq_inter_version}' "
+        if mode:
+            filter += f" and mode='{mode}' "
+
+        colnames = ("," + ",".join(self.IncludeColumns)) if self.IncludeColumns else ""
 
         for chunk in inputs[0].chunked():
             by_run = {f.metadata()["core.runs"][0]:f for f in chunk}
-            run_nums = list(by_run.keys)
-            c.execute(f"""
-                select runnum, daqinterface_commit, {self.IncludeColumns}
+            run_nums = list(by_run.keys())
+            cursor.execute(f"""
+                select runnum {colnames}
                     from {self.TableName}
                     where runnum = any(%s) {filter}
             """, (run_nums,))
-            tup = c.fetchone()
+            tup = cursor.fetchone()
             while tup:
-                (runnum, daqinterface_commit), rest = tup[:2], tup[2:]
-                rest = {f"{self.MetaPrefix}.{c}":v for (c, v) in zip(self.IncludeColumns, rest)}
+                runnum, rest = tup[0], tup[1:]
                 f = by_run[runnum]
-                f.Metadata.update(rest)
-                f.Metadata[f"{self.MetaPrefix}.runnum"] = runnum
-                f.Metadata[f"{self.MetaPrefix}.daqinterface_commit"] = daqinterface_commit
+                for c, v in zip(self.IncludeColumns, rest):
+                    f.Metadata[f"{self.MetaPrefix}.{c}"] = v
                 yield f
-                tup = c.fetchone()
+                tup = cursor.fetchone()

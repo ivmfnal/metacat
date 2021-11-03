@@ -60,17 +60,16 @@ class MetaCatFilter(object):
                 if limit is not None:
                     limit -= 1
     
-    def run(self, inputs, params, limit=None, skip=None):
+    def run(self, inputs, params, kv, limit=None, skip=None):
         #
         # selection application order: skip -> limit -> stride
         #
-        yield from self.apply_selection(self.filter(inputs, params), skip, limit)
+        yield from self.apply_selection(self.filter(inputs, *params, **kv), skip, limit)
 
 class Sample(MetaCatFilter):
     
-    def filter(self, inputs, params, **ignore):
+    def filter(self, inputs, fraction, **ignore):
         file_set = inputs[0]
-        fraction = params[0]
         x = 0.0
         for f in file_set:
             x += fraction
@@ -80,17 +79,14 @@ class Sample(MetaCatFilter):
 
 class Limit(MetaCatFilter):
     
-    def filter(inputs, params, **ignore):
+    def filter(inputs, limit, **ignore):
         file_set = inputs[0]
-        limit = params[0]
         return limited(file_set, limit)
 
 class EveryNth(MetaCatFilter):
     
-    def filter(self, inputs, params, **ignore):
-        from zlib import adler32
+    def filter(self, inputs, modulo, remainder, **ignore):
         file_set = inputs[0]
-        modulo, remainder = params
         i = 0
         for f in file_set:
             if i % modulo == remainder:
@@ -99,10 +95,9 @@ class EveryNth(MetaCatFilter):
             
 class Hash(MetaCatFilter):
     
-    def filter(self, inputs, params, **ignore):
+    def filter(self, inputs, modulo, remainder, **ignore):
         from zlib import adler32
         file_set = inputs[0]
-        modulo, remainder = params
         for f in file_set:
             r = adler32(f.FID.encode("utf-8")) % modulo
             if r == remainder:
@@ -110,7 +105,7 @@ class Hash(MetaCatFilter):
             
 class Mix(MetaCatFilter):
     
-    def filter(self, inputs, ratios, **ignore):
+    def filter(self, inputs, *ratios, **ignore):
         import types
         assert len(inputs) == len(ratios)
         assert all(isinstance(inp, DBFileSet) for inp in inputs)

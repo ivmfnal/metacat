@@ -106,7 +106,7 @@ class DBFileSet(object):
     def stride(self, n, i=0):
         return DBFileSet(self.DB, strided(self.Files, n, i))
         
-    def chunked(self, chunk_size=100):
+    def chunked(self, chunk_size=1000):
         chunk = []
         for f in self.Files:
             chunk.append(f)

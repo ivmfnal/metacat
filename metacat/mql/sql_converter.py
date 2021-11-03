@@ -291,7 +291,8 @@ class SQLConverter(Ascender):
         queries = [self.node_to_file_set(q) for q in queries]
         limit = node.get("limit")
         skip = node.get("skip", 0)
-        node = Node("file_set", file_set = DBFileSet(self.DB, filter_object.run(queries, params, limit=limit, skip=skip)))
+        kv = node.get("kv", {})
+        node = Node("file_set", file_set = DBFileSet(self.DB, filter_object.run(queries, params, kv, limit=limit, skip=skip)))
         #print("filter: returning:", node.pretty())
         return node
 

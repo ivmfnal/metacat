@@ -28,10 +28,13 @@ top_dataset_query       :    dataset_query
     |   "(" file_query ")"           
 
 term_file_query: "files" ("from" datasets_selector)?                                -> basic_file_query
-    |   "filter" FNAME "(" constant_list ")" "(" file_query_list ")"                -> filter
+    |   "filter" FNAME "(" filter_params ? ")" "(" file_query_list ")"              -> filter
     |   "query" qualified_name                                                      -> named_query
     |   "files" STRING ("," STRING)*                                                -> file_list
-    
+
+filter_params : constant_list
+    |   (constant_list ",")? param_def_list
+
 file_query_list: file_query ("," file_query)*     
 
 !datasets_selector: dataset_spec_list ("with" "children" "recursively"?)? ("having" meta_exp)?
@@ -77,7 +80,7 @@ scalar:  ANAME
         | "len" "(" ANAME ")"                       -> array_length
 
     
-constant_list:    constant? ("," constant)*                    
+constant_list:    constant ("," constant)*                    
 
 constant : SIGNED_FLOAT                             -> float_constant                      
     | STRING                                        -> string_constant

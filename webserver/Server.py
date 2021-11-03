@@ -56,7 +56,7 @@ class App(WPApp):
         try:
             from custom_filters import create_filters
             custom_filters = create_filters(self.Cfg.get("custom_filters", {}))
-            print("Custom filters imported:", ",".join(custom_filters.keys()))
+            #print("Custom filters imported:", ",".join(custom_filters.keys()))
             self.Filters.update(custom_filters)
         except:
             pass

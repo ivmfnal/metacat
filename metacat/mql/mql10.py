@@ -13,6 +13,14 @@ CMP_OPS = [">" , "<" , ">=" , "<=" , "==" , "=" , "!=", "~~", "~~*", "!~~", "!~~
 from .grammar10 import MQL_Grammar
 _Parser = Lark(MQL_Grammar, start="query")
 
+class SyntaxError(Exception):
+    
+    def __init__(self, message):
+        self.Message = messge
+        
+    def __str__(self):
+        return f"MQL Syntax Error: {self.Message}"
+        
 class _MetaRegularizer(Ascender):
     # converts the meta expression into DNF form:
     #
@@ -420,6 +428,20 @@ class _Converter(Transformer):
     def param_def_list(self, args):
         return dict([(a.C[0].value, a.C[1]["value"]) for a in args])
         
+    def filter_params(self, args):
+        if len(args) == 2:
+            assert isinstance(args[0], list)
+            assert isinstance(args[1], dict)
+            return tuple(args)
+        else:
+            assert len(args) == 1
+            if isinstance(args[0], list):
+                return (args[0], {})
+            elif isinstance(args[0], dict):
+                return ([], args[0])
+            else:
+                assert False, "Unknown type of filter param:" + str(args[0])
+
     def union(self, args):
         assert len(args) == 1
         args = args[0].C
@@ -468,13 +490,19 @@ class _Converter(Transformer):
         return out
         
     def filter(self, args):
-        name, params, queries = args
+        if len(args) == 3:
+            name, (params, kv), queries = args
+        else:
+            assert len(args) == 2
+            name, queries = args
+            params = []
+            kv = {}
         queries = queries.C
         for q in queries:
             for bfq in q.find_all("basic_file_query"):
                 bfq["query"].WithMeta = True
-        node = Node("filter", queries, name = name.value, params=params)
-        print("filter created:", node.pretty())
+        node = Node("filter", queries, name = name.value, params=params, kv=kv)
+        #print("filter created:", node.pretty())
         return node
         
     def scalar(self, args):
@@ -822,7 +850,7 @@ class _RemoveEmpty(Ascender):
         else:
             return node
             
-class _QueryLimitApplier(Descender):
+class _____QueryLimitApplier(Descender):
     
     def limit(self, node, limit):
         #print("_LimitPusher.limit: node:", node)
