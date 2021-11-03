@@ -23,9 +23,9 @@ setup(
     license = "BSD 3-clause",
     keywords = "metadata, data management, database, web service",
     url = "https://github.com/ivmfnal/metacat",
-    packages=['metacat', 'metacat.mql', 'metacat.db', 'metacat.util', 'metacat.webapi','metacat.ui'],
+    packages=['metacat', 'metacat.mql', 'metacat.db', 'metacat.util', 'metacat.webapi', 'metacat.ui', 'metacat.filters'],
     long_description=read('README.rst'),
-    install_requires=["pythreader >= 1.7", "pyjwt"],
+    install_requires=["pythreader >= 1.7", "pyjwt", "pyyaml", "lark"],
     zip_safe = False,
     classifiers=[
     ],

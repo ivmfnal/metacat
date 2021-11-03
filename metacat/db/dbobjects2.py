@@ -1618,7 +1618,11 @@ class DBUser(object):
         # info is in external representation, e.g. unhashed password
         a = self.authenticator(method)
         self.AuthInfo[method] = a.set_info(config, info)        # this will convert to DB representation
-        
+    
+    def set_password(self, password):
+        # for compatibility
+        self.set_auth_info("password", None, password)
+    
     def authenticate(self, method, config, secret):
         a = self.authenticator(method)
         return a.authenticate(config, secret)

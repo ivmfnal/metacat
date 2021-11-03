@@ -419,19 +419,16 @@ class GUIHandler(BaseHandler):
             namespace=namespace or "")
         return resp
         
-    def named_queries(self, request, relpath, namespace=None, error="", **args):
+    def named_queries(self, request, relpath, namespace=None, **args):
         db = self.App.connect()
         queries = list(DBNamedQuery.list(db, namespace))
-        return self.render_to_response("named_queries.html", namespace=namespace,
-            error = unquote_plus(error),
-            queries = queries)
+        return self.render_to_response("named_queries.html", namespace=namespace, queries = queries, **self.messages(args))
             
     def named_query(self, request, relpath, name=None, edit="no", **args):
         namespace, name = parse_name(name, None)
         db = self.App.connect()
         query = DBNamedQuery.get(db, namespace, name)
-        return self.render_to_response("named_query.html", 
-                query=query, edit = edit=="yes")
+        return self.render_to_response("named_query.html", query=query, edit = edit=="yes")
 
     def create_named_query(self, request, relapth, **args):
         me = self.authenticated_user()
@@ -446,13 +443,14 @@ class GUIHandler(BaseHandler):
         namespace = request.POST["namespace"]
         source = request.POST["source"]
         create = request.POST["create"] == "yes"
+        query_text = request.POST["text"]
 
         query = MQLQuery.parse(query_text)
         if query.Type != "file":
             self.redirect("./named_queries?error=%s" % (quote_plus("only file queries can be saved"),))
         
         db = self.App.connect()
-        query = DBNamedQuery(db, name=name, namespace=namespace, source=source).save()
+        query = DBNamedQuery(db, name=name, namespace=namespace, source=query_text).save()
         
         return self.render_to_response("named_query.html", query=query, edit = True)
         

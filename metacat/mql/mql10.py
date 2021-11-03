@@ -119,14 +119,15 @@ class BasicFileQuery(object):
         #print(self.Wheres.pretty("    "))
             
     def addLimit(self, limit):
-        if self.Limit is None:   self.Limit = limit
-        else:   self.Limit = min(self.Limit, limit)
-        
+        if limit is not None:
+            if self.Limit is None:   self.Limit = limit
+            else:   self.Limit = min(self.Limit, limit)
+
     def addSkip(self, nskip):
-        if self.Limit is not None:
-            raise ValueError("Query already has limit")
         self.Skip += nskip
-        
+        if self.Limit is not None:
+            self.Limit = max(0, self.Limit-nskip)
+
     def apply_params(self, params):
         if self.DatasetSelector is not None:
             self.DatasetSelector.apply_params(params)
@@ -211,23 +212,23 @@ class FileQuery(object):
             
             optimized = self.Assembled
             
+            optimized = _SkipLimitApplier().walk(optimized)
+            if debug:
+                print("Query.optimize: after 1st _SkipLimitApplier:----")
+                print(optimized.pretty("    "))
+                
             #print("starting _MetaExpPusher...")
             optimized = _MetaExpPusher().walk(optimized, None)
             if debug:
                 print("Query.optimize: after _MetaExpPusher:----")
                 print(optimized.pretty("    "))
 
-            optimized = _SkipLimitApplier().walk(optimized, (skip, limit))
-            if debug:
-                print("Query.optimize: after 1st _SkipLimitApplier:----")
-                print(optimized.pretty("    "))
-                
             optimized = _RemoveEmpty().walk(optimized, debug)
             if debug:
                 print("Query.optimize: after _RemoveEmpty:----")
                 print(optimized.pretty("    "))
             
-            optimized = _SkipLimitApplier().walk(optimized)
+            optimized = _SkipLimitApplier().walk(optimized, skip, limit)
             if debug:
                 print("Query.optimize: after 2nd _SkipLimitApplier:----")
                 print(optimized.pretty("    "))
@@ -329,14 +330,6 @@ class _Converter(Transformer):
         skip=int(args[1])
         if skip == 0:   return args[0]
         else:   return Node("skip", [args[0]], skip=skip)
-
-    def stride(self, args):
-        assert len(args) in (2,3)
-        q, n = args[:2]
-        n, i = int(n), 0
-        if len(args) == 3:
-            i = int(args[2])
-        return Node("stride", [args[0]], stride=(n, i))
 
     def meta_filter(self, args):
         q, meta_exp = args
@@ -542,6 +535,16 @@ class _Converter(Transformer):
         node = Node("cmp_op", [args[0], args[2]], op=args[1].value, neg=False)
         return self._convert_array_all(node)
         
+    def constant_in_array(self, args):
+        return Node("cmp_op",
+            [Node("array_any", name=args[1].value), args[0]], op="=", neg=False
+        )
+        
+    def constant_not_in_array(self, args):
+        return Node("cmp_op",
+            [Node("array_any", name=args[1].value), args[0]], op="=", neg=True
+        )
+        
     def in_range(self, args):
         assert len(args) == 3 and args[1].T in ("string", "int", "float") and args[2].T in ("string", "int", "float")
         assert args[1].T == args[2].T, "Range ends must be of the same type"
@@ -707,6 +710,7 @@ class _WithParamsApplier(Descender):
 class _SkipLimitApplier(Descender):
     #
     # Optimize skip/limit: combine them if in the right order, push them into BFQs when possible
+    # skip_limit node is applied by applying "skip" first and then "limit", consistently with Postgres SQL
     #
     
     #def skip(self, node, skip_limit):
@@ -714,71 +718,54 @@ class _SkipLimitApplier(Descender):
     #    node_skip = node["skip"]
     #    return self.walk(node.C[0], (skip+node_skip, limit))
     
-    def walk(self, node, skip_walk=(0, None)):
-        return Descender.walk(self, node, skip_walk)
+    def walk(self, tree, skip=0, limit=None):
+        return Descender.walk(self, tree, (skip, limit))
+    
+    def meta_filter(self, node, skip_limit):
+        node = Node("meta_filter", 
+            query = self.walk(node["query"]),     # apply skips/limits inside the query
+            meta_exp = node["meta_exp"]
+        )
+        return self._default(node, skip_limit)
     
     def combine_limits(self, l1, l2):
         if l1 is None:  return l2
         if l2 is None:  return l1
         return min(l1, l2)
 
-    def skip_limit(self, node, skip_limit):
-        #print("_SkipLimitApplier: skip_limit: args:", skip_limit)
+    def skip(self, node, skip_limit):
         skip, limit = skip_limit
-        node_skip = node.get("skip", 0) 
-        node_limit = node.get("limit")
-        #print("                               node:", node_skip, node_limit)
-        combine = False
-        combined_skip = skip + node_skip
-        if node_limit is None:
-            combined_limit = limit
-            combine = True
-        else:
-            if node_limit <= skip:
-                #print("                             -> empty")
-                return Node("empty")
-            combined_limit = self.combine_limits(node_limit-skip, limit)
-            combine = True
+        node_skip = node.get("skip", 0)
+        return self.walk(node.C[0], node_skip + skip, limit)
 
-        if combine:
-            #print("                             -> combined to", combined_skip, combined_limit)
-            return self.walk(node.C[0], (combined_skip, combined_limit))
-        else:
-            #print("                             using default")
-            return self._default(node, skip_limit)
-            
-    limit = skip_limit
-    skip = skip_limit
+    def limit(self, node, skip_limit):
+        skip, limit = skip_limit
+        node_limit = node.get("limit")
+        
+        if node_limit is not None:
+            node_limit = node_limit - skip
+            if node_limit <= 0:
+                return Node("empty")
+            if limit is not None:
+                limit = min(node_limit, limit)
+            else:
+                limit = node_limit
+        return self.walk(node.C[0], skip, limit)
         
     def basic_file_query(self, node, skip_limit):
         query = node["query"]
         #print("_SkipLimitApplier: applying skip_limit", skip_limit, " to BFQ:", query)
         skip, limit = skip_limit
-        try:
-            if skip:
-                query.addSkip(skip)
-            if limit is not None:
-                query.addLimit(limit)
-            return node
-        except Exception as e:
-            #print("   ", e)
-            return self._default(node, skip_limit)
+        query.addSkip(skip)
+        query.addLimit(limit)
+        return node
 
     def union(self, node, skip_limit):
         #print("_SkipLimitApplier: skip_limit:", skip_limit, "  children:", node.C)
         skip, limit = skip_limit
-        if limit or skip:
-            return Node("skip_limit", 
-                [Node("union", 
-                    [self.walk(c) for c in node.C]
-                    )
-                ], limit=limit, skip=skip)     # skip is 0 here
-        else:
-            return Node("union", 
-                    [self.walk(c) for c in node.C]
-                    )
-                
-        
+        node = Node("union", [self.walk(c) for c in node.C])
+        return self._default(node, skip_limit)
+
     def filter(self, node, skip_limit):
         skip, limit = skip_limit
         node["limit"] = limit
@@ -794,14 +781,16 @@ class _SkipLimitApplier(Descender):
     
     def empty(self, node, skip_limit):
         return node
-        
+
     def _default(self, node, skip_limit):
         #print("_LimitApplier._default: node:", node.pretty())
-        if skip_limit is None:
-            return node
         skip, limit = skip_limit
-        return Node("skip_limit", [self.walk(node)], limit=limit, skip=skip)
-        
+        if skip:
+            node = Node("skip", [self.walk(node)], skip=skip)
+        if limit:
+            node = Node("limit", [self.walk(node)], limit=limit)
+        return node
+
 class _RemoveEmpty(Ascender):
     
     def union(self, node, *children):
@@ -941,7 +930,10 @@ class _MetaExpPusher(Descender):
             bfq = node["query"]
             assert isinstance(bfq, BasicFileQuery)
             #assert bfq.Relationship is None             # this will be added by ProvenancePusher, as the next step of the optimization
-            bfq.addWhere(meta_exp)
+            if bfq.Skip or bfq.Limit:
+                node = Node("meta_filter", query=node, meta_exp=meta_exp)
+            else:
+                bfq.addWhere(meta_exp)
             #bfq.WithMeta = True
         return node
         
@@ -968,7 +960,6 @@ class _MetaExpPusher(Descender):
         else:
             new_exp = _make_DNF(Node("meta_and", [meta_exp, node_exp]))
         return self.walk(child, new_exp)
-        
 
 class _DatasetEvaluator(Ascender):
     
