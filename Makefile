@@ -13,7 +13,7 @@ all:
 	echo Use "make dune" or "make generic"
 	
 dune:
-	make VERSION=`python metacat/version.py` dune_with_version_defined
+	make VERSION=`python metacat/version.py`_dune dune_with_version_defined
 
 generic:
 	make VERSION=`python metacat/version.py` generic_with_version_defined
