@@ -40,6 +40,9 @@ def implement_skip(filter):
 
 class MetaCatFilter(object):
 
+    def __init__(self, config=None):
+        pass
+
     def apply_selection(self, inp, skip, limit, stride=None):
         # stride is not used
         stride_n = stride_i = None

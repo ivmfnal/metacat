@@ -1085,7 +1085,28 @@ class DBDataset(object):
         )
         if do_commit:   c.execute("commit")
         return self
+        
+    def children(self):
+        c = self.DB.cursor()
+        c.execute("""select namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements
+                        from datasets
+                        where parent_namespace=%s and parent_name=%s""", (self.Namespace, self.Name)
+        )
+        for tup in fetch_generator(c):
+            yield DBDataset.from_tuple(self.DB, tup)
             
+    def has_children(self):
+        c = self.DB.cursor()
+        c.execute("""select exists ( 
+                select namespace, name 
+                    from datasets 
+                    where parent_namespace=%s and parent_name=%s
+                    limit 1
+                )
+                """, (self.Namespace, self.Name)
+        )
+        return c.fetchone()[0]
+
     def add_file(self, f, do_commit = True):
         assert isinstance(f, DBFile)
         c = self.DB.cursor()
@@ -1096,17 +1117,6 @@ class DBDataset(object):
         if do_commit:   c.execute("commit")
         return self
         
-    def ___add_files(self, files, do_commit=True):
-        c = self.DB.cursor()
-        c.executemany(f"""
-            insert into files_datasets(file_id, dataset_namespace, dataset_name) values(%s, '{self.Namespace}', '{self.Name}')
-                on conflict do nothing""", ((f.FID,) for f in files))
-        if do_commit:
-            c.execute("commit")
-        return self
-
-
-
     def add_files(self, files, do_commit=True, validate_meta=True):
         c = self.DB.cursor()
         c.execute("begin")
@@ -1146,7 +1156,6 @@ class DBDataset(object):
             c.execute("rollback")
             raise
 
-
     def list_files(self, with_metadata=False, limit=None):
         meta = "null as metadata" if not with_metadata else "f.metadata"
         limit = f"limit {limit}" if limit else ""
@@ -1171,13 +1180,13 @@ class DBDataset(object):
         c = db.cursor()
         namespace = namespace.Name if isinstance(namespace, DBNamespace) else namespace
         #print(namespace, name)
-        c.execute("""select parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements
+        c.execute("""select namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements
                         from datasets
                         where namespace=%s and name=%s""",
                 (namespace, name))
         tup = c.fetchone()
         if tup is None: return None
-        return DBDataset.from_tuple(db, (namespace, name)+tup)
+        return DBDataset.from_tuple(db, tup)
 
 
     @staticmethod
@@ -1211,13 +1220,10 @@ class DBDataset(object):
         wheres = "" if not wheres else "where " + " and ".join(wheres)
         c=db.cursor()
         c.execute("""select namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata,
-                            creator, created_timestamp
+                            creator, created_timestamp, description, file_metadata_requirements
                 from datasets %s""" % (wheres,))
-        for namespace, name, parent_namespace, parent_name, frozen, monotonic, meta, creator, created_timestamp in fetch_generator(c):
-            ds = DBDataset(db, namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata=meta)
-            ds.Creator = creator
-            ds.CreatedTimestamp = created_timestamp
-            yield ds
+        for tup in fetch_generator(c):
+            yield DBDataset.from_tuple(db, tup)
 
     @property
     def nfiles(self):
@@ -1241,6 +1247,13 @@ class DBDataset(object):
     
     def to_json(self):
         return json.dumps(self.to_jsonable())
+        
+    def delete(self, do_commit=True):
+        c = self.DB.cursor()
+        c.execute("""
+            delete from datasets where namespace=%s and name=%s
+        """, (self.Namespace, self.Name))
+        if do_commit:   c.execute("commit")
         
     @staticmethod
     def list_datasets(db, patterns, with_children, recursively, limit=None):

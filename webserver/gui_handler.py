@@ -664,9 +664,14 @@ class GUIHandler(BaseHandler):
         self.redirect("./namespaces")
         
     def datasets(self, request, relpath, **args):
+        user = self.authenticated_user()
+        admin = user is not None and user.is_admin()
         db = self.App.connect()
         datasets = DBDataset.list(db)
         datasets = sorted(list(datasets), key=lambda x: (x.Namespace, x.Name))
+        for ds in datasets:
+            ds.GUI_Authorized = user is not None and (admin or self._namespace_authorized(db, ds.Namespace, user))
+            ds.GUI_Children = sorted(ds.children(), key=lambda x: (x.Namespace, x.Name))
         return self.render_to_response("datasets.html", datasets=datasets, **self.messages(args))
 
     def dataset_files(self, request, relpath, dataset=None, with_meta="no"):
@@ -713,7 +718,20 @@ class GUIHandler(BaseHandler):
         return self.render_to_response("dataset.html", dataset=dataset, files=files, nfiles=nfiles, attr_names=attr_names, edit=edit, create=False,
             **self.messages(args))
             
-            
+    def delete_dataset(self, request, relpath, namespace=None, name=None, **args):
+        user = self.authenticated_user()
+        if not user:
+            self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/datasets")
+        admin = user.is_admin()
+        db = self.App.connect()
+        if not (admin or self._namespace_authorized(db, namespace, user)):
+            self.redirect("./datasets?error=%s" % (quote_plus("Not authorized"),))
+        dataset = DBDataset.get(db, namespace, name)
+        if dataset.has_children():
+            self.redirect(f"./dataset?namespace={namespace}&name={name}&error=%s" % (quote_plus("Dataset has child datasets"),))
+        dataset.delete()
+        self.redirect("./datasets")
+
     def read_dataset_file_meta_requiremets(self, form):
         
         def cvt_value(x):
