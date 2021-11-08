@@ -210,7 +210,7 @@ class MetaEvaluator(object):
         ok = self.evaluate_meta_expression(f, p0)
         if bool_op in ("and", "meta_and"):
             if len(rest) and ok:
-                ok = self._eval_meta_bool(f, bool_op, rest)
+                ok = self.eval_meta_bool(f, bool_op, rest)
             return ok
         elif bool_op in ("or", "meta_or"):
             if len(rest) and not ok:
