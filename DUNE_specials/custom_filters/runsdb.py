@@ -27,7 +27,7 @@ class RunsDB(MetaCatFilter):
         colnames = ("," + ",".join(self.IncludeColumns)) if self.IncludeColumns else ""
 
         for chunk in inputs[0].chunked():
-            by_run = {f.metadata()["core.runs"][0]:f for f in chunk}
+            by_run = {f.Metadata["core.runs"][0]:f for f in chunk if "core.runs" in f.Metadata}
             run_nums = list(by_run.keys())
             cursor.execute(f"""
                 select runnum {colnames}
