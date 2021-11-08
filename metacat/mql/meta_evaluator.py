@@ -214,7 +214,7 @@ class MetaEvaluator(object):
             return ok
         elif bool_op in ("or", "meta_or"):
             if len(rest) and not ok:
-                ok = self._eval_meta_bool(f, bool_op, rest)
+                ok = self.eval_meta_bool(f, bool_op, rest)
             return ok
         elif bool_op == "not":
             assert len(rest) == 0
