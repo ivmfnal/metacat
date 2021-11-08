@@ -15,7 +15,7 @@
 		<th>Monotonic</th>
 		<th>Files</th>
         <th>Children</th>
-        <th>Delete</th>
+        {% if logged_in %}<th>Delete</th>{% endif %}
 	</tr>
 	{% for ds in datasets %}
 		<tr>
@@ -28,15 +28,17 @@
                     <a href="./dataset?namespace={{child.Namespace}}&name={{child.Name}}">{{child.Namespace}}:{{child.Name}}</a><br/>
                 {% endfor %}
             </td>
-            <td>
-                {% if not ds.GUI_Authorized %}
-                    <span style="color:gray">unauthoried</span>
-                {% elif ds.GUI_Children|length > 0 %}
-                    <span style="color:gray">not empty</span>
-                {% else %}
-                    <a href="./delete_dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">delete</a>
-                {% endif %}
-            </td>
+            {% if logged_in %}
+                <td>
+                    {% if not ds.GUI_Authorized %}
+                        <span style="color:gray">unauthorized</span>
+                    {% elif ds.GUI_Children|length > 0 %}
+                        <span style="color:gray">not empty</span>
+                    {% else %}
+                        <a href="./delete_dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">delete</a>
+                    {% endif %}
+                </td>
+            {% endif %}
 
             <script>
 		        var out = document.getElementById("count:{{ds.Namespace}}:{{ds.Name}}");

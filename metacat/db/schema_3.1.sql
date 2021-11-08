@@ -109,6 +109,22 @@ create table datasets
 );
 
 create index datasets_meta_index on datasets using gin (metadata);
+create index datasets_spec on datasets( (namespace || ':' || name ));
+
+create table datasets_parent_child
+(
+    parent_namespace    text,
+    parent_name         text,
+    child_namespace     text,
+    child_name          text,
+    foreign key (parent_namespace, parent_name) references datasets(namespace, name),
+    foreign key (child_namespace, child_name) references datasets(namespace, name),
+    primary key (parent_namespace, parent_name, child_namespace, child_name)
+);
+
+create index datasets_parent_child_child on datasets_parent_child(child_namespace, child_name);
+create index datasets_parent_child_child_spec on datasets_parent_child( (child_namespace || ':' || child_name ));
+create index datasets_parent_child_parent_spec on datasets_parent_child( (parent_namespace || ':' || parent_name ));
 
 create table files_datasets
 (

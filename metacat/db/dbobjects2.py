@@ -19,6 +19,9 @@ def alias(prefix="t"):
 class AlreadyExistsError(Exception):
     pass
 
+class DatasetCircularDependencyDetected(Exception):
+    pass
+
 class NotFoundError(Exception):
     def __init__(self, msg):
         self.Message = msg
@@ -88,7 +91,78 @@ class MetaValidationError(Exception):
                 "metadata_errors":self.Errors
             }
         )
+
+class _DBManyToMany(object):
     
+    def __init__(self, db, table, *reference_columns, **lookup_values):
+        self.DB = db
+        self.Table = table
+        self.LookupValues = lookup_values
+        self.Where = "where " + " and ".join(["%s = '%s'" % (name, value) for name, value in lookup_values.items()])
+        assert len(reference_columns) >= 1
+        self.ReferenceColumns = list(reference_columns)
+        
+    def list(self, c=None):
+        columns = ",".join(self.ReferenceColumns) 
+        if c is None: c = self.DB.cursor()
+        c.execute(f"select {columns} from {self.Table} {self.Where}")
+        if len(self.VarColumns) == 1:
+            return (x for (x,) in fetch_generator(c))
+        else:
+            return fetch_generator(c)
+        
+    def __iter__(self):
+        return self.list()
+        
+    def add(self, *vals, c=None):
+        assert len(vals) == len(self.ReferenceColumns)
+        col_vals = list(zip(self.ReferenceColumns, vals)) + list(self.LookupValues.items())
+        cols, vals = zip(*col_vals)
+        cols = ",".join(cols)
+        vals = ",".join([f"'{v}'" for v in vals])
+        if c is None: c = self.DB.cursor()
+        c.execute(f"""
+            insert into {self.Table}({cols}) values({vals})
+                on conflict({cols}) do nothing
+        """)
+        return self
+        
+    def contains(self, *vals, c=None):
+        assert len(vals) == len(self.ReferenceColumns)
+        col_vals = list(zip(self.ReferenceColumns, vals))
+        where = self.Where + " and " + " and ".join(["%s='%s'" % (k,v) for k, v in col_vals])
+        if c is None: c = self.DB.cursor()
+        c.execute(f"""
+            select exists(
+                    select * from {self.Table} {where} limit 1
+            )
+        """)
+        return c.fetchone()[0]
+        
+    def __contains__(self, v):
+        if not isinstance(v, tuple): v = (v,)
+        return self.contains(*v)
+
+    def remove(self, *vals, c=None, all=False):
+        assert all or len(vals) == len(self.VarColumns)
+        if c is None: c = self.DB.cursor()
+        where = self.Where
+        if not all:
+            col_vals = list(zip(self.ReferenceColumns, vals))
+            where += " and " + " and ".join(["%s='%s'" % (k,v) for k, v in col_vals])
+        c.execute(f"delete from {self.Table} {where}")
+        return self
+        
+    def set(self, lst, c=None):
+        if c is None: c = self.DB.cursor()
+        c.execute("begin")
+        self.remove(all=True, c=c)
+        for tup in lst:
+            if not isinstance(tup, tuple):  tup = (tup,)
+            self.add(*tup, c=c)
+        c.execute("commit")
+        
+
 class DBFileSet(object):
     
     def __init__(self, db, files=[]):
@@ -788,8 +862,6 @@ class DBFile(object):
     def datasets(self):
         return _DBManyToMany(self.DB, "files_datasets", "dataset_namespace", "dataset_name", file_id = self.FID)
 
-
-
     def __datasets(self):
         # list all datasets this file is found in
         c = self.DB.cursor()
@@ -1041,7 +1113,15 @@ class MetaExpressionDNF(object):
         else:
             return None
             
+class _DatasetParentToChild(_DBManyToMany):
+    
+    def __init__(self, db, parent):
+        _DBManyToMany.__init__(self, db, "datasets_parent_child", "child_namespace", "child_name", 
+                    parent_namespace = parent.Namespace, parent_name = parent.Name)
+                    
 class DBDataset(object):
+    
+    Columns = "namespace,name,parent_namespace,parent_name,frozen,monotonic,metadata,creator,created_timestamp,description,file_metadata_requirements".split(",")
 
     def __init__(self, db, namespace, name, parent_namespace=None, parent_name=None, frozen=False, monotonic=False, metadata={}, file_meta_requirements=None):
         assert namespace is not None and name is not None
@@ -1070,9 +1150,9 @@ class DBDataset(object):
         meta = json.dumps(self.Metadata or {})
         file_meta_requirements = json.dumps(self.FileMetaRequirements or {})
         #print("DBDataset.save: saving")
-        c.execute("""
-            insert into datasets(namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp,
-                        description, file_metadata_requirements) 
+        column_names = self.columns()
+        c.execute(f"""
+            insert into datasets({column_names}) 
                 values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 on conflict(namespace, name) 
                     do update set parent_namespace=%s, parent_name=%s, frozen=%s, monotonic=%s, metadata=%s, description=%s, file_metadata_requirements=%s
@@ -1086,27 +1166,102 @@ class DBDataset(object):
         if do_commit:   c.execute("commit")
         return self
         
+    def columns(self, table_name=None, as_text=True):
+        clist = self.Columns
+        if table_name:
+            clist = [table_name+"."+cn for cn in clist]
+        if as_text:
+            return ",".join(clist)
+        else:
+            return clist
+
+    def subsets(self):
+        cursor = self.DB.cursor()
+        columns = self.columns("d")
+        cursor.execute(f"""
+            with recursive subsets (namespace, name, path, loop) as 
+            (
+                select pc.child_namespace, pc.child_name, array[pc.child_namespace || ':' || pc.child_name], false
+                    from datasets_parent_child pc
+                    where pc.parent_namespace = %s and pc.parent_name = %s
+                union
+                    select pc1.child_namespace, pc1.child_name,
+                        s.path || (pc1.child_namespace || ':' || pc1.child_name),
+                        pc1.child_namespace || ':' || pc1.child_name = any(s.path)
+                    from datasets_parent_child pc1, subsets s
+                    where pc1.parent_namespace = s.namespace and pc1.parent_name = s.name and not s.loop
+            )
+            select distinct {columns} from subsets s, datasets d
+                where d.namespace = s.namespace and
+                    d.name = s.name
+        """, (self.Namespace, self.Name))
+        return (DBDataset.from_tuple(self.DB, tup) for tup in fetch_generator(cursor))
+        
+    def ancestors(self):
+        cursor = self.DB.cursor()
+        columns = self.columns("d")
+        cursor.execute(f"""
+            with recursive ancestors (namespace, name, path, loop) as 
+            (
+                select pc.parent_namespace, pc.parent_name, array[pc.parent_namespace || ':' || pc.parent_name], false
+                    from datasets_parent_child pc
+                    where pc.child_namespace = %s and pc.child_name = %s
+                union
+                    select pc1.parent_namespace, pc1.parent_name,
+                        a.path || (pc1.parent_namespace || ':' || pc1.parent_name),
+                        pc1.parent_namespace || ':' || pc1.parent_name = any(a.path)
+                    from datasets_parent_child pc1, ancestors a
+                    where pc1.parent_namespace = a.namespace and pc1.parent_name = a.name and not a.loop
+            )
+            select distinct {columns} from ancestors a, datasets d
+                where d.namespace = a.namespace and
+                    d.name = a.name
+        """, (self.Namespace, self.Name))
+        return (DBDataset.from_tuple(self.DB, tup) for tup in fetch_generator(cursor))
+
     def children(self):
+        # immediate children as filled DBDataset objects
         c = self.DB.cursor()
-        c.execute("""select namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements
-                        from datasets
-                        where parent_namespace=%s and parent_name=%s""", (self.Namespace, self.Name)
+        columns = self.columns("c")
+        c.execute(f"""select {columns}
+                        from datasets c, datasets_parent_child pc
+                        where pc.parent_namespace=%s and pc.parent_name=%s
+                            and pc.child_namespace=c.namespace
+                            and pc.child_name=c.name
+                        """, (self.Namespace, self.Name)
         )
-        for tup in fetch_generator(c):
-            yield DBDataset.from_tuple(self.DB, tup)
-            
+        return (DBDataset.from_tuple(self.DB, tup) for tup in fetch_generator(c))
+        
     def has_children(self):
         c = self.DB.cursor()
-        c.execute("""select exists ( 
-                select namespace, name 
-                    from datasets 
-                    where parent_namespace=%s and parent_name=%s
-                    limit 1
-                )
-                """, (self.Namespace, self.Name)
+        c.execute(f"""select exists (
+                        select * from datasets_parent_child pc
+                        where pc.parent_namespace=%s and pc.parent_name=%s
+                        limit 1
+                    )""", (self.Namespace, self.Name)
         )
         return c.fetchone()[0]
-
+        
+    
+    def parents(self):
+        # immediate children as filled DBDataset objects
+        c = self.DB.cursor()
+        columns = self.columns("p")
+        c.execute(f"""select {columns}
+                        from datasets p, datasets_parent_child pc
+                        where pc.child_namespace=%s and pc.child_name=%s
+                            and pc.parent_namespace=p.namespace
+                            and pc.parent_name=p.name
+                        """, (self.Namespace, self.Name)
+        )
+        return (DBDataset.from_tuple(self.DB, tup) for tup in fetch_generator(c))
+    
+    def add_child(self, child):
+        _DatasetParentToChild(self.DB, self).add(child.Namespace, child.Name)
+    
+    def remove_child(self, child):
+        _DatasetParentToChild(self.DB, self).remove(child.Namespace, child.Name)
+    
     def add_file(self, f, do_commit = True):
         assert isinstance(f, DBFile)
         c = self.DB.cursor()
@@ -1188,6 +1343,18 @@ class DBDataset(object):
         if tup is None: return None
         return DBDataset.from_tuple(db, tup)
 
+    @staticmethod
+    def get_many(db, namespaces_names):
+        # namespaces_names is list of tuples [(namespace, name), ...]
+        c = db.cursor()
+        specs = list(set(f"{namespace}:{name}" for namespace, name in namespaces_names))
+        columns = self.columns()
+        c.execute(f"""select {columns}
+                        from datasets
+                        where (namespace || ':' || name) = any(%s) """,
+                (specs,)
+        )
+        return (DBDataset.from_tuple(db, tup) for tup in fetch_generator(c))
 
     @staticmethod
     def from_tuple(db, tup):
@@ -1257,9 +1424,6 @@ class DBDataset(object):
         
     @staticmethod
     def list_datasets(db, patterns, with_children, recursively, limit=None):
-        #
-        # does not use "having" yet !
-        #
         datasets = set()
         c = db.cursor()
         #print("DBDataset.list_datasets: patterns:", patterns)
@@ -1281,25 +1445,10 @@ class DBDataset(object):
                 datasets.add((namespace, name))
                 
         #print("list_datasets: with_children:", with_children)
+        specs = set(f"{namespace}:{name}" for namespace, name in datasets)
         if with_children:
-            parents = datasets.copy()
-            children = set()
-            parents_scanned = set()
-            while parents:
-                this_level_children = set()
-                for pns, pn in parents:
-                    c.execute("""select namespace, name from datasets
-                                where parent_namespace = %s and parent_name=%s""",
-                                (pns, pn))
-                    for ns, n in c.fetchall():
-                        this_level_children.add((ns, n))
-                parents_scanned |= parents
-                datasets |= this_level_children
-                if recursively:
-                    parents = this_level_children - parents_scanned
-                else:
-                    parents = set()
-        return limited((DBDataset.get(db, namespace, name) for namespace, name in datasets), limit)
+            specs = subsets_rec(c, specs, set(), level=None if recursively else 0)
+        return DBDataset.get_many(db, [spec.split(":",1) for spec in specs])    
 
     @staticmethod    
     def apply_dataset_selector(db, dataset_selector, limit):
@@ -1519,73 +1668,6 @@ class DBNamedQuery(object):
                     for namespace, name, source, parameters in fetch_generator(c)
         )
 
-class _DBManyToMany(object):
-    
-    def __init__(self, db, table, *variable, **fixed):
-        self.DB = db
-        self.Table = table
-        assert len(fixed) == 1
-        self.FixedColumn, self.FixedValue = list(fixed.items())[0]
-        self.Where = "where %s = '%s'" % (self.FixedColumn, self.FixedValue)
-        assert len(variable) >= 1
-        self.VarColumns = list(variable)
-        
-    def list(self, c=None):
-        columns = ",".join(self.VarColumns) 
-        if c is None: c = self.DB.cursor()
-        c.execute(f"select {columns} from {self.Table} {self.Where}")
-        if len(self.VarColumns) == 1:
-            return (x for (x,) in fetch_generator(c))
-        else:
-            return fetch_generator(c)
-        
-    def __iter__(self):
-        return self.list()
-        
-    def add(self, *vals, c=None):
-        assert len(vals) == len(self.VarColumns)
-        col_vals = list(zip(self.VarColumns, vals)) + [(self.FixedColumn, self.FixedValue)]
-        cols, vals = zip(*col_vals)
-        cols = ",".join(cols)
-        vals = ",".join([f"'{v}'" for v in vals])
-        if c is None: c = self.DB.cursor()
-        c.execute(f"""
-            insert into {self.Table}({cols}) values({vals})
-                on conflict({cols}) do nothing
-        """)
-        return self
-        
-    def contains(self, *vals, c=None):
-        assert len(vals) == len(self.VarColumns)
-        col_vals = list(zip(self.VarColumns, vals))
-        where = self.Where + " and " + " and ".join(["%s='%s'" % (k,v) for k, v in col_vals])
-        if c is None: c = self.DB.cursor()
-        c.execute(f"select {self.FixedColumn} from {self.Table} {where}")
-        return c.fetchone() is not None
-        
-    def __contains__(self, v):
-        if not isinstance(v, tuple): v = (v,)
-        return self.contains(*v)
-
-    def remove(self, *vals, c=None, all=False):
-        assert all or len(vals) == len(self.VarColumns)
-        if c is None: c = self.DB.cursor()
-        where = self.Where
-        if not all:
-            col_vals = list(zip(self.VarColumns, vals))
-            where += " and " + " and ".join(["%s='%s'" % (k,v) for k, v in col_vals])
-        c.execute(f"delete from {self.Table} {where}")
-        return self
-        
-    def set(self, lst, c=None):
-        if c is None: c = self.DB.cursor()
-        c.execute("begin")
-        self.remove(all=True, c=c)
-        for tup in lst:
-            if not isinstance(tup, tuple):  tup = (tup,)
-            self.add(*tup, c=c)
-        c.execute("commit")
-        
 class DBUser(object):
 
     def __init__(self, db, username, name, email, flags=""):
@@ -1813,7 +1895,7 @@ class DBNamespace(object):
         return user in self.owners(directly)
         
     def owned_by_role(self, role):
-        if isinstance(role, DBRole):   role = role.name
+        if isinstance(role, DBRole):   role = role.Name
         return self.OwnerRole == role
 
     def file_count(self):
@@ -2115,3 +2197,8 @@ class DBParamCategory(object):
             if not valid:   
                 return False, f"Invalid value for parameter {name}:{value}. Reason:{reason}"
         return True, "OK"
+
+        
+        
+        
+    
