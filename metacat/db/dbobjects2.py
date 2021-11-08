@@ -1481,59 +1481,89 @@ class DBDataset(object):
     @staticmethod   
     def sql_for_selector(selector):
         meta_where_clause = ""
-        ds_alias = alias("ds")
         meta = "null as metadata"
         if selector.Having is not None:
-            meta_where_clause = "where " + MetaExpressionDNF(selector.Having).sql(ds_alias)            
+            meta_where_clause = "where " + MetaExpressionDNF(selector.Having).sql(united)            
             meta = "metadata"
-        parts = []
+        top_parts = []
         for p in selector.Patterns:
             namespace = p["namespace"]
             name_pattern = p["name"]
             wildcard = p["wildcard"]
             
             if wildcard:
-                base_query = f"""
-                        select namespace, name, {meta} from datasets where namespace='{namespace}' and name like '{name_pattern}'
-                    """
-            elif meta_where_clause:
-                base_query = f"""
-                                    select namespace, name, {meta} from datasets where namespace='{namespace}' and name='{name_pattern}'
-                                """
+                top_query = f"select namespace, name, {meta} from datasets where namespace='{namespace}' and name like '{name_pattern}'"
             else:
-                base_query = f"select '{namespace}' as namespace, '{name_pattern}' as name, null as metadata"
-            
-            parts.append(base_query)
-
-            if selector.WithChildren:
-                ds = alias("ds")
-                d = alias("ds")
-                s = alias("s")
-                if selector.Recursively:
-                    sql = f"""
-                        (
-                            with recursive subsets as (
-                                select {ds}.namespace, {ds}.name, {ds}.metadata 
-                                from datasets {ds} 
-                                where {ds}.parent_namespace='{namespace}' and {ds}.parent_name like '{name_pattern}'
-                                union
-                                    select {d}.namespace, {d}.name, {d}.metadata from datasets {d}
-                                        inner join subsets {s} on {s}.namespace = {d}.parent_namespace and {s}.name = {d}.parent_name
-                            )
-                            select distinct * from subsets
-                        )"""
-                else:
-                    sql = f"""
-                    select {ds}.namespace, {ds}.name, {ds}.metadata 
-                    from datasets {ds} 
-                    where {ds}.parent_namespace='{namespace}' and {ds}.parent_name like '{name_pattern}'
+                top_query = f"select namespace, name, {meta} from datasets where namespace='{namespace}' and name='{name_pattern}'"
+            top_parts.append(top_query)
+        
+        top_united = " union ".join(top_parts)
+        top_select = f"""
+            select namespace, name, {meta} from ({top_united}) as patterns_united
+        """
+        sql = top_select
+        
+        if selector.WithChildren:
+            child = alias("child")
+            pc = alias("pc")
+            top = alias("top")
+            immediate_children = f"""
+                    select {child}.namespace, {child}.name, {child}.metadata 
+                            from {top}, datasets {child}, datasets_parent_child {pc}
+                            where {pc}.parent_namespace={top}.namespace and {pc}.parent_name={top}.name
+                                  and {child}.namespace = {pc}.child_namespace and {child}.name = {pc}.child_name
+            """
+            if selector.Recursively:
+                ds1 = alias("ds")
+                pc1 = alias("pc")
+                x1 = alias("x")
+                x2 = alias("x")
+                sql = f"""
+                    with {top} as ({top_select})
+                    select namespace, name, {meta} from 
+                    ( 
+                        select namespace, name, {meta} 
+                            from {top}
+                        union
+                        select namespace, name, {meta} 
+                            from
+                            (   -- qq
+                                with recursive subsets as (
+                                    {immediate_children}
+                                    union
+                                        select {ds1}.namespace, {ds1}.name, {ds1}.metadata
+                                            from datasets {ds1}, datasets_parent_child {pc1}, subsets
+                                            where {pc1}.parent_namespace = subsets.namespace and {pc1}.parent_name = subsets.name
+                                                and {ds1}.namespace = {pc1}.child_namespace and {ds1}.name = {pc1}.child_name
+                                )
+                                select namespace, name, metadata from subsets
+                            ) as {x1}
+                    ) as {x2}
                     """
-                parts.append(sql)
-
-        sql = "\nunion\n".join(parts)
-        if meta_where_clause:
-            sql = f"select namespace, name from ({sql}) as {ds_alias} {meta_where_clause}"
-
+            else:
+                sql = f"""
+                    with {top} as ({top_select})
+                    select namespace, name, {meta} from 
+                    (
+                        select namespace, name, {meta} from {top}
+                        union
+                        {immediate_children}
+                    )
+                """
+                x=alias("x")
+                sql = f"""
+                    with {top} as ({top_select})
+                    select namespace, name, {meta} from 
+                    (
+                        select namespace, name, {meta} from {top}
+                        union
+                        {immediate_children}
+                    ) as {x}
+                """
+                
+        united = alias("united")
+        sql = f"select namespace, name, {meta} \nfrom (\n{sql}\n) as {united} \n{meta_where_clause}"
+        #print("dataset selector SQL:", sql)
         return sql
         
     def validate_file_metadata(self, meta):
