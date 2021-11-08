@@ -19,140 +19,79 @@ class MetaEvaluator(object):
             return meta_expression["name"] in metadata
         elif op == "not_present":
             return not meta_expression["name"] in metadata
-        elif op == "in_set":
-            left, right = args
-            vset = set(list(right))
+        elif op in ("in_set", "not_in_set"):
+            neg = meta_expression.get("neg", False) != (op == "not_in_set")
+            vset = set(meta_expression.get("set", []))
+            left = args[0]
             if left.T == "scalar":
                 aname = left["name"]
-                return aname in metadata and metadata[aname] in vset
+                result = aname in metadata and metadata[aname] in vset
             elif left.T == "array_any":
                 aname = left["name"]
-                if not aname in metadata:  return False
+                if not aname in metadata:  return neg
                 lst = metadata[aname]
-                if not isinstance(lst, list):   return False
+                if not isinstance(lst, list):   return neg
                 for x in lst:
-                    if x in vset:  return True
+                    if x in vset:  
+                        result = True
+                        break
                 else:
-                    return False
+                    result = False
             elif left.T == "array_subscript":
                 aname = left["name"]
                 inx = left["index"]
-                if not aname in metadata:  return False
+                if not aname in metadata:  return neg
                 lst = metadata[aname]
                 try:    v = lst[inx]
-                except: return False
-                return v in vset
+                except: result = False
+                else: result = v in vset
             elif left.T == "array_length":
                 aname = left["name"]
-                if not aname in metadata:  return False
+                if not aname in metadata:  return neg
                 lst = metadata[aname]
                 if not isinstance(lst, list):
-                    return False
-                return len(lst) in vset
-        elif op == "not_in_set":
-            left, right = args
-            vset = set(list(right))
-            if left.T == "scalar":
-                aname = left["name"]
-                return aname in metadata and not metadata[aname] in vset
-            elif left.T == "array_any":
-                aname = left["name"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                if not isinstance(lst, list):   return False
-                for x in lst:
-                    if not x in vset:  return True
+                    result = False
                 else:
-                    return False
-            elif left.T == "array_subscript":
-                aname = left["name"]
-                inx = left["index"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                try:    v = lst[inx]
-                except: return False
-                return not v in vset
-            elif left.T == "array_length":
-                aname = left["name"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                if not isinstance(lst, list):
-                    return False
-                return not len(lst) in vset
-        elif op == "in_range":
-            left, right = args
-            low, high = right["low"], right["high"]
+                    result = len(lst) in vset
+            return result != neg        # negate if neg
+        elif op in ("in_range", "not_in_range"):
+            low, high = meta_expression["low"], meta_expression["high"]
+            left = args[0]
+            neg = meta_expression.get("neg", False) != (op == "not_in_range")
             if left.T == "scalar":
                 aname = left["name"]
-                try:    return aname in metadata and metadata[aname] >= low and metadata[aname] <= high
-                except: return False
+                try:    return (aname in metadata and metadata[aname] >= low and metadata[aname] <= high) != neg
+                except: return neg
             elif left.T == "array_any":
                 aname = left["name"]
-                if not aname in metadata:  return False
+                if not aname in metadata:  return neg
                 lst = metadata[aname]
                 if isinstance(lst, dict):
                     attr_values = lst.values()
                 elif isinstance(lst, list):
                     attr_values = lst
                 else:
-                    return False
+                    return neg
                 for x in attr_values:
-                    if x >= low and x <= high:  return True
+                    if x >= low and x <= high:  return not neg
                 else:
-                    return False
+                    return neg
             elif left.T == "array_subscript":
                 aname = left["name"]
                 inx = left["index"]
-                if not aname in metadata:  return False
+                if not aname in metadata:  return neg
                 lst = metadata[aname]
                 try:    v = lst[inx]
-                except: return False
-                return v >= low and v <= high                    
+                except: return neg
+                return (v >= low and v <= high) != neg                    
             elif left.T == "array_length":
                 aname = left["name"]
-                if not aname in metadata:  return False
+                if not aname in metadata:  return neg
                 lst = metadata[aname]
                 if not isinstance(lst, list):
-                    return False
+                    return neg
                 l = len(lst)
-                return l >= low and l <= high
-        elif op == "not_in_range":
-            left, right = args
-            low, high = right["low"], right["high"]
-            if left.T == "scalar":
-                aname = left["name"]
-                try:    return aname in metadata and metadata[aname] < low or metadata[aname] > high
-                except: return False
-            elif left.T == "array_any":
-                aname = left["name"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                if isinstance(lst, dict):
-                    attr_values = lst.values()
-                elif isinstance(lst, list):
-                    attr_values = lst
-                else:
-                    return False
-                for x in attr_values:
-                    if x < low or x > high:  return True
-                else:
-                    return False
-            elif left.T == "array_subscript":
-                aname = left["name"]
-                inx = left["index"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                try:    v = lst[inx]
-                except: return False
-                return v < low or v > high                    
-            elif left.T == "array_length":
-                aname = left["name"]
-                if not aname in metadata:  return False
-                lst = metadata[aname]
-                if not isinstance(lst, list):
-                    return False
-                l = len(lst)
-                return l < low or l > high
+                return (l >= low and l <= high) != neg
         elif op == "cmp_op":
             cmp_op = meta_expression["op"]
             left, right = args

@@ -38,7 +38,7 @@ class RunsDB(MetaCatFilter):
             while tup:
                 runnum, rest = tup[0], tup[1:]
                 f = by_run[runnum]
-                for c, v in zip(self.IncludeColumns, rest):
-                    f.Metadata[f"{self.MetaPrefix}.{c}"] = v
+                for column, value in zip(self.IncludeColumns, rest):
+                    f.Metadata[f"{self.MetaPrefix}.{column}"] = value
                 yield f
                 tup = cursor.fetchone()
