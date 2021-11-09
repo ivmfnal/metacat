@@ -27,7 +27,11 @@ class RunsDB(MetaCatFilter):
         colnames = ("," + ",".join(self.IncludeColumns)) if self.IncludeColumns else ""
 
         for chunk in inputs[0].chunked():
-            by_run = {f.Metadata["core.runs"][0]:f for f in chunk if "core.runs" in f.Metadata}
+            by_run = {}
+            for f in chunk:
+                if "core.runs" in f.Metadata:
+                    for runnum in f.Metadata["core.runs"]:
+                        by_run.setdefault(runnum,[]).append(f)
             run_nums = list(by_run.keys())
             cursor.execute(f"""
                 select runnum {colnames}
@@ -37,8 +41,8 @@ class RunsDB(MetaCatFilter):
             tup = cursor.fetchone()
             while tup:
                 runnum, rest = tup[0], tup[1:]
-                f = by_run[runnum]
-                for column, value in zip(self.IncludeColumns, rest):
-                    f.Metadata[f"{self.MetaPrefix}.{column}"] = value
-                yield f
+                for f in by_run[runnum]:
+                    for column, value in zip(self.IncludeColumns, rest):
+                        f.Metadata[f"{self.MetaPrefix}.{column}"] = value
+                    yield f
                 tup = cursor.fetchone()
