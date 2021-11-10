@@ -146,11 +146,11 @@
                             -->
                                 <table id="value_table_{{name}}" style="display:none; visibility:hidden">
                                 {% for v, c in counts %}
-                                    {{ loop.cycle("<tr>", "", "", "", "", "", "", "", "", "") }}
-                                        <td class="attr_value">{{v}}</td><td class="attr_count">{{c}}</td>
-                                    {{ loop.cycle("", "", "", "", "", "", "", "", "", "</tr>") }}
+                                    {{ loop.cycle("<tr>", "", "", "", "") }}
+                                        <td class="attr_value">{{v|json}}</td><td class="attr_count">({{c}})</td>
+                                    {{ loop.cycle("", "", "", "", "</tr>") }}
                                     {% if loop.last %}
-                                        {{ loop.cycle("</tr>", "</tr>", "</tr>", "</tr>", "</tr>", "</tr>", "</tr>", "</tr>", "</tr>", "") }}
+                                        {{ loop.cycle("</tr>", "</tr>", "</tr>", "</tr>", "") }}
                                     {% endif %}
                                 {% endfor %}
                                 </table>
@@ -240,7 +240,7 @@
                         {% if n in f.Metadata -%}
                             <tr>
                                 <td class="attr_name">{{n}}</td>
-                                <td class="attr_value">{{f.Metadata[n]}}</td>
+                                <td class="attr_value">{{f.Metadata[n]|json}}</td>
                             </tr>
                         {%- endif %}
                     {% endfor %}
