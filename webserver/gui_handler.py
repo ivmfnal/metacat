@@ -280,8 +280,16 @@ class GUIHandler(BaseHandler):
         return sorted(out)
     
     def query(self, request, relpath, query=None, namespace=None, **args):
-            
-        namespace = namespace or request.POST.get("default_namespace") or self.App.DefaultNamespace
+        
+        db = self.App.connect()
+        user = self.authenticated_user()
+        user_namespace = None
+        if user is not None:
+            if DBNamespace.exists(db, user.Username):
+                user_namespace = user.Username
+        namespace = namespace or request.POST.get("default_namespace") \
+            or user_namespace \
+            or self.App.DefaultNamespace
         #print("namespace:", namespace)
         if query is not None:
             query_text = unquote_plus(query)
@@ -302,7 +310,6 @@ class GUIHandler(BaseHandler):
         
         save_as_dataset = "save_as_dataset" in request.POST
         
-        db = self.App.connect()
         #print("query: method:", request.method)
         error = None
         message = None
@@ -348,7 +355,6 @@ class GUIHandler(BaseHandler):
                     saved = DBNamedQuery(db, name=name, namespace=namespace, source=query_text).save()
                     message = "Query saved as %s:%s" % (namespace, name)
                             
-        user = self.authenticated_user()
         namespaces = None
         if True:
             #print("Server.query: namespace:", namespace)

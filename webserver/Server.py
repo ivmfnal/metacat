@@ -166,6 +166,9 @@ def as_dt_local(t):
         return ""
     dt = datetime.fromtimestamp(t)
     return dt.strftime("%Y-%m-%d %H:%M:%S")
+    
+def as_json(x):
+    return json.dumps(x)
 
 def create_application(config_file=None):
     config_file = config_file or os.environ.get("METACAT_SERVER_CFG")
@@ -183,7 +186,8 @@ def create_application(config_file=None):
 
     application.initJinjaEnvironment(
         filters={"as_dt_utc":as_dt_utc,
-            "as_dt_local":as_dt_local
+            "as_dt_local":as_dt_local,
+            "json": as_json
         },
         tempdirs=[templdir, "."],
         globals={

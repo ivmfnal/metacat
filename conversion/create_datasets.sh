@@ -5,8 +5,7 @@ source ./config.sh
 $OUT_DB_PSQL << _EOF_
 
 drop table if exists 
-    files_datasets
-    ,datasets
+    files_datasets, datasets, datasets_parent_child
     cascade
 ;
 
@@ -16,11 +15,6 @@ create table datasets
     name                text,
 
     primary key (namespace, name),
-
-    parent_namespace    text,
-    parent_name         text,
-
-    foreign key (parent_namespace, parent_name) references datasets(namespace, name),
 
     frozen		boolean default 'false',
     monotonic		boolean default 'false',
@@ -33,8 +27,26 @@ create table datasets
     file_metadata_requirements  jsonb
 );
 
+create index dataset_specs on datasets((namespace || ':' || name));
+
 insert into datasets(namespace, name, creator, description)
 	values('dune','all','admin','All files imported during conversion from SAM');
+    
+
+create table datasets_parent_child
+(
+    parent_namespace text,
+    parent_name text,
+    child_namespace text,
+    child_name text,
+    foreign key (parent_namespace, parent_name) references datasets(namespace, name),
+    foreign key (child_namespace, child_name) references datasets(namespace, name),
+    primary key (parent_namespace, parent_name, child_namespace, child_name)
+);
+
+create index datasets_pc_parent_specs on datasets((parent_namespace || ':' || parent_name));
+create index datasets_pc_child_specs on datasets((child_namespace || ':' || child_name));
+cteate index datasets_pc_child on datasets(child_namespace, child_name);
 
 create table files_datasets
 (

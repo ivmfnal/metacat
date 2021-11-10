@@ -1133,16 +1133,14 @@ class _DatasetParentToChild(_DBManyToMany):
                     
 class DBDataset(object):
     
-    Columns = "namespace,name,parent_namespace,parent_name,frozen,monotonic,metadata,creator,created_timestamp,description,file_metadata_requirements".split(",")
+    ColumnsText = "namespace,name,frozen,monotonic,metadata,creator,created_timestamp,description,file_metadata_requirements"
+    Columns = ColumnsText.split(",")
 
-    def __init__(self, db, namespace, name, parent_namespace=None, parent_name=None, frozen=False, monotonic=False, metadata={}, file_meta_requirements=None):
+    def __init__(self, db, namespace, name, frozen=False, monotonic=False, metadata={}, file_meta_requirements=None):
         assert namespace is not None and name is not None
-        assert (parent_namespace is None) == (parent_name == None)
         self.DB = db
         self.Namespace = namespace
         self.Name = name
-        self.ParentNamespace = parent_namespace
-        self.ParentName = parent_name
         self.SQL = None
         self.Frozen = frozen
         self.Monotonic = monotonic
@@ -1158,28 +1156,28 @@ class DBDataset(object):
     def save(self, do_commit = True):
         c = self.DB.cursor()
         namespace = self.Namespace.Name if isinstance(self.Namespace, DBNamespace) else self.Namespace
-        parent_namespace = self.ParentNamespace.Name if isinstance(self.ParentNamespace, DBNamespace) else self.ParentNamespace
         meta = json.dumps(self.Metadata or {})
         file_meta_requirements = json.dumps(self.FileMetaRequirements or {})
         #print("DBDataset.save: saving")
         column_names = self.columns()
         c.execute(f"""
             insert into datasets({column_names}) 
-                values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                values(%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 on conflict(namespace, name) 
-                    do update set parent_namespace=%s, parent_name=%s, frozen=%s, monotonic=%s, metadata=%s, description=%s, file_metadata_requirements=%s
+                    do update set frozen=%s, monotonic=%s, metadata=%s, description=%s, file_metadata_requirements=%s
             """,
-            (namespace, self.Name, parent_namespace, self.ParentName, self.Frozen, self.Monotonic, meta, self.Creator, self.CreatedTimestamp,
+            (namespace, self.Name, self.Frozen, self.Monotonic, meta, self.Creator, self.CreatedTimestamp,
                     self.Description, file_meta_requirements,
-                    parent_namespace, self.ParentName, self.Frozen, self.Monotonic, meta, self.Description, file_meta_requirements
+                    self.Frozen, self.Monotonic, meta, self.Description, file_meta_requirements
                     
             )
         )
         if do_commit:   c.execute("commit")
         return self
         
-    def columns(self, table_name=None, as_text=True):
-        clist = self.Columns
+    @staticmethod
+    def columns(table_name=None, as_text=True):
+        clist = DBDataset.Columns
         if table_name:
             clist = [table_name+"."+cn for cn in clist]
         if as_text:
@@ -1366,7 +1364,8 @@ class DBDataset(object):
         c = db.cursor()
         namespace = namespace.Name if isinstance(namespace, DBNamespace) else namespace
         #print(namespace, name)
-        c.execute("""select namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements
+        columns = DBDataset.columns()
+        c.execute(f"""select {columns}
                         from datasets
                         where namespace=%s and name=%s""",
                 (namespace, name))
@@ -1379,7 +1378,7 @@ class DBDataset(object):
         # namespaces_names is list of tuples [(namespace, name), ...]
         c = db.cursor()
         specs = list(set(f"{namespace}:{name}" for namespace, name in namespaces_names))
-        columns = self.columns()
+        columns = DBDataset.columns()
         c.execute(f"""select {columns}
                         from datasets
                         where (namespace || ':' || name) = any(%s) """,
@@ -1389,9 +1388,9 @@ class DBDataset(object):
 
     @staticmethod
     def from_tuple(db, tup):
-        namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements = tup
-        dataset = DBDataset(db, namespace, name, parent_namespace=parent_namespace, 
-                parent_name=parent_name, frozen=frozen, monotonic=monotonic, metadata=metadata, file_meta_requirements=file_metadata_requirements)
+        namespace, name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements = tup
+        dataset = DBDataset(db, namespace, name, 
+            frozen=frozen, monotonic=monotonic, metadata=metadata, file_meta_requirements=file_metadata_requirements)
         dataset.Creator = creator
         dataset.CreatedTimestamp = created_timestamp
         dataset.Description = description
@@ -1417,8 +1416,8 @@ class DBDataset(object):
             wheres.append("creator = '%s'" % (creator,))
         wheres = "" if not wheres else "where " + " and ".join(wheres)
         c=db.cursor()
-        c.execute("""select namespace, name, parent_namespace, parent_name, frozen, monotonic, metadata,
-                            creator, created_timestamp, description, file_metadata_requirements
+        columns = DBDataset.columns()
+        c.execute(f"""select {columns}
                 from datasets %s""" % (wheres,))
         for tup in fetch_generator(c):
             yield DBDataset.from_tuple(db, tup)
@@ -1664,9 +1663,9 @@ class DBDataset(object):
         dataset_map = {}       # { fid -> [DBDataset, ...]}
         datasets = {}       # {(ns,n) -> DBDataset}
         c = db.cursor()
-        c.execute("""
-            select distinct f.id, ds.namespace, ds.name, ds.parent_namespace, ds.parent_name, ds.frozen, ds.monotonic, ds.metadata, ds.creator, ds.created_timestamp, 
-                                ds.description, ds.file_metadata_requirements
+        ds_columns = self.columns("ds")
+        c.execute(f"""
+            select distinct f.id, {ds_columns}
                         from datasets ds, files f, files_datasets fd
                         where f.id = any(%s) and
                             fd.dataset_namespace = ds.namespace and fd.dataset_name = ds.name and fd.file_id = f.id
