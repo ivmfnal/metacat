@@ -16,33 +16,32 @@
 
 <input type="hidden" name="create" value="{{"yes" if create else "no"}}"/>
 
+{% if edit %}
+	<input type="hidden" name="namespace" value="{{dataset.Namespace}}"/>
+	<input type="hidden" name="name" value="{{dataset.Name}}"/>
+{% endif %}
+
+
 <table class="form">
-    <tr>
-        <th>Namespace:</th>
-        <td>
-            {% if create %}
+    {% if create %}
+        <tr>
+            <th>Namespace:</th>
+            <td>
                 <select name="namespace">
                     {% for ns in namespaces %}
                         <option value="{{ns.Name}}">{{ns.Name}}</option>
                     {% endfor %}
                 </select>
-            {% else %}
-				<input type="hidden" name="namespace" value="{{dataset.Namespace}}"/>
-                {{dataset.Namespace}}
-            {% endif %}
-        </td>
-    <tr>
-	<tr>
-		<th>Name:</th>
-		<td>
-			{% if create %}
-				<input type="text" name="name"/>
-			{% else %}
-				<input type="hidden" name="name" value="{{dataset.Name}}"/>
-				{{dataset.Name}}
-			{% endif %}
-		</td>
-	</tr>
+            </td>
+        <tr>
+    	<tr>
+    		<th>Name:</th>
+    		<td>
+    			<input type="text" name="name"/>
+    		</td>
+    	</tr>
+    {% endif %}
+    
     <tr>
         <th>Frozen:</th>
         <td>
@@ -67,6 +66,99 @@
             {% endif %}
         </td>
     </tr>
+    {% if not create %}
+    <tr>
+        <th>Immediate children:</th>
+        <td>
+            {% for subset in dataset.children() %}
+                <a href="./dataset?namespace={{subset.Namespace}}&name={{subset.Name}}">{{subset.Namespace}}:{{subset.Name}}</a>
+                {%- if edit -%}
+                    &nbsp;<a href="./remove_child_dataset?namespace={{dataset.Namespace}}&name={{dataset.Name}}&child_namespace={{subset.Namespace}}&child_name={{subset.Name}}">remove</a>&nbsp;&nbsp;
+                {%- endif -%}
+            {% endfor %}
+        </td>
+    </tr>
+    <tr>
+        <th>Subsets:</th>
+        <td>
+            {%- for subset in dataset.subsets(exclude_immediate=True) -%}
+                <a href="./dataset?namespace={{subset.Namespace}}&name={{subset.Name}}">{{subset.Namespace}}:{{subset.Name}}</a>
+            {% endfor %}
+        </td>
+    </tr>
+    <tr>
+        <th>Immediate parents:</th>
+        <td>
+            {%- for subset in dataset.parents() -%}
+                <a href="./dataset?namespace={{subset.Namespace}}&name={{subset.Name}}">{{subset.Namespace}}:{{subset.Name}}</a>
+            {% endfor %}
+        </td>
+    </tr>
+    <tr>
+        <th>Ancestors:</th>
+        <td>
+            {%- for subset in dataset.ancestors(exclude_immediate=True) -%}
+                <a href="./dataset?namespace={{subset.Namespace}}&name={{subset.Name}}">{{subset.Namespace}}:{{subset.Name}}</a>
+            {% endfor %}
+        </td>
+    </tr>
+    
+    
+    {% endif %}
+    {% if edit %}
+    <tr>
+        <th>Add child dataset:</th>
+        <td class="nopadding">
+            <table class="noborder">
+                    <tr>
+                        <th>namespace:</th>
+                        <td>
+                            <select name="child_namespace" id="child_namespace" onchange="javascript:child_namespace_changed()">
+                                {% for ns in namespaces %}
+                                    <option value="{{ns.Name}}">{{ns.Name}}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <th>name:</th>
+                        <td><select name="child_name" id="child_name">
+                            </select>
+                        </td>
+                        <td><input type="submit" name="add_child_dataset" value="add"/>
+                        </td>
+                    </tr>
+                    <script type="text/javascript">
+        		        var name_list = document.getElementById("child_name");
+                        
+        		        name_list.data_received = function(data, param) 
+                        { 
+                            this.innerHTML = "";
+                            for( let name of data.names )
+                            {
+                                if( data.namespace != "{{dataset.Namespace}}" || name != "{{dataset.Name}}" )
+                                {
+                                    var option = document.createElement("option");
+                                    option.value = name;
+                                    option.innerHTML = name;
+                                    this.appendChild(option)
+                                }
+                            }
+                        }
+
+                        function child_namespace_changed()
+                        {
+                            var namespace = document.getElementById("child_namespace").value;
+                            url = "./child_subset_candidates?namespace=" + namespace
+                                + "&ds_namespace={{dataset.Namespace}}"
+                                + "&ds_name={{dataset.Name}}";
+                            HTTPRequest(url, name_list, null, "json");
+                        }
+                        
+                        child_namespace_changed();
+                    </script>
+            </table>
+        </td>
+    </tr>
+    {% endif %}     {# edit? #}
     <tr>
         <th>File metadata requirements</th>
         <td>

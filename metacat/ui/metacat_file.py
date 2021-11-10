@@ -15,10 +15,15 @@ Show file info:
         -I|--ids-only             - for parents and children, print file IDs only
         
     
-Declare new files:
+Declare single file:
 
-    declare <options> <json file> <dataset>
-            -N|--namespace <default namespace>         - default namespace for files and dataset
+    declare [options] [<file namespace>:]<filename> [<dataset namespace>:]<dataset>
+        -N|--namespace <default namespace>
+        -p|--parents <parent_id>,... 
+        -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
+
+Declare multiple files:
+    declare [-N|--namespace <default namespace>] -j|--json <json file> [<dataset namespace>:]<dataset>
     declare --sample                                   - print JSON file sample
     
 Update file metadata:
@@ -106,11 +111,16 @@ _declare_smaple = [
     }
 ]
 
+def parse_namespace_name(spec, default_namespace=None):
+    if ":" in spec:
+        return tuple(spec.split(":", 1))
+    else:
+        return default_namespace, spec
 
 def do_declare(client, args):
-    opts, args = getopt.getopt(args, "N:", ["namespace=", "sample"])
+    opts, args = getopt.getopt(args, "N:j:p:m:", ["json=", "namespace=", "sample", "parents=", "metadata="])
     opts = dict(opts)
-    namespace = opts.get("-N") or opts.get("--namespace")
+    default_namespace = opts.get("-N") or opts.get("--namespace")
 
     if "--sample" in opts:
         print(json.dumps(_declare_smaple, sort_keys=True, indent=4, separators=(',', ': ')))
@@ -119,11 +129,45 @@ def do_declare(client, args):
     if not args or args[0] == "help":
         print(Usage)
         sys.exit(2)
-    
-    file_list = json.load(open(args[0], "r"))       # parse to validate JSON
+        
+    if "-j" in opts or "--json" in opts:
+        json_file = opts.get("-j") or opts.get("--json")
+        files = json.load(open(json_file, "r"))       # parse to validate JSON
+        dataset_namespace, dataset_name = parse_namespace_name(args[0], default_namespace)
+        if dataset_namespace is None:
+            print("Dataset name not specified")
+            sys.exit(1)
+    else:
+        parents = opts.get("-p") or opts.get("--parents")
+        if parents:
+            parents = parents.split(",")
+        file_spec, dataset_spec = args
+        file_namespace, file_name = parse_namespace_name(file_spec, default_namespace)
+        if not file_namespace:
+            print("File namespace not specified")
+            sys.exit(1)
+        dataset_namespace, dataset_name = parse_namespace_name(dataset_spec, default_namespace)
+        if not dataset_namespace:
+            print("Dataset namespace not specified")
+            sys.exit(1)
+
+        metadata_file = opts.get("-m") or opts.get("--metadata")
+        if metadata_file:
+            metadata = json.load(open(metadata_file, "r"))
+        else:
+            metadata = {}
+        assert isinstance(metadata, dict)
+        file_data = {
+                "namespace":    file_namespace,
+                "name":         file_name,
+                "metadata":     metadata
+            }
+        if parents:
+            file_data["parents"] = parents
+        files = [file_data]
     
     try:
-        response = client.declare_files(args[1], file_list, namespace = namespace)    
+        response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace)    
         print(response)
     except MCInvalidMetadataError as e:
         print(e)

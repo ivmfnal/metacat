@@ -672,7 +672,8 @@ class GUIHandler(BaseHandler):
         for ds in datasets:
             ds.GUI_Authorized = user is not None and (admin or self._namespace_authorized(db, ds.Namespace, user))
             ds.GUI_Children = sorted(ds.children(), key=lambda x: (x.Namespace, x.Name))
-        return self.render_to_response("datasets.html", datasets=datasets, **self.messages(args))
+            ds.GUI_Parents = sorted(ds.parents(), key=lambda x: (x.Namespace, x.Name))
+        return self.render_to_response("datasets.html", datasets=datasets, logged_in=user is not None, **self.messages(args))
 
     def dataset_files(self, request, relpath, dataset=None, with_meta="no"):
         with_meta = with_meta == "yes"
@@ -688,7 +689,9 @@ class GUIHandler(BaseHandler):
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/create_dataset")
         admin = user.is_admin()
         db = self.App.connect()
-        namespaces = list(DBNamespace.list(db, owned_by_user=user if not admin else None))
+        namespaces = sorted(DBNamespace.list(db, owned_by_user=user if not admin else None), 
+            key=lambda x, u=user: (0 if x.owned_by_user(u, directly=True) else 1, x.Name)
+        )
         #print("create_dataset: amdin:", admin, "   namespaces:", namespaces)
         if not namespaces:
             self.redirect("./create_namespace?error=%s" % (quote_plus("You do not own any namespace. Create one first"),))
@@ -714,10 +717,21 @@ class GUIHandler(BaseHandler):
         if user is not None:
             ns = DBNamespace.get(db, name=dataset.Namespace)
             edit = ns.owned_by_user(user)
-        print("gui.dataset: dataset.reqs:", dataset.FileMetaRequirements)
+        namespaces = DBNamespace.list(db)
+        namespaces = sorted(namespaces, key = lambda ns: (0 if ns.owned_by_user(user, directly=True) else 1, ns.Name))
         return self.render_to_response("dataset.html", dataset=dataset, files=files, nfiles=nfiles, attr_names=attr_names, edit=edit, create=False,
-            **self.messages(args))
+            namespaces=namespaces, **self.messages(args))
             
+    def child_subset_candidates(self, request, relpath, namespace=None, prefix=None, ds_namespace=None, ds_name=None, **args):
+        db = self.App.connect()
+        datasets = set((d.Namespace, d.Name) for d in DBDataset.list(db, namespace=namespace))
+        ds = DBDataset.get(db, ds_namespace, ds_name)
+        if ds is not None:
+            children = set((c.Namespace, c.Name) for c in ds.children())
+            ancestors = set((a.Namespace, a.Name) for a in ds.ancestors())
+            datasets = datasets - children - ancestors
+        return json.dumps({"namespace": namespace, "names": sorted([name for namespace, name in datasets])}), "text/json"
+
     def delete_dataset(self, request, relpath, namespace=None, name=None, **args):
         user = self.authenticated_user()
         if not user:
@@ -793,7 +807,7 @@ class GUIHandler(BaseHandler):
         if not admin:
             ns = DBNamespace.get(db, namespace)
             if not ns.owned_by_user(user):
-                self.redirect("./datasets?error=%s" % (quote_plus(f"No permission to modify namespace {namespace}"),))
+                self.redirect(f"./datasets?error=%s" % (quote_plus(f"No permission to modify namespace {namespace}"),))
 
         if request.POST["create"] == "yes":
             ds = DBDataset(db, namespace, name)
@@ -801,12 +815,52 @@ class GUIHandler(BaseHandler):
         else:
             ds = DBDataset.get(db, namespace, name)
 
+        warning = None
+
+        if request.POST.get("add_child_dataset") == "add":
+            child_namespace = request.POST["child_namespace"]
+            child_name = request.POST["child_name"]
+            if child_namespace and child_name:
+                child = DBDataset.get(db, child_namespace, child_name)
+                if child is None:
+                    self.redirect("./datasets?error=%s" % (quote_plus(f"Child dataset {child_namespace}:{child_name} not found"),))
+                ancestors = list(ds.ancestors())
+                print("Ancestors: of", ds, ":", *ancestors)
+                subsets = list(ds.subsets())
+                print("Subsets:", *subsets)
+                if any(a.Namespace == child_namespace and a.Name == child_name for a in ancestors):
+                    self.redirect("./datasets?error=%s" % (quote_plus(f"Circular dependency detected"),))
+                if any(a.Namespace == child_namespace and a.Name == child_name for a in subsets):
+                    warning = f"Dataset {child_namespace}:{child_name} is already a subset of {namespace}:{name}"
+                ds.add_child(child)
+
         ds.Monotonic = "monotonic" in request.POST
         ds.Frozen = "frozen" in request.POST
         reqs = self.read_dataset_file_meta_requiremets(request.POST)
         ds.FileMetaRequirements = reqs
         ds.save()
-        self.redirect(f"./dataset?namespace={namespace}&name={name}")
+        self.redirect(f"./dataset?namespace={namespace}&name={name}" + ("&message=" + quote_plus(warning) if warning else ""))
+        
+    def remove_child_dataset(self, request, relpath, namespace=None, name=None, child_namespace=None, child_name=None, **args):
+        user = self.authenticated_user()
+        if not user:
+            self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/datasets")
+        db = self.App.connect()
+        admin = user.is_admin()
+        dataset = DBDataset.get(db, namespace, name)
+        if not dataset:
+            self.redirect("./datasets")
+        if not admin:
+            ns = DBNamespace.get(db, namespace)
+            if not ns.owned_by_user(user):
+                self.redirect(f"./datasets?error=%s" % (quote_plus(f"No permission to modify dataset in namespace {namespace}"),))
+        
+        children = dataset.children()
+        if not any(child.Namespace==child_namespace and child.Name==child_name for child in children):
+            self.redirect(f"./dataset?namespace={namespace}&name={name}&error=%s" % (quote_plus(f"Child dataset {child_namespace}:{child_name} not found"),))
+        dataset.remove_child(DBDataset(db, child_namespace, child_name))
+        self.redirect(f"./dataset?namespace={namespace}&name={name}&message=%s" % (quote_plus(f"Child {child_namespace}:{child_name} removed"),))
+
 #
 # --- roles
 #

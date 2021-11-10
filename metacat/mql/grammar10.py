@@ -37,7 +37,7 @@ filter_params : constant_list
 
 file_query_list: file_query ("," file_query)*     
 
-!datasets_selector: dataset_spec_list ("with" "children" "recursively"?)? ("having" meta_exp)?
+!datasets_selector: dataset_spec_list ("having" meta_exp)? ("with" "children" "recursively"?)?
 
 dataset_spec_list: dataset_spec ("," dataset_spec)* 
 
