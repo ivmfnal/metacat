@@ -672,6 +672,7 @@ class GUIHandler(BaseHandler):
         for ds in datasets:
             ds.GUI_Authorized = user is not None and (admin or self._namespace_authorized(db, ds.Namespace, user))
             ds.GUI_Children = sorted(ds.children(), key=lambda x: (x.Namespace, x.Name))
+            ds.GUI_Parents = sorted(ds.parents(), key=lambda x: (x.Namespace, x.Name))
         return self.render_to_response("datasets.html", datasets=datasets, logged_in=user is not None, **self.messages(args))
 
     def dataset_files(self, request, relpath, dataset=None, with_meta="no"):

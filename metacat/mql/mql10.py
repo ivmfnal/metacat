@@ -349,17 +349,20 @@ class _Converter(Transformer):
         recursively = False
         having_exp = None
         args_ = args[1:]
-        for i, a in enumerate(args_):
+        i = 0
+        while i < len(args_):
             #print(i, a)
+            a = args_[i]
             if a.value == "with":
-                continue
+                pass
             elif a.value == "children":
                 with_children = True
             elif a.value == "recursively":
                 recursively = True
             elif a.value == "having":
                 having_exp = args_[i+1]
-                break
+                i += 1
+            i += 1
         #print("datasets_selector: having_exp:", having_exp.pretty("    "))
         ds = DatasetSelector(spec_list, with_children, recursively, having_exp)
         return Node("datasets_selector", selector = ds)

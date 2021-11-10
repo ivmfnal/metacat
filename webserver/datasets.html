@@ -15,6 +15,9 @@
 		<th>Monotonic</th>
 		<th>Files</th>
         <th>Children</th>
+        <th>Subsets</th>
+        <th>Parents</th>
+        <th>Ancestors</th>
         {% if logged_in %}<th>Delete</th>{% endif %}
 	</tr>
 	{% for ds in datasets %}
@@ -28,6 +31,13 @@
                     <a href="./dataset?namespace={{child.Namespace}}&name={{child.Name}}">{{child.Namespace}}:{{child.Name}}</a><br/>
                 {% endfor %}
             </td>
+            <td>{{ds.subset_count()}}</td>
+            <td>
+                {% for parent in ds.GUI_Parents %}
+                    <a href="./dataset?namespace={{parent.Namespace}}&name={{parent.Name}}">{{parent.Namespace}}:{{parent.Name}}</a><br/>
+                {% endfor %}
+            </td>
+            <td>{{ds.ancestor_count()}}</td>
             {% if logged_in %}
                 <td>
                     {% if not ds.GUI_Authorized %}

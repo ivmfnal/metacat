@@ -81,7 +81,7 @@
     <tr>
         <th>Subsets:</th>
         <td>
-            {%- for subset in dataset.subsets() -%}
+            {%- for subset in dataset.subsets(exclude_immediate=True) -%}
                 <a href="./dataset?namespace={{subset.Namespace}}&name={{subset.Name}}">{{subset.Namespace}}:{{subset.Name}}</a>
             {% endfor %}
         </td>
@@ -97,7 +97,7 @@
     <tr>
         <th>Ancestors:</th>
         <td>
-            {%- for subset in dataset.ancestors() -%}
+            {%- for subset in dataset.ancestors(exclude_immediate=True) -%}
                 <a href="./dataset?namespace={{subset.Namespace}}&name={{subset.Name}}">{{subset.Namespace}}:{{subset.Name}}</a>
             {% endfor %}
         </td>
