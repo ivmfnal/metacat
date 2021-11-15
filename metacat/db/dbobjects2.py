@@ -106,7 +106,7 @@ class _DBManyToMany(object):
         columns = ",".join(self.ReferenceColumns) 
         if c is None: c = self.DB.cursor()
         c.execute(f"select {columns} from {self.Table} {self.Where}")
-        if len(self.VarColumns) == 1:
+        if len(self.ReferenceColumns) == 1:
             return (x for (x,) in fetch_generator(c))
         else:
             return fetch_generator(c)
@@ -183,6 +183,7 @@ class DBFileSet(object):
     def chunked(self, chunk_size=1000):
         chunk = []
         for f in self.Files:
+            #print("chunked:", f.Namespace, f.Name)
             chunk.append(f)
             if len(chunk) >= chunk_size:
                 yield chunk

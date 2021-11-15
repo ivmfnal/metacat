@@ -16,10 +16,10 @@
 	<tr>
 		<th>Name</th>
 		<th>Owner</th>
-        <th>Description</th>
         <th>Files</th>
         <th>Datasets</th>
         <th>Queries</th>
+        <th>Description</th>
 	</tr>
 	{% for ns in namespaces %}
 		<tr>
@@ -30,10 +30,10 @@
                         <a href="./role?name={{ns.OwnerRole}}">{{ns.OwnerRole}}</a>
                     {% endif %}
                 </td>
-                <td>{{ns.Description or ""}}</td>
 				<td id="file_count:{{ns.Name}}"></td>
 				<td id="dataset_count:{{ns.Name}}">{{ns.dataset_count()}}</td>
 				<td id="query_count:{{ns.Name}}">{{ns.query_count()}}</td>
+                <td>{{ns.Description or ""}}</td>
 	    </tr>
             <script>
 		        var out = document.getElementById("file_count:{{ns.Name}}");

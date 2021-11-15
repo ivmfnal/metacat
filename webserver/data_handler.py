@@ -98,7 +98,7 @@ class DataHandler(BaseHandler):
             
     def namespace_counts(self, request, relpath, name=None, **args):
         db = self.App.connect()
-        ns = DBNamespace.get(db, namespace)
+        ns = DBNamespace.get(db, name)
         out = json.dumps(
             dict(
                 nfiles = ns.file_count(),

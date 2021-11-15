@@ -29,6 +29,7 @@ class RunsDB(MetaCatFilter):
         for chunk in inputs[0].chunked():
             by_run = {}
             for f in chunk:
+                #print(f.Namespace, f.Name)
                 if "core.runs" in f.Metadata:
                     for runnum in f.Metadata["core.runs"]:
                         by_run.setdefault(runnum,[]).append(f)
