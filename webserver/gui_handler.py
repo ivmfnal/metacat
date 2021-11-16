@@ -39,7 +39,7 @@ class GUICategoryHandler(BaseHandler):
         db = self.connect()
         me = self.authenticated_user()
         if not me:
-            self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/categories/crteate")
+            self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/categories/create")
         admin = me.is_admin()
         cats = list(DBParamCategory.list(db))
         if admin:
@@ -59,13 +59,13 @@ class GUICategoryHandler(BaseHandler):
             if k.startswith("param:") and k.endswith(":name"):
                 param_id = k.split(":", 2)[1]
                 name = form.get(f"param:{param_id}:name")
-                print("param k, id, name:", k, param_id, name)
+                #print("param k, id, name:", k, param_id, name)
                 if name:
                     if form.get(f"param:{param_id}:remove"):
                         removals.append(name)
                     else:
                         type = form.get(f"param:{param_id}:type")
-                        print("name, type:", name, type)
+                        #print("name, type:", name, type)
                         values = form.get(f"param:{param_id}:values", "")
                         values = values.split(",") if values else None
                         minv = form.get(f"param:{param_id}:min", "").strip() or None
@@ -183,7 +183,7 @@ class GUICategoryHandler(BaseHandler):
                 else:
                     cat.OwnerUser = owner
                     cat.OwnerRole = None
-        print("owner_user, owner_role:", cat.OwnerUser, cat.OwnerRole)
+        #print("owner_user, owner_role:", cat.OwnerUser, cat.OwnerRole)
             
         cat.Description = request.POST["description"]
         cat.Restricted = "restricted" in request.POST

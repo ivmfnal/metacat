@@ -1,5 +1,5 @@
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
-import psycopg2, json, time, secrets, traceback, hashlib, pprint
+import psycopg2, json, time, secrets, traceback, hashlib, pprint, uuid
 from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, \
     DBParamCategory, parse_name, AlreadyExistsError, IntegrityError, MetaValidationError
 from wsdbtools import ConnectionPool
@@ -293,57 +293,91 @@ class DataHandler(BaseHandler):
         
         errors = []
         
-        for file_item in file_list:
+        metadata_validation_errors = DBParamCategory.validate_metadata_bulk(db, [f["metadata"] for f in file_list])
+        if metadata_validation_errors:
+            for item, error_dict in metadata_validation_errors:
+                for name, error in error_dict.items():
+                    errors.append({
+                        "message": f"Metadata validation error for metadata parameter {name}: {error}"
+                    })
+            return json.dumps(errors), METADATA_ERROR_CODE, "text/json"
+        
+        for inx, file_item in enumerate(file_list):
             name = file_item.get("name")
             fid = file_item.get("fid")
+            
+            file_errors = []
+            
+            size = file_item.get("size")
+            
+            if size is None:
+                file_errors.append({
+                    "message": "Missing file size",
+                    "fid": fid,
+                    "index": inx
+                })
+
             if name is None:
-                errors.append({
-                    "message":"Missing filename",
-                    "fid":fid
+                auto_format = file_item.get("auto_name")
+                if auto_format:
+                    random_uuid = uuid.uuid4().hex
+                    clock = int(time.time() * 1000)
+                    name = auto_format % {
+                        "clock":clock, "clock3":clock%1000, "clock6":clock%1000000, "clock9":clock%1000000000,
+                        "uuid":random_uuid,
+                        "random":random_uuid, "uuid8":random_uuid[:8], "random16":random_uuid[:16]
+                    }
+
+            if name is None:
+                file_errors.append({
+                    "message": "Missing filename",
+                    "fid": fid,
+                    "index": inx
                 })
                 continue
-            
-            namespace, name = parse_name(file_item["name"], file_item.get("namespace") or default_namespace)
+
+            namespace, name = parse_name(name, file_item.get("namespace") or default_namespace)
             if not namespace:
-                errors.append({
+                file_errors.append({
                     "message":"Missing namespace",
+                    "index": inx,
                     "fid":fid
                 })
                 continue
                 
             try:
                 if not self._namespace_authorized(db, namespace, user):
-                    errors.append({
+                    file_errors.append({
+                        "index": inx,
+                        "fid":fid,
                         "message":f"Permission to declare files to namespace {namespace} denied"
                     })
                     continue
             except KeyError:
-                    errors.append({
+                    file_errors.append({
+                        "index": inx,
+                        "fid":fid,
                         "message":f"Namespace {namespace} does not exist"
                     })
                     continue
                     
             meta = file_item.get("metadata", {})
             
-            metadata_errors = self.validate_metadata(meta)
-            if metadata_errors:
-                errors.append({
-                    "message":f"Metadata validation errors for {namespace}:{name}",
-                    "metadata_errors":metadata_errors
-                })
-            
             ds_validation_errors = ds.validate_file_metadata(meta)
             if ds_validation_errors:
-                errors.append({
-                    "message":f"Dataset metadata requirements violation for {namespace}:{name}",
+                file_errors.append({
+                    "index": inx,
+                    "fid":fid,
+                    "message":f"Dataset metadata requirements violation",
                     "metadata_errors":ds_validation_errors
                 })
-                
-            if ds_validation_errors or metadata_errors:
+
+            errors += file_errors
+
+            if file_errors:
                 continue
-            
-            
-            f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=meta)
+
+            f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=meta, size=size)
             f.Parents = file_item.get("parents")
             f.Checksums = file_item.get("checksums")
             files.append(f)
@@ -362,10 +396,11 @@ class DataHandler(BaseHandler):
         
         out = [
                     dict(
-                        name="%s:%s" % (f.Namespace, f.Name), 
+                        namespace=f.Namespace,
+                        name=f.Name,
                         fid=f.FID
                     )
-                    for f in files
+                    for i, f in enumerate(files)
         ]
         return json.dumps(out), "text/json"
         

@@ -96,6 +96,7 @@ _declare_smaple = [
             "format":"raw",
             "done":True
         },
+        "size": 1234,
         "parents":[ "4722545", "43954" ]
     },
     {        
@@ -107,6 +108,7 @@ _declare_smaple = [
             "format":"raw",
             "done":False
         },
+        "size": 1734,
         "parents":[ "4723345", "4322954" ]
     }
 ]

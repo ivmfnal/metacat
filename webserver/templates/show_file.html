@@ -17,7 +17,7 @@
 	                <th>Name</th><td class="filename">{{f.Name}}</td>
                 </tr>
                 <tr>
-	                <th>Size</th><td>{{f.Size}} ({{"%.3f" % (f.Size/1024.0/1024.0,)}} MB)</td>
+	                <th>Size</th><td>{{f.Size}} {% if f.Size %}({{"%.3f" % (f.Size/1024.0/1024.0,)}} MB){% endif %}</td>
                 </tr>
                 <tr>
                     <th>Created at</th><td>{{f.CreatedTimestamp or ""}}</td>
