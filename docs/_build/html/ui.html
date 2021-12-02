@@ -159,24 +159,57 @@ metacat dataset show &lt;namespace&gt;:&lt;name&gt;
 <p>Create JSON file with metadata:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
     <span class="p">{</span>
-        <span class="s2">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;namespace:name&quot;</span><span class="p">,</span>    <span class="c1"># required</span>
-        <span class="s2">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>                <span class="c1"># optional - will fail if already exists</span>
+        <span class="s2">&quot;namespace&quot;</span><span class="p">:</span><span class="s2">&quot;namespace&quot;</span><span class="p">,</span>    <span class="c1"># optional - use -N to specify default</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;name&quot;</span><span class="p">,</span>              <span class="c1"># optional</span>
+        <span class="s2">&quot;auto_name&quot;</span><span class="p">:</span><span class="n">pattern</span><span class="p">,</span>        <span class="c1"># optional</span>
+        <span class="s2">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>                <span class="c1"># optional - new will be generated if missing, will fail if specified and already exists</span>
         <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>        <span class="c1"># optional</span>
         <span class="s2">&quot;parents&quot;</span><span class="p">:</span>  <span class="p">[</span> <span class="s2">&quot;fid1&quot;</span><span class="p">,</span> <span class="s2">&quot;fid2&quot;</span><span class="p">,</span> <span class="o">...</span> <span class="p">]</span>     <span class="c1"># optional, must be file ids</span>
+        <span class="s2">&quot;size&quot;</span><span class="p">:</span>   <span class="mi">1234</span>              <span class="c1"># required</span>
     <span class="p">},</span>
     <span class="o">...</span>
 <span class="p">]</span>
 </pre></div>
 </div>
-<p>Get a sample of the JSON file:</p>
+<p>You can get a sample of the JSON file:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat file <span class="nb">declare</span> --sample
 </pre></div>
 </div>
 <p>Declare files:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat file <span class="nb">declare</span> <span class="o">[</span>-N &lt;default namespace&gt;<span class="o">]</span> <span class="se">\</span>
-        metadata.json <span class="o">[</span>&lt;namespace&gt;:<span class="o">]</span>&lt;dataset&gt;
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">declare</span> <span class="o">[</span>-N<span class="p">|</span>--namespace &lt;default namespace&gt;<span class="o">]</span> -j<span class="p">|</span>--json &lt;json file&gt; <span class="o">[</span>&lt;dataset namespace&gt;:<span class="o">]</span>&lt;dataset&gt;
 </pre></div>
 </div>
+<p>When declaring multiple files, the command accepts JSON file path. The JSON file provides information about the files being declared. The JSON structure in the file
+must be a list of dictionaries, one dictionary per file to be declared. Each dictionary has the following items:</p>
+<dl>
+<dt><code class="docutils literal notranslate"><span class="pre">fid</span></code><span class="classifier">optional</span></dt><dd><p>File ID for the new file. Must be unique for the MetaCat instance.
+If unspecified, MetaCat will assign the hexadecimal representation of a random UUID (32 hex digits) as the file ID.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">namespace</span></code><span class="classifier">optional</span></dt><dd><p>Namespace for the file. If unspecified, the default namespace specified with <code class="docutils literal notranslate"><span class="pre">-N</span></code> will be used.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">name</span></code><span class="classifier">optional</span></dt><dd><p>File name. The file name must be unique within the namespace. If unspecified, the name will be auto-generated or the file ID will be used as the name.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">auto_name</span></code><span class="classifier">optional</span></dt><dd><p>Pattern to be used to generate new file name. The pattern is specified in terms of Python print-style format string. The following mapping keys will be pre-defined:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">%(uuid)s</span></code> - hexadecimal representation of a random UUID (32 hex digits)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">%(uuid8)s</span></code> - 4-bytes (8 hex digits) of a random UUID</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">%(uuid16)s</span></code> - 8-bytes (16 hex digits) of a random UUID</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">%(clock)d</span></code> - UNIX timestamp in milliseconds as integer ( int(time*1000) )</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">%(clock3)d</span></code> - milliseconds portion of UNIX timestamp as integer</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">%(clock6)d</span></code> - lowest 6 digits of UNIX timestamp in milliseconds as integer</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">%(clock9)d</span></code> - lowest 9 digits of UNIX timestamp in milliseconds as integer</p></li>
+</ul>
+<p>For example, the pattern <code class="docutils literal notranslate"><span class="pre">file_%(uuid8)s_%(clock6)d.dat</span></code> may generate file name <code class="docutils literal notranslate"><span class="pre">file_13d79a37_601828.dat</span></code></p>
+<p>If neither <code class="docutils literal notranslate"><span class="pre">name</span></code> nor <code class="docutils literal notranslate"><span class="pre">auto_name</span></code> are provided, then <code class="docutils literal notranslate"><span class="pre">file</span> <span class="pre">ID</span></code> will be used as the file name.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">size</span></code><span class="classifier">required</span></dt><dd><p>File size in bytes</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">metadata</span></code><span class="classifier">optional</span></dt><dd><p>File metadata as dictionary</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">parents</span></code><span class="classifier">optional</span></dt><dd><p>List of parent files IDs</p>
+</dd>
+</dl>
+<p>When declaring a file or multiple files, they must be added to a dataset.</p>
 </div>
 <div class="section" id="adding-files-to-dataset">
 <h2>Adding files to dataset<a class="headerlink" href="#adding-files-to-dataset" title="Permalink to this headline">¶</a></h2>

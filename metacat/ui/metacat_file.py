@@ -356,9 +356,15 @@ def do_file(server_url, args):
         
     command = args[0]
     client = MetaCatClient(server_url)
-    return {
-        "declare":      do_declare,
-        "add":          do_add,
-        "update":       do_update,
-        "show":         do_show
-    }[command](client, args[1:])
+    try:
+        method = {
+            "declare":      do_declare,
+            "add":          do_add,
+            "update":       do_update,
+            "show":         do_show
+        }[command]
+    except KeyError:
+        print("Unknown file subcommand: ", command)
+        sys.exit(2)
+        
+    return method(client, args[1:])

@@ -325,16 +325,9 @@ class DataHandler(BaseHandler):
                     name = auto_format % {
                         "clock":clock, "clock3":clock%1000, "clock6":clock%1000000, "clock9":clock%1000000000,
                         "uuid":random_uuid,
-                        "random":random_uuid, "uuid8":random_uuid[:8], "random16":random_uuid[:16]
+                        "uuid8":random_uuid[:8], "uuid16":random_uuid[:16]
                     }
 
-            if name is None:
-                file_errors.append({
-                    "message": "Missing filename",
-                    "fid": fid,
-                    "index": inx
-                })
-                continue
 
             namespace, name = parse_name(name, file_item.get("namespace") or default_namespace)
             if not namespace:
@@ -380,6 +373,10 @@ class DataHandler(BaseHandler):
             f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=meta, size=size)
             f.Parents = file_item.get("parents")
             f.Checksums = file_item.get("checksums")
+
+            if name is None:
+                f.Name = f.FID
+
             files.append(f)
 
         if errors:

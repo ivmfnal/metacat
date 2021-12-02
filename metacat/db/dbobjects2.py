@@ -3,11 +3,17 @@ from metacat.util import to_bytes, to_str, epoch
 from metacat.util.authenticators import authenticator
 from psycopg2 import IntegrityError
 
+Debug = False
+
+def debug(*parts):
+    if Debug:
+        print(*parts)
+
 from .common import (
     DBObject, _DBManyToMany,
     AlreadyExistsError, DatasetCircularDependencyDetected, NotFoundError, MetaValidationError,
     parse_name, fetch_generator, alias, 
-    first_not_empty, limited, strided, skipped
+    first_not_empty, limited, strided, skipped, insert_bulk
 )
 
 class DBFileSet(object):
@@ -392,9 +398,13 @@ class DBFile(object):
                 """,
                 (self.FID, self.Namespace, self.Name, meta, self.Size, checksums, creator))
             if self.Parents:
-                c.executemany(f"""
-                    insert into parent_child(parent_id, child_id) values(%s, %s)
-                """, [(p.FID if isinstance(p, DBFile) else p, self.FID) for p in self.Parents])
+                insert_bulk(
+                    c, 
+                    "parent_child", 
+                    ["parent_id", "child_id"], 
+                    ((p.FID if isinstance(p, DBFile) else p, self.FID) for p in self.Parents),
+                    do_commit = False
+                )
             if do_commit:   c.execute("commit")
         except:
             c.execute("rollback")

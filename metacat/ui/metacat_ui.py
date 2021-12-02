@@ -43,7 +43,7 @@ def main():
 
     auth_server_url = opts.get("-a") or os.environ.get("METACAT_AUTH_SERVER_URL")
     if not auth_server_url:
-        print("Warning: MetaCat authentication server URL is not set. Using default:", server_url+"/auth", file=sys.stderr)
+        #print("Warning: MetaCat authentication server URL is not set. Using default:", server_url+"/auth", file=sys.stderr)
         auth_server_url = server_url+"/auth"
         
     if not cmd in Commands:

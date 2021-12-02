@@ -220,59 +220,59 @@ Even if a file appears in more than one of the input file sets, it will not be r
 User Defined Filters
 ____________________
 
+User-defined filters are used to extend MetaCat functionality and as a way to access external metadata and use it to further filter the file sets
+and to inject metadata from external sources into MetaCat query.
+
 A user can define their own filters by supplying a class derived from ``MetaCatFiler`` class imported from ``metacat.filters``.
-The class must have a method called ``filter``:
+The class may have a constructor, which receives a dictionary with configuration parameters and must have a method called ``filter``:
 
 .. code-block:: python
 
     from metacat.filters import MetaCatFiler
     
     class MyFilter(MetaCatFiler):
+    
+        def __init__(self, config):
+            self.DataSource = ...
 
-        def filter(self, params, file_sets, limit=None, skip=None):
-            param1, param2 = params
-            input_set = file_sets[0]
+        def filter(self, inputs, *params, **key_value):
+            input_set = inputs[0]
             
             for f in input_set:
-                if ....:
+                external_data = self.DataSource.get(f)
+                if ...:
+                    f.Metadata["extra_field"] = some_data
                     yield f
 
+First argument of the ``filter`` method is the list of one or more input file sets. They are results of MQL subqueries passed to the filter as inputs. 
+Each input file set is an iterable, not lists. If necessary, the input file set can be converted to a list as ``list(file_set)``, but that needs to
+be done with caution because that will force fetching the entire file set into memory, and that can be very big.
 
-The ``filter`` method arguments are:
+After first parameter, the ``filter`` method can accept some additional positional and keywird parameters passed from MQL. For example, MQL query like this:
 
-*params* - list of filter parameters
+.. code-block::
 
-*file_sets* - list of input file sets
+    filter my_filter(3, 'test', pi=3.14, e=2.718) (
+        files from user:dataset_a,
+        files from group:dataset_b where x=5
+    )
 
-*limit* - either ``None`` or the limit of the number of files to return
+will call the filter() method with the following arguments:
 
-*skip* - either ``None`` or the number of returned files to skip before returing first file (this functionality is not yet implemented)
+.. code-block:: python
 
-For example, if the query was:
+    ...
+    filter_object.filter([file_set_a, file_set_b], 3, "test", pi=3.14, e=2.18)
+    ...
 
-.. code-block:: sql
+The ``filter`` method is expected to generate a list of file object from the input file sets, possibly augmenting their metadata with some
+data.
 
-        filter sample(1,2,5)(
-            files from s:A, 
-            files from s:B, 
-            files from s:C
-        ) limit 100
+MetaCat will create the filter object only once and then call its ``filter`` method for each query. Thus, the filter object may have some persistent state,
+but that feature should be used with caution because:
 
-then the ``filter()`` arguments will be:
-
-params = [1,2,5]
-
-file_sets = list of iterables with results of the 3 subqueries
-
-limit = 100
-
-The user defined filter does not have to implement the limit, unless there is some significant advantage 
-in implementing those inside the filter. MetaCat will limit the results anyway.
-
-The filter finction may return an iterable (a list) of files, but it is preferable that the function is in fact
-a generator, yielding the files one by one to avoid building and destroying large lists of file objects.
-
-MetaCat will create new object of the filter class for each query and each appearance of the filter inside the query.
+    * MetaCat server runs in multiple instances on multiple servers, and the instances do not communicate with each other.
+    * MetaCat server instance is a multithreaded process and queries are executed on concurrent threads, so some sort of inter-thread synchronization mechanism may need to be used.
 
 Common Namesaces
 ----------------
@@ -379,7 +379,8 @@ Assume the file metadata has the following parameters:
         {
             "muon":       1,
             "electron":   0
-        }
+        },
+        "modules":        ["a1", "a2", "a3"]
     }
 
 
@@ -397,6 +398,11 @@ Also, you can use subscripts ``[any]`` as "any element of" and ``[all]`` as "all
     * ``trigger_bits[all] != 1`` - will not match
     * ``trigger_bits[all] < 2`` - will match
     
+You can also use ``in`` and ``not in`` to check if a value is contained in the array:
+
+    * ``"a1" in modules`` - will match, equivalent to ``modules[any] = "a1"``
+    * ``"xyz" not in modules`` - will match, equivalent to ``modules[all] != "xyz"`` or ``!(modules[any] = "xyz")``
+
 Note that while `trigger_bits[all] != 1` will not match, `!(trigger_bits[all] == 1)` will match. In general, the following pairs of expressions are
 equal:
 

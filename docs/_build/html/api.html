@@ -36,12 +36,12 @@
 <h1>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h1>
 <dl class="py class">
 <dt>
-<em class="property">class </em><code class="sig-prename descclassname">metacat.webapi.</code><code class="sig-name descname">MetaCatClient</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">server_url</span></em>, <em class="sig-param"><span class="n">auth_server_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">max_concurrent_queries</span><span class="o">=</span><span class="default_value">5</span></em>, <em class="sig-param"><span class="n">token</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">token_file</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span></dt>
+<em class="property">class </em><code class="sig-prename descclassname">metacat.webapi.</code><code class="sig-name descname">MetaCatClient</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">server_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">auth_server_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">max_concurrent_queries</span><span class="o">=</span><span class="default_value">5</span></em>, <em class="sig-param"><span class="n">token</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">token_file</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span></dt>
 <dd><p>Initializes the MetaCatClient object</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>server_url</strong> (<em>str</em>) – The server endpoint URL</p></li>
+<li><p><strong>server_url</strong> (<em>str</em>) – The server endpoint URL, defult = from METACAT_SERVER_URL environment variable</p></li>
 <li><p><strong>auth_server_url</strong> (<em>str</em>) – The endpoint URL for the Authentication server, default = server_url + “/auth”</p></li>
 <li><p><strong>max_concurrent_queries</strong> (<em>int</em><em>, </em><em>optional</em>) – Controls the concurrency when asynchronous queries are used</p></li>
 <li><p><strong>token_file</strong> (<em>str</em>) – File path to read the authentication token from</p></li>

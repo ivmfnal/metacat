@@ -149,15 +149,18 @@ Create JSON file with metadata::
 
     [
         {   
-            "name":"namespace:name",    # required
-            "fid":"...",                # optional - will fail if already exists
+            "namespace":"namespace",    # optional - use -N to specify default
+            "name":"name",              # optional
+            "auto_name":pattern,        # optional
+            "fid":"...",                # optional - new will be generated if missing, will fail if specified and already exists
             "metadata": { ... },        # optional
             "parents":  [ "fid1", "fid2", ... ]     # optional, must be file ids         
+            "size":   1234              # required
         },
         ...
     ]
 
-Get a sample of the JSON file:
+You can get a sample of the JSON file:
 
 .. code-block:: shell
     
@@ -167,9 +170,46 @@ Declare files:
 
 .. code-block:: shell
 
-    metacat file declare [-N <default namespace>] \
-            metadata.json [<namespace>:]<dataset>
+    declare [-N|--namespace <default namespace>] -j|--json <json file> [<dataset namespace>:]<dataset>
         
+When declaring multiple files, the command accepts JSON file path. The JSON file provides information about the files being declared. The JSON structure in the file
+must be a list of dictionaries, one dictionary per file to be declared. Each dictionary has the following items:
+
+``fid`` : optional
+    File ID for the new file. Must be unique for the MetaCat instance. 
+    If unspecified, MetaCat will assign the hexadecimal representation of a random UUID (32 hex digits) as the file ID.
+
+``namespace`` : optional
+    Namespace for the file. If unspecified, the default namespace specified with ``-N`` will be used.
+    
+``name`` : optional
+    File name. The file name must be unique within the namespace. If unspecified, the name will be auto-generated or the file ID will be used as the name.
+    
+``auto_name`` : optional
+    Pattern to be used to generate new file name. The pattern is specified in terms of Python print-style format string. The following mapping keys will be pre-defined:
+    
+    * ``%(uuid)s`` - hexadecimal representation of a random UUID (32 hex digits)
+    * ``%(uuid8)s`` - 4-bytes (8 hex digits) of a random UUID 
+    * ``%(uuid16)s`` - 8-bytes (16 hex digits) of a random UUID 
+    * ``%(clock)d`` - UNIX timestamp in milliseconds as integer ( int(time*1000) )
+    * ``%(clock3)d`` - milliseconds portion of UNIX timestamp as integer
+    * ``%(clock6)d`` - lowest 6 digits of UNIX timestamp in milliseconds as integer
+    * ``%(clock9)d`` - lowest 9 digits of UNIX timestamp in milliseconds as integer
+
+    For example, the pattern ``file_%(uuid8)s_%(clock6)d.dat`` may generate file name ``file_13d79a37_601828.dat``
+
+    If neither ``name`` nor ``auto_name`` are provided, then ``file ID`` will be used as the file name.
+
+``size`` : required
+    File size in bytes
+    
+``metadata`` : optional
+    File metadata as dictionary
+    
+``parents`` : optional
+    List of parent files IDs
+    
+When declaring a file or multiple files, they must be added to a dataset.
 
 Adding files to dataset
 -----------------------

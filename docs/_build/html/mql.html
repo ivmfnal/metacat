@@ -16,7 +16,7 @@
     
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Metaserver REST API" href="REST_API.html" />
+    <link rel="next" title="MetaCat Server REST API" href="REST_API.html" />
     <link rel="prev" title="MetaCat Documentation" href="index.html" /> 
   </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
@@ -26,7 +26,7 @@
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="REST_API.html" title="Metaserver REST API"
+          <a href="REST_API.html" title="MetaCat Server REST API"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="index.html" title="MetaCat Documentation"
@@ -206,43 +206,53 @@ to add up to 1.0. The filter will run until it reaches the end of one of the inp
 </div>
 <div class="section" id="user-defined-filters">
 <h4>User Defined Filters<a class="headerlink" href="#user-defined-filters" title="Permalink to this headline">¶</a></h4>
+<p>User-defined filters are used to extend MetaCat functionality and as a way to access external metadata and use it to further filter the file sets
+and to inject metadata from external sources into MetaCat query.</p>
 <p>A user can define their own filters by supplying a class derived from <code class="docutils literal notranslate"><span class="pre">MetaCatFiler</span></code> class imported from <code class="docutils literal notranslate"><span class="pre">metacat.filters</span></code>.
-The class must have a method called <code class="docutils literal notranslate"><span class="pre">filter</span></code>:</p>
+The class may have a constructor, which receives a dictionary with configuration parameters and must have a method called <code class="docutils literal notranslate"><span class="pre">filter</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">metacat.filters</span> <span class="kn">import</span> <span class="n">MetaCatFiler</span>
 
 <span class="k">class</span> <span class="nc">MyFilter</span><span class="p">(</span><span class="n">MetaCatFiler</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">file_sets</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">skip</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="n">param1</span><span class="p">,</span> <span class="n">param2</span> <span class="o">=</span> <span class="n">params</span>
-        <span class="n">input_set</span> <span class="o">=</span> <span class="n">file_sets</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">DataSource</span> <span class="o">=</span> <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="o">*</span><span class="n">params</span><span class="p">,</span> <span class="o">**</span><span class="n">key_value</span><span class="p">):</span>
+        <span class="n">input_set</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
         <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">input_set</span><span class="p">:</span>
-            <span class="k">if</span> <span class="o">....</span><span class="p">:</span>
+            <span class="n">external_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DataSource</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="k">if</span> <span class="o">...</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">Metadata</span><span class="p">[</span><span class="s2">&quot;extra_field&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">some_data</span>
                 <span class="k">yield</span> <span class="n">f</span>
 </pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">filter</span></code> method arguments are:</p>
-<p><em>params</em> - list of filter parameters</p>
-<p><em>file_sets</em> - list of input file sets</p>
-<p><em>limit</em> - either <code class="docutils literal notranslate"><span class="pre">None</span></code> or the limit of the number of files to return</p>
-<p><em>skip</em> - either <code class="docutils literal notranslate"><span class="pre">None</span></code> or the number of returned files to skip before returing first file (this functionality is not yet implemented)</p>
-<p>For example, if the query was:</p>
-<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">filter</span> <span class="n">sample</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">5</span><span class="p">)(</span>
-    <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">A</span><span class="p">,</span>
-    <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="n">B</span><span class="p">,</span>
-    <span class="n">files</span> <span class="k">from</span> <span class="n">s</span><span class="p">:</span><span class="k">C</span>
-<span class="p">)</span> <span class="k">limit</span> <span class="mi">100</span>
+<p>First argument of the <code class="docutils literal notranslate"><span class="pre">filter</span></code> method is the list of one or more input file sets. They are results of MQL subqueries passed to the filter as inputs.
+Each input file set is an iterable, not lists. If necessary, the input file set can be converted to a list as <code class="docutils literal notranslate"><span class="pre">list(file_set)</span></code>, but that needs to
+be done with caution because that will force fetching the entire file set into memory, and that can be very big.</p>
+<p>After first parameter, the <code class="docutils literal notranslate"><span class="pre">filter</span></code> method can accept some additional positional and keywird parameters passed from MQL. For example, MQL query like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">filter</span> <span class="n">my_filter</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s1">&#39;test&#39;</span><span class="p">,</span> <span class="n">pi</span><span class="o">=</span><span class="mf">3.14</span><span class="p">,</span> <span class="n">e</span><span class="o">=</span><span class="mf">2.718</span><span class="p">)</span> <span class="p">(</span>
+    <span class="n">files</span> <span class="kn">from</span> <span class="nn">user</span><span class="p">:</span><span class="n">dataset_a</span><span class="p">,</span>
+    <span class="n">files</span> <span class="kn">from</span> <span class="nn">group</span><span class="p">:</span><span class="n">dataset_b</span> <span class="n">where</span> <span class="n">x</span><span class="o">=</span><span class="mi">5</span>
+<span class="p">)</span>
 </pre></div>
 </div>
-<p>then the <code class="docutils literal notranslate"><span class="pre">filter()</span></code> arguments will be:</p>
-<p>params = [1,2,5]</p>
-<p>file_sets = list of iterables with results of the 3 subqueries</p>
-<p>limit = 100</p>
-<p>The user defined filter does not have to implement the limit, unless there is some significant advantage
-in implementing those inside the filter. MetaCat will limit the results anyway.</p>
-<p>The filter finction may return an iterable (a list) of files, but it is preferable that the function is in fact
-a generator, yielding the files one by one to avoid building and destroying large lists of file objects.</p>
-<p>MetaCat will create new object of the filter class for each query and each appearance of the filter inside the query.</p>
+<p>will call the filter() method with the following arguments:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="o">...</span>
+<span class="n">filter_object</span><span class="o">.</span><span class="n">filter</span><span class="p">([</span><span class="n">file_set_a</span><span class="p">,</span> <span class="n">file_set_b</span><span class="p">],</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">,</span> <span class="n">pi</span><span class="o">=</span><span class="mf">3.14</span><span class="p">,</span> <span class="n">e</span><span class="o">=</span><span class="mf">2.18</span><span class="p">)</span>
+<span class="o">...</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">filter</span></code> method is expected to generate a list of file object from the input file sets, possibly augmenting their metadata with some
+data.</p>
+<p>MetaCat will create the filter object only once and then call its <code class="docutils literal notranslate"><span class="pre">filter</span></code> method for each query. Thus, the filter object may have some persistent state,
+but that feature should be used with caution because:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>MetaCat server runs in multiple instances on multiple servers, and the instances do not communicate with each other.</p></li>
+<li><p>MetaCat server instance is a multithreaded process and queries are executed on concurrent threads, so some sort of inter-thread synchronization mechanism may need to be used.</p></li>
+</ul>
+</div></blockquote>
 </div>
 </div>
 <div class="section" id="common-namesaces">
@@ -331,7 +341,8 @@ The following operators can be used for string matching using regular expression
     <span class="p">{</span>
         <span class="nt">&quot;muon&quot;</span><span class="p">:</span>       <span class="mi">1</span><span class="p">,</span>
         <span class="nt">&quot;electron&quot;</span><span class="p">:</span>   <span class="mi">0</span>
-    <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="nt">&quot;modules&quot;</span><span class="p">:</span>        <span class="p">[</span><span class="s2">&quot;a1&quot;</span><span class="p">,</span> <span class="s2">&quot;a2&quot;</span><span class="p">,</span> <span class="s2">&quot;a3&quot;</span><span class="p">]</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -351,6 +362,13 @@ The following operators can be used for string matching using regular expression
 <li><p><code class="docutils literal notranslate"><span class="pre">trigger_bits[all]</span> <span class="pre">==</span> <span class="pre">1</span></code> - will not match</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">trigger_bits[all]</span> <span class="pre">!=</span> <span class="pre">1</span></code> - will not match</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">trigger_bits[all]</span> <span class="pre">&lt;</span> <span class="pre">2</span></code> - will match</p></li>
+</ul>
+</div></blockquote>
+<p>You can also use <code class="docutils literal notranslate"><span class="pre">in</span></code> and <code class="docutils literal notranslate"><span class="pre">not</span> <span class="pre">in</span></code> to check if a value is contained in the array:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;a1&quot;</span> <span class="pre">in</span> <span class="pre">modules</span></code> - will match, equivalent to <code class="docutils literal notranslate"><span class="pre">modules[any]</span> <span class="pre">=</span> <span class="pre">&quot;a1&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;xyz&quot;</span> <span class="pre">not</span> <span class="pre">in</span> <span class="pre">modules</span></code> - will match, equivalent to <code class="docutils literal notranslate"><span class="pre">modules[all]</span> <span class="pre">!=</span> <span class="pre">&quot;xyz&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">!(modules[any]</span> <span class="pre">=</span> <span class="pre">&quot;xyz&quot;)</span></code></p></li>
 </ul>
 </div></blockquote>
 <p>Note that while <cite>trigger_bits[all] != 1</cite> will not match, <cite>!(trigger_bits[all] == 1)</cite> will match. In general, the following pairs of expressions are
@@ -507,7 +525,7 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
                         title="previous chapter">MetaCat Documentation</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="REST_API.html"
-                        title="next chapter">Metaserver REST API</a></p>
+                        title="next chapter">MetaCat Server REST API</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -536,7 +554,7 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
           <a href="genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="REST_API.html" title="Metaserver REST API"
+          <a href="REST_API.html" title="MetaCat Server REST API"
              >next</a> |</li>
         <li class="right" >
           <a href="index.html" title="MetaCat Documentation"
