@@ -62,7 +62,7 @@ class HTTPClient(object):
         self.ServerURL = server_url
         self.Token = token
 
-    def get_json(self, uri_suffix):
+    def get_text(self, uri_suffix):
         url = "%s/%s" % (self.ServerURL, uri_suffix)
         headers = {}
         if self.Token is not None:
@@ -72,10 +72,13 @@ class HTTPClient(object):
             raise InvalidMetadataError(url, response.status_code, response.text)
         if response.status_code != 200:
             raise WebAPIError(url, response.status_code, response.text)
-        data = json.loads(response.text)
-        return data
+        return response.text
+
+    def get_json(self, uri_suffix):
+        text = self.get_text(uri_suffix)
+        return json.loads(text)
         
-    def post_json(self, uri_suffix, data):
+    def post_text(self, uri_suffix, data):
         #print("post_json: data:", type(data), data)
         if isinstance(data, (dict, list)):
             data = json.dumps(data)
@@ -98,8 +101,11 @@ class HTTPClient(object):
         if response.status_code != 200:
             raise WebAPIError(url, response.status_code, response.text)
         #print("response.text:", response.text)
-        data = json.loads(response.text)
-        return data
+        return response.text
+        
+    def post_json(self, uri_suffix, data):
+        text = self.post_text(uri_suffix, data)
+        return json.loads(text)
         
 
 class MetaCatClient(HTTPClient):
@@ -195,24 +201,55 @@ class MetaCatClient(HTTPClient):
             spec = namespace + ':' + name
         item = self.get_json(f"data/dataset?dataset={spec}")
         return item
-
-    def create_dataset(self, spec, parent=None):
+        
+    def create_dataset(self, spec, frozen=False, monotonic=False, creator=None, metadata=None, metadata_requirements=None, description=""):
         """Creates new dataset. Requires client authentication.
         
         Parameters
         ----------
         spec : str
             "namespace:name"
+        frozen : bool
+        monotonic : bool
+        creator : str
+            Dataset creator. Ignored if the user is not an admin
+        metadata : dict
+            Dataset metadata
+        metadata_requirements : dict
+            Metadata requirements for files in the dataset
+        description : str
         
         Returns
         -------
         dict
             created dataset attributes
-        """        
-        url = f"data/create_dataset?dataset={spec}"
-        if parent:
-            url += f"&parent={parent}"
-        return self.get_json(url)
+        """   
+        namespace, name = spec.split(":",1)     
+        params = {
+            "namespace":    namespace,
+            "name":         name,
+            "frozen":       frozen,
+            "monotonic":    monotonic,
+            "metadata":     metadata or {},
+            "metadata_requirements":    metadata_requirements or {},
+            "creator":      creator,
+            "description":  description or ""
+        }
+        url = f"data/create_dataset"
+        return self.post_json(url, params)
+        
+    def add_child_dataset(self, parent_spec, child_spec):
+        """Adds a child dataset to a dataset.
+        
+        Parameters
+        ----------
+        parent_spec : str
+            Parent namespace, name ("namespace:name")
+        child_spec : str
+            Child namespace, name ("namespace:name")
+        """
+        url = f"data/add_child_dataset?parent={parent_spec}&child={child_spec}"
+        return self.get_text(url)
         
     def add_files(self, dataset, file_list, namespace=None):
         """Add existing files to an existing dataset. Requires client authentication.
@@ -372,26 +409,40 @@ class MetaCatClient(HTTPClient):
         out = self.post_json(url, data)
         return out
         
-    def update_dataset_meta(self, metadata, dataset, mode="update"):   
-        """Update dataset metadata. Requires client authentication.
+    def update_dataset(self, dataset, metadata=None, mode="update", frozen=None, monotonic=None, description=None):   
+        """Update dataset. Requires client authentication.
         
         Parameters
         ----------
-        metadata : dict
-            New metadata values
         dataset : str
            "namespace:name"
+        metadata : dict or None
+            New metadata values, or, if None, leave the metadata unchanged
         mode: str
             Either ``"update"`` or ``"replace"``. If ``"update"``, metadata will be updated with new values. If ``"replace"``,
             metadata will be replaced with new values.
+            If ``metadata`` is None, ``mode`` is ignored
+        frozen: boolean or None
+            if boolean, new value for the flag. If None, leave it unchanged
+        monotonic: boolean or None
+            if boolean, new value for the flag. If None, leave it unchanged
+        description: str or None
+            if str, new dataset description. If None, leave the description unchanged
 
         Returns
         -------
         dict
-            dictionary with new metadata values
-        """        
-        url = f"data/update_dataset_meta?mode={mode}&dataset={dataset}"
-        out = self.post_json(url, metadata)
+            dictionary with new dataset information
+        """
+        request_data = {}
+        if metadata is not None:
+            request_data["mode"] = mode
+            request_data["metadata"] = metadata
+        if frozen is not None:  request_data["frozen"] = frozen
+        if monotonic is not None:  request_data["monotonic"] = monotonic
+        if description is not None: request_data["description"] = description
+        url = f"data/update_dataset?dataset={dataset}"
+        out = self.post_json(url, request_data)
         return out
         
     def get_files(self, lookup_list, with_metadata = True, with_provenance=True):

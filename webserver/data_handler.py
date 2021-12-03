@@ -126,6 +126,8 @@ class DataHandler(BaseHandler):
         db = self.App.connect()
         namespace, name = (dataset or relpath).split(":", 1)
         dataset = DBDataset.get(db, namespace, name)
+        if dataset is None:
+            return 404, "Dataset not found"
         dct = dataset.to_jsonable()
         dct["file_count"] = dataset.nfiles
         return json.dumps(dct), "text/json"
@@ -138,38 +140,98 @@ class DataHandler(BaseHandler):
             "Access-Control-Allow-Origin":"*"
         } 
 
-    def create_dataset(self, request, relpath, dataset=None, parent=None, frozen="no", monotonic="no", description="", **args):
-        frozen = frozen == "yes"
-        monotonic = monotonic == "yes"
+    def create_dataset(self, request, relpath):
+        db = self.App.connect()
         user = self.authenticated_user()
         if user is None:
             return 401
-        db = self.App.connect()
-        namespace, name = dataset.split(":",1)
-        namespace = DBNamespace.get(db, namespace)
-        if not user.is_admin() and not namespace.owned_by_user(user):
+        if not request.body:
+            return 400, "Dataset parameters are not specified"
+        params = json.loads(request.body)
+        namespace = params["namespace"]
+        name = params["name"]
+        ns = DBNamespace.get(db, namespace)
+        if not user.is_admin() and not ns.owned_by_user(user):
             return 403
         if DBDataset.get(db, namespace, name) is not None:
             return "Already exists", 409
-        parent_ds = None
-        if parent:
-                parent_namespace, parent_name = parent.split(":",1)
-                parent_ns = DBNamespace.get(db, parent_namespace)
-                if not user.is_admin() and not parent_ns.owned_by_user(user):
-                        return 403
-                parent_ds = DBDataset.get(db, parent_namespace, parent_name)
-                if parent_ds is None:
-                        return "Parent dataset not found", 404
-                dataset = DBDataset(db, namespace, name, 
-                        parent_namespace=parent_namespace, parent_name=parent_name)
-        else:
-                dataset = DBDataset(db, namespace, name)
-        dataset.Creator = user.Username
-        dataset.Frozen = frozen
-        dataset.Monotonic = monotonic
-        dataset.Description = description
-        dataset.save()
-        return dataset.to_json(), "text/json"  
+            
+        creator = user.Username 
+        if user.is_admin():
+            creator = params.get("creator") or creator
+
+        dataset = DBDataset(db, namespace, name,
+            frozen = params.get("frozen", False), monotonic = params.get("monotonic", False),
+            creator = creator, description = params.get("description", ""),
+            metadata = params.get("metadata") or {}
+        )
+        dataset.create()
+        return dataset.to_json(), "text/json"
+        
+    def update_dataset(self, request, relapth, dataset=None):
+        if not dataset:
+            return 400, "Dataset is not specfied"
+        namespace, name = parse_name(dataset, None)
+        if not namespace:
+            return "Namespace is not specfied", 400
+        user = self.authenticated_user()
+        if user is None:
+            return 403
+        db = self.App.connect()
+        request_data = json.loads(request.body)
+        
+        try:
+            if not self._namespace_authorized(db, namespace, user):
+                return f"Permission to update dataset in namespace {namespace} denied", 403
+        except KeyError:
+            return f"Namespace {namespace} does not exist", 404
+                
+        ds = DBDataset.get(db, namespace, name)
+        if ds is None:
+            return 404, "Dataset not found"
+
+        if "metadata" in request_data:
+            meta = request_data["metadata"]
+            mode = request_data.get("mode", "update")
+            if mode == "update":
+                ds.Metadata.update(meta)
+            else:
+                ds.Metadata = meta
+        
+        if "monotonic" in request_data: ds.Monotonic = request_data["monotonic"]
+        if "frozen" in request_data: ds.Frozen = request_data["frozen"]
+        if "description" in request_data: ds.Description = request_data["description"]
+        
+        ds.save()
+        return json.dumps(ds.to_jsonable()), "text/json"
+
+    def add_child_dataset(self, request, relpath, parent=None, child=None, **args):
+        if not parent or not child:
+            return 400, "Parent or child dataset unspecified"
+        user = self.authenticated_user()
+        parent_namespace, parent_name = parent.split(":",1)
+        child_namespace, child_name = child.split(":",1)
+        if user is None:
+            return 401
+        db = self.App.connect()
+        parent_ns = DBNamespace.get(db, parent_namespace)
+        child_ns = DBNamespace.get(db, child_namespace)
+        if not user.is_admin() and (not parent_ns.owned_by_user(user) or not child_ns.owned_by_user(user)):
+            return 403
+        parent_ds = DBDataset.get(db, parent_namespace, parent_name)
+        if parent_ds is None:
+                return "Parent dataset not found", 404
+        child_ds = DBDataset.get(db, child_namespace, child_name)
+        if child_ds is None:
+                return "Child dataset not found", 404
+        
+        if any(a.Namespace == child_namespace and a.Name == child_name for a in parent_ds.ancestors()):
+            return 400, "Circular connection detected - child dataset is already an ancestor of the parent"
+        
+        if not any(c.Namespace == child_namespace and c.Name == child_name for c in parent_ds.children()):
+            #print("Adding ", child_ds, " to ", parent_ds)
+            parent_ds.add_child(child_ds)
+        return "OK"
         
     def add_files(self, request, relpath, namespace=None, dataset=None, **args):
         #
@@ -465,7 +527,6 @@ class DataHandler(BaseHandler):
         
         DBFile.update_many(db, file_set, do_commit=True)
         return json.dumps(out), 200
-        
                 
     def update_file_meta(self, request, relpath, namespace=None, mode="update", **args):
         # mode can be "update" - add/pdate metadata with new values
@@ -563,37 +624,6 @@ class DataHandler(BaseHandler):
         ]
         return json.dumps(out), "text/json"
         
-    def update_dataset_meta(self, request, relapth, mode="update", dataset=None):
-        #
-        # update or replace single dataset metadata
-        #
-        if not mode in ("update","replace"):
-            return "Invalid mode {mode}", 400
-        namespace, name = parse_name(dataset, None)
-        if not namespace:
-            return "Namespace is not specfied", 400
-
-        user = self.authenticated_user()
-        if user is None:
-            return 403
-        db = self.App.connect()
-        meta = json.loads(request.body)
-
-        try:
-            if not self._namespace_authorized(db, namespace, user):
-                return f"Permission to update files in namespace {namespace} denied", 403
-        except KeyError:
-            return f"Namespace {namespace} does not exist", 404
-                
-        ds = DBDataset.get(db, namespace, name)
-        if mode == "update":
-            ds.Metadata.update(meta)
-        else:
-            ds.Metadata = meta
-        
-        ds.save()
-        return json.dumps(ds.Metadata), "text/json"
-                
     def file(self, request, relpath, name=None, fid=None, with_metadata="yes", with_provenance="yes", **args):
         if name:
             namespace, name = parse_name(name, None)

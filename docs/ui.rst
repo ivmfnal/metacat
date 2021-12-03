@@ -132,15 +132,72 @@ Namespaces
 Datasets
 --------
 
+To create dataset in a namespace or to modify the dataset content or metadata, the user must be an owner of the dataset's namespace, 
+either directly or through a role.
+
+Creating a dataset
+~~~~~~~~~~~~~~~~~~
+
 .. code-block:: shell
-    
-    metacat dataset list [[<namespace pattern>:]<name pattern>]     - list datasets
-    # examples:
-    # metacat dataset list ns1:*
-    # metacat dataset list *:A*
-    
-    metacat dataset create [-p <parent namespace>:<parent name>] <namespace>:<name>
-    metacat dataset show <namespace>:<name>
+
+    $ metacat dataset create [<options>] <namespace>:<name> [<description>]
+            -M|--monotonic
+            -F|--frozen
+            -m|--metadata '<JSON expression>'
+            -m|--metadata @<JSON file>
+
+A multi-word description does not have to be put in quotes. E.g., the following two commands are equivalent:
+
+.. code-block:: shell
+
+    $ metacat dataset create scope:name Carefully selected files
+    $ metacat dataset create scope:name "Carefully selected files"
+
+Listing existing datasets
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: shell
+
+    $ metacat dataset list [<options>] [[<namespace pattern>:]<name pattern>]
+            -l|--long           - detailed output
+            -c|--file-counts    - include file counts if detailed output
+            
+
+Namespace and name patterns are UNIX ls style patterns (recognizing *?[]). Examples:
+
+.. code-block:: shell
+
+    $ metacat dataset list 'production:*.[0-3].dat'
+    $ metacat dataset list *:A*
+
+
+When using -l option, user can also use -c to request dataset file counts. In this case, it may take additional time to calculate the file counts for large datasets.
+
+
+Updating a dataset metadata and flags
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: shell
+
+    $ metacat dataset update <options> <namespace>:<name> [<description>]
+            -M|--monotonic (yes|no) - set/reset monotonic flag
+            -F|--frozen (yes|no)    - set/reset monotonic flag
+            -r|--replace            - replace metadata, otherwise update
+            -m|--metadata @<JSON file with metadata> 
+            -m|--metadata '<JSON expression>' 
+
+
+Adding/removing subsets to/from a dataset
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: shell
+
+    $ metacat dataset add <parent dataset namespace>:<parent name> <child dataset namespace>:<child name> [<child dataset namespace>:<child name> ...]
+    $ metacat dataset remove <parent namespace>:<parent name> <child namespace>:<child name> 
+
+When adding a dataset to another dataset, MetaCat checks whether the operation will create a circle in the ancestor/descendent relationship and refuses
+to do so.
+
 
 Declaring new Files
 -------------------

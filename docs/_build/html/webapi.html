@@ -73,6 +73,20 @@ Authentication is required to get information about users and roles (these metho
 </dd>
 </dl>
 <dl class="py method">
+<dt id="metacat.webapi.MetaCatClient.add_child_dataset">
+<code class="sig-name descname">add_child_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">parent_spec</span></em>, <em class="sig-param"><span class="n">child_spec</span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.add_child_dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a child dataset to a dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parent_spec</strong> (<em>str</em>) – Parent namespace, name (“namespace:name”)</p></li>
+<li><p><strong>child_spec</strong> (<em>str</em>) – Child namespace, name (“namespace:name”)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt id="metacat.webapi.MetaCatClient.add_files">
 <code class="sig-name descname">add_files</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dataset</span></em>, <em class="sig-param"><span class="n">file_list</span></em>, <em class="sig-param"><span class="n">namespace</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.add_files" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add existing files to an existing dataset. Requires client authentication.</p>
@@ -143,11 +157,19 @@ argument to the <code class="docutils literal notranslate"><span class="pre">asy
 
 <dl class="py method">
 <dt id="metacat.webapi.MetaCatClient.create_dataset">
-<code class="sig-name descname">create_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">spec</span></em>, <em class="sig-param"><span class="n">parent</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.create_dataset" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">create_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">spec</span></em>, <em class="sig-param"><span class="n">frozen</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">monotonic</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">creator</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">metadata</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">metadata_requirements</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">description</span><span class="o">=</span><span class="default_value">''</span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.create_dataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Creates new dataset. Requires client authentication.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>spec</strong> (<em>str</em>) – “namespace:name”</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spec</strong> (<em>str</em>) – “namespace:name”</p></li>
+<li><p><strong>frozen</strong> (<em>bool</em>) – </p></li>
+<li><p><strong>monotonic</strong> (<em>bool</em>) – </p></li>
+<li><p><strong>creator</strong> (<em>str</em>) – Dataset creator. Ignored if the user is not an admin</p></li>
+<li><p><strong>metadata</strong> (<em>dict</em>) – Dataset metadata</p></li>
+<li><p><strong>metadata_requirements</strong> (<em>dict</em>) – Metadata requirements for files in the dataset</p></li>
+<li><p><strong>description</strong> (<em>str</em>) – </p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>created dataset attributes</p>
@@ -464,20 +486,24 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 </dd></dl>
 
 <dl class="py method">
-<dt id="metacat.webapi.MetaCatClient.update_dataset_meta">
-<code class="sig-name descname">update_dataset_meta</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">metadata</span></em>, <em class="sig-param"><span class="n">dataset</span></em>, <em class="sig-param"><span class="n">mode</span><span class="o">=</span><span class="default_value">'update'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.update_dataset_meta" title="Permalink to this definition">¶</a></dt>
-<dd><p>Update dataset metadata. Requires client authentication.</p>
+<dt id="metacat.webapi.MetaCatClient.update_dataset">
+<code class="sig-name descname">update_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dataset</span></em>, <em class="sig-param"><span class="n">metadata</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">mode</span><span class="o">=</span><span class="default_value">'update'</span></em>, <em class="sig-param"><span class="n">frozen</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">monotonic</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">description</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.update_dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update dataset. Requires client authentication.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>metadata</strong> (<em>dict</em>) – New metadata values</p></li>
 <li><p><strong>dataset</strong> (<em>str</em>) – “namespace:name”</p></li>
+<li><p><strong>metadata</strong> (<em>dict</em><em> or </em><em>None</em>) – New metadata values, or, if None, leave the metadata unchanged</p></li>
 <li><p><strong>mode</strong> (<em>str</em>) – Either <code class="docutils literal notranslate"><span class="pre">&quot;update&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;replace&quot;</span></code>. If <code class="docutils literal notranslate"><span class="pre">&quot;update&quot;</span></code>, metadata will be updated with new values. If <code class="docutils literal notranslate"><span class="pre">&quot;replace&quot;</span></code>,
-metadata will be replaced with new values.</p></li>
+metadata will be replaced with new values.
+If <code class="docutils literal notranslate"><span class="pre">metadata</span></code> is None, <code class="docutils literal notranslate"><span class="pre">mode</span></code> is ignored</p></li>
+<li><p><strong>frozen</strong> (<em>boolean</em><em> or </em><em>None</em>) – if boolean, new value for the flag. If None, leave it unchanged</p></li>
+<li><p><strong>monotonic</strong> (<em>boolean</em><em> or </em><em>None</em>) – if boolean, new value for the flag. If None, leave it unchanged</p></li>
+<li><p><strong>description</strong> (<em>str</em><em> or </em><em>None</em>) – if str, new dataset description. If None, leave the description unchanged</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>dictionary with new metadata values</p>
+<dd class="field-even"><p>dictionary with new dataset information</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>dict</p>

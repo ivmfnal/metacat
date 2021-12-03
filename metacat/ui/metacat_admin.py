@@ -128,15 +128,19 @@ def do_admin(args):
         print(Usage)
         sys.exit(2)
         
-    return {
-        "list":     do_list,
-        "create":   do_create,
-        "password":     do_password,
-        "add":     do_add,
-        "remove":     do_remove,
-        "genkey":   do_generate_key
-    }[command](config, args[1:])
-    
+    try:
+        method = {
+            "list":         do_list,
+            "create":       do_create,
+            "password":     do_password,
+            "add":          do_add,
+            "remove":       do_remove,
+            "genkey":       do_generate_key
+        }[command]
+    except KeyError:
+        print("Unknown subcommand:", command)
+        sys.exit(2)
+    return method(config, args[1:])
  
 
     

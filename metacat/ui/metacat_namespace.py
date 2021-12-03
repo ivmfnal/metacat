@@ -58,11 +58,16 @@ def do_namespace(server_url, args):
         
     command = args[0]
     client = MetaCatClient(server_url)
-    return {
-        "list":     do_list,
-        "create":   do_create,
-        "show":     do_show
-    }[command](client, args[1:])
+    try:
+        method = {
+            "list":     do_list,
+            "create":   do_create,
+            "show":     do_show
+        }[command]
+    except KeyError:
+        print("Unknown subcommand:", command)
+        sys.exit(2)
+    return method(client, args[1:])
     
     
  

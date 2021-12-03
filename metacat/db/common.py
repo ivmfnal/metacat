@@ -93,8 +93,10 @@ class MetaValidationError(Exception):
 class DBObject(object):
     
     @classmethod
-    def columns(cls, table_name=None, as_text=True):
-        clist = cls.Columns
+    def columns(cls, table_name=None, as_text=True, exclude=[]):
+        if isinstance(exclude, str):
+            exclude = [exclude]
+        clist = [c for c in cls.Columns if c not in exclude]
         if table_name:
             clist = [table_name+"."+cn for cn in clist]
         if as_text:

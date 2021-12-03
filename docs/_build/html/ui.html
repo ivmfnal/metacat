@@ -144,14 +144,56 @@ $ metacat namespace show protodune-sp
 </div>
 <div class="section" id="datasets">
 <h2>Datasets<a class="headerlink" href="#datasets" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat dataset list <span class="o">[[</span>&lt;namespace pattern&gt;:<span class="o">]</span>&lt;name pattern&gt;<span class="o">]</span>     - list datasets
-<span class="c1"># examples:</span>
-<span class="c1"># metacat dataset list ns1:*</span>
-<span class="c1"># metacat dataset list *:A*</span>
-
-metacat dataset create <span class="o">[</span>-p &lt;parent namespace&gt;:&lt;parent name&gt;<span class="o">]</span> &lt;namespace&gt;:&lt;name&gt;
-metacat dataset show &lt;namespace&gt;:&lt;name&gt;
+<p>To create dataset in a namespace or to modify the dataset content or metadata, the user must be an owner of the dataset’s namespace,
+either directly or through a role.</p>
+<div class="section" id="creating-a-dataset">
+<h3>Creating a dataset<a class="headerlink" href="#creating-a-dataset" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat dataset create <span class="o">[</span>&lt;options&gt;<span class="o">]</span> &lt;namespace&gt;:&lt;name&gt; <span class="o">[</span>&lt;description&gt;<span class="o">]</span>
+        -M<span class="p">|</span>--monotonic
+        -F<span class="p">|</span>--frozen
+        -m<span class="p">|</span>--metadata <span class="s1">&#39;&lt;JSON expression&gt;&#39;</span>
+        -m<span class="p">|</span>--metadata @&lt;JSON file&gt;
 </pre></div>
+</div>
+<p>A multi-word description does not have to be put in quotes. E.g., the following two commands are equivalent:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat dataset create scope:name Carefully selected files
+$ metacat dataset create scope:name <span class="s2">&quot;Carefully selected files&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="listing-existing-datasets">
+<h3>Listing existing datasets<a class="headerlink" href="#listing-existing-datasets" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat dataset list <span class="o">[</span>&lt;options&gt;<span class="o">]</span> <span class="o">[[</span>&lt;namespace pattern&gt;:<span class="o">]</span>&lt;name pattern&gt;<span class="o">]</span>
+        -l<span class="p">|</span>--long           - detailed output
+        -c<span class="p">|</span>--file-counts    - include file counts <span class="k">if</span> detailed output
+</pre></div>
+</div>
+<p>Namespace and name patterns are UNIX ls style patterns (recognizing <a href="#id1"><span class="problematic" id="id2">*</span></a>?[]). Examples:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat dataset list <span class="s1">&#39;production:*.[0-3].dat&#39;</span>
+$ metacat dataset list *:A*
+</pre></div>
+</div>
+<p>When using -l option, user can also use -c to request dataset file counts. In this case, it may take additional time to calculate the file counts for large datasets.</p>
+</div>
+<div class="section" id="updating-a-dataset-metadata-and-flags">
+<h3>Updating a dataset metadata and flags<a class="headerlink" href="#updating-a-dataset-metadata-and-flags" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat dataset update &lt;options&gt; &lt;namespace&gt;:&lt;name&gt; <span class="o">[</span>&lt;description&gt;<span class="o">]</span>
+        -M<span class="p">|</span>--monotonic <span class="o">(</span>yes<span class="p">|</span>no<span class="o">)</span> - set/reset monotonic flag
+        -F<span class="p">|</span>--frozen <span class="o">(</span>yes<span class="p">|</span>no<span class="o">)</span>    - set/reset monotonic flag
+        -r<span class="p">|</span>--replace            - replace metadata, otherwise update
+        -m<span class="p">|</span>--metadata @&lt;JSON file with metadata&gt;
+        -m<span class="p">|</span>--metadata <span class="s1">&#39;&lt;JSON expression&gt;&#39;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="adding-removing-subsets-to-from-a-dataset">
+<h3>Adding/removing subsets to/from a dataset<a class="headerlink" href="#adding-removing-subsets-to-from-a-dataset" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat dataset add &lt;parent dataset namespace&gt;:&lt;parent name&gt; &lt;child dataset namespace&gt;:&lt;child name&gt; <span class="o">[</span>&lt;child dataset namespace&gt;:&lt;child name&gt; ...<span class="o">]</span>
+$ metacat dataset remove &lt;parent namespace&gt;:&lt;parent name&gt; &lt;child namespace&gt;:&lt;child name&gt;
+</pre></div>
+</div>
+<p>When adding a dataset to another dataset, MetaCat checks whether the operation will create a circle in the ancestor/descendent relationship and refuses
+to do so.</p>
 </div>
 </div>
 <div class="section" id="declaring-new-files">
@@ -319,7 +361,13 @@ Options:
 <li><a class="reference internal" href="#general-cli-command-syntax">General CLI command syntax</a></li>
 <li><a class="reference internal" href="#user-authentication">User Authentication</a></li>
 <li><a class="reference internal" href="#namespaces">Namespaces</a></li>
-<li><a class="reference internal" href="#datasets">Datasets</a></li>
+<li><a class="reference internal" href="#datasets">Datasets</a><ul>
+<li><a class="reference internal" href="#creating-a-dataset">Creating a dataset</a></li>
+<li><a class="reference internal" href="#listing-existing-datasets">Listing existing datasets</a></li>
+<li><a class="reference internal" href="#updating-a-dataset-metadata-and-flags">Updating a dataset metadata and flags</a></li>
+<li><a class="reference internal" href="#adding-removing-subsets-to-from-a-dataset">Adding/removing subsets to/from a dataset</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#declaring-new-files">Declaring new Files</a></li>
 <li><a class="reference internal" href="#adding-files-to-dataset">Adding files to dataset</a></li>
 <li><a class="reference internal" href="#file-metadata">File Metadata</a><ul>

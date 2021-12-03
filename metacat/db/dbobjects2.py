@@ -994,7 +994,8 @@ class DBDataset(DBObject):
     ColumnsText = "namespace,name,frozen,monotonic,metadata,creator,created_timestamp,description,file_metadata_requirements"
     Columns = ColumnsText.split(",")
 
-    def __init__(self, db, namespace, name, frozen=False, monotonic=False, metadata={}, file_meta_requirements=None):
+    def __init__(self, db, namespace, name, frozen=False, monotonic=False, metadata={}, file_meta_requirements=None, creator=None,
+            description = None):
         assert namespace is not None and name is not None
         self.DB = db
         self.Namespace = namespace
@@ -1002,14 +1003,32 @@ class DBDataset(DBObject):
         self.SQL = None
         self.Frozen = frozen
         self.Monotonic = monotonic
-        self.Creator = None
+        self.Creator = creator
         self.CreatedTimestamp = None
         self.Metadata = metadata
-        self.Description = None
+        self.Description = description
         self.FileMetaRequirements = file_meta_requirements
     
     def __str__(self):
         return "DBDataset(%s:%s)" % (self.Namespace, self.Name)
+        
+    def create(self, do_commit = True):
+        c = self.DB.cursor()
+        namespace = self.Namespace.Name if isinstance(self.Namespace, DBNamespace) else self.Namespace
+        meta = json.dumps(self.Metadata or {})
+        file_meta_requirements = json.dumps(self.FileMetaRequirements or {})
+        #print("DBDataset.save: saving")
+        column_names = self.columns(exclude="created_timestamp")        # use DB default for creation
+        c.execute(f"""
+            insert into datasets({column_names}) 
+                values(%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (namespace, self.Name, self.Frozen, self.Monotonic, meta, self.Creator, 
+                    self.Description, file_meta_requirements
+            )
+        )
+        if do_commit:   c.execute("commit")
+        return self
         
     def save(self, do_commit = True):
         c = self.DB.cursor()
@@ -1019,15 +1038,12 @@ class DBDataset(DBObject):
         #print("DBDataset.save: saving")
         column_names = self.columns()
         c.execute(f"""
-            insert into datasets({column_names}) 
-                values(%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                on conflict(namespace, name) 
-                    do update set frozen=%s, monotonic=%s, metadata=%s, description=%s, file_metadata_requirements=%s
+            update datasets 
+                set frozen=%s, monotonic=%s, metadata=%s, description=%s, file_metadata_requirements=%s
+                where namespace=%s and name=%s
             """,
-            (namespace, self.Name, self.Frozen, self.Monotonic, meta, self.Creator, self.CreatedTimestamp,
-                    self.Description, file_meta_requirements,
-                    self.Frozen, self.Monotonic, meta, self.Description, file_meta_requirements
-                    
+            (   self.Frozen, self.Monotonic, meta, self.Description, file_meta_requirements, 
+                namespace, self.Name
             )
         )
         if do_commit:   c.execute("commit")
@@ -1060,7 +1076,7 @@ class DBDataset(DBObject):
         if exclude_immediate:
             out = (ds for ds in out if (ds.Namespace, ds.Name) not in immediate)
         return out
-        
+
     def subset_count(self):
         return len(list(self.subsets()))
             
@@ -1094,7 +1110,6 @@ class DBDataset(DBObject):
 
     def ancestor_count(self):
         return len(list(self.ancestors()))
-            
 
     def children(self):
         # immediate children as filled DBDataset objects
@@ -1282,12 +1297,19 @@ class DBDataset(DBObject):
         return dict(
             namespace = self.Namespace.Name if isinstance(self.Namespace, DBNamespace) else self.Namespace,
             name = self.Name,
-            parent_namespace = self.ParentNamespace.Name if isinstance(self.ParentNamespace, DBNamespace) else self.ParentNamespace,
-            parent_name = self.ParentName,
+            frozen = self.Frozen,
+            monotonic = self.Monotonic,
+            parents = [
+                p.Namespace + ":" + p.Name for p in self.parents()
+            ],
+            children = [
+                c.Namespace + ":" + c.Name for c in self.children()
+            ],
             metadata = self.Metadata or {},
             creator = self.Creator,
             created_timestamp = epoch(self.CreatedTimestamp),
-            file_meta_requirements = self.FileMetaRequirements
+            file_meta_requirements = self.FileMetaRequirements,
+            description = self.Description
         )
     
     def to_json(self):
