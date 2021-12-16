@@ -1,4 +1,3 @@
-
 PRODUCT=metacat
 BUILD_DIR=$(HOME)/build/$(PRODUCT)
 TARDIR=/tmp
