@@ -4,15 +4,16 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
     <title>MQL - Metadata Query Language &#8212; MetaCat  documentation</title>
-    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
     
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
-    <script src="_static/language_data.js"></script>
     
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -31,7 +32,8 @@
         <li class="right" >
           <a href="index.html" title="MetaCat Documentation"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">MQL - Metadata Query Language</a></li> 
       </ul>
     </div>  
 
@@ -40,9 +42,9 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <div class="section" id="mql-metadata-query-language">
+  <section id="mql-metadata-query-language">
 <h1>MQL - Metadata Query Language<a class="headerlink" href="#mql-metadata-query-language" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="introduction">
+<section id="introduction">
 <h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
 <p>One of the functions of the Metadata Database is to produce list of files matching a set of crieria specidied
 by the user. The product has its own simple language to write these queries in called MQL (pronpounced: MEE-quel,
@@ -51,10 +53,10 @@ A query produces a set of files. The order of files in the returned set is not g
 relied on.</p>
 <p>There are 2 classes of queries - file queries and dataset queries. File queries return list of files
 matching specified criteria and dataset queries list datasets.</p>
-</div>
-<div class="section" id="file-queries">
+</section>
+<section id="file-queries">
 <h2>File Queries<a class="headerlink" href="#file-queries" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="simple-query">
+<section id="simple-query">
 <h3>Simple Query<a class="headerlink" href="#simple-query" title="Permalink to this headline">¶</a></h3>
 <p>The simplest MQL query you can write is a <em>Dataset Query</em>, which looks like this:</p>
 <div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">MyScope</span><span class="p">:</span><span class="n">MyDataset</span>
@@ -82,8 +84,8 @@ into any dataset, you can omit the “from …” portion:</p>
 <div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">where</span> <span class="n">data_type</span><span class="o">=</span><span class="ss">&quot;mc&quot;</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="metadata-filtering">
+</section>
+<section id="metadata-filtering">
 <h3>Metadata Filtering<a class="headerlink" href="#metadata-filtering" title="Permalink to this headline">¶</a></h3>
 <p>Results of any query can be filtered by adding some metadata criteria expression, called <em>meta-filter</em>:</p>
 <div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">MyScope</span><span class="p">:</span><span class="n">MyDataset</span>
@@ -98,8 +100,8 @@ into any dataset, you can omit the “from …” portion:</p>
 </pre></div>
 </div>
 <p>Generally, all white space is ignored in MQL.</p>
-</div>
-<div class="section" id="combining-queries">
+</section>
+<section id="combining-queries">
 <h3>Combining Queries<a class="headerlink" href="#combining-queries" title="Permalink to this headline">¶</a></h3>
 <p>Queries can be combined using boolean operations <em>union</em>, <em>join</em>, and subtraction to produce new queries:</p>
 <div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="k">union</span><span class="p">(</span>
@@ -154,8 +156,8 @@ The following two queries are equivalent:</p>
 <span class="p">]</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="external-filters">
+</section>
+<section id="external-filters">
 <h3>External Filters<a class="headerlink" href="#external-filters" title="Permalink to this headline">¶</a></h3>
 <p>The Meatadata Database Query Engine lets the user add custom Python code to be used as a more complicated
 operations on the file sets. They in the Query Language, they are invoked using “filter” keyword:</p>
@@ -165,7 +167,7 @@ operations on the file sets. They in the Query Language, they are invoked using 
 <p>Here, <em>filter</em> the the keyword, <em>sample</em> is the name of the Python function to be used to filter the results
 of the argument query (simple “files from s:A” query in this case). As you can see, you can pass some
 parameters to the function (the number 0.5).</p>
-<div class="section" id="standard-metacat-filters">
+<section id="standard-metacat-filters">
 <h4>Standard MetaCat Filters<a class="headerlink" href="#standard-metacat-filters" title="Permalink to this headline">¶</a></h4>
 <p>MetaCat provides several general purpose filters:</p>
 <p><strong>every_nth</strong> the filter has 2 integer parameters - <code class="docutils literal notranslate"><span class="pre">n</span></code> and <code class="docutils literal notranslate"><span class="pre">i</span></code> and takes single file set as input.
@@ -203,8 +205,8 @@ to add up to 1.0. The filter will run until it reaches the end of one of the inp
 </div>
 <p>The output will have approximately 2 files from dataset B and 5 files from dataset C for every file from dataset A.</p>
 <p>Even if a file appears in more than one of the input file sets, it will not be returned several times.</p>
-</div>
-<div class="section" id="user-defined-filters">
+</section>
+<section id="user-defined-filters">
 <h4>User Defined Filters<a class="headerlink" href="#user-defined-filters" title="Permalink to this headline">¶</a></h4>
 <p>User-defined filters are used to extend MetaCat functionality and as a way to access external metadata and use it to further filter the file sets
 and to inject metadata from external sources into MetaCat query.</p>
@@ -253,9 +255,9 @@ but that feature should be used with caution because:</p>
 <li><p>MetaCat server instance is a multithreaded process and queries are executed on concurrent threads, so some sort of inter-thread synchronization mechanism may need to be used.</p></li>
 </ul>
 </div></blockquote>
-</div>
-</div>
-<div class="section" id="common-namesaces">
+</section>
+</section>
+<section id="common-namesaces">
 <h3>Common Namesaces<a class="headerlink" href="#common-namesaces" title="Permalink to this headline">¶</a></h3>
 <p>Typically (but not necessarily), all the datasets mentioned in a query refer to the same namespace.
 You can avoid repeting the same namespace using “with” clause. The following are equivalent:</p>
@@ -309,9 +311,9 @@ namespace “y”.</p>
 </pre></div>
 </div>
 <p>This will return union of datasets “x:A”, “y:B” and “x:C”.</p>
-</div>
-</div>
-<div class="section" id="metadata-comparison">
+</section>
+</section>
+<section id="metadata-comparison">
 <h2>Metadata Comparison<a class="headerlink" href="#metadata-comparison" title="Permalink to this headline">¶</a></h2>
 <p>MQL supports the following comparison operators: &lt;, &lt;=, &gt;, &gt;=, ==, !=
 The following operators can be used for string matching using regular expressions:</p>
@@ -329,8 +331,8 @@ The following operators can be used for string matching using regular expression
     <span class="k">and</span> <span class="n">DUNE_data</span><span class="p">.</span><span class="n">detector_config</span> <span class="o">~</span> <span class="ss">&quot;FELIX&quot;</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="array-or-dictionary-elements-access">
+</section>
+<section id="array-or-dictionary-elements-access">
 <h2>Array or Dictionary Elements Access<a class="headerlink" href="#array-or-dictionary-elements-access" title="Permalink to this headline">¶</a></h2>
 <p>If the metadata parameter is an array or a dictionary, you can refer to its specific element using square brackets:</p>
 <p>Assume the file metadata has the following parameters:</p>
@@ -380,8 +382,8 @@ equal:</p>
 </ul>
 </div></blockquote>
 <p>To use size of the array in an expression, you len(): <code class="docutils literal notranslate"><span class="pre">len(trigger_mask)</span> <span class="pre">&gt;</span> <span class="pre">2</span></code></p>
-</div>
-<div class="section" id="ranges-and-sets">
+</section>
+<section id="ranges-and-sets">
 <h2>Ranges and Sets<a class="headerlink" href="#ranges-and-sets" title="Permalink to this headline">¶</a></h2>
 <p>Logical expressins can include ranges or sets of values. Here are some examples:</p>
 <blockquote>
@@ -425,8 +427,8 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
 <li><p><code class="docutils literal notranslate"><span class="pre">bits[all]</span> <span class="pre">in</span> <span class="pre">(0,1)</span></code> - is true</p></li>
 </ul>
 </div></blockquote>
-</div>
-<div class="section" id="limiting-query-results">
+</section>
+<section id="limiting-query-results">
 <h2>Limiting Query Results<a class="headerlink" href="#limiting-query-results" title="Permalink to this headline">¶</a></h2>
 <p>If you want to see only a portion of the resulting file set, add “limit &lt;n&gt;” to your query:</p>
 <div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">files</span> <span class="k">from</span> <span class="n">dune</span><span class="p">:</span><span class="k">all</span> <span class="k">where</span>
@@ -454,8 +456,8 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
 </pre></div>
 </div>
 <p>The “sample” filter returns the given fraction of the input query results. In this case, the results will be limited to 1000 (=10000*0.1) files.</p>
-</div>
-<div class="section" id="dataset-queries">
+</section>
+<section id="dataset-queries">
 <h2>Dataset Queries<a class="headerlink" href="#dataset-queries" title="Permalink to this headline">¶</a></h2>
 <p>Simplest dataset query looks like this:</p>
 <div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">datasets</span> <span class="n">test</span><span class="p">:</span><span class="ss">&quot;%&quot;</span>
@@ -475,8 +477,8 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
 </pre></div>
 </div>
 <p>“union”, “join” with their brackets synonims and subtraction are working in the same way as for file queries.</p>
-</div>
-<div class="section" id="combining-file-and-dataset-metadata-filtering">
+</section>
+<section id="combining-file-and-dataset-metadata-filtering">
 <h2>Combining File and Dataset Metadata Filtering<a class="headerlink" href="#combining-file-and-dataset-metadata-filtering" title="Permalink to this headline">¶</a></h2>
 <p>(this is not fully implemented yet)</p>
 <p>Dataset and file metadata filtering can be mixed together:</p>
@@ -485,10 +487,11 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
     <span class="k">where</span> <span class="n">beam</span><span class="o">=</span><span class="ss">&quot;on&quot;</span> <span class="k">and</span> <span class="k">version</span><span class="o">&gt;</span><span class="mi">3</span>                   <span class="o">#</span> <span class="n">files</span> <span class="n">selection</span>
 </pre></div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
+            <div class="clearer"></div>
           </div>
         </div>
       </div>
@@ -537,7 +540,7 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
     </form>
     </div>
@@ -559,12 +562,13 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
         <li class="right" >
           <a href="index.html" title="MetaCat Documentation"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">MQL - Metadata Query Language</a></li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2020, Igor Mandrichenko.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.4.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
     </div>
   </body>
 </html>

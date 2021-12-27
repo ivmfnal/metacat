@@ -4,15 +4,16 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
     <title>MetaCat Server REST API &#8212; MetaCat  documentation</title>
-    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
     
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
-    <script src="_static/language_data.js"></script>
     
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -31,7 +32,8 @@
         <li class="right" >
           <a href="mql.html" title="MQL - Metadata Query Language"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">MetaCat Server REST API</a></li> 
       </ul>
     </div>  
 
@@ -40,11 +42,11 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <div class="section" id="metacat-server-rest-api">
+  <section id="metacat-server-rest-api">
 <h1>MetaCat Server REST API<a class="headerlink" href="#metacat-server-rest-api" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="client-authentication">
+<section id="client-authentication">
 <h2>Client authentication<a class="headerlink" href="#client-authentication" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="obtain-token">
+<section id="obtain-token">
 <h3>Obtain Token<a class="headerlink" href="#obtain-token" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl --digest -u user:password -c cookie.jar <span class="s2">&quot;https://host:port/auth/auth?method=digest&quot;</span>
 curl -T password_file.txt -c cookie.jar      <span class="s2">&quot;https://host:port/auth/auth?method=ldap&amp;username=user&quot;</span>
@@ -52,21 +54,21 @@ curl --cert<span class="o">=</span>... --key<span class="o">=</span>... -c cooki
 </pre></div>
 </div>
 <p>The token will be stored in the cookie.jar file</p>
-</div>
-<div class="section" id="check-token">
+</section>
+<section id="check-token">
 <h3>Check Token<a class="headerlink" href="#check-token" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -b cookie.jar <span class="s2">&quot;https://host:port/auth/whoami&quot;</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="extract-token-as-string">
+</section>
+<section id="extract-token-as-string">
 <h3>Extract token as string:<a class="headerlink" href="#extract-token-as-string" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -b cookie.jar -o token.file <span class="s2">&quot;https://host:port/auth/token&quot;</span>
 </pre></div>
 </div>
 <p>this will save the token in the “token.file”</p>
-</div>
-<div class="section" id="use-token">
+</section>
+<section id="use-token">
 <h3>Use Token<a class="headerlink" href="#use-token" title="Permalink to this headline">¶</a></h3>
 <p>As a cookie from the cookie jar file:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -b cookie.jar <span class="s2">&quot;http://host:port/data/create_dataset?dataset=test:test&quot;</span>
@@ -76,12 +78,12 @@ curl --cert<span class="o">=</span>... --key<span class="o">=</span>... -c cooki
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -H <span class="s2">&quot;X-Authentication-Token: `cat token.file`&quot;</span> http://localhost:8080/auth/whoami
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="rest-methods">
+</section>
+</section>
+<section id="rest-methods">
 <h2>REST Methods<a class="headerlink" href="#rest-methods" title="Permalink to this headline">¶</a></h2>
 <p>All data methods return JSON structure</p>
-<div class="section" id="namespaces">
+<section id="namespaces">
 <h3>Namespaces<a class="headerlink" href="#namespaces" title="Permalink to this headline">¶</a></h3>
 <dl>
 <dt>Create namespace</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">GET</span> <span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">create_namespace</span>
@@ -115,8 +117,8 @@ all namespaces.</p>
 </div>
 <p>Returns: Dictionary with counts of files, datasets and saved queries in the namespace</p>
 </div></blockquote>
-</div>
-<div class="section" id="datasets">
+</section>
+<section id="datasets">
 <h3>Datasets<a class="headerlink" href="#datasets" title="Permalink to this headline">¶</a></h3>
 <dl>
 <dt>Get all datasets</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">GET</span> <span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">datasets</span>
@@ -157,8 +159,8 @@ each dictionary will include “file_count” field.</p>
 </div>
 <p>Returns: JSON dictionary <code class="docutils literal notranslate"><span class="pre">{&quot;file_count&quot;:n}</span></code></p>
 </div></blockquote>
-</div>
-<div class="section" id="file-metadata">
+</section>
+<section id="file-metadata">
 <h3>File Metadata<a class="headerlink" href="#file-metadata" title="Permalink to this headline">¶</a></h3>
 <dl>
 <dt>Declare new files</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>POST /data/declare_files?dataset=[&lt;namespace&gt;:]&lt;name&gt;
@@ -283,8 +285,8 @@ GET /data/file?fid=&lt;file id&gt;
 </div></blockquote>
 <p>Returns: JSON list of dictionaries with file information</p>
 </div></blockquote>
-</div>
-<div class="section" id="queries">
+</section>
+<section id="queries">
 <h3>Queries<a class="headerlink" href="#queries" title="Permalink to this headline">¶</a></h3>
 <blockquote>
 <div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GET /data/query?query=&lt;url encoded query&gt;
@@ -304,11 +306,12 @@ whether the file metadata and provenance will be included, respectively.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">save_as</span></code> is specified, the selected files will be saved as the new dataset. If the dataset already exists,
 the request will fail with an error.</p>
 </div></blockquote>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
 
 
+            <div class="clearer"></div>
           </div>
         </div>
       </div>
@@ -352,7 +355,7 @@ the request will fail with an error.</p>
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
     </form>
     </div>
@@ -374,12 +377,13 @@ the request will fail with an error.</p>
         <li class="right" >
           <a href="mql.html" title="MQL - Metadata Query Language"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">MetaCat Server REST API</a></li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2020, Igor Mandrichenko.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.4.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
     </div>
   </body>
 </html>

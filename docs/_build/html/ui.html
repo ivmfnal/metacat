@@ -4,15 +4,16 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
     <title>Command Line Interface &#8212; MetaCat  documentation</title>
-    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
     
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
-    <script src="_static/language_data.js"></script>
     
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -31,7 +32,8 @@
         <li class="right" >
           <a href="REST_API.html" title="MetaCat Server REST API"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Command Line Interface</a></li> 
       </ul>
     </div>  
 
@@ -40,9 +42,9 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <div class="section" id="command-line-interface">
+  <section id="command-line-interface">
 <h1>Command Line Interface<a class="headerlink" href="#command-line-interface" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="installation">
+<section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
 <p>You will need Python 3.7 or newer.</p>
 <p>To install the client side components:</p>
@@ -65,8 +67,8 @@ $ python setup.py install --user
 </pre></div>
 </div>
 </div></blockquote>
-</div>
-<div class="section" id="general-cli-command-syntax">
+</section>
+<section id="general-cli-command-syntax">
 <h2>General CLI command syntax<a class="headerlink" href="#general-cli-command-syntax" title="Permalink to this headline">¶</a></h2>
 <p>General command looks like this:</p>
 <blockquote>
@@ -83,8 +85,8 @@ $ metacat &lt;command&gt; <span class="o">[</span><span class="nb">command</span
 </pre></div>
 </div>
 </div></blockquote>
-</div>
-<div class="section" id="user-authentication">
+</section>
+<section id="user-authentication">
 <h2>User Authentication<a class="headerlink" href="#user-authentication" title="Permalink to this headline">¶</a></h2>
 <p>Main purpose of authentication commands is to obtain an authentication token and store it in
 the MetaCat <em>token library</em> located at ~/.metacat_tokens. The library may contain multiple
@@ -132,8 +134,8 @@ option with <code class="docutils literal notranslate"><span class="pre">mydn</s
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth whoami <span class="o">[</span>-t &lt;token file&gt;<span class="o">]</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="namespaces">
+</section>
+<section id="namespaces">
 <h2>Namespaces<a class="headerlink" href="#namespaces" title="Permalink to this headline">¶</a></h2>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat namespace create my_namespace
 $ metacat namespace create -o owner_role my_namespace
@@ -141,12 +143,12 @@ $ metacat namespace list <span class="s2">&quot;protodune*&quot;</span>
 $ metacat namespace show protodune-sp
 </pre></div>
 </div>
-</div>
-<div class="section" id="datasets">
+</section>
+<section id="datasets">
 <h2>Datasets<a class="headerlink" href="#datasets" title="Permalink to this headline">¶</a></h2>
 <p>To create dataset in a namespace or to modify the dataset content or metadata, the user must be an owner of the dataset’s namespace,
 either directly or through a role.</p>
-<div class="section" id="creating-a-dataset">
+<section id="creating-a-dataset">
 <h3>Creating a dataset<a class="headerlink" href="#creating-a-dataset" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat dataset create <span class="o">[</span>&lt;options&gt;<span class="o">]</span> &lt;namespace&gt;:&lt;name&gt; <span class="o">[</span>&lt;description&gt;<span class="o">]</span>
         -M<span class="p">|</span>--monotonic
@@ -160,8 +162,8 @@ either directly or through a role.</p>
 $ metacat dataset create scope:name <span class="s2">&quot;Carefully selected files&quot;</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="listing-existing-datasets">
+</section>
+<section id="listing-existing-datasets">
 <h3>Listing existing datasets<a class="headerlink" href="#listing-existing-datasets" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat dataset list <span class="o">[</span>&lt;options&gt;<span class="o">]</span> <span class="o">[[</span>&lt;namespace pattern&gt;:<span class="o">]</span>&lt;name pattern&gt;<span class="o">]</span>
         -l<span class="p">|</span>--long           - detailed output
@@ -174,8 +176,8 @@ $ metacat dataset list *:A*
 </pre></div>
 </div>
 <p>When using -l option, user can also use -c to request dataset file counts. In this case, it may take additional time to calculate the file counts for large datasets.</p>
-</div>
-<div class="section" id="updating-a-dataset-metadata-and-flags">
+</section>
+<section id="updating-a-dataset-metadata-and-flags">
 <h3>Updating a dataset metadata and flags<a class="headerlink" href="#updating-a-dataset-metadata-and-flags" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat dataset update &lt;options&gt; &lt;namespace&gt;:&lt;name&gt; <span class="o">[</span>&lt;description&gt;<span class="o">]</span>
         -M<span class="p">|</span>--monotonic <span class="o">(</span>yes<span class="p">|</span>no<span class="o">)</span> - set/reset monotonic flag
@@ -185,8 +187,8 @@ $ metacat dataset list *:A*
         -m<span class="p">|</span>--metadata <span class="s1">&#39;&lt;JSON expression&gt;&#39;</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="adding-removing-subsets-to-from-a-dataset">
+</section>
+<section id="adding-removing-subsets-to-from-a-dataset">
 <h3>Adding/removing subsets to/from a dataset<a class="headerlink" href="#adding-removing-subsets-to-from-a-dataset" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat dataset add &lt;parent dataset namespace&gt;:&lt;parent name&gt; &lt;child dataset namespace&gt;:&lt;child name&gt; <span class="o">[</span>&lt;child dataset namespace&gt;:&lt;child name&gt; ...<span class="o">]</span>
 $ metacat dataset remove &lt;parent namespace&gt;:&lt;parent name&gt; &lt;child namespace&gt;:&lt;child name&gt;
@@ -194,9 +196,9 @@ $ metacat dataset remove &lt;parent namespace&gt;:&lt;parent name&gt; &lt;child 
 </div>
 <p>When adding a dataset to another dataset, MetaCat checks whether the operation will create a circle in the ancestor/descendent relationship and refuses
 to do so.</p>
-</div>
-</div>
-<div class="section" id="declaring-new-files">
+</section>
+</section>
+<section id="declaring-new-files">
 <h2>Declaring new Files<a class="headerlink" href="#declaring-new-files" title="Permalink to this headline">¶</a></h2>
 <p>Create JSON file with metadata:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
@@ -252,8 +254,8 @@ If unspecified, MetaCat will assign the hexadecimal representation of a random U
 </dd>
 </dl>
 <p>When declaring a file or multiple files, they must be added to a dataset.</p>
-</div>
-<div class="section" id="adding-files-to-dataset">
+</section>
+<section id="adding-files-to-dataset">
 <h2>Adding files to dataset<a class="headerlink" href="#adding-files-to-dataset" title="Permalink to this headline">¶</a></h2>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat add -n &lt;namespace&gt;:&lt;name&gt;<span class="o">[</span>,...<span class="o">]</span> &lt;dataset namespace&gt;:&lt;dataset name&gt;
 metacat add -n @&lt;file with names&gt; &lt;dataset namespace&gt;:&lt;dataset name&gt;
@@ -287,10 +289,10 @@ metacat add -j &lt;JSON file&gt; &lt;dataset namespace&gt;:&lt;dataset name&gt;
 $ metacat file add -i @file_ids.txt test:C
 </pre></div>
 </div>
-</div>
-<div class="section" id="file-metadata">
+</section>
+<section id="file-metadata">
 <h2>File Metadata<a class="headerlink" href="#file-metadata" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="updating">
+<section id="updating">
 <h3>Updating<a class="headerlink" href="#updating" title="Permalink to this headline">¶</a></h3>
 <p>Create JSON file with metadata values:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
@@ -314,16 +316,16 @@ metacat update -n &lt;namespace&gt;:&lt;name&gt;<span class="o">[</span>,...<spa
 ...
 </pre></div>
 </div>
-</div>
-<div class="section" id="retrieving">
+</section>
+<section id="retrieving">
 <h3>Retrieving<a class="headerlink" href="#retrieving" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat file show &lt;namespace&gt;:&lt;name&gt;            <span class="c1"># - by namespace/name</span>
 metacat file show -i &lt;fid&gt;                      <span class="c1"># - by file id</span>
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="query">
+</section>
+</section>
+<section id="query">
 <h2>Query<a class="headerlink" href="#query" title="Permalink to this headline">¶</a></h2>
 <p><a class="reference internal" href="mql.html"><span class="doc">MQL - Metadata Query Language</span></a></p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat query &lt;options&gt; <span class="s2">&quot;&lt;MQL query&gt;&quot;</span>
@@ -345,10 +347,11 @@ Options:
     -A<span class="p">|</span>--add-to<span class="o">=</span>&lt;namespace&gt;:&lt;name&gt;      - add files to an existing dataset
 </pre></div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
+            <div class="clearer"></div>
           </div>
         </div>
       </div>
@@ -397,7 +400,7 @@ Options:
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
     </form>
     </div>
@@ -419,12 +422,13 @@ Options:
         <li class="right" >
           <a href="REST_API.html" title="MetaCat Server REST API"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Command Line Interface</a></li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2020, Igor Mandrichenko.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.4.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
     </div>
   </body>
 </html>
