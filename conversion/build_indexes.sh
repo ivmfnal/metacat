@@ -6,6 +6,8 @@ $OUT_DB_PSQL << _EOF_
 
 \echo ... building files namespace:name index ...
 create unique index files_names on files(namespace, name);
+create index files_name on files(name);
+create index files_size on files(size);
 
 \echo ... indexing metadata (1/2) ...
 create index files_meta_index on files using gin (metadata);

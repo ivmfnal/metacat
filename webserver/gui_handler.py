@@ -383,7 +383,7 @@ class GUIHandler(BaseHandler):
                             error = "User not authorized to access the namespace %s" % (dataset_namespace,)
                         else:
                             ds = DBDataset(db, dataset_namespace, dataset_name)
-                            ds.save()
+                            ds.create()
                             files = list(files)
                             ds.add_files(files)
                             message = "Dataset %s:%s with %d files created" % (dataset_namespace, dataset_name, len(files))
@@ -844,7 +844,7 @@ class GUIHandler(BaseHandler):
         ds.Frozen = "frozen" in request.POST
         reqs = self.read_dataset_file_meta_requiremets(request.POST)
         ds.FileMetaRequirements = reqs
-        ds.save()
+        ds.create()
         self.redirect(f"./dataset?namespace={namespace}&name={name}" + ("&message=" + quote_plus(warning) if warning else ""))
         
     def remove_child_dataset(self, request, relpath, namespace=None, name=None, child_namespace=None, child_name=None, **args):

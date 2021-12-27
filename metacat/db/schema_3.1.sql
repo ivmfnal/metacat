@@ -65,7 +65,7 @@ create index files_meta_path_ops_index on files using gin (metadata jsonb_path_o
 create index files_creator on files(creator);
 create index files_created_timestamp on files(created_timestamp);
 create index files_size on files(size);
-
+create index files_name on files(name);
 
 create table parent_child
 (
@@ -105,7 +105,7 @@ create table datasets
     created_timestamp   timestamp with time zone     default now(),
     expiration          timestamp with time zone,
     description         text,
-    file_metadata_requirements  jsonb
+    file_metadata_requirements  jsonb   default '{}'::jsonb
 );
 
 create index datasets_meta_index on datasets using gin (metadata);

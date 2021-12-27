@@ -24,7 +24,7 @@ create table datasets
     created_timestamp   timestamp with time zone     default now(),
     expiration          timestamp with time zone,
     description         text,
-    file_metadata_requirements  jsonb
+    file_metadata_requirements  jsonb   default '{}'::jsonb
 );
 
 create index dataset_specs on datasets((namespace || ':' || name));
@@ -44,9 +44,9 @@ create table datasets_parent_child
     primary key (parent_namespace, parent_name, child_namespace, child_name)
 );
 
-create index datasets_pc_parent_specs on datasets((parent_namespace || ':' || parent_name));
-create index datasets_pc_child_specs on datasets((child_namespace || ':' || child_name));
-cteate index datasets_pc_child on datasets(child_namespace, child_name);
+create index datasets_pc_parent_specs on datasets_parent_child((parent_namespace || ':' || parent_name));
+create index datasets_pc_child_specs on datasets_parent_child((child_namespace || ':' || child_name));
+create index datasets_pc_child on datasets_parent_child(child_namespace, child_name);
 
 create table files_datasets
 (
