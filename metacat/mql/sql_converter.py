@@ -1,5 +1,5 @@
 from .trees import Ascender, Node
-from metacat.db import DBFileSet, alias, limited, MetaExpressionDNF
+from metacat.db import DBFileSet, alias, limited, MetaExpressionDNF, DBDataset
 from .meta_evaluator import MetaEvaluator
 
 class CollapseSkipLimit(Ascender):
@@ -115,7 +115,7 @@ class SQLConverter(Ascender):
             return query
 
     def basic_file_query(self, node, *args, query=None):
-        sql = DBFileSet.sql_for_basic_query(query)
+        sql = DBFileSet.sql_for_basic_query(self.DB, query)
         self.debug("basic_file_query: sql: --------\n", sql, "\n--------")
         return Node("sql", sql=sql)
         

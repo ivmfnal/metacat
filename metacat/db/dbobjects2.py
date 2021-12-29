@@ -3,7 +3,7 @@ from metacat.util import to_bytes, to_str, epoch
 from metacat.util.authenticators import authenticator
 from psycopg2 import IntegrityError
 
-Debug = False
+Debug = True
 
 def debug(*parts):
     if Debug:
@@ -184,7 +184,7 @@ class DBFileSet(object):
             )
             
     @staticmethod
-    def sql_for_basic_query(basic_file_query):
+    def _______sql_for_basic_query(basic_file_query):
         if Debug:
             print("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
         limit = basic_file_query.Limit
@@ -220,7 +220,7 @@ class DBFileSet(object):
                 -- end of sql_for_basic_query {f}
             """
         else:
-            datasets_sql = DBDataset.sql_for_selector(dataset_selector)
+            #datasets_sql = DBDataset.sql_for_selector(dataset_selector)
         
             fd = alias("fd")
             ds = alias("ds")
@@ -254,6 +254,149 @@ class DBFileSet(object):
                         {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """
+        if Debug:
+            print("sql_for_basic_query: sql:-------\n", sql, "\n---------")
+        return sql
+        
+    @staticmethod
+    def __sql_for_basic_query(basic_file_query):
+        if Debug:
+            print("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
+        limit = basic_file_query.Limit
+        limit = "" if limit is None else f"limit {limit}"
+        offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
+        if Debug:
+            print("sql_for_basic_query: offset:", offset)
+            
+        
+        f = alias("f")
+
+        meta = f"{f}.metadata" if basic_file_query.WithMeta else "null as metadata"
+        parents = f"{f}.parents" if basic_file_query.WithProvenance else "null as parents"
+        children = f"{f}.children" if basic_file_query.WithProvenance else "null as children"
+        table = "files_with_provenance" if basic_file_query.WithProvenance else "files"
+
+        if Debug:
+            print("sql_for_basic_query: table:", table)
+
+        where_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f)
+        meta_where_clause = f"where {where_exp}" if where_exp else ""
+
+        dataset_selector = basic_file_query.DatasetSelector
+        attrs = DBFile.attr_columns(f)
+        if dataset_selector is None:
+            # no dataset selection
+            sql = f"""
+                -- sql_for_basic_query {f}
+                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                        from {table} {f}
+                        {meta_where_clause}
+                        {limit} {offset}
+                -- end of sql_for_basic_query {f}
+            """
+        else:
+            #datasets_sql = DBDataset.sql_for_selector(dataset_selector)
+        
+            fd = alias("fd")
+            ds = alias("ds")
+        
+            sql = f""" -- old
+                -- sql_for_basic_query {f}
+                    with selected_datasets as (
+                        {datasets_sql}
+                    )
+                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                        from {table} {f}
+                            inner join files_datasets {fd} on {fd}.file_id = {f}.id
+                            inner join selected_datasets on 
+                                selected_datasets.namespace = {fd}.dataset_namespace 
+                                and selected_datasets.name = {fd}.dataset_name 
+                        {meta_where_clause}
+                        {limit} {offset}
+                -- end of sql_for_basic_query {f}
+            """
+            sql = f"""
+                -- sql_for_basic_query {f}
+                    with selected_datasets as (
+                        {datasets_sql}
+                    )
+                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                        from {table} {f}
+                            inner join files_datasets {fd} on {fd}.file_id = {f}.id
+                            inner join selected_datasets on 
+                                selected_datasets.namespace || ':' || selected_datasets.name = {fd}.dataset_namespace || ':' || {fd}.dataset_name 
+                        {meta_where_clause}
+                        {limit} {offset}
+                -- end of sql_for_basic_query {f}
+            """
+        if Debug:
+            print("sql_for_basic_query: sql:-------\n", sql, "\n---------")
+        return sql
+        
+    @staticmethod
+    def sql_for_basic_query(db, basic_file_query):
+        if Debug:
+            print("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
+        limit = basic_file_query.Limit
+        limit = "" if limit is None else f"limit {limit}"
+        offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
+        if Debug:
+            print("sql_for_basic_query: offset:", offset)
+            
+        
+        f = alias("f")
+
+        meta = f"{f}.metadata" if basic_file_query.WithMeta else "null as metadata"
+        parents = f"{f}.parents" if basic_file_query.WithProvenance else "null as parents"
+        children = f"{f}.children" if basic_file_query.WithProvenance else "null as children"
+        table = "files_with_provenance" if basic_file_query.WithProvenance else "files"
+
+        if Debug:
+            print("sql_for_basic_query: table:", table)
+
+        file_meta_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f) or "true"
+
+        dataset_selector = basic_file_query.DatasetSelector
+        datasets = DBDataset.datasets_for_selector(db, dataset_selector)
+        attrs = DBFile.attr_columns(f)
+        if datasets is None:
+            # no dataset selection
+            sql = f"""
+                -- sql_for_basic_query {f}
+                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                        from {table} {f}
+                        where {file_meta_exp}
+                        {limit} {offset}
+                -- end of sql_for_basic_query {f}
+            """
+        else:
+            #datasets_sql = DBDataset.sql_for_selector(dataset_selector)
+            
+            datasets = list(datasets)
+            ds_names = set()
+            ds_namespaces = set()
+            ds_specs = set()
+            for ds_ns, ds_name, ds_meta in datasets:
+                ds_names.add(ds_name)
+                ds_namespaces.add(ds_ns)
+                ds_specs.add(ds_ns + ":" + ds_name)
+            
+            fd = alias("fd")
+            ds = alias("ds")
+        
+            sql = f"""
+                -- sql_for_basic_query {f}
+                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                        from {table} {f}
+                            inner join files_datasets {fd} on {fd}.file_id = {f}.id
+                        where
+                            {fd}.dataset_namespace = any(array %s)
+                            and {fd}.dataset_name = any(array %s)
+                            and {fd}.dataset_namespace || ':' || {fd}.dataset_name = any(array %s)
+                            and {file_meta_exp}
+                        {limit} {offset}
+                -- end of sql_for_basic_query {f}
+            """ % (list(ds_namespaces), list(ds_names), list(ds_specs))
         if Debug:
             print("sql_for_basic_query: sql:-------\n", sql, "\n---------")
         return sql
@@ -1357,9 +1500,20 @@ class DBDataset(DBObject):
         recursively = dataset_selector.Recursively
         datasets = DBDataset.list_datasets(db, patterns, with_children, recursively)
         return limited(dataset_selector.filter_by_having(datasets), limit)
+        
+    @staticmethod
+    def datasets_for_selector(db, selector, with_meta = False, chunk=1):
+        if selector is None:
+            return None
+        sql = DBDataset.sql_for_selector(selector, with_meta)
+        c = db.cursor()
+        c.execute(sql)
+        return fetch_generator(c)
 
     @staticmethod   
     def sql_for_selector(selector, with_meta = False):
+        if selector is None:
+            return None
         meta_where_clause = ""
         meta = "metadata" if with_meta or selector.Having else "null as metadata"
         if selector.Having is not None:
@@ -1376,16 +1530,155 @@ class DBDataset(DBObject):
                 top_query = f"select namespace, name, {meta} from datasets where namespace='{namespace}' and name like '{name_pattern}' {meta_where_clause}"
                 top_parts.append(top_query)
             else:
-                explicits.append(f"'{namespace}:{name_pattern}'")
+                explicits.append((namespace, name_pattern))
                 
         if Debug:
             print("sql_for_selector: explicits:", explicits)
 
         if explicits:
-            specs = ",".join(explicits)
+            namespaces = set()
+            names = set()
+            specs = set()
+            for namespace, name in explicits:
+                namespaces.add(namespace)
+                names.add(name)
+                specs.add(namespace + ":" + name)
+                
+            namespaces = list(namespaces)
+            names = list(names)
+            specs = list(specs)
+            
             top_parts.append(
-                f"select namespace, name, {meta} from datasets where namespace || ':' || name in ({specs}) {meta_where_clause}"
-            )
+                f"""select namespace, name, {meta} from datasets 
+                        where namespace=any(array{namespaces})
+                            and name=any(array{names})
+                            and namespace || ':' || name = any(array{specs})
+                """)
+        
+        top_united = "\n                 union ".join(top_parts)
+        
+        if selector.WithChildren:
+            
+            top = alias("top")
+            
+            if selector.Recursively:
+                ds = alias("ds")
+                pc1 = alias("pc")
+                x = alias("x")
+                
+                if with_meta:
+                    recursive_part = f"""
+                                    select {ds}.namespace, {ds}.name, {ds}.metadata
+                                        from datasets {ds}, datasets_parent_child {pc1}, subsets
+                                        where {pc1}.parent_namespace = subsets.namespace and {pc1}.parent_name = subsets.name
+                                            and {ds}.namespace = {pc1}.child_namespace and {ds}.name = {pc1}.child_name
+                    """
+                else:
+                    recursive_part = f"""
+                                    select {pc1}.child_namespace, {pc1}.child_name, null as metadata
+                                        from datasets_parent_child {pc1}, subsets
+                                        where {pc1}.parent_namespace = subsets.namespace and {pc1}.parent_name = subsets.name
+                    """
+
+                sql = f"""
+                    with {top} as ( 
+                        -- top_united {top}
+                            {top_united}
+                        -- top_united {top}
+                    )
+                    select * from 
+                    ( 
+                        -- subsets {top}
+                            with recursive subsets as (
+                                select * from {top}
+                                union
+                                    -- recursive part
+                                    {recursive_part}
+                                    -- recursive part
+                            )
+                            select * from subsets
+                        -- subsets {top}
+                    ) as {x}
+                    """
+            else:
+                x=alias("x")
+                pc = alias("pc")
+                if with_meta:
+                    child = alias("child")
+                    immediate_children = f"""
+                            select {child}.namespace, {child}.name, {child}.metadata
+                                    from {top}, datasets {child}, datasets_parent_child {pc}
+                                    where {pc}.parent_namespace={top}.namespace and {pc}.parent_name={top}.name
+                                          and {child}.namespace = {pc}.child_namespace and {child}.name = {pc}.child_name
+                    """
+                else:
+                    immediate_children = f"""
+                            select {pc}.child_namespace, {pc}.child_name, null as metadata
+                                    from {top}, datasets_parent_child {pc}
+                                    where {pc}.parent_namespace={top}.namespace and {pc}.parent_name={top}.name
+                    """
+                sql = f"""
+                    with {top} as ( 
+                        -- top_united {top}
+                            {top_united}
+                        -- top_united {top}
+                    )
+                    select namespace, name, {meta} from 
+                    (
+                        select * from {top}
+                        union
+                        -- immediate children {top}
+                            {immediate_children}
+                        -- immediate children {top}
+                    ) as {x}
+                """
+        else:
+            # not with children
+            sql = top_united
+        if Debug:
+            print("sql_for_selector: sql:\n", sql)
+        return sql
+
+    @staticmethod   
+    def ____sql_for_selector(selector, with_meta = False):
+        meta_where_clause = ""
+        meta = "metadata" if with_meta or selector.Having else "null as metadata"
+        if selector.Having is not None:
+            meta_where_clause = "and " + MetaExpressionDNF(selector.Having).sql("datasets")        
+                
+        top_parts = []
+        explicits = []
+        for p in selector.Patterns:
+            namespace = p["namespace"]
+            name_pattern = p["name"]
+            wildcard = p["wildcard"]
+            
+            if wildcard:
+                top_query = f"select namespace, name, {meta} from datasets where namespace='{namespace}' and name like '{name_pattern}' {meta_where_clause}"
+                top_parts.append(top_query)
+            else:
+                explicits.append((namespace, name_pattern))
+                
+        if Debug:
+            print("sql_for_selector: explicits:", explicits)
+
+        if explicits:
+            namespaces = set()
+            names = set()
+            specs = set()
+            for namespace, name in explicits:
+                namespaces.add(namespace)
+                names.add(name)
+                specs.add(namespace + ":" + name)
+            namespaces = ",".join(namespaces)
+            names = ",".join(names)
+            specs = ",".join(specs)
+            top_parts.append(
+                f"""select namespace, name, {meta} from datasets 
+                        where namespace=any({namespaces})
+                            and name=any({names})
+                            and namespace || ':' || name = any({specs})
+                """)
         
         top_united = "\n                 union ".join(top_parts)
         

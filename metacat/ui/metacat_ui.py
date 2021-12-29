@@ -59,19 +59,19 @@ def main():
 
     try:
         if cmd == "query":
-            from .metacat_query import do_query
+            from metacat.ui.metacat_query import do_query
             do_query(server_url, args)
         elif cmd == "auth":
-            from .metacat_auth import do_auth
+            from metacat.ui.metacat_auth import do_auth
             do_auth(server_url, auth_server_url, args)
         elif cmd == "dataset":
-            from .metacat_dataset import do_dataset
+            from metacat.ui.metacat_dataset import do_dataset
             do_dataset(server_url, args)
         elif cmd == "file":
-            from .metacat_file import do_file
+            from metacat.ui.metacat_file import do_file
             do_file(server_url, args)
         elif cmd == "namespace":
-            from .metacat_namespace import do_namespace
+            from metacat.ui.metacat_namespace import do_namespace
             do_namespace(server_url, args)
     except MCWebAPIError as e:
         sys.stderr.write(str(e))

@@ -158,6 +158,9 @@ class DatasetSelector(object):
     __str__ = line
     __repr__ = line
                 
+    def has_wildcards(self):
+        return any(p["wildcard"] for p in self.Patterns)
+        
     def setHaving(self, having):
         self.Having = having
         

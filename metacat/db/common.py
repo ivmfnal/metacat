@@ -76,6 +76,16 @@ def skipped(iterable, n):
         else:
             yield f
             
+def chunked(iterable, n):
+    lst = []
+    for item in iterable:
+        if len(lst) >= n:
+            yield lst
+            lst = []
+        lst.append(item)
+    if lst:
+        yield lst
+            
 class MetaValidationError(Exception):
     
     def __init__(self, message, errors):

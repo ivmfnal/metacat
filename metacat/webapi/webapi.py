@@ -712,6 +712,7 @@ class MetaCatClient(HTTPClient):
         #print(response)
         #print(response.headers)
         self.Token = token = SignedToken.decode(response.headers["X-Authentication-Token"])
+        print("token:", token.Payload)
         if self.TokenLib is not None:
             self.TokenLib[self.ServerURL] = token
         return token.subject, token.expiration
@@ -751,6 +752,7 @@ class MetaCatClient(HTTPClient):
         try:
             user, exp = self.login_ldap(username, password)
         except:
+            raise
             pass
         if not user:
             user, exp = self.login_digest(username, password)

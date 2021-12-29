@@ -1,5 +1,5 @@
 FILES = AuthServer.py Server.py rfc2617.py \
-    base_handler.py auth_handler.py gui_handler.py data_handler.py
+    base_handler.py auth_handler.py gui_handler.py data_handler.py base_server.py
     
 
 TEMPLATES = base.html dataset_files.html dataset.html datasets.html login.html mql.html named_queries.html named_query.html \

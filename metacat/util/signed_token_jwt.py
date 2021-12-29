@@ -26,6 +26,11 @@ class SignedToken(object):
         }
         self.Payload.update(claims)
         self.Payload.update(payload)
+        
+    def __str__(self):
+        data = {"ctime":time.ctime(self.Payload["exp"])}
+        data.update(self.Payload)
+        return "[SignedToken %(jti)s sub=%(sub)s iss=%(iss)s exp=%(ctime)s]" % data
 
     @property
     def expiration(self):
@@ -43,9 +48,6 @@ class SignedToken(object):
     def tid(self):
         return self.Payload.get("jti")
 
-    def __str__(self):
-        return "[SignedToken %s]" % (to_str(self.tid),)
-    
     @staticmethod   
     def from_bytes(encoded):
         encoded = b"".join(to_bytes(encoded).split())   # convert to bytes and remove all white space

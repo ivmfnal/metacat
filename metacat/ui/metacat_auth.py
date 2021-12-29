@@ -46,12 +46,15 @@ def time_delta(dt):
 
 def do_list(client, args):
     tl = client.TokenLib
+    for url, token in tl.items():
+        print(url, token)
     now = time.time()
-    lst = [(token.tid, url, token.subject, time.ctime(token.expiration), time_delta(token.expiration - now)) 
+    lst = [(token.tid, url, token.subject or "", time.ctime(token.expiration), time_delta(token.expiration - now)) 
                         for url, token in tl.items()
                         if token.expiration is None or token.expiration > time.time()]
     max_tid, max_url, max_user, max_exp = len("Token id"), len("Server URL"), len("User"), len("Expiration")
     for tid, url, user, et, delta in lst:
+        print(tid, url, user, et, delta)
         max_tid = max(len(tid), max_tid)
         max_url = max(len(url), max_url)
         max_user = max(len(user), max_user)
