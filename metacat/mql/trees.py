@@ -210,6 +210,8 @@ class Traveler(object):
             text = '\n'.join(out_lines)
         return text
 
+    def __call__(self, *params, **args):
+        return self.walk(*params, **args)
 
 class Descender(Traveler):
 
@@ -305,7 +307,16 @@ class Ascender(Traveler):
     def _default(self, node, *children, **named):
         return Node(node.T, children, _meta=node.M, _data=named)
         
-class LarkToNodes(Transformer):
+class Converter(Transformer):
+    
+    #
+    # Base class for converters from Lark tree to Node tree
+    #
+    
+    def __call__(self, tree):
+        return self.transform(tree)
+
+class LarkToNodes(Converter):
     
     #
     # Converts from Tree structure returned by Lark to Nodes
@@ -317,8 +328,8 @@ class LarkToNodes(Transformer):
         
     def __default_token__(self, token):
         return Token(token.type, token.value)
-        
 
+        
 if __name__ == "__main__":
     
     x = Node("leaf", [], value="hello there", meta=(1,2,3))

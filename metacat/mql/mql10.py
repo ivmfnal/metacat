@@ -1,16 +1,16 @@
 from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet, limited
-from .trees import Node, pass_node, Ascender, Descender, Visitor, LarkToNodes
+from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter
 from .sql_converter import SQLConverter
 from .meta_evaluator import MetaEvaluator
 import json, time
 
 from lark import Lark
-from lark import Transformer, Tree, Token
+from lark import Tree, Token
 import pprint
 
 CMP_OPS = [">" , "<" , ">=" , "<=" , "==" , "=" , "!=", "~~", "~~*", "!~~", "!~~*"]
 
-from .grammar10 import MQL_Grammar
+from .grammar import MQL_Grammar
 _Parser = Lark(MQL_Grammar, start="query")
 
 class SyntaxError(Exception):
@@ -83,19 +83,64 @@ def _make_DNF(exp, op=None, exp1=None):
         exp = Node("meta_and", [exp, exp1])
 
     return _MetaRegularizer().walk(exp)
-            
+
+class DatasetSelector(object):
+
+    def __init__(self, namespace, name, pattern, with_children, recursively, having):
+        self.Namespace = namespace
+        self.Name = name
+        self.Pattern = pattern
+        self.WithChildren = with_children
+        self.Recursively = recursively
+        self.Having = having
+        
+    def is_explicit(self):
+        return not self.Pattern and not self.WithChildren
+
+    def line(self):
+        return "DatasetSelector(%s:%s%s%s%s%s)" % (
+                self.Namespace, self.Name, 
+                "[*]" if self.Pattern else "[]",
+                " with children" if self.WithChildren else "",
+                " recursively" if self.Recursively else "",
+                " " + self.Having if self.Having else "")
+
+    __str__ = line
+    __repr__ = line
+                
+    def setHaving(self, having):
+        self.Having = having
+        
+    def datasets(self, db, limit=None):
+        return DBDataset.apply_dataset_selector(db, self, limit)
+        
+    def apply_params(self, params):
+        # apply params from "with ..."
+        default_namespace = params.get("namespace")
+        if default_namespace:
+            self.Namespace = self.Namespace or default_namespace
+                
+    def filter_by_having(self, datasets):
+        if self.Having is None:
+            yield from datasets
+        evaluator = MetaEvaluator()
+        for ds in datasets:
+            if evaluator(ds.Metadata, self.Having):
+                yield ds
+                
 class BasicFileQuery(object):
     
-    def __init__(self, dataset_selector, where=None):
-        self.DatasetSelector = dataset_selector
-        self.Wheres = where 
+    def __init__(self, dataset_selectors, where=None):
+        assert all(isinstance(ds, DatasetSelector) for ds in dataset_selectors)
+        self.DatasetSelectors = dataset_selectors
+        self.Wheres = where
         self.Limit = None
         self.WithMeta = False       
         self.WithProvenance = False
         self.Skip = 0
         
     def __str__(self):
-        return "BasicFileQuery(selector:%s, limit:%s, skip:%s, %smeta, %sprovenance)" % (self.DatasetSelector, 
+        return "BasicFileQuery(selectors:%s, limit:%s, skip:%s, %smeta, %sprovenance)" % (self.DatasetSelectors, 
             self.Limit, self.Skip,
             "+" if self.WithMeta else "-",
             "+" if self.WithProvenance else "-",
@@ -137,50 +182,9 @@ class BasicFileQuery(object):
             self.Limit = max(0, self.Limit-nskip)
 
     def apply_params(self, params):
-        if self.DatasetSelector is not None:
-            self.DatasetSelector.apply_params(params)
-        
-    def filter_by_having(self, dataset_generator):
-        return self.DatasetSelector.filter_by_having(dataset_generator)
-
-class DatasetSelector(object):
-
-    def __init__(self, patterns, with_children, recursively, having):
-        self.Patterns = patterns
-        self.WithChildren = with_children
-        self.Recursively = recursively
-        self.Having = having
-
-    def line(self):
-        return "DatasetSelector(patterns=%s with_children=%s rec=%s having=%s)" % (self.Patterns, self.WithChildren,
-                self.Recursively, self.Having)
-
-    __str__ = line
-    __repr__ = line
-                
-    def has_wildcards(self):
-        return any(p["wildcard"] for p in self.Patterns)
-        
-    def setHaving(self, having):
-        self.Having = having
-        
-    def datasets(self, db, limit=None):
-        return DBDataset.apply_dataset_selector(db, self, limit)
-        
-    def apply_params(self, params):
-        # apply params from "with ..."
         default_namespace = params.get("namespace")
-        if default_namespace:
-            for p in self.Patterns:
-                p["namespace"] = p["namespace"] or default_namespace
-                
-    def filter_by_having(self, datasets):
-        if self.Having is None:
-            yield from datasets
-        evaluator = MetaEvaluator()
-        for ds in datasets:
-            if evaluator(ds.Metadata, self.Having):
-                yield ds
+        for ds in self.DatasetSelectors:
+            ds.apply_params(params)
         
 class DatasetQuery(object):
     
@@ -282,22 +286,20 @@ class FileQuery(object):
 
         return out
 
-class _Converter(Transformer):
+class QueryConverter(Converter):
     
     #
-    # converts from Lark tree structure to my own Node
+    # converts parsed query (eiher file or dataset) from Lark tree structure to my own Node
     #
     
     def query(self, args):
         if len(args) == 2:
             params, query = args
-            #print("_Converter.query(): applying params:", params)
-            q = _ParamsApplier().walk(query, params)
+            q = _WithParamsApplier().walk(query, params)
             #print("_Converter.query(): after applying params:", q.pretty())
         else:
             q = args[0]
         
-        #print("_Converter.query(): q=", q.pretty())
         
         if q.T == "top_file_query": out = FileQuery(q.C[0])
         elif q.T == "top_dataset_query": out = DatasetQuery(q.C[0])
@@ -345,35 +347,11 @@ class _Converter(Transformer):
     def meta_filter(self, args):
         q, meta_exp = args
         return Node("meta_filter", query=q, meta_exp=_make_DNF(meta_exp))
-        
-    def datasets_selector(self, args):
-        spec_list = args[0]["specs"]
-        with_children = False
-        recursively = False
-        having_exp = None
-        args_ = args[1:]
-        i = 0
-        while i < len(args_):
-            #print(i, a)
-            a = args_[i]
-            if a.value == "with":
-                pass
-            elif a.value == "children":
-                with_children = True
-            elif a.value == "recursively":
-                recursively = True
-            elif a.value == "having":
-                having_exp = args_[i+1]
-                i += 1
-            i += 1
-        #print("datasets_selector: having_exp:", having_exp.pretty("    "))
-        ds = DatasetSelector(spec_list, with_children, recursively, having_exp)
-        return Node("datasets_selector", selector = ds)
-        
+                
     def basic_file_query(self, args):
-        assert len(args) == 0 or len(args) == 1 and args[0].T == "datasets_selector"
-        dataset_selector = args[0]["selector"] if args else None
-        return Node("basic_file_query", query=BasicFileQuery(dataset_selector))
+        assert len(args) == 1, str(args)
+        assert args[0].T == "dataset_selector_list"
+        return Node("basic_file_query", query=BasicFileQuery(args[0]["selectors"]))
         
     def file_list(self, args):
         return Node("file_list", specs=[a.value[1:-1] for a in args], with_meta=False, with_provenance=False, limit=None)
@@ -401,36 +379,64 @@ class _Converter(Transformer):
     def constant_list(self, args):
         return [n["value"] for n in args]
         
-    def dataset_spec(self, args):
-        (x,) = args
-        #print("dataset_spec: args:")
-        #for a in args:
-        #    print(a.pretty("    "))
-        return Node("dataset_spec", wildcard = (x.T == "dataset_pattern"), **x.D)
-            
-    def dataset_spec_list(self, args):
-        #print("dataset_spec_list: specs:", [a.D for a in args])
-        return Node("dataset_spec_list", specs=[a.D for a in args])
+    def dataset_selector(self, args):
+        name_or_pattern = args[0]
+        assert name_or_pattern.T in ("dataset_pattern", "qualified_name")
+        pattern = name_or_pattern.T == "dataset_pattern"
+        name = name_or_pattern["name"]
+        namespace = name_or_pattern["namespace"]
+        having_exp = None
+        with_children = False
+        recursively = False
+        args_ = args[1:]
+        i = 0
+        while i < len(args_):
+            #print(i, a)
+            a = args_[i]
+            if a.value == "with":
+                pass
+            elif a.value == "children":
+                with_children = True
+            elif a.value == "recursively":
+                recursively = True
+            elif a.value == "having":
+                having_exp = args_[i+1]
+                i += 1
+            i += 1
+        selector = DatasetSelector(namespace, name, pattern, with_children, recursively, having_exp)
+        return Node("dataset_selector", selector=selector)
         
-    def _____dataset(self, args):
-        return 
+    def dataset_selector_list(self, args):
+        return Node("dataset_selector_list", selectors=[ds["selector"] for ds in args])
 
-    def dataset_pattern(self, args):
-        # either (name_pattern) or (namespace_pattern, name_pattern)
+    def qualified_name(self, args):
+        assert len(args) in (1,2)
         if len(args) == 1:
-            name_pattern = args[0].value
-            namespace = None
+            out = Node("qualified_name", namespace=None, name=args[0].value)      # no namespace
         else:
-            name_pattern = args[1].value
-            namespace = args[0].value
-        name_pattern = name_pattern[1:-1]       # remove the surrouning quotes
-        return Node("dataset_pattern", name=name_pattern, namespace=namespace)
+            out = Node("qualified_name", namespace=args[0].value, name=args[1].value)
+        #print("Converter.qualified_name: returning: %s" % (out.pretty(),))
+        return out
+        
+    def dataset_pattern(self, args):
+        assert len(args) in (1,2)
+        namespace = None
+        if len(args) == 1:
+            name = args[0].value
+        else:
+            namespace, name = args[0].value, args[1].value
+        # unquote the string
+        if name.startswith("'") or name.startswith('"'):
+            name = name[1:-1]
+        #print("Converter.qualified_name: returning: %s" % (out.pretty(),))
+        out = Node("dataset_pattern", namespace=namespace, name=name)
+        return out
         
     def named_query(self, args):
         (q,) = args
         out = Node("named_query", **q.D)        # copy namespace, name from the qualified name
         return out
-        
+
     def param_def_list(self, args):
         return dict([(a.C[0].value, a.C[1]["value"]) for a in args])
         
@@ -485,15 +491,6 @@ class _Converter(Transformer):
         #print("  righgt:", right.pretty())
         #return Node("file_query", [Node("minus", [left, right])], meta={"limit":None})
         return Node("minus", [left, right])
-        
-    def qualified_name(self, args):
-        assert len(args) in (1,2)
-        if len(args) == 1:
-            out = Node("qualified_name", namespace=None, name=args[0].value)      # no namespace
-        else:
-            out = Node("qualified_name", namespace=args[0].value, name=args[1].value)
-        #print("Converter.qualified_name: returning: %s" % (out.pretty(),))
-        return out
         
     def filter(self, args):
         if len(args) == 3:
@@ -675,7 +672,7 @@ class _Converter(Transformer):
     def meta_not(self, children):
         assert len(children) == 1
         return self._apply_not(children[0])
-        
+
 class _Assembler(Ascender):
 
     def __init__(self, db, default_namespace):
@@ -694,7 +691,7 @@ class _Assembler(Ascender):
         parsed = MQLQuery.from_db(self.DB, namespace, name)
         assert parsed.Type == "file"
         tree = parsed.Tree
-        tree = _ParamsApplier().walk(tree, {"namespace":namespace})
+        tree = _WithParamsApplier().walk(tree, {"namespace":namespace})
         #print("_Assembler.named_query: returning:", tree.pretty())
         return tree
 
@@ -1018,7 +1015,6 @@ class _DatasetEvaluator(Ascender):
         #print("_DatasetEvaluator.datasets_selector: out:", out)
         return out
         
-        
 def parse_query(text, debug=False):
     # remove comments
     out = []
@@ -1028,9 +1024,10 @@ def parse_query(text, debug=False):
     text = '\n'.join(out)
     
     parsed = _Parser.parse(text)
+
     if debug:
-        print("--- parsed ---\n", LarkToNodes().transform(parsed).pretty())
-    converted = _Converter().convert(parsed)
+        print("--- parsed ---\n", LarkToNodes()(parsed).pretty())
+    converted = QueryConverter()(parsed)
     if debug:
         print("--- converted ---\n", converted)
     return converted
@@ -1046,7 +1043,7 @@ class MQLQuery(object):
         text = '\n'.join(out)
     
         parsed = _Parser.parse(text)
-        return _Converter().convert(parsed)
+        return QueryConverter().convert(parsed)
         
     @staticmethod
     def from_db(db, namespace, name):

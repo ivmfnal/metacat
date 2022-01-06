@@ -701,7 +701,7 @@ class GUIHandler(BaseHandler):
         #print("create_dataset: amdin:", admin, "   namespaces:", namespaces)
         if not namespaces:
             self.redirect("./create_namespace?error=%s" % (quote_plus("You do not own any namespace. Create one first"),))
-        return self.render_to_response("dataset.html", namespaces=namespaces, edit=False, create=True)
+        return self.render_to_response("dataset.html", namespaces=namespaces, edit=False, create=True, mode="create")
         
     def dataset(self, request, relpath, namespace=None, name=None, **args):
         db = self.App.connect()
@@ -720,13 +720,18 @@ class GUIHandler(BaseHandler):
 
         user = self.authenticated_user()
         edit = False
+        mode = "view"
         if user is not None:
             ns = DBNamespace.get(db, name=dataset.Namespace)
             edit = ns.owned_by_user(user)
+            if edit:
+                mode = "edit"
         namespaces = DBNamespace.list(db)
         namespaces = sorted(namespaces, key = lambda ns: (0 if ns.owned_by_user(user, directly=True) else 1, ns.Name))
-        return self.render_to_response("dataset.html", dataset=dataset, files=files, nfiles=nfiles, attr_names=attr_names, edit=edit, create=False,
-            namespaces=namespaces, **self.messages(args))
+        return self.render_to_response("dataset.html", dataset=dataset, files=files, nfiles=nfiles, attr_names=attr_names, 
+            mode = mode,
+            edit=edit, 
+            create=False, namespaces=namespaces, **self.messages(args))
             
     def child_subset_candidates(self, request, relpath, namespace=None, prefix=None, ds_namespace=None, ds_name=None, **args):
         db = self.App.connect()
@@ -822,8 +827,14 @@ class GUIHandler(BaseHandler):
             ds = DBDataset.get(db, namespace, name)
 
         warning = None
+        mode = request.POST["mode"]
 
-        if request.POST.get("add_child_dataset") == "add":
+        ds.Monotonic = "monotonic" in request.POST
+        ds.Frozen = "frozen" in request.POST
+        reqs = self.read_dataset_file_meta_requiremets(request.POST)
+        ds.FileMetaRequirements = reqs
+
+        if mode == "edit" and request.POST.get("add_child_dataset") == "add":
             child_namespace = request.POST["child_namespace"]
             child_name = request.POST["child_name"]
             if child_namespace and child_name:
@@ -839,12 +850,11 @@ class GUIHandler(BaseHandler):
                 if any(a.Namespace == child_namespace and a.Name == child_name for a in subsets):
                     warning = f"Dataset {child_namespace}:{child_name} is already a subset of {namespace}:{name}"
                 ds.add_child(child)
-
-        ds.Monotonic = "monotonic" in request.POST
-        ds.Frozen = "frozen" in request.POST
-        reqs = self.read_dataset_file_meta_requiremets(request.POST)
-        ds.FileMetaRequirements = reqs
-        ds.create()
+        elif mode == "create":
+            ds.create()
+        elif mode == "edit":
+            ds.save()
+            
         self.redirect(f"./dataset?namespace={namespace}&name={name}" + ("&message=" + quote_plus(warning) if warning else ""))
         
     def remove_child_dataset(self, request, relpath, namespace=None, name=None, child_namespace=None, child_name=None, **args):

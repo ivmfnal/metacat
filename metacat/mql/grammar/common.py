@@ -1,50 +1,10 @@
-MQL_Grammar = """
+Common = """
+
 query:  ("with" param_def_list)? params_applied_query
 
 ?params_applied_query:  top_file_query             
     | top_dataset_query                            
 
-top_file_query          :    file_query
-top_dataset_query       :    dataset_query
-
-?file_query: meta_filter                                  
-    | file_query "-" meta_filter                          -> minus
-
-//?limited_file_query_expression: meta_filter "limit" SIGNED_INT
-//    | meta_filter                   
-
-?meta_filter: file_query_exression "where" meta_exp     
-    |   file_query_exression                             
-
-?file_query_exression:  term_file_query                   
-    |   "union" "(" file_query_list ")"                  -> union
-    |   "[" file_query_list "]"                          -> union
-    |   "join"  "(" file_query_list ")"                  -> join
-    |   "{" file_query_list "}"                          -> join
-    |   "parents" "(" file_query ")"                     -> parents_of
-    |   "children" "(" file_query ")"                    -> children_of
-    |   file_query "limit" SIGNED_INT                    -> limit              
-    |   file_query "skip" SIGNED_INT                     -> skip              
-    |   "(" file_query ")"           
-
-term_file_query: "files" ("from" datasets_selector)?                                -> basic_file_query
-    |   "filter" FNAME "(" filter_params ? ")" "(" file_query_list ")"              -> filter
-    |   "query" qualified_name                                                      -> named_query
-    |   "files" STRING ("," STRING)*                                                -> file_list
-
-filter_params : constant_list
-    |   (constant_list ",")? param_def_list
-
-file_query_list: file_query ("," file_query)*     
-
-!datasets_selector: dataset_spec_list ("having" meta_exp)? ("with" "children" "recursively"?)?
-
-dataset_spec_list: dataset_spec ("," dataset_spec)* 
-
-dataset_spec:    qualified_name
-    | dataset_pattern
-
-dataset_query:  "datasets" datasets_selector
 
 dataset_pattern:    (FNAME ":")? STRING
 
@@ -73,8 +33,8 @@ meta_and:   term_meta ( "and" term_meta )*
     | "!" term_meta                                 -> meta_not
 
 scalar:  ANAME
-        | ANAME "[" "all" "]"                              -> array_all
-        | ANAME "[" "any" "]"                              -> array_any
+        | ANAME "[" "all" "]"                       -> array_all
+        | ANAME "[" "any" "]"                       -> array_any
         | ANAME "[" SIGNED_INT "]"                  -> array_subscript
         | ANAME "[" STRING "]"                      -> array_subscript
         | "len" "(" ANAME ")"                       -> array_length
@@ -111,6 +71,8 @@ STRING : /("(?!"").*?(?<!\\\\)(\\\\\\\\)*?"|'(?!'').*?(?<!\\\\)(\\\\\\\\)*?')/i
 %import common.LETTER
 %import common.DIGIT
 %ignore WS
+
+
 """
 
 
