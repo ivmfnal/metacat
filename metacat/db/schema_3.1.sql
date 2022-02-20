@@ -118,7 +118,7 @@ create table datasets_parent_child
     child_namespace     text,
     child_name          text,
     foreign key (parent_namespace, parent_name) references datasets(namespace, name),
-    foreign key (child_namespace, child_name) references datasets(namespace, name),
+    foreign key (child_namespace, child_name) references datasets(namespace, name) on delete cascade,
     primary key (parent_namespace, parent_name, child_namespace, child_name)
 );
 
