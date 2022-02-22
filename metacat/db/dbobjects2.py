@@ -1610,8 +1610,9 @@ class DBUser(object):
         return self
         
     def authenticate(self, method, config, presented):
-        a = authenticator(method, config)
-        return a is not None and a.enabled() and a.authenticate(self.Username, self.AuthInfo.get(method), presented):
+        a = authenticator(method, config, self.AuthInfo.get(method))
+        print("DBUser.authenticate: method", method, "  authenticator:", a, "  enabled:", a.enabled())
+        return a is not None and a.enabled() and a.authenticate(self.Username, presented)
         
     def set_auth_info(self, method, info):  
         # info is in DB representation, e.g. unhashed password

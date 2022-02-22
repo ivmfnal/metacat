@@ -4,8 +4,8 @@ from metacat.util import to_str, to_bytes
 class Authenticator(object):
     
     def __init__(self, config, db_info):
-        self.Config = db_config
-        self.Info = info        # DB authentication info, e.g. hashed password
+        self.Config = config
+        self.Info = db_info        # DB authentication info, e.g. hashed password
 
     def authenticate(self, username, presented):
         # info is the DB representation of the secret, e.g. hashed password
@@ -73,12 +73,15 @@ class LDAPAuthenticator(Authenticator):
         if config is None or not "server_url" in config:
             print("server not configured")
             return False
-        dn = self.Info              # LDAP DN
+        dn = self.Info             # LDAP DN
+        if not dn and "dn_template" in self.Config:
+            dn = self.Config["dn_template"] % (username,)
         if not dn:
             print("no dn")
             return False        # not allowed
 
         ld = ldap.initialize(config["server_url"])
+        print("ldap password:", password)
         try:
             ld.simple_bind_s(dn, password)
             result = True
@@ -96,7 +99,7 @@ class LDAPAuthenticator(Authenticator):
             return None
 
     def enabled(self):
-        return self.Info is not None
+        return self.Info is not None or "dn_template" in self.Config
         
 class X509Authenticator(Authenticator):
     
