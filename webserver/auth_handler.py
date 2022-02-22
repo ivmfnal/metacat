@@ -33,8 +33,9 @@ class AuthHandler(BaseHandler):
         
     def _auth_digest(self, request_env, redirect):
         # give them cookie with the signed token
-        
-        ok, data = digest_server("metadata", request_env, self.App.get_digest_password)
+
+        a = authenticator("digest", {"domain":"metadata", "get_password":self.App.get_digest_password})
+        ok, data = a.authenticate(None, None, request_env)
         if ok:
             #print("AuthHandler.auth: digest_server ok")
             resp = self.App.response_with_auth_cookie(data, redirect)
@@ -72,10 +73,7 @@ class AuthHandler(BaseHandler):
             
         db = self.App.connect()
         u = DBUser.get(db, username)
-        if u.authenticate("x509", None, {
-            "subject_dn":   request.environ.get("SSL_CLIENT_S_DN"),
-            "issuer_dn":    request.environ.get("SSL_CLIENT_I_DN")
-        }):
+        if u.authenticate("x509", None, request.environ):
             return self.App.response_with_auth_cookie(username, redirect)
         else:
             return "Authentication failed\n", 403

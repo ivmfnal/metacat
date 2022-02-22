@@ -1609,28 +1609,26 @@ class DBUser(object):
             c.execute("commit")
         return self
         
-    def authenticator(self, method):
-        info = self.AuthInfo.get(method)
-        #print(f"DBUser: authenticator({method}): AuthInfo:{self.AuthInfo}")
-        #print(f"DBUser: authenticator({method}): info:{info}")
-        return authenticator(self.Username, method, info)
+    def authenticate(self, method, config, presented):
+        a = authenticator(method, config)
+        return a is not None and a.enabled() and a.authenticate(self.Username, self.AuthInfo.get(method), presented):
         
-    def auth_method_enabled(self, method):
-        return self.authenticator(method).enabled()
-        
-    def set_auth_info(self, method, config, info):  
-        # info is in external representation, e.g. unhashed password
-        a = self.authenticator(method)
-        self.AuthInfo[method] = a.set_info(config, info)        # this will convert to DB representation
+    def set_auth_info(self, method, info):  
+        # info is in DB representation, e.g. unhashed password
+        self.AuthInfo[method] = info
     
     def set_password(self, password):
-        # for compatibility
-        self.set_auth_info("password", None, password)
+        # for compatibility, password is DB representation, e.g. hashed
+        self.set_auth_info("password", password)
     
-    def authenticate(self, method, config, secret):
-        a = self.authenticator(method)
-        return a.authenticate(config, secret)
-        
+    def auth_info(self, method):
+        return self.AuthInfo.get(method)
+
+    def auth_method_enabled(self, method, config):
+        a = authenticator(method, config, self.AuthInfo.get(method))
+        return a is not None and a.enabled()
+        #return self.authenticator(method).enabled()
+
     @staticmethod
     def get(db, username):
         c = db.cursor()

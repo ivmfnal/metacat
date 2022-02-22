@@ -138,6 +138,7 @@ class MetaCatClient(HTTPClient):
         if token is not None:
             if isinstance(token, (str, bytes)):
                 token = SignedToken.decode(token)
+            self.Token = token
             
         if token is None:
             self.TokenLib = TokenLib()
