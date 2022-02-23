@@ -29,8 +29,8 @@ class GUICategoryHandler(BaseHandler):
             list(me.roles) if me is not None else [])
         users = sorted(list(u.Username for u in DBUser.list(db))) if admin else [me.Username if me is not None else None]
         cats = list(DBParamCategory.list(db))
-        for name, d in cat.Definitions.items():
-            print(name, d)
+        #for name, d in cat.Definitions.items():
+        #    print(name, d)
         return self.render_to_response("category.html", category=cat, edit=edit, create=False, roles=roles, admin=admin, user=me,
             users = users,
             types = DBParamCategory.Types)
@@ -842,9 +842,9 @@ class GUIHandler(BaseHandler):
                 if child is None:
                     self.redirect("./datasets?error=%s" % (quote_plus(f"Child dataset {child_namespace}:{child_name} not found"),))
                 ancestors = list(ds.ancestors())
-                print("Ancestors: of", ds, ":", *ancestors)
+                #print("Ancestors: of", ds, ":", *ancestors)
                 subsets = list(ds.subsets())
-                print("Subsets:", *subsets)
+                #print("Subsets:", *subsets)
                 if any(a.Namespace == child_namespace and a.Name == child_name for a in ancestors):
                     self.redirect("./datasets?error=%s" % (quote_plus(f"Circular dependency detected"),))
                 if any(a.Namespace == child_namespace and a.Name == child_name for a in subsets):

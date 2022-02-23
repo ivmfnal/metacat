@@ -5,7 +5,7 @@ class Authenticator(object):
     
     def __init__(self, config, db_info):
         self.Config = config
-        self.Info = db_info        # DB authentication info, e.g. hashed password
+        self.Info = db_info        # User authentication info stored in the DB, e.g. hashed password or X.509 DNs
 
     def authenticate(self, username, presented):
         # info is the DB representation of the secret, e.g. hashed password
@@ -71,17 +71,17 @@ class LDAPAuthenticator(Authenticator):
         import ldap
         config = self.Config
         if config is None or not "server_url" in config:
-            print("server not configured")
+            #print("server not configured")
             return False
         dn = self.Info             # LDAP DN
         if not dn and "dn_template" in self.Config:
             dn = self.Config["dn_template"] % (username,)
         if not dn:
-            print("no dn")
+            #print("no dn")
             return False        # not allowed
 
         ld = ldap.initialize(config["server_url"])
-        print("ldap password:", password)
+        #print("ldap password:", password)
         try:
             ld.simple_bind_s(dn, password)
             result = True
