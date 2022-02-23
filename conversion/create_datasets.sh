@@ -63,3 +63,5 @@ insert into files_datasets(file_id, dataset_namespace, dataset_name)
 		from files f
 );
 
+_EOF_
+

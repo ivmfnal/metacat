@@ -15,12 +15,19 @@ class BaseApp(WPApp):
     def __init__(self, cfg, root_handler, **args):
         WPApp.__init__(self, root_handler, **args)
         self.Cfg = cfg
-        
-        self.DBCfg = cfg["database"]
-        
-        connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % self.DBCfg
-        
+
+        db_config = cfg["database"]
+        connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % db_config
         self.DB = ConnectionPool(postgres=connstr, max_idle_connections=3)
+        self.DBSchema = db_config.get("schema")
+
+        if "user_database" in cfg:
+            connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % cfg["user_database"]
+            self.UserDB = ConnectionPool(postgres=connstr, max_idle_connections=3)
+            self.UserDBSchema = cfg["user_database"].get("schema")
+        else:
+            self.UserDB = self.DB
+            self.UserDBSchema = self.DBSchema
 
         self.AuthConfig = cfg.get("authentication")
         secret = cfg.get("secret") 
@@ -29,7 +36,6 @@ class BaseApp(WPApp):
             h = hashlib.sha256()
             h.update(to_bytes(secret))      
             self.TokenSecret = h.digest()
-        self.Tokens = {}                # { token id -> token object }
 
     def auth_config(self, method):
         return self.AuthConfig.get(method)
@@ -37,6 +43,16 @@ class BaseApp(WPApp):
     def connect(self):
         conn = self.DB.connect()
         #print("conn: %x" % (id(conn),), "   idle connections:", ",".join("%x" % (id(c),) for c in self.DB.IdleConnections))
+        if self.DBSchema:
+            conn.cursor().execute(f"set search_path to {self.DBSchema}")
+        return conn
+        
+    db = connect        # for compatibility
+    
+    def user_db(self):
+        conn = self.UserDB.connect()
+        if self.UserDBSchema:
+            conn.cursor.execute(f"set search_path to {self.UserDBSchema}")
         return conn
         
     def get_digest_password(self, realm, username):
