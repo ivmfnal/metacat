@@ -2,7 +2,7 @@
 
 from webpie import WPApp, Response
 from wsdbtools import ConnectionPool
-from metacat.util import to_str, to_bytes, SignedToken
+from metacat.util import to_str, to_bytes, SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
 import psycopg2, json, time, secrets, traceback, hashlib, pprint, os, yaml
 from metacat.db import DBUser
 from urllib.parse import quote_plus, unquote_plus
