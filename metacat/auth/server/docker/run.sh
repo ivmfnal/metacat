@@ -6,7 +6,9 @@ docker=podman
 
 config=`pwd`/config
 interactive="no"
-port=8243
+port_in=8443
+port_out=8143
+ports=${port_out}:${port_in}
 
 while [ "$1" != "" ]; do
 	a=$1
@@ -36,7 +38,7 @@ else
 fi
 
 if [ "$interactive" == "yes" ]; then
-	$docker run -ti --rm -v $mount -p ${port}:${port} --entrypoint /bin/bash auth_server 
+	$docker run -ti --rm -v $mount -p ${ports} --entrypoint /bin/bash auth_server 
 else
-	$docker run -d  --rm -v $mount -p ${port}:${port}                        auth_server
+	$docker run -d  --rm -v $mount -p ${ports}                        auth_server
 fi

@@ -6,4 +6,4 @@ if [ "$1" == "docker" ]; then
 	docker=docker
 fi
 
-$docker build -t auth_server docker
+$docker build -t auth_server image

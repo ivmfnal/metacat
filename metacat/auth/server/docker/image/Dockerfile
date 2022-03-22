@@ -46,13 +46,14 @@ WORKDIR /tmp/rwsi-wsdbtools
 RUN make HOME=/tmp
 
 WORKDIR /tmp
-RUN git clone https://github.com/ivmfnal/dm_common.git
-RUN mkdir /tmp/auth_server
-WORKDIR /tmp/dm_common
-RUN make LIBDIR=/tmp/auth_server/dm_common
+RUN git clone https://github.com/ivmfnal/metacat.git 
+RUN cd metacat; git checkout common_auth_client
 
+RUN mkdir /tmp/auth_server 
 WORKDIR /tmp/auth_server
-RUN ln -s /tmp/build/wsdbtools .
+RUN cp -R /tmp/metacat/metacat/auth/server .
+
+RUN ln -s /tmp/build/wsdbtools/wsdbtools /tmp/metacat/metacat .
 COPY auth_server.conf /etc/httpd/conf.d/
 COPY start.sh /tmp/auth_server/
 
@@ -61,7 +62,5 @@ EXPOSE 8243
 
 WORKDIR /tmp/auth_server
 
-
-
-#ENTRYPOINT /metacat/run_server.sh
+ENTRYPOINT /tmp/auth_server/start.sh
 
