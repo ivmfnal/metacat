@@ -1,12 +1,14 @@
 import os
-from metacat.util import SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, to_bytes, to_str
+from .signed_token_jwt import SignedToken, SignedTokenExpiredError, SignedTokenImmatureError
+from .py3 import to_bytes, to_str
 
 class TokenLib(object):
 
-        DefaultFile = "%s/.metacat_tokens" % (os.environ["HOME"],)
+        DefaultFile = "%s/.token_library" % (os.environ["HOME"],)
 
         def __init__(self, path = None):
             self.Path = path or self.DefaultFile
+            print("Token lib path:", self.Path)
             self.Tokens = self.load_tokens()
 
         def load_tokens(self):

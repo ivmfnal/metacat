@@ -4,11 +4,11 @@ from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNam
         parse_name, AlreadyExistsError, IntegrityError
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
-from metacat.util import to_str, to_bytes, SignedToken
+from metacat.util import to_str, to_bytes
 from metacat.mql import MQLQuery
 from metacat import Version
 
-from base_handler import BaseHandler
+from metacat.auth.server import BaseHandler
 
 class GUICategoryHandler(BaseHandler):
     
@@ -209,6 +209,18 @@ class GUIHandler(BaseHandler):
     def __init__(self, request, app):
         BaseHandler.__init__(self, request, app)
         self.categories = GUICategoryHandler(request, app)
+        self.NamespaceAuthorizations = {}                # namespace -> True/False
+        
+    def _namespace_authorized(self, db, namespace, user):
+        authorized = self.NamespaceAuthorizations.get(namespace)
+        if authorized is None:
+            ns = DBNamespace.get(db, namespace)
+            if ns is None:
+                raise KeyError("Namespace %s does not exist")
+            authorized = ns.owned_by_user(user)
+            self.NamespaceAuthorizations[namespace] = authorized
+        return authorized
+    
 
     def jinja_globals(self):
         return {"GLOBAL_User":self.authenticated_user()}

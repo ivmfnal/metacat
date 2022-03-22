@@ -1,5 +1,5 @@
 import hashlib
-from metacat.util import to_str, to_bytes
+from .py3 import to_str, to_bytes
 
 class Authenticator(object):
     

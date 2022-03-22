@@ -1,21 +1,20 @@
 # common functionality for Auth, GUI and Data servers
 
-from webpie import WPApp, Response
+from webpie import WPApp, Response, WPHandler
 from wsdbtools import ConnectionPool
-from metacat.util import to_str, to_bytes, SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
+from metacat.util import to_str, to_bytes
+from metacat.auth import \
+    BaseDBUser as DBUser, \
+    SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
 import psycopg2, json, time, secrets, traceback, hashlib, pprint, os, yaml
-from metacat.db import DBUser
 from urllib.parse import quote_plus, unquote_plus
-from metacat import Version
 
 class BaseApp(WPApp):
-
-    Version = Version
 
     def __init__(self, cfg, root_handler, **args):
         WPApp.__init__(self, root_handler, **args)
         self.Cfg = cfg
-
+        
         db_config = cfg["database"]
         connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % db_config
         self.DB = ConnectionPool(postgres=connstr, max_idle_connections=3)
@@ -30,12 +29,20 @@ class BaseApp(WPApp):
             self.UserDBSchema = self.DBSchema
 
         self.AuthConfig = cfg.get("authentication")
-        secret = cfg.get("secret") 
-        if secret is None:    self.TokenSecret = secrets.token_bytes(128)     # used to sign tokens
+        self.Issuer = self.AuthConfig.get("issuer")
+        secret = self.AuthConfig.get("secret") 
+        if secret is None:    
+            raise ValueError("Authentication secret not found in the configuration")
+            self.TokenSecret = secrets.token_bytes(128)     # used to sign tokens
         else:         
             h = hashlib.sha256()
             h.update(to_bytes(secret))      
             self.TokenSecret = h.digest()
+            
+    def init(self):
+        #print("ScriptHome:", self.ScriptHome)
+        self.initJinjaEnvironment(tempdirs=[self.ScriptHome, self.ScriptHome + "/templates"])
+        
 
     def auth_config(self, method):
         return self.AuthConfig.get(method)
@@ -52,7 +59,7 @@ class BaseApp(WPApp):
     def user_db(self):
         conn = self.UserDB.connect()
         if self.UserDBSchema:
-            conn.cursor.execute(f"set search_path to {self.UserDBSchema}")
+            conn.cursor().execute(f"set search_path to {self.UserDBSchema}")
         return conn
         
     def get_digest_password(self, realm, username):
@@ -67,10 +74,13 @@ class BaseApp(WPApp):
 
     def user_from_request(self, request):
         encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
+        #print("server.user_from_request: encoded:", encoded)
         if not encoded: 
             return None, "Token not found"
         try:    
             token = SignedToken.from_bytes(encoded)
+            #print("server.user_from_request: token:", token)
+            #print("                          secret:", self.TokenSecret)
             token.verify(self.TokenSecret)
         except SignedTokenExpiredError:
             return None, "Token expired"           
@@ -86,20 +96,35 @@ class BaseApp(WPApp):
             return token.get("sub"), None
 
     def encoded_token_from_request(self, request):
+        token = self.token_from_request(request)
+        if token is not None:
+            return token.encode()
+        else:
+            return None
+
+    def token_from_request(self, request):
         encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
         if not encoded: return None
-        try:    token = SignedToken.decode(encoded, self.TokenSecret, verify_times=True)
-        except: return None             # invalid token
-        return encoded
+        try:
+            #print("token_from_request: encoded:", encoded)
+            token = SignedToken.decode(encoded)
+            token.verify(key=self.TokenSecret)
+        except Exception as e:
+            #print("token_from_request: Exception in verify:", e, traceback.format_exc())
+            return None             # invalid token
+        return token
 
     def generate_token(self, user, payload={}, expiration=None):
         expiration = expiration or self.TokenExpiration
-        token = SignedToken(payload, subject=user, expiration=expiration)
+        token = SignedToken(payload, subject=user, expiration=expiration, issuer=self.Issuer)
         return token, token.encode(self.TokenSecret)
 
-    def response_with_auth_cookie(self, user, redirect):
+    def response_with_auth_cookie(self, user, redirect, token=None):
         #print("response_with_auth_cookie: user:", user, "  redirect:", redirect)
-        _, encoded = self.generate_token(user, {"user": user})
+        if token is not None:
+            encoded = token.encode()
+        else:
+            _, encoded = self.generate_token(user, {"user": user})
         #print("Server.App.response_with_auth_cookie: new token created:", token.TID)
         if redirect:
             resp = Response(status=302, headers={"Location": redirect})
@@ -121,8 +146,42 @@ class BaseApp(WPApp):
 
     def verify_token(self, encoded):
         try:
-            token = SignedToken.decode(encoded, self.TokenSecret, verify_times=True)
+            token = SignedToken.decode(encoded)
+            token.verify(self.TokenSecret)
         except Exception as e:
-            return False, e
-        return True, None
+            return None, e
+        return token, None
         
+class BaseHandler(WPHandler):
+    
+    def connect(self):
+        return self.App.connect()
+
+    def text_chunks(self, gen, chunk=100000):
+        buf = []
+        size = 0
+        for x in gen:
+            n = len(x)
+            buf.append(x)
+            size += n
+            if size >= chunk:
+                yield "".join(buf)
+                size = 0
+                buf = []
+        if buf:
+            yield "".join(buf)
+            
+    def authenticated_user(self):
+        username, error = self.App.user_from_request(self.Request)
+        if not username:    
+            #print("authenticated_user(): error:", error)
+            return None
+        db = self.App.db()
+        return DBUser.get(db, username)
+
+    def messages(self, args):
+        return {k: unquote_plus(args.get(k,"")) for k in ("error", "message")}
+        
+    def jinja_globals(self):
+        return {"GLOBAL_User":self.authenticated_user()}
+

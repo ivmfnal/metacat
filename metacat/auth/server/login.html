@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block headline %}Log in{% endblock %}
+
+{% block content %}
+
+{% if message %}<p style="color:red">{{message}}</p>{% endif %}
+
+<form method=POST action="./do_login">
+{% if redirect %}
+    <input type="hidden" name="redirect" value="{{redirect}}"/>
+{% endif %}
+
+<table class="form" id="the_form">
+	<tr>
+		<th>Username</th>
+		<td><input type="text" name="username" id="username"/></td>
+	</tr>
+	<tr>
+		<th>Password</th>
+		<td><input type="password" name="password" id="password"/></td>
+	</tr>
+	<tr><td></td>
+        <td>
+            <input type="submit" value="Log in"/>       {#  onclick="do_submit()"/> #}
+        </td>
+    </tr>
+</table>
+
+</form>
+
+{% endblock %}
+	

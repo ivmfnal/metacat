@@ -1,7 +1,6 @@
 import time, uuid, sys
 from .py3 import to_bytes, to_str
 from datetime import timedelta
-
 import jwt
 
 SignedTokenExpiredError = jwt.ExpiredSignatureError
@@ -11,7 +10,7 @@ SignedTokenSignatureVerificationError = jwt.InvalidSignatureError
 
 class SignedToken(object):
     
-    def __init__(self, payload={}, subject=None, expiration=None, issuer="metacat", **claims):
+    def __init__(self, payload={}, subject=None, expiration=None, issuer=None, **claims):
         self.Encoded = None
         
         now = time.time()
@@ -20,10 +19,11 @@ class SignedToken(object):
             "iat":  now,
             "nbf":  now,
             "sub":  subject,
-            "iss":  issuer,
             "exp":  expiration if (expiration is None or expiration > 10*365*24*3600) else now + expiration,
             "jti":  uuid.uuid4().hex[-8:]
         }
+        if issuer:
+            self.Payload["iss"] = issuer
         self.Payload.update(claims)
         self.Payload.update(payload)
         
@@ -50,7 +50,7 @@ class SignedToken(object):
 
     @staticmethod   
     def from_bytes(encoded):
-        encoded = b"".join(to_bytes(encoded).split())   # convert to bytes and remove all white space
+        encoded = to_bytes(encoded).strip()   # convert to bytes and remove all white space
         payload = jwt.decode(encoded, options={"verify_signature":False})
         token = SignedToken(payload=payload)
         token.Encoded = encoded

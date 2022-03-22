@@ -9,15 +9,15 @@ from datetime import datetime
 import json, time, secrets, traceback, hashlib, pprint
 from urllib.parse import quote_plus, unquote_plus
 
-from metacat.util import to_str, to_bytes, SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
+from metacat.util import to_str, to_bytes
+from metacat.auth import SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
 
 from metacat import Version
 from wsdbtools import ConnectionPool
 
 from gui_handler import GUIHandler
 from data_handler import DataHandler
-from auth_handler import AuthHandler
-from base_server import BaseApp
+from metacat.auth.server import AuthHandler, BaseApp
             
 class RootHandler(WPHandler):
     
@@ -33,13 +33,33 @@ class RootHandler(WPHandler):
         
     def version(self, req, relpath, **args):
         return Version
-        
+
+def as_dt_utc(t):
+    # datetim in UTC
+    if t is None:
+        return ""
+    dt = datetime.utcfromtimestamp(t)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+def as_dt_local(t):
+    # datetim in UTC
+    if t is None:
+        return ""
+    dt = datetime.fromtimestamp(t)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+    
+def as_json(x):
+    return json.dumps(x)
+
+
+
 class App(BaseApp):
 
     Version = Version
 
     def __init__(self, cfg, root, static_location="./static", **args):
         BaseApp.__init__(self, cfg, root, **args)
+        self.Title = cfg.get("site_title", "DEMO Metadata Catalog")
         
         self.StaticLocation = static_location
         self.DefaultNamespace = "dune"
@@ -59,23 +79,20 @@ class App(BaseApp):
 
     def filters(self):
         return self.Filters
-        
-def as_dt_utc(t):
-    # datetim in UTC
-    if t is None:
-        return ""
-    dt = datetime.utcfromtimestamp(t)
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
 
-def as_dt_local(t):
-    # datetim in UTC
-    if t is None:
-        return ""
-    dt = datetime.fromtimestamp(t)
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
-    
-def as_json(x):
-    return json.dumps(x)
+    def init(self):
+        #print("ScriptHome:", self.ScriptHome)
+        self.initJinjaEnvironment(
+            filters={"as_dt_utc":as_dt_utc,
+                "as_dt_local":as_dt_local,
+                "json": as_json
+            },
+            tempdirs=[self.ScriptHome, self.ScriptHome + "/templates"],
+            globals={
+                "GLOBAL_Version": Version, 
+                "GLOBAL_SiteTitle": self.Title
+            }
+        )
 
 def create_application(config_file=None):
     config_file = config_file or os.environ.get("METACAT_SERVER_CFG")
@@ -87,21 +104,22 @@ def create_application(config_file=None):
     static_location = config.get("static_location", os.environ.get("METACAT_SERVER_STATIC_DIR", "static"))
     application=App(config, RootHandler, static_location=static_location)
 
-    templdir = config.get("templates", "")
-    if templdir.startswith("$"):
-        templdir = os.environ[templdir[1:]]
+    if False:
+        templdir = config.get("templates", "")
+        if templdir.startswith("$"):
+            templdir = os.environ[templdir[1:]]
 
-    application.initJinjaEnvironment(
-        filters={"as_dt_utc":as_dt_utc,
-            "as_dt_local":as_dt_local,
-            "json": as_json
-        },
-        tempdirs=[templdir, "."],
-        globals={
-            "GLOBAL_Version": Version, 
-            "GLOBAL_SiteTitle": config.get("site_title", "DEMO Metadata Catalog")
-        }
-    )
+        application.initJinjaEnvironment(
+            filters={"as_dt_utc":as_dt_utc,
+                "as_dt_local":as_dt_local,
+                "json": as_json
+            },
+            tempdirs=[templdir, "."],
+            globals={
+                "GLOBAL_Version": Version, 
+                "GLOBAL_SiteTitle": config.get("site_title", "DEMO Metadata Catalog")
+            }
+        )
     
     return application
 

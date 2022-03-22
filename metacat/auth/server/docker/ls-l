@@ -1,0 +1,6 @@
+$ ls -l
+total 0
+lrwxrwxrwx. 1 dbidata dbidata  15 Mar 16 14:14 build.sh -> docker/build.sh
+drwxrwxr-x. 2 dbidata dbidata 131 Mar 17 09:10 config
+lrwxrwxrwx. 1 dbidata dbidata  34 Mar 16 14:12 docker -> /home/dbidata/git/dm_common/docker
+lrwxrwxrwx. 1 dbidata dbidata  13 Mar 16 14:14 run.sh -> docker/run.sh

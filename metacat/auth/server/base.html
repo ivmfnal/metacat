@@ -1,0 +1,197 @@
+<html>
+
+<head>
+
+	<link rel="shortcut icon" href="{{GLOBAL_AppTopPath}}/static/images/favicon.png" type="image/x-icon"/>
+
+    <style type="text/css">
+
+        body, td, th, p, div {
+            font: 14px arial;
+        }
+        td, th {
+            vertical-align: top
+        }
+        div#content {
+            margin-right: 30px;
+            margin-left: 30px;
+            margin-top: 20px;
+	    width: 100%;
+        }
+		
+	div#banner {
+		padding: 30px 10px;
+	}
+	
+	#b-anner td {
+		vertical-align: middle;
+		padding: 0px 20px;
+	}
+
+	div#body {
+            margin-right: 30px;
+            margin-left: 30px;
+            margin-top: 20px;
+            padding: 10px 10px;
+	}
+        
+        
+        table.data, table.file_metadata {
+            border-collapse: collapse;
+        }
+        
+        .placement td, th {
+            p-adding: 5px;
+        } 
+            
+        .placement th {
+            font-weight: bold;
+            text-align:  left;
+        }
+        
+        .data td, .data th {
+            padding: 3px 5px;
+            border: 1px solid #CCC;
+        }
+        
+        .data th {
+            font-weight: bold;
+            text-align: left;
+        }
+        
+        .tabular td, .tabular th {
+            padding: 5px;
+        }
+
+        .tabular th {
+            font-weight: bold;
+            text-align:  right;
+        }
+        
+        td.left {
+            text-align: left;
+        }
+        td.right {
+            text-align: right;
+        }
+
+	.form th {
+		font-weight: bold;
+		text-align:  right;
+        color: #46A;
+	}
+
+	.form td {
+		text-align:  left;
+	}
+	.form td, .form th {
+		padding: 5px;
+	}
+
+        textarea {
+            font: 14px courier;
+            }
+            
+    div#version {
+        color: gray;
+        font-size: 10px;
+        font-style: italic;
+        
+        position: fixed;
+        bottom: 3px;
+        right: 5px;
+    }
+    
+    div.headline {
+        border-top: 1px solid black;
+        border-bottom: 1px solid black;
+        font-weight: bold;
+        padding: 5px 15px;
+        font-size: 14pt;
+        margin-top: 15px;
+        margin-bottom: 15px;
+    }
+
+    #main_menu td, #main_menu th {
+	white-space: nowrap;
+	}
+
+    .code {
+        font: 12px
+        font-family: source_code, monospace;
+        }
+        
+    pre.code {
+        background-color: #F8F8F8;
+        padding: 10px;
+        border: solid 1px #E0E0E0;
+        }
+        
+    p.message {
+        color: #117711;
+        border-left: solid 5px #117711;
+        padding: 0px 5px;
+    }
+    
+    .error {
+        color: #A11;
+    }
+
+    p.error {
+        border-left: solid 5px #A11;
+        padding: 0px 5px;
+    }
+        
+    a.button {
+        text-decoration: none;
+    }
+
+    .file_metadata th {
+        text-align: left;
+        font-weight: bold;
+        color: #888;
+    }
+    
+    table.noborder {
+        border-spacing: 0;
+    }
+    
+    td.nopadding {
+        padding: 0;
+    }
+    
+    .token {
+        font-family: source_code, monospace;
+        word-wrap:  break-word; 
+        word-break: normal; 
+        overflow-wrap: anywhere;
+    }
+    
+    </style>
+    
+    {% block html_head %}{% endblock %}
+	
+	<title>{% block page_title %}{{GLOBAL_SiteTitle}}{% endblock %}</title>
+</head>
+
+<body>
+<div id="banner">
+	<table class="placement">
+		<tr>
+            <td></td>
+		</tr>
+	</table>
+</div>
+
+<div id="body">
+
+    <div id="headline" style="clear:both">
+	    <h2>{% block headline %}{% endblock %}</h2>
+    </div>
+    <div id=content style="clear:both">{% block content %}{% endblock %}</div>
+</div>	<!-- body -->
+
+{# <div id="version">Version: {{GLOBAL_AppVersion}}</div> #}
+</body>
+
+</html>

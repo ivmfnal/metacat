@@ -91,7 +91,6 @@ def get_x509_cert_key(opts):
         print(Usage)
         sys.exit(2)
     return cert, key
-    
 
 def do_mydn(client, args):
     opts, args = getopt.getopt(args, "ik:c:")

@@ -1,5 +1,4 @@
-FILES = \
-	webapi.py
+FILES = webapi.py auth_client.py
 
 build:	$(LIBDIR)
 	cp $(FILES) $(LIBDIR)

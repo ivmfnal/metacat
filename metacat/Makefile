@@ -10,9 +10,10 @@ build:
 	cp $(FILES) $(MODULEDIR)
 	cd db; cp $(DBFILES) $(MODULEDIR)/db
 	cd ui; make LIBDIR=$(MODULEDIR)/ui BINDIR=$(BINDIR) build
-	cd util; cp $(UTILFILES) $(MODULEDIR)/util
 	cd webapi; cp $(WEBAPIFILES) $(MODULEDIR)/webapi
 	cd filters; cp $(FILTERSFILES) $(MODULEDIR)/filters
 	cd mql; make MQLDIR=$(MODULEDIR)/mql build
+	cp -R auth $(MODULEDIR)
+	cp util/*.py $(MODULEDIR)/util
 	
 	

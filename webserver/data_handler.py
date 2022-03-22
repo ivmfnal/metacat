@@ -4,14 +4,13 @@ from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNam
     DBParamCategory, parse_name, AlreadyExistsError, IntegrityError, MetaValidationError
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
-from metacat.util import to_str, to_bytes, SignedToken
+from metacat.util import to_str, to_bytes
 from metacat.mql import MQLQuery
 from metacat import Version
 
-from base_handler import BaseHandler
+from metacat.auth.server import BaseHandler
 
 METADATA_ERROR_CODE = 488
-
 
 class DataHandler(BaseHandler):
     
