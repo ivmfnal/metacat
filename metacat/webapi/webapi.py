@@ -3,7 +3,7 @@ from metacat.util import to_str, to_bytes
 from metacat.auth import SignedToken, TokenLib
 from pythreader import Task, TaskQueue, Promise
 from urllib.parse import quote_plus, unquote_plus
-from .auth_client import TokenAuthClientMixin
+from metacat.auth.auth import TokenAuthClientMixin
 
 INVALID_METADATA_ERROR_CODE = 488
 
