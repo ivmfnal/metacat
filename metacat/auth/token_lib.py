@@ -8,7 +8,7 @@ class TokenLib(object):
 
         def __init__(self, path = None):
             self.Path = path or self.DefaultFile
-            print("Token lib path:", self.Path)
+            #print("Token lib path:", self.Path)
             self.Tokens = self.load_tokens()
 
         def load_tokens(self):
