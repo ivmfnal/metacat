@@ -1,5 +1,6 @@
 import requests, json, fnmatch, sys, os
-from metacat.util import to_str, to_bytes, password_hash, SignedToken, TokenLib
+from metacat.util import to_str, to_bytes
+from metacat.auth import SignedToken, TokenLib
 from pythreader import Task, TaskQueue, Promise
 from urllib.parse import quote_plus, unquote_plus
 from .auth_client import TokenAuthClientMixin
