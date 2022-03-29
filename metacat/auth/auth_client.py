@@ -97,6 +97,22 @@ class TokenAuthClientMixin(object):
         return token.subject, token.expiration
 
     def login_password(self, username, password):
+        """Combines LDAP and :rfc:`2617` digest authentication by calling `login_ldap` first and then, if it fails, `ldap_digest` methods
+
+        Parameters
+        ----------
+        username : str
+        password : str
+            Password 
+
+        Returns
+        -------
+        str
+            username of the authenticated user (same as ``usernme`` argument)
+        numeric
+            token expiration timestamp
+
+        """
         user = None
         try:
             user, exp = self.login_ldap(username, password)
