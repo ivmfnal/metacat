@@ -10,9 +10,7 @@ MetaCat Documentation
    :maxdepth: 2
    :caption: Contents:
    
-   mql
-   REST_API
    ui
-   regexp
    webapi
-
+   mql
+   regexp

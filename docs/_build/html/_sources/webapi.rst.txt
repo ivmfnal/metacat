@@ -29,6 +29,7 @@ MetaCatClient Class Methods Reference
 
 .. autoclass:: metacat.webapi.MetaCatClient
    :members:
+   :inherited-members:
 
 
 Asynchronous Queries

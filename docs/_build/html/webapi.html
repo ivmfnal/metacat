@@ -8,16 +8,15 @@
 
     <title>MetaCat Web API &#8212; MetaCat  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
-    
+    <link rel="stylesheet" type="text/css" href="_static/nature.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
-    
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="Regular Expressions Cheat Sheet" href="regexp.html" /> 
+    <link rel="next" title="MQL - Metadata Query Language" href="mql.html" />
+    <link rel="prev" title="Command Line Interface" href="ui.html" /> 
   </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
@@ -26,7 +25,10 @@
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="regexp.html" title="Regular Expressions Cheat Sheet"
+          <a href="mql.html" title="MQL - Metadata Query Language"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="ui.html" title="Command Line Interface"
              accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">MetaCat Web API</a></li> 
@@ -138,6 +140,21 @@ argument to the <code class="docutils literal notranslate"><span class="pre">asy
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Promise</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="metacat.webapi.MetaCatClient.auth_info">
+<span class="sig-name descname"><span class="pre">auth_info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.auth_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns information about current authentication token.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><em>str</em> – username of the authenticated user</p></li>
+<li><p><em>numeric</em> – token expiration timestamp</p></li>
+</ul>
+</p>
 </dd>
 </dl>
 </dd></dl>
@@ -383,6 +400,91 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="metacat.webapi.MetaCatClient.login_digest">
+<span class="sig-name descname"><span class="pre">login_digest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_token</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.login_digest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs password-based authentication and stores the authentication token locally.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>username</strong> (<em>str</em>) – </p></li>
+<li><p><strong>password</strong> (<em>str</em>) – Password is not sent over the network. It is hashed and then used for digest authentication (<span class="target" id="index-0"></span><a class="rfc reference external" href="https://tools.ietf.org/html/rfc2617.html"><strong>RFC 2617</strong></a>).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>str</em> – username of the authenticated user (same as <code class="docutils literal notranslate"><span class="pre">usernme</span></code> argument)</p></li>
+<li><p><em>numeric</em> – token expiration timestamp</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="metacat.webapi.MetaCatClient.login_ldap">
+<span class="sig-name descname"><span class="pre">login_ldap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.login_ldap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs password-based authentication and stores the authentication token locally using LDAP.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>username</strong> (<em>str</em>) – </p></li>
+<li><p><strong>password</strong> (<em>str</em>) – Password</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>str</em> – username of the authenticated user (same as <code class="docutils literal notranslate"><span class="pre">usernme</span></code> argument)</p></li>
+<li><p><em>numeric</em> – token expiration timestamp</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="metacat.webapi.MetaCatClient.login_password">
+<span class="sig-name descname"><span class="pre">login_password</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.login_password" title="Permalink to this definition">¶</a></dt>
+<dd><p>Combines LDAP and <span class="target" id="index-1"></span><a class="rfc reference external" href="https://tools.ietf.org/html/rfc2617.html"><strong>RFC 2617</strong></a> digest authentication by calling <cite>login_ldap</cite> first and then, if it fails, <cite>ldap_digest</cite> methods</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>username</strong> (<em>str</em>) – </p></li>
+<li><p><strong>password</strong> (<em>str</em>) – Password</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>str</em> – username of the authenticated user (same as <code class="docutils literal notranslate"><span class="pre">usernme</span></code> argument)</p></li>
+<li><p><em>numeric</em> – token expiration timestamp</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="metacat.webapi.MetaCatClient.login_x509">
+<span class="sig-name descname"><span class="pre">login_x509</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cert</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.login_x509" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs X.509 authentication and stores the authentication token locally.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>username</strong> (<em>str</em>) – </p></li>
+<li><p><strong>cert</strong> (<em>str</em>) – Path to the file with the X.509 certificate or the certificate and private key</p></li>
+<li><p><strong>key</strong> (<em>str</em>) – Path to the file with the X.509 private key</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>str</em> – username of the authenticated user (same as <code class="docutils literal notranslate"><span class="pre">usernme</span></code> argument)</p></li>
+<li><p><em>numeric</em> – token expiration timestamp</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="metacat.webapi.MetaCatClient.query">
 <span class="sig-name descname"><span class="pre">query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_provenance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_as</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_to</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.query" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run file query. Requires client authentication if save_as or add_to are used.</p>
@@ -567,8 +669,11 @@ results immediately without blocking.</p>
 </ul>
 
   <h4>Previous topic</h4>
-  <p class="topless"><a href="regexp.html"
-                        title="previous chapter">Regular Expressions Cheat Sheet</a></p>
+  <p class="topless"><a href="ui.html"
+                        title="previous chapter">Command Line Interface</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="mql.html"
+                        title="next chapter">MQL - Metadata Query Language</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -597,7 +702,10 @@ results immediately without blocking.</p>
           <a href="genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="regexp.html" title="Regular Expressions Cheat Sheet"
+          <a href="mql.html" title="MQL - Metadata Query Language"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="ui.html" title="Command Line Interface"
              >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">MetaCat Web API</a></li> 
