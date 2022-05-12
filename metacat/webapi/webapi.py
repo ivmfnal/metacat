@@ -214,7 +214,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         Returns
         -------
         dict
-            dataset attributes
+            dataset attributes or None if the dataset was not found
         """        
         
         if namespace is not None:
@@ -538,7 +538,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         Returns
         -------
         dict
-            dictionary with file information
+            dictionary with file information or None if the file was not found
 
             .. code-block:: python
 
@@ -702,7 +702,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         Returns
         -------
         dict 
-            Namespace information
+            Namespace information or None if the namespace was not found
         """
         
         try: 
