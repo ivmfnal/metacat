@@ -654,16 +654,7 @@ class DataHandler(MetaCatHandler):
         ]
         return json.dumps(out), "text/json"
         
-    def file(self, request, relpath, name=None, fid=None, with_metadata="yes", with_provenance="yes", **args):
-        if name:
-            namespace, name = parse_name(name, None)
-            if not namespace:
-                return "Namespace is not specfied", 400
-        else:
-            if not fid:
-                return "Either namespace/name or fid must be specified", 400
-        
-        
+    def file(self, request, relpath, namespace=None, name=None, fid=None, with_metadata="yes", with_provenance="yes", **args):
         with_metadata = with_metadata == "yes"
         with_provenance = with_provenance == "yes"
         
