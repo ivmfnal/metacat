@@ -204,10 +204,10 @@ to do so.</p>
         <span class="s2">&quot;namespace&quot;</span><span class="p">:</span><span class="s2">&quot;namespace&quot;</span><span class="p">,</span>    <span class="c1"># optional - use -N to specify default</span>
         <span class="s2">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;name&quot;</span><span class="p">,</span>              <span class="c1"># optional</span>
         <span class="s2">&quot;auto_name&quot;</span><span class="p">:</span><span class="n">pattern</span><span class="p">,</span>        <span class="c1"># optional</span>
-        <span class="s2">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>                <span class="c1"># optional - new will be generated if missing, will fail if specified and already exists</span>
+        <span class="s2">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>                <span class="c1"># optional - if missing, new will be generated. If specified, must be unique</span>
         <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>        <span class="c1"># optional</span>
         <span class="s2">&quot;parents&quot;</span><span class="p">:</span>  <span class="p">[</span> <span class="s2">&quot;fid1&quot;</span><span class="p">,</span> <span class="s2">&quot;fid2&quot;</span><span class="p">,</span> <span class="o">...</span> <span class="p">]</span>     <span class="c1"># optional, must be file ids</span>
-        <span class="s2">&quot;size&quot;</span><span class="p">:</span>   <span class="mi">1234</span>              <span class="c1"># required</span>
+        <span class="s2">&quot;size&quot;</span><span class="p">:</span>   <span class="mi">1234</span>              <span class="c1"># required - size of the file in bytes</span>
     <span class="p">},</span>
     <span class="o">...</span>
 <span class="p">]</span>
@@ -231,17 +231,18 @@ If unspecified, MetaCat will assign the hexadecimal representation of a random U
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">name</span></code><span class="classifier">optional</span></dt><dd><p>File name. The file name must be unique within the namespace. If unspecified, the name will be auto-generated or the file ID will be used as the name.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">auto_name</span></code><span class="classifier">optional</span></dt><dd><p>Pattern to be used to generate new file name. The pattern is specified in terms of Python print-style format string. The following mapping keys will be pre-defined:</p>
+<dt><code class="docutils literal notranslate"><span class="pre">auto_name</span></code><span class="classifier">optional</span></dt><dd><p>Pattern to be used to generate new file name. The pattern is may include constant parts and parts to be replaced by the MetaCat in
+the following order:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">%(uuid)s</span></code> - hexadecimal representation of a random UUID (32 hex digits)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">%(uuid8)s</span></code> - 4-bytes (8 hex digits) of a random UUID</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">%(uuid16)s</span></code> - 8-bytes (16 hex digits) of a random UUID</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">%(clock)d</span></code> - UNIX timestamp in milliseconds as integer ( int(time*1000) )</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">%(clock3)d</span></code> - milliseconds portion of UNIX timestamp as integer</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">%(clock6)d</span></code> - lowest 6 digits of UNIX timestamp in milliseconds as integer</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">%(clock9)d</span></code> - lowest 9 digits of UNIX timestamp in milliseconds as integer</p></li>
+<li><p>$clock3   - lower 3 digits of UNIX timestamp in milliseconds as integer (milliseconds portion of the timestamp)</p></li>
+<li><p>$clock6   - lower 6 digits of UNIX timestamp in milliseconds as integer</p></li>
+<li><p>$clock    - entire UNIX UNIX timestamp in milliseconds as integer</p></li>
+<li><p>$uuid8    - 8 hex digits of a random UUID</p></li>
+<li><p>$uuid16   - 16 hex digits of a random UUID</p></li>
+<li><p>$uuid     - 32 hex digits of a random UUID</p></li>
+<li><p>$fid      - file ID</p></li>
 </ul>
-<p>For example, the pattern <code class="docutils literal notranslate"><span class="pre">file_%(uuid8)s_%(clock6)d.dat</span></code> may generate file name <code class="docutils literal notranslate"><span class="pre">file_13d79a37_601828.dat</span></code></p>
+<p>For example, the pattern <code class="docutils literal notranslate"><span class="pre">file_$uuid8_$clock6.dat</span></code> may generate file name <code class="docutils literal notranslate"><span class="pre">file_13d79a37_601828.dat</span></code>.</p>
 <p>If neither <code class="docutils literal notranslate"><span class="pre">name</span></code> nor <code class="docutils literal notranslate"><span class="pre">auto_name</span></code> are provided, then <code class="docutils literal notranslate"><span class="pre">file</span> <span class="pre">ID</span></code> will be used as the file name.</p>
 </dd>
 <dt><code class="docutils literal notranslate"><span class="pre">size</span></code><span class="classifier">required</span></dt><dd><p>File size in bytes</p>
