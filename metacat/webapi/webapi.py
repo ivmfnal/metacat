@@ -557,7 +557,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         with_rels = "yes" if with_provenance else "no"
         url = f"data/file?with_metadata={with_meta}&with_provenance={with_rels}"
         if did:
-            namespace, name = parse_name(did)
+            namespace, name = parse_name(did, None)
+            assert namespace is not None, f"Invalid DID format: {did}"
         if name:
             url += f"&name={name}&namespace={namespace}"
         else:
