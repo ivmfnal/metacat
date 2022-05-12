@@ -273,10 +273,11 @@ class DataHandler(MetaCatHandler):
                 if f is None:
                     return "File with id '%s' not found" % (fid,), 404
             else:
-                spec = file_item.get("name")
-                if not spec:
-                    return "File id or namespace:name must be specified", 400
-                namespace, name = parse_name(file_item["name"], file_item.get("namespace") or default_namespace)
+                did = file_item.get("did")
+                if did is not None:
+                    namespace, name = parse_name(did, None)
+                else:
+                    namespace, name = file_item.get("namespace", default_namespace), file_item["name"]
                 if not namespace:
                     return "File namespace unspecified", 400
                 f = DBFile.get(db, name=name, namespace=namespace)
@@ -607,10 +608,13 @@ class DataHandler(MetaCatHandler):
                 fid = file_item.get("fid")
                 f = DBFile.get(db, fid=fid)
             else:
-                spec = file_item.get("name")
-                if spec is None:
-                    return "Either file namespace:name or file id must be specified for each file", 400
-                namespace, name = parse_name(spec, default_namespace)
+                did = file_item.get("did")
+                if did:
+                    namespace, name = parse_name(did, None)
+                else:
+                    namespace, name = file_item.get("namespace", default_namespace), file_item.get("name")
+                if namespace is None or name is None:
+                    return "Namespace or name unspecified", 400
                 f = DBFile.get(db, namespace=namespace, name=name)
             if f is None:
                 return "File %s not found" % (fid or spec,), 404
@@ -678,7 +682,7 @@ class DataHandler(MetaCatHandler):
             if "fid" in f:
                 lookup_lst.append({"fid":f["fid"]})
             elif "did" in f:
-                namespace, name = parse_name(f["did"])
+                namespace, name = parse_name(f["did"], None)
                 lookup_lst.append({"namespace":namespace, "name":name})
             else:
                 namespace, name = f["namespace"], f["name"]
