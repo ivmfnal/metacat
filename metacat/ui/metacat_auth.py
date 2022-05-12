@@ -1,7 +1,8 @@
 import sys, getopt, os, json, pickle, time
 from urllib.request import urlopen, Request
 from urllib.parse import quote_plus, unquote_plus
-from metacat.util import to_bytes, to_str, SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, TokenLib
+from metacat.util import to_bytes, to_str
+from metacat.auth import SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, TokenLib
 from metacat.webapi import MetaCatClient, MCAuthenticationError
 import getpass
 
@@ -46,15 +47,15 @@ def time_delta(dt):
 
 def do_list(client, args):
     tl = client.TokenLib
-    for url, token in tl.items():
-        print(url, token)
+    #for url, token in tl.items():
+    #    print(url, token)
     now = time.time()
     lst = [(token.tid, url, token.subject or "", time.ctime(token.expiration), time_delta(token.expiration - now)) 
                         for url, token in tl.items()
                         if token.expiration is None or token.expiration > time.time()]
     max_tid, max_url, max_user, max_exp = len("Token id"), len("Server URL"), len("User"), len("Expiration")
     for tid, url, user, et, delta in lst:
-        print(tid, url, user, et, delta)
+        #print(tid, url, user, et, delta)
         max_tid = max(len(tid), max_tid)
         max_url = max(len(url), max_url)
         max_user = max(len(user), max_user)
@@ -101,6 +102,9 @@ def do_mydn(client, args):
 
 def do_login(client, args):
     opts, args = getopt.getopt(args, "m:c:k:d")
+    if not args:
+        print(Usage)
+        sys.exit(2)
     opts = dict(opts)
     mechanism = opts.get("-m", "password")
     if mechanism == "password":

@@ -93,7 +93,7 @@
                 <th>Allow LDAP authentication</th>
                 <td>
                         <input type="checkbox" name="allow_ldap" 
-                            {%- if user.auth_method_enabled("ldap") %} checked="checked"{% endif %}
+                            {%- if user.auth_info("ldap") %} checked="checked"{% endif %}
                             {%- if not admin %} disabled="disabled"{% endif -%}
                         />&nbsp;<span style="color:#AAA">server: {{ldap_url}}</span>
                 </td>
@@ -144,7 +144,7 @@
         {% endif %}
 		
 		<tr>
-			{% set dn_list=user.authenticator("x509").Info %}
+			{% set dn_list=user.auth_info("x509") %}
 			<th>X.509 DNs</th>
 			<td>
 				<table class="form">

@@ -1,6 +1,7 @@
 from .authenticators import authenticator
+import json
 
-class DBUser(object):
+class BaseDBUser(object):
 
     def __init__(self, db, username, name, email, flags=""):
         self.Username = username
@@ -12,7 +13,7 @@ class DBUser(object):
         self.RoleNames = None
         
     def __str__(self):
-        return "DBUser(%s, %s, %s, %s)" % (self.Username, self.Name, self.EMail, self.Flags)
+        return "BaseDBUser(%s, %s, %s, %s)" % (self.Username, self.Name, self.EMail, self.Flags)
         
     __repr__ = __str__
     
@@ -47,7 +48,10 @@ class DBUser(object):
     def auth_info(self, method):
         return self.AuthInfo.get(method)
 
-    def auth_method_enabled(self, method, config):
+    def auth_method_enabled(self, method):
+        return method in self.AuthInfo
+        
+    def ___auth_method_enabled(self, method, config):
         a = authenticator(method, config, self.AuthInfo.get(method))
         return a is not None and a.enabled()
         #return self.authenticator(method).enabled()
@@ -62,7 +66,7 @@ class DBUser(object):
         tup = c.fetchone()
         if not tup: return None
         (name, email, flags, auth_info, roles) = tup
-        u = DBUser(db, username, name, email, flags)
+        u = BaseDBUser(db, username, name, email, flags)
         u.AuthInfo = auth_info
         u.RoleNames = roles
         return u
@@ -77,7 +81,7 @@ class DBUser(object):
             from users u
         """)
         for username, name, email, flags, roles in c.fetchall():
-            u = DBUser(db, username, name, email, flags)
+            u = BaseDBUser(db, username, name, email, flags)
             u.RoleNames = roles
             #print("DBUser.list: yielding:", u)
             yield u

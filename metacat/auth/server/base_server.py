@@ -3,8 +3,7 @@
 from webpie import WPApp, Response, WPHandler
 from wsdbtools import ConnectionPool
 from metacat.util import to_str, to_bytes
-from metacat.auth import \
-    BaseDBUser as DBUser, \
+from metacat.auth import BaseDBUser, \
     SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
 import psycopg2, json, time, secrets, traceback, hashlib, pprint, os, yaml
 from urllib.parse import quote_plus, unquote_plus
@@ -64,7 +63,7 @@ class BaseApp(WPApp):
         
     def get_digest_password(self, realm, username):
         db = self.connect()
-        u = DBUser.get(db, username)
+        u = BaseDBUser.get(db, username)
         if u is None:
             return None
         hashed = u.authenticator("password").password_for_digest()
@@ -171,13 +170,16 @@ class BaseHandler(WPHandler):
         if buf:
             yield "".join(buf)
             
-    def authenticated_user(self):
+    def authenticated_username(self):
         username, error = self.App.user_from_request(self.Request)
-        if not username:    
-            #print("authenticated_user(): error:", error)
+        return username
+
+    def authenticated_user(self):
+        username = self.authenticated_username()
+        if username:
+            return BaseDBUser.get(self.connect(), username)
+        else:
             return None
-        db = self.App.db()
-        return DBUser.get(db, username)
 
     def messages(self, args):
         return {k: unquote_plus(args.get(k,"")) for k in ("error", "message")}

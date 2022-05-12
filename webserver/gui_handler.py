@@ -12,6 +12,12 @@ from metacat.auth.server import BaseHandler
 
 class GUICategoryHandler(BaseHandler):
     
+    def authenticated_user(self):
+        username = self.authenticated_username()
+        if username is None:
+            return None
+        return DBUser.get(self.App.connect(), username)
+
     def categories(self, request, relpath, **args):
         db = self.connect()
         cats = sorted(list(DBParamCategory.list(db)), key=lambda c:c.Path)
@@ -221,6 +227,11 @@ class GUIHandler(BaseHandler):
             self.NamespaceAuthorizations[namespace] = authorized
         return authorized
     
+    def authenticated_user(self):
+        username = self.authenticated_username()
+        if username is None:
+            return None
+        return DBUser.get(self.App.connect(), username)
 
     def jinja_globals(self):
         return {"GLOBAL_User":self.authenticated_user()}
@@ -568,23 +579,23 @@ class GUIHandler(BaseHandler):
             elif "add_dn" in request.POST:
                 dn = request.POST.get("new_dn")
                 if dn:
-                    dn_list = u.authenticator("x509").Info or []
+                    dn_list = u.auth_info("x509") or []
                     if not dn in dn_list:
                         dn_list.append(dn)
-                        u.set_auth_info("x509", None, dn_list)
+                        u.set_auth_info("x509", dn_list)
                         u.save()
-            elif "remove_dn" in request.POST:
-                for k, v in request.POST.items():
+            else:
+                for k in request.POST:
                     if k.startswith("remove_dn:"):
-                        dn = k.split(":",1)[-1]
+                        dn_to_remove = k.split(":",1)[-1]
                         break
                 else:
-                    dn = None
-                if dn:
-                    dn_list = u.authenticator("x509").Info or []
-                    while dn in dn_list:
-                        dn_list.remove(dn)
-                    u.set_auth_info("x509", None, dn_list)
+                    dn_to_remove = None
+                if dn_to_remove:
+                    dn_list = u.auth_info("x509") or []
+                    while dn_to_remove in dn_list:
+                        dn_list.remove(dn_to_remove)
+                    u.set_auth_info("x509", dn_list)
                     u.save()
                         
                                         

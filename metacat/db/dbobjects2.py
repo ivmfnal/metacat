@@ -1577,7 +1577,8 @@ class DBNamedQuery(object):
                     for namespace, name, source, parameters in fetch_generator(c)
         )
 
-class DBUser(object):
+"""DBBaseUser:
+        class DBUser(object):
 
     def __init__(self, db, username, name, email, flags=""):
         self.Username = username
@@ -1587,8 +1588,26 @@ class DBUser(object):
         self.DB = db
         self.AuthInfo = {}        # type -> [secret,...]        # DB representation
         self.RoleNames = None
-
+"""
+        
 class DBUser(BaseDBUser):
+
+    @staticmethod
+    def from_base_user(bu):
+        u = DBUser(bu.DB, bu.Username, bu.Name, bu.EMail, bu.Flags)
+        u.AuthInfo = bu.AuthInfo.copy()
+        u.RoleNames = bu.RoleNames
+        if isinstance(u.RoleNames, list):
+            u.RoleNames = u.RoleNames[:]
+        return u
+
+    @staticmethod
+    def get(db, username):
+        return DBUser.from_base_user(BaseDBUser.get(db, username))
+
+    @staticmethod 
+    def list(db):
+        return (DBUser.from_base_user(u) for u in BaseDBUser.list(db))
 
     @property
     def roles(self):

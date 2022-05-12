@@ -20,30 +20,34 @@ class AlreadyExistsError(Exception):
 class DatasetCircularDependencyDetected(Exception):
     pass
 
+
 class NotFoundError(Exception):
     def __init__(self, msg):
         self.Message = msg
 
     def __str__(self):
         return "Not found error: %s" % (self.Message,)
-        
+
+
 def parse_name(name, default_namespace):
-    words = name.split(":", 1)
-    if len(words) < 2 or not words[0]:
+    words = (name or "").split(":", 1)
+    if not words or not words[0]:
         assert not not default_namespace, "Null default namespace"
         ns = default_namespace
         name = words[-1]
     else:
+        assert len(words) == 2, "Invalid namespace:name specification:" + name
         ns, name = words
     return ns, name
-                
+
 
 def fetch_generator(c):
     while True:
         tup = c.fetchone()
         if tup is None: break
         yield tup
-        
+
+
 def first_not_empty(lst):
     val = None
     for v in lst:

@@ -1,7 +1,7 @@
 from .py3 import to_str, to_bytes
 from .signed_token_jwt import SignedToken
 from .token_lib import TokenLib
-import time, requests
+import time, requests, json
 
 class AuthenticationError(Exception):
     def __init__(self, message):

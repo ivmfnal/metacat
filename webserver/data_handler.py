@@ -12,13 +12,31 @@ from metacat.auth.server import BaseHandler
 
 METADATA_ERROR_CODE = 488
 
+def parse_name(name, default_namespace):
+    words = (name or "").split(":", 1)
+    if not words or not words[0]:
+        assert not not default_namespace, "Null default namespace"
+        ns = default_namespace
+        name = words[-1]
+    else:
+        assert len(words) == 2, "Invalid namespace:name specification:" + name
+        ns, name = words
+    return ns, name
+
+
 class DataHandler(BaseHandler):
     
     def __init__(self, request, app):
         BaseHandler.__init__(self, request, app)
         self.Categories = None
         self.Datasets = {}            # {(ns,n)->DBDataset}
-        
+
+    def authenticated_user(self):
+        username = self.authenticated_username()
+        if username is None:
+            return None
+        return DBUser.get(self.App.connect(), username)
+
     def load_categories(self):
         if self.Categories is None:
             db = self.App.connect()
@@ -377,27 +395,26 @@ class DataHandler(BaseHandler):
                     "fid": fid,
                     "index": inx
                 })
+                continue
 
             if name is None:
-                auto_format = file_item.get("auto_name")
-                if auto_format:
-                    random_uuid = uuid.uuid4().hex
-                    clock = int(time.time() * 1000)
-                    name = auto_format % {
-                        "clock":clock, "clock3":clock%1000, "clock6":clock%1000000, "clock9":clock%1000000000,
-                        "uuid":random_uuid,
-                        "uuid8":random_uuid[:8], "uuid16":random_uuid[:16]
-                    }
-
-
-            namespace, name = parse_name(name, file_item.get("namespace") or default_namespace)
-            if not namespace:
-                file_errors.append({
-                    "message":"Missing namespace",
-                    "index": inx,
-                    "fid":fid
-                })
-                continue
+                did = file_item.get("did")
+                if did is None:
+                    file_errors.append({
+                        "message": "Missing file did and name",
+                        "fid": fid,
+                        "index": inx
+                    })
+                    continue
+                    
+                namespace, name = parse_name(did, file_item.get("namespace") or default_namespace)
+                if not namespace:
+                    file_errors.append({
+                        "message":"Missing namespace",
+                        "index": inx,
+                        "fid":fid
+                    })
+                    continue
                 
             try:
                 if not self._namespace_authorized(db, namespace, user):
@@ -436,7 +453,20 @@ class DataHandler(BaseHandler):
             f.Checksums = file_item.get("checksums")
 
             if name is None:
-                f.Name = f.FID
+                pattern = file_item.get("auto_name", "$fid")
+                clock = int(time.time() * 1000)
+                clock3 = "%03d" % (clock%1000,)
+                clock6 = "%06d" % (clock%1000000,)
+                clock9 = "%09d" % (clock%1000000000,)
+                clock = str(clock)
+                u = uuid.uuid4().hex
+                u8 = u[-8:]
+                u16 = u[-16:]
+                name = pattern.replace("$clock3", clock3).replace("$clock6", clock6).replace("$clock9", clock9)\
+                    .replace("$clock", clock)\
+                    .replace("$uuid8", u8).replace("$uuid16", u16).replace("$uuid", u)\
+                    .replace("$fid", f.FID)
+                f.Name = name
 
             files.append(f)
 
@@ -466,6 +496,7 @@ class DataHandler(BaseHandler):
         new_meta = data["metadata"]
         ids = data.get("fids")
         names = data.get("names")
+        dids = data.get("dids")
         new_meta = data["metadata"]
         
         metadata_errors = self.validate_metadata(new_meta)
@@ -475,13 +506,13 @@ class DataHandler(BaseHandler):
                 "metadata_errors":metadata_errors
             }), METADATA_ERROR_CODE, "text/json"
         
-        if (names is None) == (ids is None):
-            return "Either file ids or names must be specified, but not both", 400
+        if sum(int(x is not None) for x in (ids, names, dids)) != 1:
+            return "Only one of file ids or names or dids must be specified", 400
             
         if ids:
             file_set = DBFileSet.from_id_list(db, ids)
         else:
-            file_set = DBFileSet.from_name_list(db, names, default_namespace=default_namespace)
+            file_set = DBFileSet.from_name_list(db, names or dids, default_namespace=default_namespace)
 
         file_set = list(file_set)        
         files_datasets = DBDataset.datasets_for_files(db, file_set)        
@@ -536,7 +567,9 @@ class DataHandler(BaseHandler):
         # mode1: metadata for each file is specified separately
         # [
         #       {       
-        #               name: "namespace:name",   or "name", but then default namespace must be specified
+        #               did: "namespace:name",   or "name", but then default namespace must be specified
+        #               name: "name",
+        #               namespace: "namespace",
         #               fid: "fid",               // optional
         #               parents:        [fid,...],              // optional
         #               metadata: { ... },       // optional
@@ -546,7 +579,8 @@ class DataHandler(BaseHandler):
         #
         # mode2: common changes for many files, cannot be used to update parents
         # {
-        #   names: [ ... ], # either names or fids must be present, but not both
+        #   names: [ ... ], # either names (and namespace) or fids or dids must be present
+        #   dids: [ ... ],  
         #   fids:  [ ... ],
         #   metadata: { ... }
         # }
@@ -563,7 +597,7 @@ class DataHandler(BaseHandler):
         else:
             return "Not implemented", 400
         
-        file_list = json.loads(request.body) if request.body else []
+        file_list = data or []
         if not file_list:
                 return "Empty file list", 400
         files = []
@@ -655,8 +689,11 @@ class DataHandler(BaseHandler):
         for f in file_list:
             if "fid" in f:
                 lookup_lst.append({"fid":f["fid"]})
+            elif "did" in f:
+                namespace, name = parse_name(f["did"])
+                lookup_lst.append({"namespace":namespace, "name":name})
             else:
-                namespace, name = f["name"].split(":",1)
+                namespace, name = f["namespace"], f["name"]
                 lookup_lst.append({"namespace":namespace, "name":name})
 
         db = self.App.connect()

@@ -7,6 +7,18 @@ from metacat.auth import TokenAuthClientMixin
 
 INVALID_METADATA_ERROR_CODE = 488
 
+def parse_name(name, default_namespace):
+    words = (name or "").split(":", 1)
+    if not words or not words[0]:
+        assert not not default_namespace, "Null default namespace"
+        ns = default_namespace
+        name = words[-1]
+    else:
+        assert len(words) == 2, "Invalid namespace:name specification:" + name
+        ns, name = words
+    return ns, name
+
+
 class ServerError(Exception):
     
     def __init__(self, url, status_code, message, body=""):
@@ -317,20 +329,27 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         
                 [
                     { 
-                        "name": "namespace:filename",       # namespace can be specified for each file explicitly,
-                        "name": "filename",                 # or implicitly using the namespace=... argument
+                        "namespace": "namespace",           # namespace can be specified for each file explicitly or implicitly using the namespace=... argument
+                        "name": "filename",                 # 
+                        "did": "namespace:filename",        # convenience for Rucio users
                         "fid":  "...",                      # file id, optional. Will be auto-generated if unspecified.
+                                                            # if specified, must be unique for the instance
                         "parents": ["fid","fid",...],       # list of parent file ids, optional
-                        "metadata": {...},                  # file metadata, optional
+                        "metadata": {...},                  # file metadata, optional, a dictionary with arbitrary JSON'able contents
+                        "size": ...,                        # integer number of bytes
                         "checksums": {                      # checksums dictionary, optional
                             "method": "value",...
                         }
                     },...
                 ]
-        
-        
-        
         """        
+
+        for f in file_list:
+            if "did" in f:
+                ns, n = parse_name(f["did"], namespace)
+                f["namespace"] = ns
+                f["name"] = n
+            f["namespace"] = f.get("namespace", namespace)
 
         url = f"data/declare_files?dataset={dataset}"
         if namespace:
@@ -338,17 +357,18 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         out = self.post_json(url, file_list)
         return out
 
-    def update_file_meta(self, metadata, names=None, fids=None, mode="update", namespace=None):
+    def update_file_meta(self, metadata, names=None, fids=None, namespace=None, dids=None, mode="update"):
         """Updates metadata for existing files. Requires client authentication.
         
         Parameters
         ----------
         metadata : dict or list
             see Notes
-        names : list
-            Either list of filenames (if ``namespace`` argument is used), or a list of "namespace:filename" combinations
-            for the files.
-        fids : list
+        names : list of strings
+            List of file names. Requires namespace to be specified
+        dids : list of strings
+            List of DIDs ("namespace:name") strings
+        fids : list of strings
             List of file ids. The list of files can be specified with ``fids`` or with ``names`` argument, but not
             both.
         mode : str
@@ -379,7 +399,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     
             [
                 {       
-                    "name": "namespace:filename",       # namespace can be specified for each file explicitly,
+                    "did": "namespace:filename",       # namespace can be specified for each file explicitly,
                     "name": "filename",                 # or implicitly using the namespace=... argument
                     "fid":  "...",                      # file id, optional. 
         
@@ -397,18 +417,33 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         In this case, you can also update file parentage and checksums dictionary.
         
         """        
-        if (fids is None) == (names is None):
-            raise ValueError("File list must be specified either as list or names or list of ids, but not both")
+        if isinstance(metadata, list):
+            if names is not None or dids is not None or fids is not None:
+                raise ValueError("Explicit metadata updates can not be specified together with names, dids or fids")
+        elif names is not None:
+            if namespace is None:
+                raise ValueError("List of file names requires the namespace to be specified")
+            if fids is not None or dids is not None:
+                raise ValueError("List of file names can not be specified together with list if FIDs or list of DIDs")
+        elif dids is not None:
+            if names is not None or fids is not None:
+                raise ValueError("List of DIDs can not be specified together with list if FIDs or list of file names")
+        elif fids is not None:
+            if names is not None or dids is not None:
+                raise ValueError("List of file IDs can not be specified together with list if DIDs or list of file names")
+
         url = f"data/update_file_meta?mode={mode}"
         if namespace:
             url += f"&namespace={namespace}"
         data = {
             "metadata":metadata
         }
+        if dids:
+            data["dids"] = dids
+        if fids:
+            data["fids"] = fids
         if names:
             data["names"] = names
-        else:
-            data["fids"] = fids
         out = self.post_json(url, data)
         return out
         
@@ -455,7 +490,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         ----------
         lookup_list : list
             List of dictionaries, one dictionary per file. Each dictionary must have either
-                "name":"namespace:name", or
+                "did":"namespace:name", or
+                "namespace":"..." and "name":"..." or
                 "fid":"file id"
         with_metadata : boolean
             whether to include file metadata
@@ -475,7 +511,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         return self.post_json("data/files?with_metadata=%s&with_provenance=%s" % (with_metadata, with_provenance), 
             lookup_list) 
         
-    def get_file(self, fid=None, name=None, with_metadata = True, with_provenance=True):
+    def get_file(self, name=None, namespace=None, fid=None, did=None, with_metadata = True, with_provenance=True):
         """Get one file record
         
         Parameters
@@ -483,7 +519,10 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         fid : str, optional
             File id
         name : str, optional
-            "nemaspace:name" either ``fid`` or ``name`` must be specified
+        namespace : str, optional
+            name and namespace must be specified together
+        did : str, optional
+            "nemaspace:name"
         with_metadata : boolean
             whether to include file metadata
         with_provenance:
@@ -516,10 +555,13 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         with_meta = "yes" if with_metadata else "no"
         with_rels = "yes" if with_provenance else "no"
         url = f"data/file?with_metadata={with_meta}&with_provenance={with_rels}"
+        if did:
+            namespace, name = parse_name(did)
         if name:
-            url += f"&name={name}"
+            url += f"&name={name}&namespace={namespace}"
         else:
             url += f"&fid={fid}"        
+            
         return self.get_json(url)
 
     def query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None, add_to=None):

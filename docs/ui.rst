@@ -209,10 +209,10 @@ Create JSON file with metadata::
             "namespace":"namespace",    # optional - use -N to specify default
             "name":"name",              # optional
             "auto_name":pattern,        # optional
-            "fid":"...",                # optional - new will be generated if missing, will fail if specified and already exists
+            "fid":"...",                # optional - if missing, new will be generated. If specified, must be unique
             "metadata": { ... },        # optional
             "parents":  [ "fid1", "fid2", ... ]     # optional, must be file ids         
-            "size":   1234              # required
+            "size":   1234              # required - size of the file in bytes
         },
         ...
     ]
@@ -243,17 +243,18 @@ must be a list of dictionaries, one dictionary per file to be declared. Each dic
     File name. The file name must be unique within the namespace. If unspecified, the name will be auto-generated or the file ID will be used as the name.
     
 ``auto_name`` : optional
-    Pattern to be used to generate new file name. The pattern is specified in terms of Python print-style format string. The following mapping keys will be pre-defined:
+    Pattern to be used to generate new file name. The pattern is may include constant parts and parts to be replaced by the MetaCat in
+    the following order:
     
-    * ``%(uuid)s`` - hexadecimal representation of a random UUID (32 hex digits)
-    * ``%(uuid8)s`` - 4-bytes (8 hex digits) of a random UUID 
-    * ``%(uuid16)s`` - 8-bytes (16 hex digits) of a random UUID 
-    * ``%(clock)d`` - UNIX timestamp in milliseconds as integer ( int(time*1000) )
-    * ``%(clock3)d`` - milliseconds portion of UNIX timestamp as integer
-    * ``%(clock6)d`` - lowest 6 digits of UNIX timestamp in milliseconds as integer
-    * ``%(clock9)d`` - lowest 9 digits of UNIX timestamp in milliseconds as integer
+    * $clock3   - lower 3 digits of UNIX timestamp in milliseconds as integer (milliseconds portion of the timestamp)
+    * $clock6   - lower 6 digits of UNIX timestamp in milliseconds as integer
+    * $clock    - entire UNIX UNIX timestamp in milliseconds as integer
+    * $uuid8    - 8 hex digits of a random UUID 
+    * $uuid16   - 16 hex digits of a random UUID 
+    * $uuid     - 32 hex digits of a random UUID
+    * $fid      - file ID
 
-    For example, the pattern ``file_%(uuid8)s_%(clock6)d.dat`` may generate file name ``file_13d79a37_601828.dat``
+    For example, the pattern ``file_$uuid8_$clock6.dat`` may generate file name ``file_13d79a37_601828.dat``.
 
     If neither ``name`` nor ``auto_name`` are provided, then ``file ID`` will be used as the file name.
 
