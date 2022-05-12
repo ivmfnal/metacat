@@ -551,7 +551,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         -----
         Retrieving file provenance and metadata takes slightly longer time
         """        
-        assert (fid is None) != (name is None), 'Either name="namespace:name" or fid="fid" must be specified, but not both'
+        assert (fid is not None) or (did is not None) or (name is not None and namespace is not None), \
+            "Either DID or file id or namespace and name must be specified"
         with_meta = "yes" if with_metadata else "no"
         with_rels = "yes" if with_provenance else "no"
         url = f"data/file?with_metadata={with_meta}&with_provenance={with_rels}"
