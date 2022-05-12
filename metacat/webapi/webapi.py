@@ -42,6 +42,9 @@ class WebAPIError(ServerError):
         #print("WebAPIError.json: body:", self.Body)
         return json.loads(self.Body)
         
+class NotFoundError(WebAPIError):
+    pass
+            
 class InvalidMetadataError(WebAPIError):
 
     def __str__(self):
@@ -84,7 +87,9 @@ class HTTPClient(object):
         response = requests.get(url, headers =headers)
         if response.status_code == INVALID_METADATA_ERROR_CODE:
             raise InvalidMetadataError(url, response.status_code, response.text)
-        if response.status_code != 200:
+        if response.status_code == 404:
+            raise NotFoundError(url, response.status_code, response.text)
+        elif response.status_code != 200:
             raise WebAPIError(url, response.status_code, response.text)
         return response.text
 
@@ -214,8 +219,10 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         
         if namespace is not None:
             spec = namespace + ':' + name
-        item = self.get_json(f"data/dataset?dataset={spec}")
-        return item
+        try:
+            return self.get_json(f"data/dataset?dataset={spec}")
+        except NotFoundError:
+            return None
         
     def create_dataset(self, spec, frozen=False, monotonic=False, creator=None, metadata=None, metadata_requirements=None, description=""):
         """Creates new dataset. Requires client authentication.
@@ -564,7 +571,10 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         else:
             url += f"&fid={fid}"        
             
-        return self.get_json(url)
+        try: 
+            return self.get_json(url)
+        except NotFoundError:
+            return None
 
     def query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None, add_to=None):
         """Run file query. Requires client authentication if save_as or add_to are used.
@@ -695,7 +705,10 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             Namespace information
         """
         
-        return self.get_json(f"data/namespace?name={name}")
+        try: 
+            return self.get_json(f"data/namespace?name={name}")
+        except NotFoundError:
+            return None
         
     def get_namespaces(self, names):
         """Creates new namespace
