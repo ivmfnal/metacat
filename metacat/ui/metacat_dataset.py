@@ -1,6 +1,6 @@
 import sys, getopt, os, json, fnmatch, pprint
 #from urllib.request import urlopen, Request
-from metacat.util import to_bytes, to_str, TokenLib, epoch
+from metacat.util import to_bytes, to_str, epoch
 from metacat.webapi import MetaCatClient
 
 import datetime

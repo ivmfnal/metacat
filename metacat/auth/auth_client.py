@@ -50,7 +50,7 @@ class TokenAuthClientMixin(object):
             
         """
         from requests.auth import HTTPDigestAuth
-        from metacat.util.authenticators import PasswordAuthenticator
+        from metacat.auth.authenticators import PasswordAuthenticator
         password_for_digest = PasswordAuthenticator.make_password_for_digest(username, password)
         auth_url = self.AuthURL
         url = "%s/%s?method=digest" % (auth_url, "auth")

@@ -1,5 +1,4 @@
 import sys, getopt, os, json, pprint, time
-from metacat.util import to_bytes, to_str, TokenLib
 from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError
 
 Usage = """
@@ -18,6 +17,7 @@ Show file info:
 Declare single file:
 
     declare [options] [<file namespace>:]<filename> [<dataset namespace>:]<dataset>
+        -s|--size <file size, bytes>
         -N|--namespace <default namespace>
         -p|--parents <parent_id>,... 
         -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
@@ -120,7 +120,7 @@ def parse_namespace_name(spec, default_namespace=None):
         return default_namespace, spec
 
 def do_declare(client, args):
-    opts, args = getopt.getopt(args, "N:j:p:m:", ["json=", "namespace=", "sample", "parents=", "metadata="])
+    opts, args = getopt.getopt(args, "N:j:p:m:s:", ["json=", "namespace=", "sample", "parents=", "metadata=", "size="])
     opts = dict(opts)
     default_namespace = opts.get("-N") or opts.get("--namespace")
 
@@ -131,7 +131,9 @@ def do_declare(client, args):
     if not args or args[0] == "help":
         print(Usage)
         sys.exit(2)
-        
+
+    size = opts.get("-s", opts.get("--size"))
+
     if "-j" in opts or "--json" in opts:
         json_file = opts.get("-j") or opts.get("--json")
         files = json.load(open(json_file, "r"))       # parse to validate JSON
@@ -164,6 +166,9 @@ def do_declare(client, args):
                 "name":         file_name,
                 "metadata":     metadata
             }
+        if size is not None:
+            file_data["size"] = size
+        print("do_declare: file_data:", file_data)
         if parents:
             file_data["parents"] = parents
         files = [file_data]

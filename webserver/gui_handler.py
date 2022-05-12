@@ -7,17 +7,10 @@ from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_str, to_bytes
 from metacat.mql import MQLQuery
 from metacat import Version
+from common_handler import MetaCatHandler
 
-from metacat.auth.server import BaseHandler
-
-class GUICategoryHandler(BaseHandler):
+class GUICategoryHandler(MetaCatHandler):
     
-    def authenticated_user(self):
-        username = self.authenticated_username()
-        if username is None:
-            return None
-        return DBUser.get(self.App.connect(), username)
-
     def categories(self, request, relpath, **args):
         db = self.connect()
         cats = sorted(list(DBParamCategory.list(db)), key=lambda c:c.Path)
@@ -210,29 +203,12 @@ class GUICategoryHandler(BaseHandler):
             self.redirect("./show?path=%s&error=%s" % (path, quote_plus(f"Permission denied"),))
         defs = cat.definitions
         
-class GUIHandler(BaseHandler):
+class GUIHandler(MetaCatHandler):
     
     def __init__(self, request, app):
-        BaseHandler.__init__(self, request, app)
+        MetaCatHandler.__init__(self, request, app)
         self.categories = GUICategoryHandler(request, app)
-        self.NamespaceAuthorizations = {}                # namespace -> True/False
         
-    def _namespace_authorized(self, db, namespace, user):
-        authorized = self.NamespaceAuthorizations.get(namespace)
-        if authorized is None:
-            ns = DBNamespace.get(db, namespace)
-            if ns is None:
-                raise KeyError("Namespace %s does not exist")
-            authorized = ns.owned_by_user(user)
-            self.NamespaceAuthorizations[namespace] = authorized
-        return authorized
-    
-    def authenticated_user(self):
-        username = self.authenticated_username()
-        if username is None:
-            return None
-        return DBUser.get(self.App.connect(), username)
-
     def jinja_globals(self):
         return {"GLOBAL_User":self.authenticated_user()}
         

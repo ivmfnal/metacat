@@ -8,7 +8,7 @@ from metacat.util import to_str, to_bytes
 from metacat.mql import MQLQuery
 from metacat import Version
 
-from metacat.auth.server import BaseHandler
+from common_handler import MetaCatHandler
 
 METADATA_ERROR_CODE = 488
 
@@ -24,18 +24,12 @@ def parse_name(name, default_namespace):
     return ns, name
 
 
-class DataHandler(BaseHandler):
+class DataHandler(MetaCatHandler):
     
     def __init__(self, request, app):
-        BaseHandler.__init__(self, request, app)
+        MetaCatHandler.__init__(self, request, app)
         self.Categories = None
         self.Datasets = {}            # {(ns,n)->DBDataset}
-
-    def authenticated_user(self):
-        username = self.authenticated_username()
-        if username is None:
-            return None
-        return DBUser.get(self.App.connect(), username)
 
     def load_categories(self):
         if self.Categories is None:
@@ -80,7 +74,6 @@ class DataHandler(BaseHandler):
         else:
             lst = DBNamespace.list(db)
         return json.dumps([ns.to_jsonable() for ns in lst]), "text/json"
-        
 
     def namespace(self, request, relpath, name=None, **args):
         name = name or relpath
@@ -334,10 +327,11 @@ class DataHandler(BaseHandler):
         # [
         #       {       
         #               name: "namespace:name",   or "name", but then default namespace must be specified
-        #               fid: "fid",               // optional
-        #               parents:        [fid,...],              // optional
-        #               metadata: { ... }       // optional
-        #               checksums: {            // optional
+        #               size: ..,                       // required
+        #               fid: "fid",                     // optional
+        #               parents:        [fid,...],      // optional
+        #               metadata: { ... }               // optional
+        #               checksums: {                    // optional
         #                 "method":"value", ...
         #               }
         #       },...
@@ -364,14 +358,14 @@ class DataHandler(BaseHandler):
         ds = DBDataset.get(db, namespace=ds_namespace, name=ds_name)
         if ds is None:
             return f"Dataset {ds_namespace}:{ds_name} does not exist", 404
-            
+
         file_list = json.loads(request.body) if request.body else []
         if not file_list:
                 return "Empty file list", 400
         files = []
-        
+
         errors = []
-        
+
         metadata_validation_errors = DBParamCategory.validate_metadata_bulk(db, [f["metadata"] for f in file_list])
         if metadata_validation_errors:
             for item, error_dict in metadata_validation_errors:
@@ -382,15 +376,14 @@ class DataHandler(BaseHandler):
             return json.dumps(errors), METADATA_ERROR_CODE, "text/json"
         
         for inx, file_item in enumerate(file_list):
+            #print("data_handler.declare_files: file_item:", inx, file_item)
+            namespace = file_item.get("namespace", default_namespace)
             name = file_item.get("name")
             fid = file_item.get("fid")
-            
-            file_errors = []
-            
+
             size = file_item.get("size")
-            
             if size is None:
-                file_errors.append({
+                errors.append({
                     "message": "Missing file size",
                     "fid": fid,
                     "index": inx
@@ -400,52 +393,49 @@ class DataHandler(BaseHandler):
             if name is None:
                 did = file_item.get("did")
                 if did is None:
-                    file_errors.append({
+                    errors.append({
                         "message": "Missing file did and name",
                         "fid": fid,
                         "index": inx
                     })
                     continue
-                    
-                namespace, name = parse_name(did, file_item.get("namespace") or default_namespace)
+
+                namespace, name = parse_name(did, namespace)
                 if not namespace:
-                    file_errors.append({
+                    errors.append({
                         "message":"Missing namespace",
                         "index": inx,
                         "fid":fid
                     })
                     continue
-                
+
             try:
                 if not self._namespace_authorized(db, namespace, user):
-                    file_errors.append({
+                    errors.append({
                         "index": inx,
                         "fid":fid,
                         "message":f"Permission to declare files to namespace {namespace} denied"
                     })
                     continue
             except KeyError:
-                    file_errors.append({
+                    errors.append({
                         "index": inx,
                         "fid":fid,
                         "message":f"Namespace {namespace} does not exist"
                     })
                     continue
-                    
+
             meta = file_item.get("metadata", {})
-            
+
             ds_validation_errors = ds.validate_file_metadata(meta)
             if ds_validation_errors:
-                file_errors.append({
+                #print("validation errors:", ds_validation_errors)
+                errors.append({
                     "index": inx,
                     "fid":fid,
                     "message":f"Dataset metadata requirements violation",
                     "metadata_errors":ds_validation_errors
                 })
-
-            errors += file_errors
-
-            if file_errors:
                 continue
 
             f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=meta, size=size)
@@ -469,16 +459,23 @@ class DataHandler(BaseHandler):
                 f.Name = name
 
             files.append(f)
+            #print("data_handler.declare_files: file appended:", f)
 
         if errors:
+            #print("data_handler.declare_files: errors:", errors)
             return json.dumps(errors), METADATA_ERROR_CODE, "text/json"
-            
-        try:    results = DBFile.create_many(db, files)
+        
+        try:    
+            results = DBFile.create_many(db, files)
+            #print("data_server.declare_files: DBFile.create_may->results: ", results)
         except IntegrityError as e:
             return f"Integrity error: {e}", 404
             
         #print("server:declare_files(): calling ds.add_files...")
-        try:    ds.add_files(files, do_commit=True, validate_meta=False)
+        try:    
+            ds.add_files(files, do_commit=True, validate_meta=False)
+            print("data_server.declare_files: added to dataset:", files)
+
         except MetaValidationError as e:
             return e.as_json(), METADATA_ERROR_CODE, "text/json"
         

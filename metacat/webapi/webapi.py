@@ -45,7 +45,7 @@ class WebAPIError(ServerError):
 class InvalidMetadataError(WebAPIError):
 
     def __str__(self):
-        msg = ["Invalit metadata error"]
+        msg = ["Invalid metadata error"]
         for item in self.json():
             item_headline = item["message"]
             index = item.get("index")
