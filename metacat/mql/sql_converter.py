@@ -110,12 +110,16 @@ class SQLConverter(Ascender):
                 out = (f for f in self.node_to_file_set(query)
                         if evaluator(f.metadata(), meta_exp)
                 )
-                return Node("file_set", file_set = DBFileSet(self.DB, out))
+                return Node("file_set", file_set=DBFileSet(self.DB, out))
         else:
             return query
 
     def basic_file_query(self, node, *args, query=None):
         sql = DBFileSet.sql_for_basic_query(self.DB, query)
+        if not sql:
+            # e.g.: no datasets found
+            self.debug("empty sql")
+            return Node("file_set", file_set=DBFileSet(self.DB))            # empty file set
         self.debug("basic_file_query: sql: --------\n", sql, "\n--------")
         return Node("sql", sql=sql)
         
