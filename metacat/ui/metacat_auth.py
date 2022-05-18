@@ -13,17 +13,17 @@ Usage:
     
     subommands and options:
     
-        login [-m <mechanism>] <username>               - request authentication token
+        login [-m <mechanism>] <username>                   - request authentication token
             mechanisms are: password, x509
             with x509, use:
                 -c <cert or proxy file> [-k <private key file>]
                    X509_USER_PROXY, X509_USER_CERT, X509_USER_KEY environment variables are supported too
-        whoami [-t <token file>]                        - verify and show token
+        whoami [-t <token file>]                            - verify and show token
         mydn [-i] -c <cert or proxy file> [-k <private key file>]  - print my X.509 subject DN
                 -i prints the issuer DN instead
-        export [-o <token file>]                        - export token
-        import [-i <token file>] [-s <server_url>]      - import token and use it for new server
-        list                                            - list tokens
+        list                                                - list tokens
+        export [-o <token file>] [<token id>|<server url>]  - export token by token id or service URL
+        import [-i <token file>] [-s <server url>]          - import token and use it for new server
 """
 
 def time_delta(dt):
@@ -125,10 +125,20 @@ def do_export(client, args):
     opts, args = getopt.getopt(args, "o:")
     opts = dict(opts)
     
-    token = client.Token
-    if token is None:
-        sys.stderr.write("Token not found\n")
-        sys.exit(1)
+    if not args:
+        token = client.Token
+        if token is None:
+            print(Usage)
+            sys.exit(2)
+    else:
+        tl = client.TokenLib
+        token_id_or_url = args[0]
+        for url, token in tl.items():
+            if token_id_or_url in (url, token.tid):
+                break
+        else:
+            print("Token not found", file=sys.stderr)
+            sys.exit(1)
 
     out_path = opts.get("-o")
     if out_path:

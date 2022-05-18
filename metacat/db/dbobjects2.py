@@ -219,6 +219,8 @@ class DBFileSet(object):
             #datasets_sql = DBDataset.sql_for_selector(dataset_selector)
             
             datasets = list(datasets)
+            if not datasets:
+                return None
             ds_names = set()
             ds_namespaces = set()
             ds_specs = set()
@@ -226,7 +228,7 @@ class DBFileSet(object):
                 ds_names.add(ds.Name)
                 ds_namespaces.add(ds.Namespace)
                 ds_specs.add(ds.Namespace + ":" + ds.Name)
-            
+                
             fd = alias("fd")
             ds = alias("ds")
             
