@@ -1,7 +1,6 @@
 import requests, json, fnmatch, sys, os
 from metacat.util import to_str, to_bytes
 from metacat.auth import SignedToken, TokenLib
-from pythreader import Task, TaskQueue, Promise
 from urllib.parse import quote_plus, unquote_plus
 from metacat.auth import TokenAuthClientMixin
 
@@ -169,7 +168,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         
         HTTPClient.__init__(self, server_url, token)
         self.AuthURL = auth_server_url or server_url + "/auth"
-        self.QueryQueue = TaskQueue(max_concurrent_queries)       
+        self.MaxConcurrent = max_concurrent_queries
+        self.QueryQueue = None
         
     def resfresh_token(self):
         if self.TokenFile:
@@ -614,7 +614,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         results = self.post_json(url, query)
         return results
         
-    def async_query(self, query, data, **args):
+    def async_query(self, query, data=None, **args):
         """Run file query asynchronously. Requires client authentication if save_as or add_to are used.
         
         Parameters
@@ -633,34 +633,17 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             argument to the ``async_query`` call. 
         
             See notes below for more on how to use this method.
-            
-        
-
         """
         
-        class QueryTask(Task):
-            def __init__(self, client, query, promise, args):
-                Task.__init__(self)
-                self.Client = client
-                self.Query = query
-                self.Args = args
-                self.Promise = promise
-                
-            def run(self):
-                #print("QueryTask: started:", self.Query)
-                try:    
-                    results = self.Client.query(self.Query, **self.Args)
-                except Exception:
-                    self.Promise.exception(*sys.exc_info())
-                else:
-                    self.Promise.complete(results)
-                    
-        p = Promise(data)
-        t = QueryTask(self, query, p, args)
-        self.QueryQueue << t
-        #print ("Task added")
-        return p
-        
+        if self.QueryQueue is None:
+            try:    
+                from pythreader import TaskQueue
+            except ModuleNotFoundError:
+                raise ModuleNotFoundError("pythreader module required for asynchronous queries. Use: pip install 'pythreader>=2.7.0'")
+            self.QueryQueue = TaskQueue(self.MaxConcurrent)
+            
+        return self.QueryQueue.add_lambda(self.query, query, promise_data=data, **args)
+
     def wait_queries(self):
         self.QueryQueue.waitUntilEmpty()
     
