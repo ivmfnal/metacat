@@ -33,6 +33,7 @@ Usage:
 class MetaCatCLI(CLI):
     
     def update_context(self, context, opts, args):
+
         if context is None:
             server_url = opts.get("-s") or os.environ.get("METACAT_SERVER_URL")
     
@@ -62,9 +63,9 @@ def main():
         usage = """[-s <server URL>] [-a <auth server URL>]
             Both server and auth server URLs must be specified either using -s and -a or 
             via environment variables METACAT_SERVER_URL and METACAT_AUTH_SERVER_URL
-        """
+        """,
+        opts="s:a:"
     )
-    
 
     cli.run(sys.argv, argv0="metacat")
 

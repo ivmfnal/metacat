@@ -158,8 +158,8 @@ class CLI(CLIInterpreter):
             opts, args = self.getopt(argv)
         except (InvalidOptions, InvalidArguments):
             if usage_on_error:
-                cmd = "" if not command else f"for {command}"
-                print(f"Invalid arguments or options for {cmd}\n", file=sys.stderr)
+                cmd = "" if not pre_command else f"for {pre_command}"
+                print(f"Invalid arguments or options {cmd}\n", file=sys.stderr)
                 print(self.usage(pre_command), file=sys.stderr)
                 return
             else:
@@ -184,17 +184,18 @@ class CLI(CLIInterpreter):
         
         interp = self.Interpreters.get(word)
         if interp is None:
-            print(f"Unknown command {command} {word}\n", file=sys.stderr)
+            print(f"Unknown command {pre_command} {word}\n", file=sys.stderr)
             if usage_on_error:
-                indent = "" if not command else "  "
-                print("Usage:" if not command else f"Usage for {command}:")
-                print(self.usage(command, indent=indent),
+                indent = "" if not pre_command else "  "
+                print("Usage:" if not pre_command else f"Usage for {pre_command}:")
+                print(self.usage(pre_command, indent=indent),
                       file=sys.stderr)
                 return
             else:
                 raise UnknownCommand(word, args)
         
         if pre_command: pre_command = pre_command + " "
+        #print(interp, ".run(): pre:", pre_command, "   word:", word)
         return interp._run(pre_command + word, context, rest, usage_on_error = usage_on_error)
         
     def run(self, argv, context=None, usage_on_error = True, argv0=None):
@@ -212,7 +213,7 @@ class CLI(CLIInterpreter):
 
         out = []
         if pre_command:
-            out.append(pre_command + self.usage_headline())
+            out.append(pre_command + " " + self.usage_headline())
             indent = "  " + indent
 
         maxcmd = max(len(w) for w in self.Interpreters.keys())
@@ -227,7 +228,7 @@ class CLI(CLIInterpreter):
                 else:
                     down_usage = interp.usage()
                 out.append(indent + (fmt % (w, down_usage)))
-        out.append(indent + (fmt % ("help", "print help")))
+        out.append(indent + (fmt % ("help", "-- print help")))
         #print(self, f": usage:{out}")
         if as_list:
             return out
@@ -246,24 +247,27 @@ class CLI(CLIInterpreter):
         out.append(indent + pre_command + formatted_usage)
         out.append("Commands:")
         indent += "  "
-        maxcmd = max(len(w) for w in self.Interpreters.keys())
-        maxcmd = max(maxcmd, 4)     # for "help"
-        fmt = f"%-{maxcmd}s %s"
 
-        for word in self.Words:
-            interp = self.Interpreters[word]
-            if not interp.Hidden:
-                if isinstance(interp, CLI):
-                    out.append(indent + (fmt % (word, ",".join(interp.commands()))))
-                elif isinstance(interp, CLICommand):
-                    # assume CLICommand subclass
-                    #usage = interp.usage(" "*(maxcmd-len(word)), indent + " "*(maxcmd+1))
-                    #usage = interp.usage("", indent + " "*(maxcmd+1))
-                    cmd_usage = interp.usage(word)
-                    out.append(indent + (fmt % (word, cmd_usage)))
-                else:
-                    raise ValueError("Unrecognized type of the interpreter: %s %s" % (type(interp), interp))
-        out.append(indent + (fmt % ("help", "print help")))
+        fmt = "%s %s"
+        if self.Interpreters:
+            maxcmd = max(len(w) for w in self.Interpreters.keys())
+            maxcmd = max(maxcmd, 4)     # for "help"
+            fmt = f"%-{maxcmd}s %s"
+
+            for word in self.Words:
+                interp = self.Interpreters[word]
+                if not interp.Hidden:
+                    if isinstance(interp, CLI):
+                        out.append(indent + (fmt % (word, ",".join(interp.commands()))))
+                    elif isinstance(interp, CLICommand):
+                        # assume CLICommand subclass
+                        #usage = interp.usage(" "*(maxcmd-len(word)), indent + " "*(maxcmd+1))
+                        #usage = interp.usage("", indent + " "*(maxcmd+1))
+                        cmd_usage = interp.usage(word)
+                        out.append(indent + (fmt % (word, cmd_usage)))
+                    else:
+                        raise ValueError("Unrecognized type of the interpreter: %s %s" % (type(interp), interp))
+        out.append(indent + (fmt % ("help", "-- print help")))
         #print(self, f": usage:{out}")
         return "\n".join(out)
         
