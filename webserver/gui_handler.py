@@ -536,10 +536,10 @@ class GUIHandler(MetaCatHandler):
             if "save_user" in request.POST:
                 password = request.POST.get("password1")
                 if password:
-                    u.set_auth_info("password", None, password)
+                    u.set_auth_info("password", password)
                 
-                if me.is_admin():
-                    u.set_auth_info("ldap", self.App.auth_config("ldap"), "allow_ldap" in request.POST)
+                #if me.is_admin():
+                #    u.set_auth_info("ldap", self.App.auth_config("ldap"))
                 
                 u.save()
                 if me.is_admin():
