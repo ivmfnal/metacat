@@ -1,16 +1,23 @@
-from metacat.webapi import MCAuthenticationError, MCWebAPIError
+from metacat.webapi import MCAuthenticationError, MCWebAPIError, MetaCatClient
 from metacat import Version
 import sys, getopt, os
+from metacat.ui.cli import CLI
+
+from metacat.ui.metacat_file import FileCLI
+from metacat.ui.metacat_dataset import DatasetCLI
+from metacat.ui.metacat_namespace import NamespaceCLI
+from metacat.ui.metacat_auth import AuthCLI
+from metacat.ui.metacat_admin import AdminCLI
+from metacat.ui.metacat_query import QueryInterpreter
 
 import warnings
 warnings.simplefilter("ignore")
-
 
 Usage = f"""
 MetaCat version {Version}
 
 Usage: 
-    metacat [-s <server URL>] [-a <auth server URL>] command argsuments
+    metacat [-s <server URL>] [-a <auth server URL>] command arguments
     metacat help
 
     Server host:port can also be specified using environment variables METACAT_SERVER_URL and METACAT_AUTH_SERVER_URL
@@ -23,10 +30,46 @@ Usage:
         query
 """
 
+class MetaCatCLI(CLI):
+    
+    def update_context(self, context, opts, args):
+
+        if context is None:
+            server_url = opts.get("-s") or os.environ.get("METACAT_SERVER_URL")
+    
+            if not server_url:
+                print("Server address must be specified either using -s option or using environment variable METACAT_SERVER_URL", file=sys.stderr)
+                sys.exit(2)
+
+            auth_server_url = opts.get("-a") or os.environ.get("METACAT_AUTH_SERVER_URL")
+            if not auth_server_url:
+                #print("Warning: MetaCat authentication server URL is not set. Using default:", server_url+"/auth", file=sys.stderr)
+                auth_server_url = server_url+"/auth"
+        
+            context = MetaCatClient(server_url, auth_server_url)       # return the client as context
+        return context
+
 Commands = ["admin","auth","dataset","query","namespace","file"]
 
 def main():
 
+    cli = MetaCatCLI(
+        "admin", AdminCLI,
+        "auth", AuthCLI,
+        "dataset", DatasetCLI,
+        "namespace", NamespaceCLI,
+        "file", FileCLI,
+        "query", QueryInterpreter,
+        usage = """[-s <server URL>] [-a <auth server URL>]
+            Both server and auth server URLs must be specified either using -s and -a or 
+            via environment variables METACAT_SERVER_URL and METACAT_AUTH_SERVER_URL
+        """,
+        opts="s:a:"
+    )
+
+    cli.run(sys.argv, argv0="metacat")
+
+if False:
     opts, args = getopt.getopt(sys.argv[1:], "s:a:")
     opts = dict(opts)
 

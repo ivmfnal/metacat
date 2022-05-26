@@ -1,7 +1,8 @@
 import yaml, sys, getopt
 from metacat.db import DBUser
-from metacat.util import password_hash
+from metacat.auth import password_hash
 import psycopg2
+from metacat.ui.cli import CLI, CLICommand
 
 Usage="""
 metacat admin -c <config file>  create <username> <password>   - create new admin account
@@ -142,7 +143,7 @@ def do_admin(args):
         sys.exit(2)
     return method(config, args[1:])
  
-
+AdminCLI = CLI(hidden=True)
     
 
 
