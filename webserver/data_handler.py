@@ -90,10 +90,10 @@ class DataHandler(MetaCatHandler):
             return 401
         owner_user = None
         if owner_role is None:
-            owner_user = user.Name
+            owner_user = user.Username
         else:
             r = DBRole.get(db, owner_role)
-            if not user.is_admin() and not user.Name in r.members:
+            if not user.is_admin() and not user.Username in r.members:
                 return 403
 
         if DBNamespace.exists(db, name):
