@@ -156,7 +156,7 @@ class BaseHandler(WPHandler):
     def connect(self):
         return self.App.connect()
 
-    def text_chunks(self, gen, chunk=100000):
+    def text_chunks(self, gen, chunk=10000):
         buf = []
         size = 0
         for x in gen:

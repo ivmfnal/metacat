@@ -1,4 +1,4 @@
-import yaml, sys, getopt
+import sys, getopt
 from metacat.db import DBUser
 from metacat.auth import password_hash
 import psycopg2

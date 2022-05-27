@@ -96,6 +96,32 @@ class HTTPClient(object):
         text = self.get_text(uri_suffix)
         return json.loads(text)
         
+    def get_json_stream(self, uri_suffix):
+        url = "%s/%s" % (self.ServerURL, uri_suffix)
+        headers = {"Accept": "application/json-seq"}
+        if self.Token is not None:
+            headers["X-Authentication-Token"] = self.Token.encode()
+
+        with requests.get(url, headers=headers, stream=True) as response:
+            if response.status_code == INVALID_METADATA_ERROR_CODE:
+                raise InvalidMetadataError(url, response.status_code, response.text)
+            if response.status_code == 404:
+                raise NotFoundError(url, response.status_code, response.text)
+            elif response.status_code != 200:
+                raise WebAPIError(url, response.status_code, response.text)
+            
+            if response.headers.get("Content-Type") != "application/json-seq":
+                raise WebAPIError(url, 200, "Expected content type application/json-seq. Got %s instead." % (response.headers.get("Content-Type"),))
+
+            for line in response.iter_lines():
+                if line:    line = line.strip()
+                while line.startswith(b'\x1E'):
+                    line = line[1:]
+                if line:
+                    #print(f"stream line:[{line}]")
+                    obj = json.loads(line)
+                    yield obj
+
     def post_text(self, uri_suffix, data):
         #print("post_json: data:", type(data), data)
         if isinstance(data, (dict, list)):
@@ -203,11 +229,12 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                 continue
             yield item
     
-    def get_dataset(self, spec, namespace=None, name=None):
+    def get_dataset(self, did, namespace=None, name=None):
         """Gets single dataset
         
         Parameters
         ----------
+        did : str - "namespace:name"
         namespace : str
         name : str
         
@@ -223,6 +250,30 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             return self.get_json(f"data/dataset?dataset={spec}")
         except NotFoundError:
             return None
+            
+    def get_dataset_files(self, did, namespace=None, name=None, with_metadata=False):
+        """Gets single dataset
+        
+        Parameters
+        ----------
+        did : str - "namespace:name"
+        namespace : str
+        name : str
+        
+        Returns
+        -------
+        generator
+            generates sequence of dictionaries, one dictionary per file
+        """        
+        
+        if namespace is not None:
+            did = namespace + ':' + name
+        try:
+            with_metadata = "yes" if with_metadata else "no"
+            return self.get_json_stream(f"data/dataset_files?dataset={did}&with_metadata={with_metadata}")
+        except NotFoundError:
+            return None
+        
         
     def create_dataset(self, spec, frozen=False, monotonic=False, creator=None, metadata=None, metadata_requirements=None, description=""):
         """Creates new dataset. Requires client authentication.

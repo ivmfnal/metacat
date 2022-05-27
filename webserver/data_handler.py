@@ -66,6 +66,16 @@ class DataHandler(MetaCatHandler):
     def json_chunks(self, lst, chunk=100000):
         return self.text_chunks(self.json_generator(lst), chunk)
         
+    
+    RS = '\x1E'
+    LF = '\n'    
+    
+    def json_stream(self, iterable, chunk=10000):
+        # iterable is an iterable, returning jsonable items, one item at a time
+        return self.text_chunks(("%s%s%s" % (self.RS, json.dumps(item), self.LF) for item in iterable),
+                                chunk
+                                )
+        
     def namespaces(self, request, relpath, **args):
         db = self.App.connect()
         if request.body:
@@ -131,6 +141,16 @@ class DataHandler(MetaCatHandler):
                 dct["file_count"] = ds.nfiles
             out.append(dct)
         return json.dumps(out), "text/json"
+        
+    def dataset_files(self, request, relpath, dataset=None, with_metadata="no", **args):
+        with_metadata=with_metadata == "yes"
+        namespace, name = (dataset or relpath).split(":", 1)
+        db = self.App.connect()
+        dataset = DBDataset.get(db, namespace, name)
+        if dataset is None:
+            return 404, "Dataset not found"
+        files = dataset.list_files(with_metadata=with_metadata)
+        return self.json_stream((f.to_jsonable(with_metadata=with_metadata) for f in files)), "application/json-seq"
 
     def dataset(self, request, relpath, dataset=None, **args):
         db = self.App.connect()

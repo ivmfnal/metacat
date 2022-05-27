@@ -228,7 +228,8 @@ class CLI(CLIInterpreter):
                 else:
                     down_usage = interp.usage()
                 out.append(indent + (fmt % (w, down_usage)))
-        out.append(indent + (fmt % ("help", "-- print help")))
+        out.append("")
+        out.append(indent + (fmt % ("help", "")))
         #print(self, f": usage:{out}")
         if as_list:
             return out
@@ -267,7 +268,8 @@ class CLI(CLIInterpreter):
                         out.append(indent + (fmt % (word, cmd_usage)))
                     else:
                         raise ValueError("Unrecognized type of the interpreter: %s %s" % (type(interp), interp))
-        out.append(indent + (fmt % ("help", "-- print help")))
+        out.append("")
+        out.append(indent + (fmt % ("help", "")))
         #print(self, f": usage:{out}")
         return "\n".join(out)
         

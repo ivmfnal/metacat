@@ -8,4 +8,5 @@ build:
 	mkdir -p $(BINDIR) $(LIBDIR)
 	cp $(BINFILES) $(BINDIR); cd $(BINDIR); chmod +x $(BINFILES)
 	cp $(LIBFILES) $(LIBDIR)
+	cp -R cli $(LIBDIR)
 	

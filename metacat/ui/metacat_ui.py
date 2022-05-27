@@ -1,14 +1,14 @@
 from metacat.webapi import MCAuthenticationError, MCWebAPIError, MetaCatClient
 from metacat import Version
 import sys, getopt, os
-from metacat.ui.cli import CLI
+from .cli import CLI
 
-from metacat.ui.metacat_file import FileCLI
-from metacat.ui.metacat_dataset import DatasetCLI
-from metacat.ui.metacat_namespace import NamespaceCLI
-from metacat.ui.metacat_auth import AuthCLI
-from metacat.ui.metacat_admin import AdminCLI
-from metacat.ui.metacat_query import QueryInterpreter
+from .metacat_file import FileCLI
+from .metacat_dataset import DatasetCLI
+from .metacat_namespace import NamespaceCLI
+from .metacat_auth import AuthCLI
+from .metacat_admin import AdminCLI
+from .metacat_query import QueryInterpreter
 
 import warnings
 warnings.simplefilter("ignore")
@@ -60,7 +60,8 @@ def main():
         "namespace", NamespaceCLI,
         "file", FileCLI,
         "query", QueryInterpreter,
-        usage = """[-s <server URL>] [-a <auth server URL>]
+        usage = """[-s <server URL>] [-a <auth server URL>] <command> ...
+        
             Both server and auth server URLs must be specified either using -s and -a or 
             via environment variables METACAT_SERVER_URL and METACAT_AUTH_SERVER_URL
         """,

@@ -185,7 +185,15 @@ Updating a dataset metadata and flags
             -r|--replace            - replace metadata, otherwise update
             -m|--metadata @<JSON file with metadata> 
             -m|--metadata '<JSON expression>' 
+            
+Listing files in the dataset
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. code-block:: shell
+
+    $ metacat dataset files [<options>] <dataset namespace>:<dataset name>
+            -m|--with-metadata      - include file metadata
+            -j                      - as JSON
 
 Adding/removing subsets to/from a dataset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
