@@ -2,7 +2,7 @@ import yaml, os, getopt, sys
 
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
 from metacat.db import DBUser, DBRole
-from datetime import datetime
+from datetime import datetime, timezone
 #import webpie
 #print("webpie imported from:", webpie.__file__)
 
@@ -38,15 +38,17 @@ def as_dt_utc(t):
     # datetim in UTC
     if t is None:
         return ""
-    dt = datetime.utcfromtimestamp(t)
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
+    if isinstance(t, (int, float)):
+        t = datetime.utcfromtimestamp(t)
+    return t.strftime("%Y-%m-%d %H:%M:%S")
 
 def as_dt_local(t):
     # datetim in UTC
     if t is None:
         return ""
-    dt = datetime.fromtimestamp(t)
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
+    if isinstance(t, (int, float)):
+        t = datetime.utcfromtimestamp(t)
+    return t.strftime("%Y-%m-%d %H:%M:%S")
     
 def as_json(x):
     return json.dumps(x)
