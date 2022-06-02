@@ -359,16 +359,17 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         out = self.post_json(url, file_list)
         return out
 
-    def declare_files(self, dataset, file_list, namespace=None):
+    def declare_files(self, dataset, files, namespace=None):
         """Declare new files and add them to an existing dataset. Requires client authentication.
         
         Parameters
         ----------
         dataset : str
             "namespace:name"
-        file_list : list
-            List of dictionaries, one dictionary per file. Each dictionary must contain at least filename and
-            may contain other items (see Notes below)
+        files : list or dict
+            List of dictionaries, one dictionary per a file to be declared. See Notes below for the expected contents of each
+            dictionary.
+            For convenience, if declaring single file, the argument can be the single file dictionary instead of a list.
         namespace: str, optional
             Default namespace for files to be declared
         
@@ -380,39 +381,63 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         Notes
         -----
         
-            Each file to be added must be represented with a dictionary. The dictionary must contain at least filename.
-            It may also explicitly include file namespace, or the value of the ``namespace`` argument will be used.
+            Each file to be declared must be represented with a dictionary. The dictionary must contain elements:
+                one of:
+                    "did" - string in the format "<namespace>:<name>"
+                    "name" - file name and optionaly "namespace". If namespace is not present, the ``namespace`` argument will be used
+                             as the default namespace
         
             .. code-block:: python
         
-                [
-                    { 
-                        "namespace": "namespace",           # namespace can be specified for each file explicitly or implicitly using the namespace=... argument
-                        "name": "filename",                 # 
-                        "did": "namespace:filename",        # convenience for Rucio users
-                        "fid":  "...",                      # file id, optional. Will be auto-generated if unspecified.
-                                                            # if specified, must be unique for the instance
-                        "parents": ["fid","fid",...],       # list of parent file ids, optional
-                        "metadata": {...},                  # file metadata, optional, a dictionary with arbitrary JSON'able contents
-                        "size": ...,                        # integer number of bytes
-                        "checksums": {                      # checksums dictionary, optional
-                            "method": "value",...
-                        }
-                    },...
-                ]
+                { 
+                    "namespace": "namespace",           # optional, namespace can be specified for each file explicitly or implicitly using the namespace=... argument
+                    "name": "filename",                 # optional,
+                    "did": "namespace:filename",        # optional, convenience for Rucio users
+                                                        # either "did" or "name", "namespace" must be present
+                    "fid":  "...",                      # optional, file id. Will be auto-generated if unspecified.
+                                                        # if specified, must be unique for the instance
+                    "parents": ["fid","fid",...],       # optional, list of parent file ids
+                    "metadata": {...},                  # optional, file metadata, a dictionary with arbitrary JSON'able contents
+                    "size": ...,                        # optional, integer number of bytes
+                    "checksums": {                      # optional, checksums dictionary
+                        "method": "value",...
+                    }
+                },...
         """        
+        
+        default_namespace = namespace
+        if isinstance(files, dict):
+            files = [files]                     # convenience
 
-        for f in file_list:
+        lst = []
+
+        for i, item in enumerate(files):
+            f = item.copy()
             if "did" in f:
-                ns, n = parse_name(f["did"], namespace)
-                f["namespace"] = ns
-                f["name"] = n
-            f["namespace"] = f.get("namespace", namespace)
+                did = f.pop("did")
+                if "name" in f or "namespace" in f:
+                    raise ValueError(f"Both DID and namespace/name specified for {did}")
+                namespace, name = parse_name(did, default_namespace)
+            elif "name" in f:
+                name = f["name"]
+                namespace = f.get("namespace", default_namespace)
+                if not namespace:
+                    raise ValueError(f"Namespace not specified for {name}")
+            else:
+                raise ValueError(f"A file without a name or DID found at index {i}")
+            f["namespace"] = namespace
+            f["name"] = name
+
+            for k in f.get("metadata", {}).keys():
+                if '.' not in k:
+                    raise VauleError(f'Invalid metadata key "{k}": must contain dot (.)')
+
+            lst.append(f)
 
         url = f"data/declare_files?dataset={dataset}"
         if namespace:
             url += f"&namespace={namespace}"
-        out = self.post_json(url, file_list)
+        out = self.post_json(url, lst)
         return out
 
     def update_file_meta(self, metadata, names=None, fids=None, namespace=None, dids=None, mode="update"):

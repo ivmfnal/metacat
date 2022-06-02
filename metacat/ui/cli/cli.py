@@ -175,13 +175,14 @@ class CLI(CLIInterpreter):
 
         #print(f"{self.__class__.__name__}._run(): argv:", argv, "  args:", args)
 
-        context = self.update_context(context, opts, args)
         word, rest = args[0], args[1:]
         
         if word in ("help", "--help"):
             print(self.help(word), file=sys.stderr)
             return
         
+        context = self.update_context(context, word, opts, args)
+
         interp = self.Interpreters.get(word)
         if interp is None:
             print(f"Unknown command {pre_command} {word}\n", file=sys.stderr)

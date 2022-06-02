@@ -32,9 +32,16 @@ Usage:
 
 class MetaCatCLI(CLI):
     
-    def update_context(self, context, opts, args):
+    Opts="s:a:"    
+    Usage = """[-s <server URL>] [-a <auth server URL>] <command> ...
+        
+            Both server and auth server URLs must be specified either using -s and -a or 
+            via environment variables METACAT_SERVER_URL and METACAT_AUTH_SERVER_URL
+        """
+    
+    def update_context(self, context, command, opts, args):
 
-        if context is None:
+        if context is None and command != "admin":      # admin does not need to connect to the server
             server_url = opts.get("-s") or os.environ.get("METACAT_SERVER_URL")
     
             if not server_url:
@@ -60,14 +67,7 @@ def main():
         "namespace", NamespaceCLI,
         "file", FileCLI,
         "query", QueryInterpreter,
-        usage = """[-s <server URL>] [-a <auth server URL>] <command> ...
-        
-            Both server and auth server URLs must be specified either using -s and -a or 
-            via environment variables METACAT_SERVER_URL and METACAT_AUTH_SERVER_URL
-        """,
-        opts="s:a:"
     )
-
     cli.run(sys.argv, argv0="metacat")
 
 if False:
