@@ -1,6 +1,6 @@
 import requests, json, fnmatch, sys, os
 from metacat.util import to_str, to_bytes
-from metacat.auth import SignedToken, TokenLib
+from metacat.auth import SignedToken, TokenLib, AuthenticationError
 from urllib.parse import quote_plus, unquote_plus
 from metacat.auth import TokenAuthClientMixin
 
@@ -63,14 +63,6 @@ class InvalidMetadataError(WebAPIError):
             for error in item.get("metadata_errors", []):
                 msg.append("    %s: %s" % (error["name"], error["reason"]))
         return "\n".join(msg)
-
-class AuthenticationError(WebAPIError):
-    def __init__(self, message):
-        self.Message = message
-        
-    def __str__(self):
-        return f"Authentication error: {self.Message}"
-    
 
 class HTTPClient(object):
 

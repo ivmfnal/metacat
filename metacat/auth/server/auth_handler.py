@@ -17,18 +17,19 @@ class AuthHandler(BaseHandler):
         return self.App.encoded_token_from_request(request)+"\n"
         
     def _auth_digest(self, request_env, redirect):
-        from .rfc2617 import digest_server
+        from metacat.auth import digest_server
         # give them cookie with the signed token
         
-        ok, data = digest_server("metadata", request_env, self.App.get_digest_password)
+        ok, data = digest_server(self.App.Realm, request_env, self.App.get_digest_password)
+        #print("_auth_digest: ok, data:", ok, data)
         if ok:
             #print("AuthHandler.auth: digest_server ok")
             resp = self.App.response_with_auth_cookie(data, redirect)
             return resp
         elif data:
-            return Response("Authorization required", status=401, headers={
+            return 401, "Authorization required", {
                 'WWW-Authenticate': data
-            })
+            }
 
         else:
             return "Authentication failed\n", 403
@@ -46,8 +47,8 @@ class AuthHandler(BaseHandler):
         db = self.App.user_db()
         u = DBUser.get(db, username)
         config = self.App.auth_config("ldap")
-        #print("ldap config:", config)
         if u.authenticate("ldap", config, password):
+            #print("ldap authentication succeeded")
             return self.App.response_with_auth_cookie(username, redirect)
         else:
             return "Authentication failed\n", 403
@@ -95,6 +96,7 @@ class AuthHandler(BaseHandler):
         return self.App.response_with_unset_auth_cookie(redirect)
 
     def login(self, request, relpath, redirect=None, **args):
+        if redirect: redirect = unquote_plus(redirect)
         return self.render_to_response("login.html", redirect=redirect, **self.messages(args))
         
     def logged_in(self, request, relpath, **args):
@@ -105,31 +107,37 @@ class AuthHandler(BaseHandler):
 
     def do_login(self, request, relpath, **args):
         username = request.POST["username"]
+        hashed_password = request.POST.get("hashed_password")
         password = request.POST.get("password")
         token_text = request.POST.get("token_text")
-        redirect = request.POST.get("redirect", self.scriptUri() + "./logged_in")
+        redirect = request.POST.get("redirect")
         #print("redirect:", redirect)
         db = self.App.user_db()
         u = DBUser.get(db, username)
+
+        relogin_url = "./login"
+        if redirect:
+            relogin_url += "?redirect=%s&" % (quote_plus(redirect),)
+        else:
+            relogin_url += "?"
+
         if not u:
             #print("authentication error")
-            self.redirect("./login?message=User+%s+not+found" % (username,))
+            self.redirect("%serror=User+%s+not+found" % (relogin_url, username))
 
         token = None
         if token_text:
             token, error = self.App.verify_token(token_text)
-            if not token:
-                self.redirect("./login?error=%s" % (quote_plus("Authentication error"),))
-            if token.subject != username:
-                self.redirect("./login?error=%s" % (quote_plus("Authentication error"),))
-        elif password:
-            ok = u.authenticate("password", None, password)
-            if not ok:
+            if not token or token.subject != username:
+                self.redirect("%serror=%s" % (relogin_url, quote_plus("Authentication error")))
+        elif password or hashed_password:
+            ok = u.authenticate("password", self.App.Realm, hashed_password or password)
+            if not ok and password:
                 ok = u.authenticate("ldap", self.App.auth_config("ldap"), password)
             if not ok:
-                self.redirect("./login?error=%s" % (quote_plus("Authentication error"),))
+                self.redirect("%serror=%s" % (relogin_url, quote_plus("Authentication error")))
         else:
-            self.redirect("./login?error=%s" % (quote_plus("Authentication error"),))
+            self.redirect("%serror=%s" % (relogin_url, quote_plus("Authentication error")))
 
         #print("authenticated")
         return self.App.response_with_auth_cookie(username, redirect, token)

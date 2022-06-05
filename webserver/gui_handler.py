@@ -490,12 +490,16 @@ class GUIHandler(MetaCatHandler):
         #print("user: roles:", list(roles))
         ldap_config = self.App.auth_config("ldap")
         ldap_url = ldap_config and ldap_config["server_url"]
+        dn_list = user.get_dns()
         return self.render_to_response("user.html", all_roles=all_roles, user=user, roles=roles, role_set=role_set, 
-            ldap_url = ldap_url, 
+            ldap_url = ldap_url, realm = self.App.Realm,
             error = unquote_plus(error), message=unquote_plus(message),
             mode = "edit" if (me.is_admin() or me.Username==username) else "view", 
             its_me = me.Username==username,
-            admin=me.is_admin())
+            digest_realm = self.App.Realm,
+            dn_list = dn_list, 
+            admin=me.is_admin()
+        )
             
     def my_token(self, request, relpath, **args):
         token = self.App.encoded_token_from_request(request)
@@ -512,7 +516,8 @@ class GUIHandler(MetaCatHandler):
         me = self.authenticated_user()
         if not me.is_admin():
             self.redirect("./users?error=%s" % (quote_plus("Not authorized to create users")))
-        return self.render_to_response("user.html", error=unquote_plus(error), mode="create", all_roles = DBRole.list(db))
+        return self.render_to_response("user.html", error=unquote_plus(error), mode="create", all_roles = DBRole.list(db),
+            digest_realm = self.App.Realm)
         
     def save_user(self, request, relpath, **args):
         db = self.App.connect()
@@ -534,12 +539,9 @@ class GUIHandler(MetaCatHandler):
         if me.is_admin() or me.Username == u.Username:
 
             if "save_user" in request.POST:
-                password = request.POST.get("password1")
-                if password:
-                    u.set_auth_info("password", password)
-                
-                #if me.is_admin():
-                #    u.set_auth_info("ldap", self.App.auth_config("ldap"))
+                hashed_password = request.POST.get("hashed_password")
+                if hashed_password:
+                    u.set_password(self.App.Realm, hashed_password, hashed=True)
                 
                 u.save()
                 if me.is_admin():
@@ -555,10 +557,10 @@ class GUIHandler(MetaCatHandler):
             elif "add_dn" in request.POST:
                 dn = request.POST.get("new_dn")
                 if dn:
-                    dn_list = u.auth_info("x509") or []
+                    dn_list = u.get_dns()
                     if not dn in dn_list:
                         dn_list.append(dn)
-                        u.set_auth_info("x509", dn_list)
+                        u.set_dns(dn_list)
                         u.save()
             else:
                 for k in request.POST:
@@ -568,13 +570,11 @@ class GUIHandler(MetaCatHandler):
                 else:
                     dn_to_remove = None
                 if dn_to_remove:
-                    dn_list = u.auth_info("x509") or []
+                    dn_list = u.get_dns()
                     while dn_to_remove in dn_list:
                         dn_list.remove(dn_to_remove)
-                    u.set_auth_info("x509", dn_list)
+                    u.set_dns(dn_list)
                     u.save()
-                        
-                                        
         self.redirect(f"./user?username={username}&message="+quote_plus("User updated"))
 
     def generate_token(self, request, relpath, **args):

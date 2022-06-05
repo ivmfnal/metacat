@@ -69,13 +69,16 @@ class DataHandler(MetaCatHandler):
     
     RS = '\x1E'
     LF = '\n'    
-    
+
     def json_stream(self, iterable, chunk=10000):
         # iterable is an iterable, returning jsonable items, one item at a time
         return self.text_chunks(("%s%s%s" % (self.RS, json.dumps(item), self.LF) for item in iterable),
                                 chunk
                                 )
-        
+
+    def realm(self, request, relpath, **args):
+        return self.App.Realm           # realm used for the digest password authentication
+
     def namespaces(self, request, relpath, **args):
         db = self.App.connect()
         if request.body:

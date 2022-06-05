@@ -1,4 +1,4 @@
-from metacat.webapi import MCAuthenticationError, MCWebAPIError, MetaCatClient
+from metacat.webapi import MCWebAPIError, MetaCatClient
 from metacat import Version
 import sys, getopt, os
 from .cli import CLI

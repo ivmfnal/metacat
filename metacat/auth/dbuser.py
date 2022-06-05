@@ -1,4 +1,5 @@
 from .authenticators import authenticator
+from .password_hash import password_digest_hash
 import json
 
 class BaseDBUser(object):
@@ -33,20 +34,28 @@ class BaseDBUser(object):
             c.execute("commit")
         return self
         
-    def authenticate(self, method, config, presented):
-        a = authenticator(method, config, self.AuthInfo.get(method))
-        return a is not None and a.enabled() and a.authenticate(self.Username, presented)
+    def authenticate(self, method, auth_config, presented):
+        a = authenticator(method, auth_config, self.AuthInfo.get(method))
+        if a is None or not a.enabled():
+            return False
+        result, reason = a.authenticate(self.Username, presented)
+        #print(f"BaseDBUser.authenticate({method}):", result)
+        return result
         
-    def set_auth_info(self, method, info):  
-        # info is in DB representation, e.g. unhashed password
-        self.AuthInfo[method] = info
-    
-    def set_password(self, password):
-        # for compatibility, password is DB representation, e.g. hashed
-        self.set_auth_info("password", password)
-    
-    def auth_info(self, method):
-        return self.AuthInfo.get(method)
+    def set_password(self, realm, password, hashed=False):
+        auth_info = self.AuthInfo.get("password", {})
+        a = authenticator("password", realm, auth_info)
+        self.AuthInfo["password"] = a.update_auth_info(self.Username, password, hashed=hashed)
+        
+    def get_password(self, realm):
+        #print("DBUser.get_password(", realm, "): info:", self.AuthInfo)
+        return self.AuthInfo.get("password", {}).get(realm)
+        
+    def get_dns(self):
+        return self.AuthInfo.get("x509", [])
+
+    def set_dns(self, dn_list):
+        self.AuthInfo["x509"] = dn_list[:]
 
     def auth_method_enabled(self, method):
         return method in self.AuthInfo

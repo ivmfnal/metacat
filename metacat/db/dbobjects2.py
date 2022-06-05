@@ -1596,8 +1596,9 @@ class DBUser(BaseDBUser):
 
     @staticmethod
     def from_base_user(bu):
+        if bu is None:  return None
         u = DBUser(bu.DB, bu.Username, bu.Name, bu.EMail, bu.Flags)
-        u.AuthInfo = bu.AuthInfo.copy()
+        u.AuthInfo = (bu.AuthInfo or {}).copy()
         u.RoleNames = bu.RoleNames
         if isinstance(u.RoleNames, list):
             u.RoleNames = u.RoleNames[:]

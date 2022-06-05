@@ -79,16 +79,17 @@
     {% if mode == "create" or mode == "edit" %}
         <tr>
             <th>Password</th>
-            <td><input type="hidden" name="hashed_password"/>
-                <input type="password" name="password1"/>
+            <td><input type="hidden" id="hashed_password" name="hashed_password"/>
+                <input type="password" id="password1"/>
             </td>
             <td id="error" class="error" style="visibility:hidden; display:none"></td>
         </tr>
         <tr>
             <th>Repeat password</th>
-            <td><input type="password" name="password2"/></td>
+            <td><input type="password" id="password2"/></td>
         </tr>
-        {% if ldap_url %}
+        {#
+            {% if ldap_url %}
             <tr>
                 <th>Allow LDAP authentication</th>
                 <td>
@@ -98,7 +99,8 @@
                         />&nbsp;<span style="color:#AAA">server: {{ldap_url}}</span>
                 </td>
             </tr>
-        {% endif %}
+            {% endif %}
+        #}
     {% endif %}
 	<tr>
 		<th>Roles</th>
@@ -144,7 +146,6 @@
         {% endif %}
 		
 		<tr>
-			{% set dn_list=user.auth_info("x509") %}
 			<th>X.509 DNs</th>
 			<td>
 				<table class="form">
@@ -181,9 +182,8 @@
 
             function do_submit()
             {
-                var form = document.getElementById("the_form");
-                var password1_input = form.elements.namedItem("password1");
-                var password2_input = form.elements.namedItem("password2");
+                var password1_input = document.getElementById("password1");
+                var password2_input = document.getElementById("password2");
                 var password1 = password1_input.value;
                 var password2 = password2_input.value;
                 var username =  "{{user.Username}}";
@@ -196,10 +196,10 @@
                 }
                 else
                 {
-                    var h = password_hash(username, password1);
-                    e = form.elements.namedItem("hashed_password");
+                    var h = digest_hash("{{digest_realm}}", username, password1);
+                    e = document.getElementById("hashed_password");
                     e.value = h;
-                    console.log("hashed:"+h);
+                    //console.log("hashed:"+h);
                     return true;
                 }
             }

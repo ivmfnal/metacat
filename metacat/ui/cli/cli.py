@@ -67,8 +67,10 @@ class CLIInterpreter(object):
 
     def getopt(self, argv):
         short_opts, long_opts = self.get_options()
+        #print(self, ".getopt(): short_opts, long_opts:", short_opts, long_opts)
         try:
             opts, args = getopt.getopt(argv, short_opts, long_opts)
+            #print(self, ".getopt(): opts, args:", opts, args)
         except getopt.GetoptError:
             raise InvalidOptions()
         if len(args) < self.MinArgs:
@@ -114,17 +116,15 @@ class CLICommand(CLIInterpreter):
         return indent + command + "\n".join(format_paragraph(indent + "  ", usage))
 
     def usage(self, word=""):
-        usage = (self.Usage0 or self.Usage.split("\n", 1)[0]).strip()
-        if usage.startswith(word + " "):
+        usage = (self.Usage0 or self.Usage.split("\n", 1)[0])
+        if word and usage.startswith(word + " "):
             usage = usage[len(word)+1:]
         return usage
 
 class CLI(CLIInterpreter):
     
-    def __init__(self, *args, hidden=False, usage="", opts=""):
-        self.Hidden = hidden
-        self.UsageParagraph = usage
-        self.Opts = opts
+    def __init__(self, *args):
+        self.UsageParagraph = self.Usage
         self.Words = []          
         self.Interpreters = {}
 
@@ -139,7 +139,7 @@ class CLI(CLIInterpreter):
         return self.Words
             
     # overridable
-    def update_context(self, context, opts, args):
+    def update_context(self, context, command, opts, args):
         return context
     
     def _run(self, pre_command, context, argv, usage_on_error = True):
@@ -217,8 +217,9 @@ class CLI(CLIInterpreter):
             out.append(pre_command + " " + self.usage_headline())
             indent = "  " + indent
 
-        maxcmd = max(len(w) for w in self.Interpreters.keys())
-        maxcmd = max(maxcmd, 4)     # for "help"
+        maxcmd = 4
+        if self.Interpreters:
+            maxcmd = max(maxcmd, max(len(w) for w in self.Interpreters.keys()))
         fmt = f"%-{maxcmd}s %s"
 
         for w in self.Words:

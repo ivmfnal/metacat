@@ -1,6 +1,6 @@
 import sys, getopt
 from metacat.db import DBUser
-from metacat.auth import password_hash
+from metacat.auth import password_digest_hash
 from metacat.ui.cli import CLI, CLICommand
 
 Usage="""
@@ -25,8 +25,13 @@ Requires direct access to the database. The YAML config file must include:
 def connect(config):
     import psycopg2
     dbcfg = config["database"]
+    print("connecting to:", dbcfg)
     connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % dbcfg
-    return psycopg2.connect(connstr)
+    conn = psycopg2.connect(connstr)
+    schema = dbcfg.get("schema")
+    if schema:
+        conn.cursor().execute(f"set search_path to {schema}")
+    return conn
 
 class ListCommand(CLICommand):
 
@@ -59,16 +64,28 @@ class CreateCommand(CLICommand):
 class PasswordCommand(CLICommand):
     
     MinArgs = 2
-    Usage = """<username> <password>                -- change account password"""
+    Usage = """[-r <realm>] <username> <password>   -- change account password
+        -r <realm>                  -- realm to be used for the digest authentication
+                                       can be also specified in the config file:
+                                        
+                                        authentication:
+                                            realm: ...
+    """
+    Opts = "r:"
     
     def __call__(self, command, config, opts, args):
         db = connect(config)
+        realm = opts.get("-r", config.get("authentication", {}).get("realm"))
+        if not realm:
+            print("Digest authentication realm must be specified either in the config file (authentication->realm) or with -r",
+                file = sys.stderr)
+            sys.exit(2)
         username, password = args
         u = DBUser.get(db, username)
         if u is None or not u.is_admin():
             print("User does not exist or is not an Admin. Leaving the password unchanged.")
             sys.exit(1)
-        u.set_auth_info("password", None, password)
+        u.set_password(realm, password)
         #print("hashed password:", hashed)
         u.save()
         print("Password updated")
@@ -125,7 +142,7 @@ class GenerateCommand(CLICommand):
         
 class AdminCLI(CLI):
 
-    Opts = "c"
+    Opts = "c:"
     Hidden = True
     Usage = "-c <database config YAML file> <command> ..."
     
