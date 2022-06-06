@@ -1,4 +1,4 @@
-import re, hashlib, base64, time
+import re, hashlib, base64, time, secrets
 
 def digest_client(url, username, password):
     from requests.auth import HTTPDigestAuth
@@ -27,7 +27,8 @@ def digest_server(realm, env, get_hashed_password):
     
     if not matches:
         # need "Authorization" header
-        nonce = base64.b64encode(str(int(time.time())).encode("utf-8"))
+        nonce = secrets.token_urlsafe()
+        #nonce = base64.b64encode(str(int(time.time())).encode("utf-8"))
         header = 'Digest realm="%s", nonce="%s", algorithm=MD5, qop="auth"' % (realm, nonce)
         return False, header        
     

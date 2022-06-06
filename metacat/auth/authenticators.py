@@ -28,9 +28,9 @@ class PasswordAuthenticator(Authenticator):
     #
     
     def __init__(self, realm, db_info):
-        self.DBInfo = db_info.copy()
+        self.DBInfo = (db_info or {}).copy()
         self.Realm = realm
-        self.DBHashed = db_info.get(self.Realm)
+        self.DBHashed = self.DBInfo.get(self.Realm)
     
     def authenticate(self, username, password):
         # will accept both hashed and not hashed password
