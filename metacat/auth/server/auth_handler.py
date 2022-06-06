@@ -35,8 +35,6 @@ class AuthHandler(BaseHandler):
 
     def _auth_ldap(self, request, redirect, username):
         
-        # check HTTPS here
-        
         if username:
             password = to_str(request.body.strip())
         else:
@@ -53,16 +51,17 @@ class AuthHandler(BaseHandler):
             return "Authentication failed\n", 403
             
     def _auth_x509(self, request, redirect, username):
-        ssl = request.environ.get("HTTPS") == "on" or request.environ.get("REQUEST_SCHEME") == "https"
-        if not ssl:
-            return "Authentication failed\n", 403
+        #log = open("/tmp/_auth_x509.log", "w")
+        #print("request.environ:", file=log)
+        #for k, v in sorted(request.environ.items()):
+        #    print(f"{k}={v}", file=log)
+        if request.environ.get("REQUEST_SCHEME") != "https":
+            return "HTTPS scheme required\n", 403
             
         db = self.App.user_db()
         u = DBUser.get(db, username)
-        if u.authenticate("x509", None, {
-            "subject_dn":   request.environ.get("SSL_CLIENT_S_DN"),
-            "issuer_dn":    request.environ.get("SSL_CLIENT_I_DN")
-        }):
+        #print("_auth_x509: u:", username, u, file=log)
+        if u.authenticate("x509", None, request.environ):
             return self.App.response_with_auth_cookie(username, redirect)
         else:
             return "Authentication failed\n", 403

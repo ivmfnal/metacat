@@ -125,22 +125,17 @@ class LoginCommand(CLICommand):
             -c|--cert <cert or proxy file> [-k|--key <private key file>]
             X509_USER_PROXY, X509_USER_CERT, X509_USER_KEY environment variables are supported.
     """
+    MinArgs = 1
 
     def __call__(self, command, client, opts, args):
-        opts, args = getopt.getopt(args, "m:c:k:d")
-        if not args:
-            print(Usage)
-            sys.exit(2)
-        opts = dict(opts)
+        username = args[0]
         mechanism = opts.get("-m", "password")
         try:
             if mechanism == "password":
-                username = args[0]
                 password = getpass.getpass("Password:")
                 user, expiration = client.login_password(username, password)
             elif mechanism == "x509":
                 cert, key = get_x509_cert_key(opts)
-                username = args[0]
                 user, expiration = client.login_x509(username, cert, key=key)
             else:
                 print(f"Unknown authentication mechanism {mechanism}")
