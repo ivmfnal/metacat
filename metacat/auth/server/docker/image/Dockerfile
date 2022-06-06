@@ -46,8 +46,9 @@ WORKDIR /tmp/rwsi-wsdbtools
 RUN make HOME=/tmp
 
 WORKDIR /tmp
+RUN echo 4
 RUN git clone https://github.com/ivmfnal/metacat.git 
-RUN cd metacat; git checkout common_auth_client
+RUN cd metacat; git checkout main
 
 RUN mkdir /tmp/auth_server 
 WORKDIR /tmp/auth_server
