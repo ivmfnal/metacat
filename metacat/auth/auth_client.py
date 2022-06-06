@@ -53,6 +53,7 @@ class TokenAuthClientMixin(object):
         from requests.auth import HTTPDigestAuth
         auth_url = self.AuthURL
         url = "%s/%s?method=digest" % (auth_url, "auth")
+        print("login_digest: url:", url)
         response = requests.get(url, verify=False, auth=HTTPDigestAuth(username, password))
         if response.status_code != 200:
             #print(response, response.text)
@@ -85,7 +86,6 @@ class TokenAuthClientMixin(object):
         auth_url = self.AuthURL
         url = "%s/%s?method=ldap" % (auth_url, "auth")        
         data = b"%s:%s" % (to_bytes(username), to_bytes(password))
-        print("HTTPClient.post_json: url:", url)
         #print("HTTPClient.post_json: headers:", headers)
         response = requests.post(url, verify=False, data = data)
         if response.status_code != 200:
