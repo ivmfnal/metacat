@@ -53,7 +53,7 @@ class TokenAuthClientMixin(object):
         from requests.auth import HTTPDigestAuth
         auth_url = self.AuthURL
         url = "%s/%s?method=digest" % (auth_url, "auth")
-        print("login_digest: url:", url)
+        #print("login_digest: url:", url)
         response = requests.get(url, verify=False, auth=HTTPDigestAuth(username, password))
         if response.status_code != 200:
             #print(response, response.text)
