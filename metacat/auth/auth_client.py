@@ -15,6 +15,7 @@ class TokenAuthClientMixin(object):
     def __init__(self, service_url, token=None, token_file=None, auth_url=None):
         self.ServiceURL = service_url
         self.AuthURL = auth_url or service_url + "/auth"
+        print("TokenAuthClientMixin: AuthURL:", self.AuthURL)
         self.TokenLib = TokenLib()
         if isinstance(token, (str, bytes)):
             token = SignedToken.decode(token)
@@ -84,7 +85,7 @@ class TokenAuthClientMixin(object):
         auth_url = self.AuthURL
         url = "%s/%s?method=ldap" % (auth_url, "auth")        
         data = b"%s:%s" % (to_bytes(username), to_bytes(password))
-        #print("HTTPClient.post_json: url:", url)
+        print("HTTPClient.post_json: url:", url)
         #print("HTTPClient.post_json: headers:", headers)
         response = requests.post(url, verify=False, data = data)
         if response.status_code != 200:

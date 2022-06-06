@@ -21,7 +21,6 @@ class AuthHandler(BaseHandler):
         # give them cookie with the signed token
         
         ok, data = digest_server(self.App.Realm, request_env, self.App.get_digest_password)
-        #print("_auth_digest: ok, data:", ok, data)
         if ok:
             #print("AuthHandler.auth: digest_server ok")
             resp = self.App.response_with_auth_cookie(data, redirect)

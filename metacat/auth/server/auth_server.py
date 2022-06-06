@@ -48,7 +48,7 @@ if __name__ == "__main__":
         
     application = create_application(config_file)
     
-    server = HTTPServer(port, application, certfile=cert, keyfile=key, verify="optional", ca_file=ca_file, debug=sys.stdout, logging=True)
+    server = HTTPServer(port, application, certfile=cert, keyfile=key, verify="optional", ca_file=ca_file)
     server.run()
 else:
     application = create_application()
