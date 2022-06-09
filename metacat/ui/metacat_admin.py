@@ -1,5 +1,4 @@
 import sys, getopt
-from metacat.db import DBUser
 from metacat.auth import password_digest_hash
 from metacat.ui.cli import CLI, CLICommand
 
@@ -38,6 +37,7 @@ class ListCommand(CLICommand):
     Usage = """                                     -- list admins"""
 
     def __call__(self, command, config, opts, args):
+        from metacat.db import DBUser
         db = connect(config)
         users = DBUser.list(db)
         for u in users:
@@ -50,6 +50,7 @@ class CreateCommand(CLICommand):
     Usage = """<username> <password>                -- create new admin account"""
 
     def __call__(self, command, config, opts, args):
+        from metacat.db import DBUser
         db = connect(config)
         username, password = args
         u = DBUser.get(db, username)
@@ -74,6 +75,7 @@ class PasswordCommand(CLICommand):
     Opts = "r:"
     
     def __call__(self, command, config, opts, args):
+        from metacat.db import DBUser
         db = connect(config)
         realm = opts.get("-r", config.get("authentication", {}).get("realm"))
         if not realm:
@@ -96,6 +98,7 @@ class AddCommand(CLICommand):
     Usage = """<username>                           -- add admin privileges to an existing account"""
 
     def __call__(self, command, config, opts, args):
+        from metacat.db import DBUser
         username = args[0]
         db = connect(config)
         u = DBUser.get(db, username)
@@ -112,6 +115,7 @@ class RemoveCommand(CLICommand):
     Usage = """<username>                           -- remove admin privileges from an account"""
     
     def __call__(self, command, config, opts, args):
+        from metacat.db import DBUser
         username = args[0]
         db = connect(config)
         u = DBUser.get(db, username)
@@ -132,6 +136,7 @@ class GenerateCommand(CLICommand):
     
     
     def __call__(self, command, config, opts, args):
+        from metacat.db import DBUser
         import secrets
         length = int(opts.get("-l", 32))
         if "-x" in opts:
