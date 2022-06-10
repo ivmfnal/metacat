@@ -79,8 +79,15 @@ class X509Authenticator(Authenticator):
     
     def authenticate(self, username, request_env):
         known_dns = self.Info or []
+        #log = open("/tmp/x509.log", "w")
+        #print("known_dns:", known_dns, file=log)
         subject = request_env.get("SSL_CLIENT_S_DN")
         issuer = request_env.get("SSL_CLIENT_I_DN")
+        #print("subject:", subject, file=log)
+        #print("issuer:", issuer, file=log)
+        #print("subject in known_dns:", subject in known_dns, file=log)
+        #print("issuer in known_dns:", issuer in known_dns, file=log)
+        #print("issuer in subject:", issuer in subject, file=log)
         return (
             subject in known_dns or                     # cert
             issuer in known_dns and issuer in subject   # proxy
@@ -96,3 +103,4 @@ def authenticator(method, config, user_info):
     else:
         raise ValueError(f"Unknown autenticator type {method}")
     return a
+    

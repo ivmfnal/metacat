@@ -15,7 +15,7 @@ class TokenAuthClientMixin(object):
     def __init__(self, service_url, token=None, token_file=None, auth_url=None):
         self.ServiceURL = service_url
         self.AuthURL = auth_url or service_url + "/auth"
-        print("TokenAuthClientMixin: AuthURL:", self.AuthURL)
+        #print("TokenAuthClientMixin: AuthURL:", self.AuthURL)
         self.TokenLib = TokenLib()
         if isinstance(token, (str, bytes)):
             token = SignedToken.decode(token)
