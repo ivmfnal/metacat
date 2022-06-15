@@ -38,7 +38,7 @@ else
 fi
 
 if [ "$interactive" == "yes" ]; then
-	$docker run -ti --rm -v $mount -p ${ports} --entrypoint /bin/bash auth_server 
+	$docker run -ti --rm -v $mount -p ${ports} --name auth_server --entrypoint /bin/bash auth_server 
 else
-	$docker run -d  --rm -v $mount -p ${ports}                        auth_server
+	$docker run -d  --rm -v $mount -p ${ports} --name auth_server                        auth_server
 fi
