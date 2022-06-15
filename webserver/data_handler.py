@@ -249,7 +249,8 @@ class DataHandler(MetaCatHandler):
         db = self.App.connect()
         parent_ns = DBNamespace.get(db, parent_namespace)
         child_ns = DBNamespace.get(db, child_namespace)
-        if not user.is_admin() and (not parent_ns.owned_by_user(user) or not child_ns.owned_by_user(user)):
+        if not user.is_admin() and (not parent_ns.owned_by_user(user):      # allow adding unowned datasets as subsets 
+                                                                            # was: or not child_ns.owned_by_user(user)):
             return 403
         parent_ds = DBDataset.get(db, parent_namespace, parent_name)
         if parent_ds is None:
