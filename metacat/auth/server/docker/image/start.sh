@@ -5,9 +5,7 @@ cp -R /config .
 chmod -R go+rx ./config
 
 export AUTH_SERVER_CFG=/tmp/auth_server/config/config.yaml
-httpd
+export OPENSSL_ALLOW_PROXY_CERTS=1
+httpd -D FOREGROUND
 
-while true; do
-	sleep 1
-done
 
