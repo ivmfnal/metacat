@@ -76,10 +76,16 @@ class LDAPAuthenticator(Authenticator):
         return self.Info is not None or "dn_template" in self.Config
         
 class DN(object):
-    
+
     def __init__(self, inp):
+        self.Text = inp
         self.Fields = self.parse(inp)
-    
+
+    def __str__(self):
+        return f"DN({self.Text})"
+
+    __repr__ = __str__
+
     @staticmethod
     def parse(text):
         fields = {}
@@ -89,12 +95,12 @@ class DN(object):
                 name, value = part.split('=', 1)
                 fields.setdefault(name, []).append(value)
         return {name: sorted(lst) for name, lst in fields.items()}
-        
+
     def __eq__(self, other):
         return self.Fields == other.Fields
 
     def __ge__(self, other):
-        for name, lst in self.Fields:
+        for name, lst in self.Fields.items():
             lst1 = other.Fields.get(name, [])
             if any(v not in lst for v in lst1):
                 return False
