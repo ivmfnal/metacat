@@ -118,7 +118,7 @@ class X509Authenticator(Authenticator):
             return False
 
         subject = DN(subject)
-        issuer = DN(subject)
+        issuer = DN(issuer)
         known_dns = [DN(dn) for dn in known_dns]
 
         #print("subject:", subject, file=log)
