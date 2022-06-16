@@ -121,9 +121,9 @@ class X509Authenticator(Authenticator):
         if not subject or not issuer:
             return False
 
-        subject = DN(subject)
-        issuer = DN(subject)
-        known_dns = [DN(dn) for dn in known_dns]
+        subject = self.DN(subject)
+        issuer = self.DN(subject)
+        known_dns = [self.DN(dn) for dn in known_dns]
 
         #print("subject:", subject, file=log)
         #print("issuer:", issuer, file=log)
