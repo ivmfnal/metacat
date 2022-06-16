@@ -77,20 +77,62 @@ class LDAPAuthenticator(Authenticator):
         
 class X509Authenticator(Authenticator):
     
+    class DN(object):
+        
+        def __init__(self, inp):
+            if isinstance(inp, DN):
+                self.Fields = inp.Fields.copy()
+            elif isinstance(inp, str):
+                self.Fields = self.parse(inp)
+            else:
+                raise ValueError("Unknown input type for DN constructor: " + str(type(inp)))
+        
+        @staticmethod
+        def parse(text):
+            fields = {}
+            for part in text.split(','):
+                part = part.strip()
+                if part:
+                    name, value = part.split('=', 1)
+                    fields.setdefault(name, []).append(value)
+            return {name: sorted(lst) for name, lst in fields.items()}
+            
+        def __eq__(self, other):
+            return self.Fields == other.Fields
+
+        def __ge__(self, other):
+            for name, lst in self.Fields:
+                lst1 = other.Fields.get(name, [])
+                if any(v is not in lst for v in lst1):
+                    return False
+            else:
+                return True
+
+        def __le__(self, other):
+            return other >= self
+
+    
     def authenticate(self, username, request_env):
         known_dns = self.Info or []
         #log = open("/tmp/x509.log", "w")
         #print("known_dns:", known_dns, file=log)
         subject = request_env.get("SSL_CLIENT_S_DN")
         issuer = request_env.get("SSL_CLIENT_I_DN")
+        if not subject or not issuer:
+            return False
+
+        subject = DN(subject)
+        issuer = DN(subject)
+        known_dns = [DN(dn) for dn in known_dns]
+
         #print("subject:", subject, file=log)
         #print("issuer:", issuer, file=log)
         #print("subject in known_dns:", subject in known_dns, file=log)
         #print("issuer in known_dns:", issuer in known_dns, file=log)
         #print("issuer in subject:", issuer in subject, file=log)
         return (
-            subject in known_dns or                     # cert
-            issuer in known_dns and issuer in subject   # proxy
+            any(subject == dn for dn in known_dns) or                     # cert
+            any(issuer == dn for dn in known_dns) and issuer <= subject   # proxy
         ), None
         
     def enabled(self):
