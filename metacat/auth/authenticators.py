@@ -75,42 +75,37 @@ class LDAPAuthenticator(Authenticator):
     def enabled(self):
         return self.Info is not None or "dn_template" in self.Config
         
-class X509Authenticator(Authenticator):
+class DN(object):
     
-    class DN(object):
+    def __init__(self, inp):
+        self.Fields = self.parse(inp)
+    
+    @staticmethod
+    def parse(text):
+        fields = {}
+        for part in text.split(','):
+            part = part.strip()
+            if part:
+                name, value = part.split('=', 1)
+                fields.setdefault(name, []).append(value)
+        return {name: sorted(lst) for name, lst in fields.items()}
         
-        def __init__(self, inp):
-            if isinstance(inp, DN):
-                self.Fields = inp.Fields.copy()
-            elif isinstance(inp, str):
-                self.Fields = self.parse(inp)
-            else:
-                raise ValueError("Unknown input type for DN constructor: " + str(type(inp)))
-        
-        @staticmethod
-        def parse(text):
-            fields = {}
-            for part in text.split(','):
-                part = part.strip()
-                if part:
-                    name, value = part.split('=', 1)
-                    fields.setdefault(name, []).append(value)
-            return {name: sorted(lst) for name, lst in fields.items()}
-            
-        def __eq__(self, other):
-            return self.Fields == other.Fields
+    def __eq__(self, other):
+        return self.Fields == other.Fields
 
-        def __ge__(self, other):
-            for name, lst in self.Fields:
-                lst1 = other.Fields.get(name, [])
-                if any(v not in lst for v in lst1):
-                    return False
-            else:
-                return True
+    def __ge__(self, other):
+        for name, lst in self.Fields:
+            lst1 = other.Fields.get(name, [])
+            if any(v not in lst for v in lst1):
+                return False
+        else:
+            return True
 
-        def __le__(self, other):
-            return other >= self
+    def __le__(self, other):
+        return other >= self
 
+
+class X509Authenticator(Authenticator):
     
     def authenticate(self, username, request_env):
         known_dns = self.Info or []
@@ -118,12 +113,13 @@ class X509Authenticator(Authenticator):
         #print("known_dns:", known_dns, file=log)
         subject = request_env.get("SSL_CLIENT_S_DN")
         issuer = request_env.get("SSL_CLIENT_I_DN")
-        if not subject or not issuer:
+
+        if not subject or not issuer or not known_dns:
             return False
 
-        subject = self.DN(subject)
-        issuer = self.DN(subject)
-        known_dns = [self.DN(dn) for dn in known_dns]
+        subject = DN(subject)
+        issuer = DN(subject)
+        known_dns = [DN(dn) for dn in known_dns]
 
         #print("subject:", subject, file=log)
         #print("issuer:", issuer, file=log)
