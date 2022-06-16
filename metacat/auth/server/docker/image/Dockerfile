@@ -16,10 +16,6 @@ RUN yum install -y httpd httpd-devel mod_ssl \
     && yum clean all \
     && rm -rf /var/cache/yum
 
-RUN yum install -y gridsite \
-    && yum clean all \
-    && rm -rf /var/cache/yum
-
 #RUN conda update -n base -c defaults conda \
 #	&& conda clean --all
 
@@ -29,6 +25,11 @@ RUN yum install -y gridsite \
 #RUN conda install -y -c conda-forge psycopg2 \
 #    && yum clean all \
 #    && rm -rf /var/cache/yum
+
+#RUN yum install -y gridsite \
+#    && yum clean all \
+#    && rm -rf /var/cache/yum
+
 
 RUN source /opt/conda/etc/profile.d/conda.sh && \
     conda activate && \
@@ -46,7 +47,7 @@ WORKDIR /tmp/rwsi-wsdbtools
 RUN make HOME=/tmp
 
 WORKDIR /tmp
-RUN echo 1 >/dev/null
+RUN echo 2 >/dev/null
 RUN git clone https://github.com/ivmfnal/metacat.git 
 RUN cd metacat; git checkout main
 
@@ -56,10 +57,9 @@ RUN cp -R /tmp/metacat/metacat/auth/server .
 
 RUN ln -s /tmp/build/wsdbtools/wsdbtools /tmp/metacat/metacat .
 COPY auth_server.conf /etc/httpd/conf.d/
-COPY start.sh /tmp/auth_server/
+COPY start.sh env.py /tmp/auth_server/
 
-EXPOSE 8280
-EXPOSE 8243
+EXPOSE 8443
 
 WORKDIR /tmp/auth_server
 
