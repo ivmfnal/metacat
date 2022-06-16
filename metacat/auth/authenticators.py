@@ -103,7 +103,7 @@ class X509Authenticator(Authenticator):
         def __ge__(self, other):
             for name, lst in self.Fields:
                 lst1 = other.Fields.get(name, [])
-                if any(v is not in lst for v in lst1):
+                if any(v not in lst for v in lst1):
                     return False
             else:
                 return True
