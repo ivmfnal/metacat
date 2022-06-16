@@ -11,6 +11,6 @@ if [ -f /etc/httpd/conf.d/zgridsite.conf ]; then
 fi
 
 export AUTH_SERVER_CFG=`pwd`/config/config.yaml
-#export OPENSSL_ALLOW_PROXY_CERTS=1
+export OPENSSL_ALLOW_PROXY_CERTS=1
 httpd -D FOREGROUND
 
