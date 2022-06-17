@@ -10,10 +10,7 @@ def read_file_list(opts):
         field = "name"
         source = opts.get("-n") or opts.get("--names")
     else:
-        print("File list must be specified either with --names or --ids")
-        print()
-        print(Usage)
-        sys.exit(2)
+        raise InvalidArguments("File list must be specified either with --names or --ids")
         
     if source == "-":
         lst = (x.strip() for x in sys.stdin.readlines())
@@ -142,14 +139,10 @@ class ShowCommand(CLICommand):
     """
 
     def __call__(self, command, client, opts, args):
-        if (not args) == ("-i" not in opts):
-            if not "-i" in opts:
-                print(Usage)
-                sys.exit(2)
-        else:
-            if "-i" in opts:
-                print(Usage)
-                sys.exit(2)
+        if not args and "-i" not in opts:
+            raise InvalidArguments("Either -i <file id> or <namespace:name> must be specified")
+        elif not args and "-i" in opts:
+            raise InvalidArguments("Either -i <file id> or <namespace:name> must be specified")
             
 
         #print("opts:", opts,"    args:", args)
@@ -161,14 +154,14 @@ class ShowCommand(CLICommand):
         ids_only = "--ids-only" in opts or "-I" in opts
         meta_only = "--meta-only" in opts or "-m" in opts
     
-        name = fid = None
+        did = fid = None
     
         if args:
-            name = args[0]
+            did = args[0]
         else:
             fid = opts["-i"]
 
-        data = client.get_file(name=name, fid=fid, with_provenance=True)
+        data = client.get_file(did=did, fid=fid, with_provenance=True)
         if provenance:
             ids = data["parents"] if provenance == "p" else data["children"]
             if ids:
