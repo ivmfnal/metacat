@@ -422,7 +422,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
             for k in f.get("metadata", {}).keys():
                 if '.' not in k:
-                    raise ValuError(f'Invalid metadata key "{k}" for {namespace}:{name} (#{i}): must contain dot (.)')
+                    raise ValueError(f'Invalid metadata key "{k}" for {namespace}:{name} (#{i}): must contain dot (.)')
 
             lst.append(f)
 
