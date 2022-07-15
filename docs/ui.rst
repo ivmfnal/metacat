@@ -43,14 +43,28 @@ General command looks like this:
     .. code-block:: shell
     
         $ export METACAT_SERVER_URL="http://server:port/path"
-        $ # optionally: export METACAT_AUTH_SERVER_URL="http://auth_server:port/auth_path"
-        $ metacat <command> [command options] [arguments ...]
+        $ export METACAT_AUTH_SERVER_URL="http://auth_server:port/auth_path"
+        $ metacat <command group> <command> [command options] [arguments ...]
         
-    
+
+Versions
+--------
+
+To quickly check the connectivity to the MetaCat server and see what software versions are used on the server
+and the client sides, use the ``version`` command:
+
+    .. code-block:: shell
+
+        $ metacat version
+        MetaCat Server URL:         https://metacat.fnal.gov:9443/dune_meta_demo/app
+        Authentication server URL:  https://metacat.fnal.gov:8143/auth/dune
+        Server version:             3.9.1
+        Client version:             3.9.1
+
 User Authentication
 -------------------
 
-Main purpose of authentication commands is to obtain an authentication token and store it in
+Main purpose of MetaCat authentication commands is to obtain an authentication token and store it in
 the MetaCat *token library* located at ~/.metacat_tokens. The library may contain multiple
 tokens, one per MetaCat server instance the user communicates with. The instances are identified
 by their URL.
@@ -110,12 +124,13 @@ Export token to a file or to stdout
     
     metacat auth token [-o <token file>]
 	
-Verify a token
+On successful authentication, the following command will show your username and the token expiration:
 
 .. code-block:: shell
     
-    metacat auth whoami [-t <token file>]
-	
+    $ metacat auth whoami [-t <token file>]
+    User:    jdoe
+    Expires: Fri Jul 20 12:35:10 2022
 
 
 Namespaces
