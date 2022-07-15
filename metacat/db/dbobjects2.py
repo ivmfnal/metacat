@@ -1150,7 +1150,7 @@ class DBDataset(DBObject):
     def remove_child(self, child):
         _DatasetParentToChild(self.DB, self).remove(child.Namespace, child.Name)
     
-    def add_file(self, f, do_commit = True):
+    def __add_file(self, f, do_commit = True, validate_meta=True):
         assert isinstance(f, DBFile)
         c = self.DB.cursor()
         c.execute("""
@@ -1160,44 +1160,35 @@ class DBDataset(DBObject):
         if do_commit:   c.execute("commit")
         return self
         
+    def add_file(self, f, **args):
+        return self.add_files([f], **args)
+        
     def add_files(self, files, do_commit=True, validate_meta=True):
-        c = self.DB.cursor()
-        c.execute("begin")
-        
-        existing = set(f.FID for f in self.list_files(with_metadata=False))
-
-        csv = []
-        null = r"\N"
-
-        to_add = set(f.FID for f in files) - existing
-        
+        if isinstance(files, DBFile):
+            files = [files]
+        files = list(files)     # in case it was a generator
         if validate_meta:
             meta_errors = []
             for f in files:
-                if f.FID in to_add:
-                    errors = self.validate_file_metadata(f.Metadata)
-                    if errors:
-                        meta_errors += errors
+                assert isinstance(f, DBFile)
+                errors = self.validate_file_metadata(f.Metadata)
+                if errors:
+                    meta_errors += errors
             if meta_errors:
                 raise MetaValidationError("File metadata validation errors", meta_errors)
-        
-        for fid in to_add:
-            csv.append("%s\t%s\t%s" % (
-                fid, self.Namespace, self.Name
-            ))
-        csv = io.StringIO("\n".join(csv))
-        
-
+        c = self.DB.cursor()
+        c.execute("begin")
         try:
-            #open("/tmp/files.csv", "w").write(files_data)
-            if to_add:
-                c.copy_from(csv, "files_datasets", 
-                        columns = ["file_id", "dataset_namespace", "dataset_name"])
-            if do_commit:   c.execute("commit")
+            c.executemany("""
+                insert into files_datasets(file_id, dataset_namespace, dataset_name) values(%s, %s, %s)
+                    on conflict do nothing""",
+                [(f.FID, self.Namespace, self.Name) for f in files])
+            c.execute("commit")
         except Exception as e:
-            print(traceback.format_exc())
+            #print(traceback.format_exc())
             c.execute("rollback")
             raise
+        return self
 
     def list_files(self, with_metadata=False, limit=None):
         meta = "null as metadata" if not with_metadata else "f.metadata"
