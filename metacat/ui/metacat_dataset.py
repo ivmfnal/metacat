@@ -37,10 +37,35 @@ Usage:
             -m|--metadata '<JSON expression>' 
 """
 
+class ListDatasetFilesCommand(CLICommand):
+    
+    Opts = "mj with-metadata"
+    Usage = """[<options>] <dataset namespace>:<dataset name>           -- list dataset files
+        -m|--with-metadata      - include file metadata
+        -j                      - as JSON
+    """
+    MinArgs = 1
+    
+    def __call__(self, command, client, opts, args):
+        dataset_did = args[0]
+        with_meta = "-m" in opts or "--with-metadata" in opts
+        files = client.get_dataset_files(dataset_did, with_metadata = with_meta)
+        if "-j" in opts:
+            first = True
+            print("[")
+            for f in files:
+                if not first:   print(",")
+                print(json.dumps(f, indent=2, sort_keys=True), end="")
+                first = False
+            print("\n]")
+        else:
+            for f in files:
+                print(f"%s:%s" % (f["namespace"], f["name"]))
+
 class ListDatasetsCommand(CLICommand):
     
     Opts = ("lc", ["--long", "--file-counts"])
-    Usage = """ [<options>] [[<namespace pattern>:]<name pattern>]
+    Usage = """ [<options>] [[<namespace pattern>:]<name pattern>]      -- list datasets
             -l|--long           - detailed output
             -c|--file-counts    - include file counts if detailed output
             """
@@ -104,7 +129,7 @@ class ListDatasetsCommand(CLICommand):
 class ShowDatasetCommand(CLICommand):
     
     Opts = ("pj", ["pprint=","json"])
-    Usage = """[<options>] <namespace>:<name>
+    Usage = """[<options>] <namespace>:<name>                           -- print dataset info
             -j|--json       - print as JSON
             -p|--pprint     - Python pprint
     """
@@ -156,7 +181,7 @@ def load_metadata(opts):
 class CreateDatasetCommand(CLICommand):
 
     Opts = ("MFm:", ["monotonic", "frozen", "metadata="])
-    Usage = """[<options>] <namespace>:<name> [<description>]
+    Usage = """[<options>] <namespace>:<name> [<description>]           -- create dataset
         -M|--monotonic
         -F|--frozen
         -m|--metadata '<JSON expression>'
@@ -179,7 +204,7 @@ class CreateDatasetCommand(CLICommand):
 class UpdateDatasetCommand(CLICommand):
 
     Opts = ("MFm:r", ["replace", "monotonic", "frozen", "metadata="])
-    Usage = """<options> <namespace>:<name> [<description>]
+    Usage = """<options> <namespace>:<name> [<description>]             -- modify dataset info
             -M|--monotonic (yes|no) - set/reset monotonic flag
             -F|--frozen (yes|no)    - set/reset monotonic flag
             -r|--replace            - replace metadata, otherwise update
@@ -221,6 +246,7 @@ class UpdateDatasetCommand(CLICommand):
 DatasetCLI = CLI(
     "create",       CreateDatasetCommand(),
     "show",         ShowDatasetCommand(),
+    "files",        ListDatasetFilesCommand(),
     "list",         ListDatasetsCommand(),
     "add",          AddSubsetCommand(),
     "update",       UpdateDatasetCommand()

@@ -1,5 +1,6 @@
 import hashlib
 from .py3 import to_str, to_bytes
+from .password_hash import password_digest_hash
 
 class Authenticator(object):
     
@@ -13,57 +14,38 @@ class Authenticator(object):
         raise NotImplementedError()
         # returns yes/no, info
 
-    def to_db(self, username, ext_info, **args):
-        # convert external representation of the auth info to DB, e.g. hash the password
-        return info
-        
     def enabled(self):
         return True
         
-class DigestAuthenticator(Authenticator):
-    
-    def __init__(self, config, db_info):
-        self.Domain = config["domain"]
-        self.GetPassword = config["get_password"]
-
-    def authenticate(self, username, request_env):
-        # username not used, comes from the request_env
-        return digest_server(self.Domain, request_env, self.GetPassword)
+    def update_auth_info(self, *params, **args):
+        raise NotImplementedError()
+        # returns updated info
 
 class PasswordAuthenticator(Authenticator):
     
-    HashAlgorithm = "sha1"
+    #
+    # passwords are stored as MD5("<username>:<realm>:<password>"), suitbale for RFC2617 digest authentication
+    #
     
-    @staticmethod
-    def hash(user, password, alg=None):
-        alg = alg or PasswordAuthenticator.HashAlgorithm
-        hashed = hashlib.new(alg)
-        hashed.update(to_bytes(user))
-        hashed.update(b":")
-        hashed.update(to_bytes(password))
-        return hashed.hexdigest()
-        
+    def __init__(self, realm, db_info):
+        self.DBInfo = (db_info or {}).copy()
+        self.Realm = realm
+        self.DBHashed = self.DBInfo.get(self.Realm)
+    
     def authenticate(self, username, password):
-        secret = self.Info          # password as stored in DB
-        if not secret:
-            return False
-        if secret.startswith("$") and ":" in secret:
-            alg, hashed_password = secret[1:].split(":", 1)
-            try: return hashed_password == self.hash(username, password, alg)
-            except: return False, None
-        else:
-            return secret == password, None   # not hashed
-        
-    def to_db(self, username, password, alg=None):
-        alg = alg or PasswordAuthenticator.HashAlgorithm
-        hashed = PasswordAuthenticator.hash(user, password, alg)
-        return f"${alg}:{hashed}"
-        
-    def password_for_digest(self):
-        return self.Info
+        # will accept both hashed and not hashed password
+        return password == self.DBHashed or self.password_hash(username, password) == self.DBHashed, None
 
+    def password_hash(self, username, password):
+        return password_digest_hash(self.Realm, username, password).hex().lower()
+        
     def enabled(self):
-        return self.Info is not None
+        return self.DBHashed is not None
+        
+    def update_auth_info(self, username, password, hashed=False):
+        hashed_password = password if hashed else self.password_hash(username, password)
+        self.DBInfo[self.Realm] = self.DBHashed = hashed_password
+        return self.DBInfo
 
 class LDAPAuthenticator(Authenticator):
     
@@ -90,26 +72,69 @@ class LDAPAuthenticator(Authenticator):
         #print("ldap:", result)
         return result, None
         
-    def to_db(self, username, enabled):
-        if enabled:
-            if config is None or not "dn_template" in config:
-                raise ValueError("dn_template is not configured")
-            return config["dn_template"] % (username,)
-        else:
-            return None
-
     def enabled(self):
         return self.Info is not None or "dn_template" in self.Config
         
+class DN(object):
+
+    def __init__(self, inp):
+        self.Text = inp
+        self.Fields = self.parse(inp)
+
+    def __str__(self):
+        return f"DN({self.Text})"
+
+    __repr__ = __str__
+
+    @staticmethod
+    def parse(text):
+        fields = {}
+        for part in text.split(','):
+            part = part.strip()
+            if part:
+                name, value = part.split('=', 1)
+                fields.setdefault(name, []).append(value)
+        return {name: sorted(lst) for name, lst in fields.items()}
+
+    def __eq__(self, other):
+        return self.Fields == other.Fields
+
+    def __ge__(self, other):
+        for name, lst in self.Fields.items():
+            lst1 = other.Fields.get(name, [])
+            if any(v not in lst for v in lst1):
+                return False
+        else:
+            return True
+
+    def __le__(self, other):
+        return other >= self
+
+
 class X509Authenticator(Authenticator):
     
     def authenticate(self, username, request_env):
         known_dns = self.Info or []
+        #log = open("/tmp/x509.log", "w")
+        #print("known_dns:", known_dns, file=log)
         subject = request_env.get("SSL_CLIENT_S_DN")
         issuer = request_env.get("SSL_CLIENT_I_DN")
+
+        if not subject or not issuer or not known_dns:
+            return False
+
+        subject = DN(subject)
+        issuer = DN(issuer)
+        known_dns = [DN(dn) for dn in known_dns]
+
+        #print("subject:", subject, file=log)
+        #print("issuer:", issuer, file=log)
+        #print("subject in known_dns:", subject in known_dns, file=log)
+        #print("issuer in known_dns:", issuer in known_dns, file=log)
+        #print("issuer in subject:", issuer in subject, file=log)
         return (
-            subject in known_dns or                     # cert
-            issuer in known_dns and issuer in subject   # proxy
+            any(subject == dn for dn in known_dns) or                     # cert
+            any(issuer == dn for dn in known_dns) and issuer <= subject   # proxy
         ), None
         
     def enabled(self):
@@ -122,3 +147,4 @@ def authenticator(method, config, user_info):
     else:
         raise ValueError(f"Unknown autenticator type {method}")
     return a
+    

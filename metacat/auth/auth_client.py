@@ -15,6 +15,7 @@ class TokenAuthClientMixin(object):
     def __init__(self, service_url, token=None, token_file=None, auth_url=None):
         self.ServiceURL = service_url
         self.AuthURL = auth_url or service_url + "/auth"
+        #print("TokenAuthClientMixin: AuthURL:", self.AuthURL)
         self.TokenLib = TokenLib()
         if isinstance(token, (str, bytes)):
             token = SignedToken.decode(token)
@@ -50,17 +51,17 @@ class TokenAuthClientMixin(object):
             
         """
         from requests.auth import HTTPDigestAuth
-        from metacat.auth.authenticators import PasswordAuthenticator
-        password_for_digest = PasswordAuthenticator.make_password_for_digest(username, password)
         auth_url = self.AuthURL
         url = "%s/%s?method=digest" % (auth_url, "auth")
-        response = requests.get(url, verify=False, auth=HTTPDigestAuth(username, password_for_digest))
+        #print("login_digest: url:", url)
+        response = requests.get(url, verify=False, auth=HTTPDigestAuth(username, password))
         if response.status_code != 200:
+            #print(response, response.text)
             raise AuthenticationError(response.text)
         #print(response)
         #print(response.headers)
         self.Token = token = SignedToken.decode(response.headers["X-Authentication-Token"])
-        print("token:", token.Payload)
+        #print("token:", token.Payload)
         if self.TokenLib is not None:
             self.TokenLib[self.ServerURL] = token
         return token.subject, token.expiration
@@ -85,7 +86,6 @@ class TokenAuthClientMixin(object):
         auth_url = self.AuthURL
         url = "%s/%s?method=ldap" % (auth_url, "auth")        
         data = b"%s:%s" % (to_bytes(username), to_bytes(password))
-        #print("HTTPClient.post_json: url:", url)
         #print("HTTPClient.post_json: headers:", headers)
         response = requests.post(url, verify=False, data = data)
         if response.status_code != 200:
@@ -116,11 +116,16 @@ class TokenAuthClientMixin(object):
         user = None
         try:
             user, exp = self.login_ldap(username, password)
-        except:
-            raise
-            pass
-        if not user:
+        except AuthenticationError:
+            #print("LDAP authentication failed, trying digest")
             user, exp = self.login_digest(username, password)
+        except Exception as e:
+            #print(e)
+            raise
+        else:
+            pass
+            #print("Digest authentication succeeded:", user, exp)
+        #print("logn_password:", user, exp)
         return user, exp
             
     def my_x509_dn(self, cert, key=None):

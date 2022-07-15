@@ -66,6 +66,19 @@ class DataHandler(MetaCatHandler):
     def json_chunks(self, lst, chunk=100000):
         return self.text_chunks(self.json_generator(lst), chunk)
         
+    
+    RS = '\x1E'
+    LF = '\n'    
+
+    def json_stream(self, iterable, chunk=10000):
+        # iterable is an iterable, returning jsonable items, one item at a time
+        return self.text_chunks(("%s%s%s" % (self.RS, json.dumps(item), self.LF) for item in iterable),
+                                chunk
+                                )
+
+    def realm(self, request, relpath, **args):
+        return self.App.Realm           # realm used for the digest password authentication
+
     def namespaces(self, request, relpath, **args):
         db = self.App.connect()
         if request.body:
@@ -90,10 +103,10 @@ class DataHandler(MetaCatHandler):
             return 401
         owner_user = None
         if owner_role is None:
-            owner_user = user.Name
+            owner_user = user.Username
         else:
             r = DBRole.get(db, owner_role)
-            if not user.is_admin() and not user.Name in r.members:
+            if not user.is_admin() and not user.Username in r.members:
                 return 403
 
         if DBNamespace.exists(db, name):
@@ -131,6 +144,16 @@ class DataHandler(MetaCatHandler):
                 dct["file_count"] = ds.nfiles
             out.append(dct)
         return json.dumps(out), "text/json"
+        
+    def dataset_files(self, request, relpath, dataset=None, with_metadata="no", **args):
+        with_metadata=with_metadata == "yes"
+        namespace, name = (dataset or relpath).split(":", 1)
+        db = self.App.connect()
+        dataset = DBDataset.get(db, namespace, name)
+        if dataset is None:
+            return 404, "Dataset not found"
+        files = dataset.list_files(with_metadata=with_metadata)
+        return self.json_stream((f.to_jsonable(with_metadata=with_metadata) for f in files)), "application/json-seq"
 
     def dataset(self, request, relpath, dataset=None, **args):
         db = self.App.connect()
@@ -226,7 +249,8 @@ class DataHandler(MetaCatHandler):
         db = self.App.connect()
         parent_ns = DBNamespace.get(db, parent_namespace)
         child_ns = DBNamespace.get(db, child_namespace)
-        if not user.is_admin() and (not parent_ns.owned_by_user(user) or not child_ns.owned_by_user(user)):
+        if not user.is_admin() and not parent_ns.owned_by_user(user):      # allow adding unowned datasets as subsets 
+                                                                            # was: or not child_ns.owned_by_user(user)):
             return 403
         parent_ds = DBDataset.get(db, parent_namespace, parent_name)
         if parent_ds is None:

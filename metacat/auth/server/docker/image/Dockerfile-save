@@ -16,6 +16,10 @@ RUN yum install -y httpd httpd-devel mod_ssl \
     && yum clean all \
     && rm -rf /var/cache/yum
 
+RUN yum install -y gridsite \
+    && yum clean all \
+    && rm -rf /var/cache/yum
+
 #RUN conda update -n base -c defaults conda \
 #	&& conda clean --all
 
@@ -26,11 +30,6 @@ RUN yum install -y httpd httpd-devel mod_ssl \
 #    && yum clean all \
 #    && rm -rf /var/cache/yum
 
-#RUN yum install -y gridsite \
-#    && yum clean all \
-#    && rm -rf /var/cache/yum
-
-
 RUN source /opt/conda/etc/profile.d/conda.sh && \
     conda activate && \
     pip install jinja2 webpie pyyaml pyjwt requests mod_wsgi \
@@ -39,7 +38,7 @@ RUN source /opt/conda/etc/profile.d/conda.sh && \
     && yum clean all \
     && rm -rf /var/cache/yum
 
-RUN rm -f /etc/localtime && ln -s /usr/share/zoneinfo/US/Central /etc/localtime 
+#RUN ln -s /metacat/metacat.conf /etc/httpd/conf.d/
 
 WORKDIR /tmp
 RUN git clone http://cdcvs.fnal.gov/projects/rwsi-wsdbtools
@@ -47,9 +46,9 @@ WORKDIR /tmp/rwsi-wsdbtools
 RUN make HOME=/tmp
 
 WORKDIR /tmp
-RUN echo 2 >/dev/null
+RUN ECHO 1
 RUN git clone https://github.com/ivmfnal/metacat.git 
-RUN cd metacat; git checkout main
+RUN cd metacat; git checkout dev
 
 RUN mkdir /tmp/auth_server 
 WORKDIR /tmp/auth_server
@@ -57,9 +56,10 @@ RUN cp -R /tmp/metacat/metacat/auth/server .
 
 RUN ln -s /tmp/build/wsdbtools/wsdbtools /tmp/metacat/metacat .
 COPY auth_server.conf /etc/httpd/conf.d/
-COPY start.sh env.py /tmp/auth_server/
+COPY start.sh /tmp/auth_server/
 
-EXPOSE 8443
+EXPOSE 8280
+EXPOSE 8243
 
 WORKDIR /tmp/auth_server
 

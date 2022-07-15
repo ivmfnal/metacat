@@ -3,7 +3,7 @@ from urllib.request import urlopen, Request
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
 from metacat.auth import SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, TokenLib
-from metacat.webapi import MetaCatClient, MCAuthenticationError
+from metacat.webapi import MetaCatClient, AuthenticationError
 import getpass
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
 
@@ -87,7 +87,7 @@ class WhoAmICommand(CLICommand):
             user, expiration = token.subject, token.expiration
         else:
             try:    user, expiration = client.auth_info()
-            except MCAuthenticationError as e:
+            except AuthenticationError as e:
                 print(e)
         if user:
             print ("User:   ", user)
@@ -125,25 +125,24 @@ class LoginCommand(CLICommand):
             -c|--cert <cert or proxy file> [-k|--key <private key file>]
             X509_USER_PROXY, X509_USER_CERT, X509_USER_KEY environment variables are supported.
     """
+    MinArgs = 1
 
     def __call__(self, command, client, opts, args):
-        opts, args = getopt.getopt(args, "m:c:k:d")
-        if not args:
-            print(Usage)
-            sys.exit(2)
-        opts = dict(opts)
+        username = args[0]
         mechanism = opts.get("-m", "password")
-        if mechanism == "password":
-            username = args[0]
-            password = getpass.getpass("Password:")
-            user, expiration = client.login_password(username, password)
-        elif mechanism == "x509":
-            cert, key = get_x509_cert_key(opts)
-            username = args[0]
-            user, expiration = client.login_x509(username, cert, key=key)
-        else:
-            print(f"Unknown authentication mechanism {mechanism}")
-            sys.exit(2)
+        try:
+            if mechanism == "password":
+                password = getpass.getpass("Password:")
+                user, expiration = client.login_password(username, password)
+            elif mechanism == "x509":
+                cert, key = get_x509_cert_key(opts)
+                user, expiration = client.login_x509(username, cert, key=key)
+            else:
+                print(f"Unknown authentication mechanism {mechanism}")
+                sys.exit(2)
+        except AuthenticationError:
+            print("Authentication failed")
+            sys.exit(1)
         print ("User:   ", user)
         print ("Expires:", time.ctime(expiration))
     

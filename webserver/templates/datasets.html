@@ -8,9 +8,13 @@
 <a href="./create_dataset">create</a>
 </p>
 
+<!-- {{authenticated}} -->
+
 <table class="data">
 	<tr>
 		<th>Dataset</th>
+        <th>Creator</th>
+        <th>Created</th>
 		<th>Frozen</th>
 		<th>Monotonic</th>
 		<th>Files</th>
@@ -23,6 +27,8 @@
 	{% for ds in datasets %}
 		<tr>
             <td><a href="./dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">{{ds.Namespace}}:{{ds.Name}}</a></td>
+            <td>{% if logged_in and ds.Creator %}<a href="./user?username={{ds.Creator}}">{{ds.Creator}}</a>{% endif %}</td>
+            <td>{% if ds.CreatedTimestamp %}{{ds.CreatedTimestamp|as_dt_local}}{% endif %}</td>
             <td>{{'frozen' if ds.Frozen}}</td>
             <td>{{'monotonic' if ds.Monotonic}}</td>
             <td id="count:{{ds.Namespace}}:{{ds.Name}}" class="right"></td>

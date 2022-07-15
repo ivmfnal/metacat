@@ -239,11 +239,11 @@ class DBParamCategory(DBObject):
             for name, value in meta.items():
                 if "." in name:
                     path, vname = name.rsplit(".", 1)
-                    category_paths.add(path)
                     category = categories[path]
-                    ok, error = category.validate_parameter(vname, value)
-                    if not ok:
-                        item_errors[name] = error
+                    if category is not None:
+                        ok, error = category.validate_parameter(vname, value)
+                        if not ok:
+                            item_errors[name] = error
             if item_errors:
                 errors.append((item, item_errors))
         return errors

@@ -1,6 +1,6 @@
 import requests, json, fnmatch, sys, os
 from metacat.util import to_str, to_bytes
-from metacat.auth import SignedToken, TokenLib
+from metacat.auth import SignedToken, TokenLib, AuthenticationError
 from urllib.parse import quote_plus, unquote_plus
 from metacat.auth import TokenAuthClientMixin
 
@@ -64,14 +64,6 @@ class InvalidMetadataError(WebAPIError):
                 msg.append("    %s: %s" % (error["name"], error["reason"]))
         return "\n".join(msg)
 
-class AuthenticationError(WebAPIError):
-    def __init__(self, message):
-        self.Message = message
-        
-    def __str__(self):
-        return f"Authentication error: {self.Message}"
-    
-
 class HTTPClient(object):
 
     def __init__(self, server_url, token):
@@ -96,6 +88,32 @@ class HTTPClient(object):
         text = self.get_text(uri_suffix)
         return json.loads(text)
         
+    def get_json_stream(self, uri_suffix):
+        url = "%s/%s" % (self.ServerURL, uri_suffix)
+        headers = {"Accept": "application/json-seq"}
+        if self.Token is not None:
+            headers["X-Authentication-Token"] = self.Token.encode()
+
+        with requests.get(url, headers=headers, stream=True) as response:
+            if response.status_code == INVALID_METADATA_ERROR_CODE:
+                raise InvalidMetadataError(url, response.status_code, response.text)
+            if response.status_code == 404:
+                raise NotFoundError(url, response.status_code, response.text)
+            elif response.status_code != 200:
+                raise WebAPIError(url, response.status_code, response.text)
+            
+            if response.headers.get("Content-Type") != "application/json-seq":
+                raise WebAPIError(url, 200, "Expected content type application/json-seq. Got %s instead." % (response.headers.get("Content-Type"),))
+
+            for line in response.iter_lines():
+                if line:    line = line.strip()
+                while line.startswith(b'\x1E'):
+                    line = line[1:]
+                if line:
+                    #print(f"stream line:[{line}]")
+                    obj = json.loads(line)
+                    yield obj
+
     def post_text(self, uri_suffix, data):
         #print("post_json: data:", type(data), data)
         if isinstance(data, (dict, list)):
@@ -203,11 +221,12 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                 continue
             yield item
     
-    def get_dataset(self, spec, namespace=None, name=None):
+    def get_dataset(self, did, namespace=None, name=None):
         """Gets single dataset
         
         Parameters
         ----------
+        did : str - "namespace:name"
         namespace : str
         name : str
         
@@ -223,6 +242,30 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             return self.get_json(f"data/dataset?dataset={spec}")
         except NotFoundError:
             return None
+            
+    def get_dataset_files(self, did, namespace=None, name=None, with_metadata=False):
+        """Gets single dataset
+        
+        Parameters
+        ----------
+        did : str - "namespace:name"
+        namespace : str
+        name : str
+        
+        Returns
+        -------
+        generator
+            generates sequence of dictionaries, one dictionary per file
+        """        
+        
+        if namespace is not None:
+            did = namespace + ':' + name
+        try:
+            with_metadata = "yes" if with_metadata else "no"
+            return self.get_json_stream(f"data/dataset_files?dataset={did}&with_metadata={with_metadata}")
+        except NotFoundError:
+            return None
+        
         
     def create_dataset(self, spec, frozen=False, monotonic=False, creator=None, metadata=None, metadata_requirements=None, description=""):
         """Creates new dataset. Requires client authentication.
@@ -308,16 +351,17 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         out = self.post_json(url, file_list)
         return out
 
-    def declare_files(self, dataset, file_list, namespace=None):
+    def declare_files(self, dataset, files, namespace=None):
         """Declare new files and add them to an existing dataset. Requires client authentication.
         
         Parameters
         ----------
         dataset : str
             "namespace:name"
-        file_list : list
-            List of dictionaries, one dictionary per file. Each dictionary must contain at least filename and
-            may contain other items (see Notes below)
+        files : list or dict
+            List of dictionaries, one dictionary per a file to be declared. See Notes below for the expected contents of each
+            dictionary.
+            For convenience, if declaring single file, the argument can be the single file dictionary instead of a list.
         namespace: str, optional
             Default namespace for files to be declared
         
@@ -329,39 +373,63 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         Notes
         -----
         
-            Each file to be added must be represented with a dictionary. The dictionary must contain at least filename.
-            It may also explicitly include file namespace, or the value of the ``namespace`` argument will be used.
+            Each file to be declared must be represented with a dictionary. The dictionary must contain elements:
+                one of:
+                    "did" - string in the format "<namespace>:<name>"
+                    "name" - file name and optionaly "namespace". If namespace is not present, the ``namespace`` argument will be used
+                             as the default namespace
         
             .. code-block:: python
         
-                [
-                    { 
-                        "namespace": "namespace",           # namespace can be specified for each file explicitly or implicitly using the namespace=... argument
-                        "name": "filename",                 # 
-                        "did": "namespace:filename",        # convenience for Rucio users
-                        "fid":  "...",                      # file id, optional. Will be auto-generated if unspecified.
-                                                            # if specified, must be unique for the instance
-                        "parents": ["fid","fid",...],       # list of parent file ids, optional
-                        "metadata": {...},                  # file metadata, optional, a dictionary with arbitrary JSON'able contents
-                        "size": ...,                        # integer number of bytes
-                        "checksums": {                      # checksums dictionary, optional
-                            "method": "value",...
-                        }
-                    },...
-                ]
+                { 
+                    "namespace": "namespace",           # optional, namespace can be specified for each file explicitly or implicitly using the namespace=... argument
+                    "name": "filename",                 # optional,
+                    "did": "namespace:filename",        # optional, convenience for Rucio users
+                                                        # either "did" or "name", "namespace" must be present
+                    "fid":  "...",                      # optional, file id. Will be auto-generated if unspecified.
+                                                        # if specified, must be unique for the instance
+                    "parents": ["fid","fid",...],       # optional, list of parent file ids
+                    "metadata": {...},                  # optional, file metadata, a dictionary with arbitrary JSON'able contents
+                    "size": ...,                        # optional, integer number of bytes
+                    "checksums": {                      # optional, checksums dictionary
+                        "method": "value",...
+                    }
+                },...
         """        
+        
+        default_namespace = namespace
+        if isinstance(files, dict):
+            files = [files]                     # convenience
 
-        for f in file_list:
+        lst = []
+
+        for i, item in enumerate(files):
+            f = item.copy()
             if "did" in f:
-                ns, n = parse_name(f["did"], namespace)
-                f["namespace"] = ns
-                f["name"] = n
-            f["namespace"] = f.get("namespace", namespace)
+                did = f.pop("did")
+                if "name" in f or "namespace" in f:
+                    raise ValueError(f"Both DID and namespace/name specified for {did}")
+                namespace, name = parse_name(did, default_namespace)
+            elif "name" in f:
+                name = f["name"]
+                namespace = f.get("namespace", default_namespace)
+                if not namespace:
+                    raise ValueError(f"Namespace not specified for {name}")
+            else:
+                raise ValueError(f"A file without a name or DID found at index {i}")
+            f["namespace"] = namespace
+            f["name"] = name
+
+            for k in f.get("metadata", {}).keys():
+                if '.' not in k:
+                    raise ValueError(f'Invalid metadata key "{k}" for {namespace}:{name} (#{i}): must contain dot (.)')
+
+            lst.append(f)
 
         url = f"data/declare_files?dataset={dataset}"
         if namespace:
             url += f"&namespace={namespace}"
-        out = self.post_json(url, file_list)
+        out = self.post_json(url, lst)
         return out
 
     def update_file_meta(self, metadata, names=None, fids=None, namespace=None, dids=None, mode="update"):

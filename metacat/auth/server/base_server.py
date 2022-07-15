@@ -28,6 +28,7 @@ class BaseApp(WPApp):
             self.UserDBSchema = self.DBSchema
 
         self.AuthConfig = cfg.get("authentication")
+        self.Realm = self.AuthConfig.get("realm", "metacat")           # realm used by the rfc2617 authentication
         self.Issuer = self.AuthConfig.get("issuer")
         secret = self.AuthConfig.get("secret") 
         if secret is None:    
@@ -66,8 +67,7 @@ class BaseApp(WPApp):
         u = BaseDBUser.get(db, username)
         if u is None:
             return None
-        hashed = u.authenticator("password").password_for_digest()
-        return hashed
+        return u.get_password(self.Realm)
 
     TokenExpiration = 24*3600*7
 
@@ -156,7 +156,7 @@ class BaseHandler(WPHandler):
     def connect(self):
         return self.App.connect()
 
-    def text_chunks(self, gen, chunk=100000):
+    def text_chunks(self, gen, chunk=10000):
         buf = []
         size = 0
         for x in gen:

@@ -3,11 +3,14 @@
 cd /tmp/auth_server
 cp -R /config .
 chmod -R go+rx ./config
+chmod -R go-rwx ./config/*.pem
 
-export AUTH_SERVER_CFG=/tmp/auth_server/config/config.yaml
-httpd
+cp config/auth_server.conf /etc/httpd/conf.d/
+if [ -f /etc/httpd/conf.d/zgridsite.conf ]; then
+	mv /etc/httpd/conf.d/zgridsite.conf /etc/httpd/conf.d/zgridsite.conf-hide
+fi
 
-while true; do
-	sleep 1
-done
+export AUTH_SERVER_CFG=`pwd`/config/config.yaml
+export OPENSSL_ALLOW_PROXY_CERTS=1
+httpd -D FOREGROUND
 

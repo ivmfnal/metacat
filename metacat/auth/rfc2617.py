@@ -1,11 +1,11 @@
-import re, hashlib, base64, time
+import re, hashlib, base64, time, secrets
 
 def digest_client(url, username, password):
     from requests.auth import HTTPDigestAuth
     response = requests.get(url, auth=HTTPDigestAuth(username, password))
     return response.status_code, response.content
 
-def digest_server(realm, env, get_password):
+def digest_server(realm, env, get_hashed_password):
     #
     # Server side authentication function
     # env is WSGI evironment
@@ -21,13 +21,14 @@ def digest_server(realm, env, get_password):
         return m.hexdigest()
 
     auth_header = env.get("HTTP_AUTHORIZATION","")
-    #print "auth_header:", auth_header
+    #print ("auth_header:", auth_header)
     matches = re.compile('Digest \s+ (.*)', re.I + re.X).match(auth_header)
     
     
     if not matches:
         # need "Authorization" header
-        nonce = base64.b64encode(str(int(time.time())).encode("utf-8"))
+        nonce = secrets.token_urlsafe()
+        #nonce = base64.b64encode(str(int(time.time())).encode("utf-8"))
         header = 'Digest realm="%s", nonce="%s", algorithm=MD5, qop="auth"' % (realm, nonce)
         return False, header        
     
@@ -43,14 +44,16 @@ def digest_server(realm, env, get_password):
             dict[ms.group(1)] = ms.group(3)
 
     user = dict['username']
-    cfg_password = get_password(realm, user)
-    if cfg_password == None:
+    saved_digest = get_hashed_password(realm, user)        # as hex
+    #print("saved digest:", saved_digest)
+    if saved_digest == None:
         # unknown user
         return False, None
 
-    a1 = md5sum('%s:%s:%s' % (user, realm, cfg_password))        
+
+    #a1 = md5sum('%s:%s:%s' % (user, realm, cfg_password))        
     a2 = md5sum('%s:%s' % (env['REQUEST_METHOD'], dict["uri"]))
-    myresp = md5sum('%s:%s:%s:%s:%s:%s' % (a1, dict['nonce'], dict['nc'], dict['cnonce'], dict['qop'], a2))
+    myresp = md5sum('%s:%s:%s:%s:%s:%s' % (saved_digest, dict['nonce'], dict['nc'], dict['cnonce'], dict['qop'], a2))
     if myresp == dict['response']:
         # success
         return True, user
