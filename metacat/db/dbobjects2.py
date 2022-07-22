@@ -567,8 +567,8 @@ class DBFile(object):
         
     @staticmethod
     def get(db, fid = None, namespace = None, name = None, with_metadata = False):
-        assert (namespace is None) == (name is None)
-        assert (fid is not None) != (namespace is not None or name is not None), "Either FID or namespace/name must be specified, but not both"
+        assert (namespace is None) == (name is None), "Both name and namespace must be specified or both omited"
+        assert (fid is None) != (name is None), "Either FID or namespace/name must be specified, but not both"
         c = db.cursor()
         fetch_meta = "metadata" if with_metadata else "null"
         attrs = DBFile.attr_columns()
