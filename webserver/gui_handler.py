@@ -213,7 +213,7 @@ class GUIHandler(MetaCatHandler):
         return {"GLOBAL_User":self.authenticated_user()}
         
     def index(self, request, relpath, **args):
-        return self.redirect("./datasets")
+        return self.redirect("./datasets", **self.messages(args))
         
     def mql(self, request, relpath, **args):
         namespace = request.POST.get("namespace") or self.App.DefaultNamespace
@@ -251,9 +251,18 @@ class GUIHandler(MetaCatHandler):
             query_text = query_text or "", parsed = parsed, assembled = assembled, optimized = optimized,
                     with_sql = with_sql)
 
-    def show_file(self, request, relpath, fid=None, **args):
+    def show_file(self, request, relpath, fid=None, did=None, namespace=None, name=None, **args):
         db = self.connect()
-        f = DBFile.get(db, fid=fid, with_metadata=True)
+        if fid is None and did is None and namespace is None and name is None:
+            self.redirect("./index?error=%s" % (quote_plus("invalid file specification"),))
+        if fid is not None:
+            f = DBFile.get(db, fid=fid, with_metadata=True)
+        elif did is not None:
+            if ':' not in did:
+                self.redirect("./index?error=%s" % (quote_plus("invalid DID format"),))
+            namespace, name = did.split(':', 1)
+        f = DBFile.get(db, namespace=namespace, name=name, with_metadata=True)
+        
         #print(f.__dict__)
         return self.render_to_response("show_file.html", f=f)
 

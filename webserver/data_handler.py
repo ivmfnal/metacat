@@ -499,7 +499,7 @@ class DataHandler(MetaCatHandler):
         #print("server:declare_files(): calling ds.add_files...")
         try:    
             ds.add_files(files, do_commit=True, validate_meta=False)
-            print("data_server.declare_files: added to dataset:", files)
+            #print("data_server.declare_files: added to dataset:", files)
 
         except MetaValidationError as e:
             return e.as_json(), METADATA_ERROR_CODE, "text/json"
