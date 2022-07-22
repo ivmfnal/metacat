@@ -251,17 +251,14 @@ class GUIHandler(MetaCatHandler):
             query_text = query_text or "", parsed = parsed, assembled = assembled, optimized = optimized,
                     with_sql = with_sql)
 
-    def show_file(self, request, relpath, fid=None, did=None, namespace=None, name=None, **args):
+    def show_file(self, request, relpath, fid=None, namespace=None, name=None, **args):
         db = self.connect()
-        if fid is None and did is None and namespace is None and name is None:
+        if fid is None and (namespace is None or name is None):
             self.redirect("./index?error=%s" % (quote_plus("invalid file specification"),))
         if fid is not None:
             f = DBFile.get(db, fid=fid, with_metadata=True)
-        elif did is not None:
-            if ':' not in did:
-                self.redirect("./index?error=%s" % (quote_plus("invalid DID format"),))
-            namespace, name = did.split(':', 1)
-        f = DBFile.get(db, namespace=namespace, name=name, with_metadata=True)
+        else:
+            f = DBFile.get(db, namespace=namespace, name=name, with_metadata=True)
         
         #print(f.__dict__)
         return self.render_to_response("show_file.html", f=f)
