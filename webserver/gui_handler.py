@@ -320,6 +320,7 @@ class GUIHandler(MetaCatHandler):
         message = None
         query_type = None
 
+        action = "show"     # just show the form
         if request.method == "GET" and run == "yes":
             action = "run"
         elif request.method == "POST":
