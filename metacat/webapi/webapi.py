@@ -1,4 +1,4 @@
-import requests, json, fnmatch, sys, os
+import requests, json, fnmatch, sys, os, random, time
 from metacat.util import to_str, to_bytes
 from metacat.auth import SignedToken, TokenLib, AuthenticationError
 from urllib.parse import quote_plus, unquote_plus
@@ -66,16 +66,45 @@ class InvalidMetadataError(WebAPIError):
 
 class HTTPClient(object):
 
-    def __init__(self, server_url, token):
+    InitialRetry = 1.0
+    RetryExponent = 1.5
+    DefaultTimeout = 300.0
+
+    def __init__(self, server_url, token, timeout):
         self.ServerURL = server_url
         self.Token = token
+        self.Timeout = timeout or self.DefaultTimeout
+        
+    def retry_request(self, method, url, timeout=None, **args):
+        """
+        Implements the functionality to retry on 503 response with random exponentially growing delay
+        """
+        if timeout is None:
+            timeout = self.DefaultTimeout
+        tend = time.time() + timeout
+        retry_interval = self.InitialRetry
+        response = None
+        while time.time() < tend:
+            if method == "get":
+                response = requests.get(url, timeout=self.Timeout, **args)
+            else:
+                response = requests.post(url, timeout=self.Timeout, **args)
+            #print("retry_request: response:", response)
+            if response.status_code != 503:
+                break
+            sleep_time = min(random.random() * retry_interval, tend-time.time())
+            retry_interval *= self.RetryExponent
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+        return response
 
     def get_text(self, uri_suffix):
         url = "%s/%s" % (self.ServerURL, uri_suffix)
         headers = {}
         if self.Token is not None:
             headers["X-Authentication-Token"] = self.Token.encode()
-        response = requests.get(url, headers =headers)
+        response = self.retry_request("get", url, headers=headers)
+        #print(response, response.text)
         if response.status_code == INVALID_METADATA_ERROR_CODE:
             raise InvalidMetadataError(url, response.status_code, response.text)
         if response.status_code == 404:
@@ -94,7 +123,7 @@ class HTTPClient(object):
         if self.Token is not None:
             headers["X-Authentication-Token"] = self.Token.encode()
 
-        with requests.get(url, headers=headers, stream=True) as response:
+        with self.retry_request("get", url, headers=headers, stream=True) as response:
             if response.status_code == INVALID_METADATA_ERROR_CODE:
                 raise InvalidMetadataError(url, response.status_code, response.text)
             if response.status_code == 404:
@@ -130,7 +159,7 @@ class HTTPClient(object):
         #print("HTTPClient.post_json: url:", url)
         #print("HTTPClient.post_json: data:", data)
         
-        response = requests.post(url, data = data, headers = headers)
+        response = self.retry_request("post", url, data = data, headers = headers)
         if response.status_code == INVALID_METADATA_ERROR_CODE:
             #print("raising InvalidMetadataError")
             raise InvalidMetadataError(url, response.status_code, response.text)
@@ -147,7 +176,7 @@ class HTTPClient(object):
 class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     
     def __init__(self, server_url=None, auth_server_url=None, max_concurrent_queries = 5,
-                token = None, token_file = None):    
+                token = None, token_file = None, timeout = None):    
 
         """Initializes the MetaCatClient object
 
@@ -163,6 +192,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             File path to read the authentication token from
         token : bytes or str or SignedToken
             Use this token for authentication, optional
+        timeout : int or float
+            Request timeout in seconds. Default: None - use default timeout, which is 300 seconds
         """
 
         self.TokenLib = self.Token = None
@@ -184,7 +215,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         if not server_url:
             raise RuntimeError("MetaCat server URL unspecified")
         
-        HTTPClient.__init__(self, server_url, token)
+        HTTPClient.__init__(self, server_url, token, timeout)
         self.AuthURL = auth_server_url or server_url + "/auth"
         self.MaxConcurrent = max_concurrent_queries
         self.QueryQueue = None
@@ -194,6 +225,14 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
              token = open(self.TokenFile, "rb").read()
              self.Token = SignedToken.decode(token)
         return self.Token
+        
+    def simulate_503(self):
+        return self.get_text("data/simulate_503")
+
+    def get_version(self):
+        """Returns server version as text
+        """
+        return self.get_text("data/version")
 
     def list_datasets(self, namespace_pattern=None, name_pattern=None, with_file_counts=False):
         """Gets the list of datasets with namespace/name matching the templates. The templates are
@@ -683,7 +722,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         return results
         
     def async_query(self, query, data=None, **args):
-        """Run file query asynchronously. Requires client authentication if save_as or add_to are used.
+        """Run the query asynchronously. Requires client authentication if save_as or add_to are used.
         
         Parameters
         ----------
@@ -692,7 +731,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         data : anything
             Arbitrary data associated with this query
         args : 
-            Same keyword arguments as for the run_query() method
+            Same keyword arguments as for the query() method
         
         Returns
         -------
@@ -713,7 +752,10 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         return self.QueryQueue.add_lambda(self.query, query, promise_data=data, **args)
 
     def wait_queries(self):
-        self.QueryQueue.waitUntilEmpty()
+        """Wait for all issued asynchronous queries to complete
+        """
+        if self.QueryQueue is not None:
+            self.QueryQueue.waitUntilEmpty()
     
     def create_namespace(self, name, owner_role=None, description=None):
         """Creates new namespace. Requires client authentication.

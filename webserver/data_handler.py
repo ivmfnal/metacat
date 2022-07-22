@@ -1,5 +1,5 @@
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
-import psycopg2, json, time, secrets, traceback, hashlib, pprint, uuid
+import psycopg2, json, time, secrets, traceback, hashlib, pprint, uuid, random
 from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, \
     DBParamCategory, parse_name, AlreadyExistsError, IntegrityError, MetaValidationError
 from wsdbtools import ConnectionPool
@@ -30,7 +30,7 @@ class DataHandler(MetaCatHandler):
         MetaCatHandler.__init__(self, request, app)
         self.Categories = None
         self.Datasets = {}            # {(ns,n)->DBDataset}
-
+        
     def load_categories(self):
         if self.Categories is None:
             db = self.App.connect()
@@ -78,6 +78,17 @@ class DataHandler(MetaCatHandler):
 
     def realm(self, request, relpath, **args):
         return self.App.Realm           # realm used for the digest password authentication
+
+    def version(self, request, relpath, **args):
+        return Version, "text/plain"
+        
+    def simulate_503(self, request, relpath, prob=0.5, **args):
+        prob = float(prob)
+        if prob > random.random():
+            return 503, "try later"
+        else:
+            return "OK"
+        
 
     def namespaces(self, request, relpath, **args):
         db = self.App.connect()
