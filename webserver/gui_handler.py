@@ -284,7 +284,7 @@ class GUIHandler(MetaCatHandler):
             out.append((name, sorted(clist, key=lambda vc: (-vc[1], vc[0]))))
         return sorted(out)
     
-    def query(self, request, relpath, query=None, namespace=None, run="no", **args):
+    def query(self, request, relpath, query=None, namespace=None, run="no", with_meta="yes", **args):
         
         db = self.App.connect()
         user = self.authenticated_user()
@@ -319,15 +319,16 @@ class GUIHandler(MetaCatHandler):
         error = None
         message = None
         query_type = None
-
+        with_meta = False
         action = "show"     # just show the form
+        
         if request.method == "GET" and run == "yes":
             action = "run"
+            with_meta = with_meta == "yes"
         elif request.method == "POST":
             action = request.POST["action"]
-            
-        if action == "run":
             with_meta = request.POST.get("with_meta", "off") == "on"
+        if action == "run":
             t0 = time.time()
             if query_text:
                 url_query = query_text.replace("\n"," ")
