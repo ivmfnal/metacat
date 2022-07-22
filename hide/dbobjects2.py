@@ -567,8 +567,9 @@ class DBFile(object):
         
     @staticmethod
     def get(db, fid = None, namespace = None, name = None, with_metadata = False):
+        
+        assert (fid is not None) != (namespace is not None or name is not None), "Can not specify both FID and namespace.name"
         assert (namespace is None) == (name is None)
-        assert (fid is not None) != (namespace is not None or name is not None), "Either FID or namespace/name must be specified, but not both"
         c = db.cursor()
         fetch_meta = "metadata" if with_metadata else "null"
         attrs = DBFile.attr_columns()
@@ -1597,7 +1598,7 @@ class DBUser(BaseDBUser):
     def from_base_user(bu):
         if bu is None:  return None
         u = DBUser(bu.DB, bu.Username, bu.Name, bu.EMail, bu.Flags)
-        u.AuthInfo = (bu.AuthInfo or {}).copy()
+        u.AuthInfo = bu.AuthInfo.copy()
         u.RoleNames = bu.RoleNames
         if isinstance(u.RoleNames, list):
             u.RoleNames = u.RoleNames[:]
