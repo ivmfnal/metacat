@@ -319,7 +319,6 @@ class GUIHandler(MetaCatHandler):
         error = None
         message = None
         query_type = None
-        with_meta = False
         action = "show"     # just show the form
         
         if request.method == "GET" and run == "yes":
