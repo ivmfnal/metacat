@@ -309,7 +309,6 @@ class GUIHandler(MetaCatHandler):
         datasets = None
         runtime = None
         meta_stats = None
-        with_meta = True
         
         view_meta_as =  request.POST.get("view_meta_as","table")
         
