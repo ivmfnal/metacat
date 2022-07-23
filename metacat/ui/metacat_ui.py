@@ -1,7 +1,7 @@
 from metacat.webapi import MCWebAPIError, MetaCatClient
 from metacat import Version
 import sys, getopt, os
-from .cli import CLI
+from .cli import CLI, CLICommand
 
 from .metacat_file import FileCLI
 from .metacat_dataset import DatasetCLI
@@ -56,6 +56,24 @@ class MetaCatCLI(CLI):
             context = MetaCatClient(server_url, auth_server_url)       # return the client as context
         return context
 
+class VersionCommand(CLICommand):
+    
+    Usage = "print server and client versions"
+    
+    def __call__(self, command, client, opts, args):
+        print("MetaCat Server URL:        ", client.ServerURL)
+        print("Authentication server URL: ", client.AuthURL)
+        print("Server version:            ", client.get_version())
+        print("Client version:            ", Version)
+        
+class Simulate503Command(CLICommand):
+    
+    Usage = ""
+    Hidden = True
+    
+    def __call__(self, command, client, opts, args):
+        print(client.simulate_503())
+
 Commands = ["admin","auth","dataset","query","namespace","file"]
 
 def main():
@@ -67,6 +85,8 @@ def main():
         "namespace", NamespaceCLI,
         "file", FileCLI,
         "query", QueryInterpreter,
+        "version", VersionCommand(),
+        "503", Simulate503Command()
     )
     cli.run(sys.argv, argv0="metacat")
 

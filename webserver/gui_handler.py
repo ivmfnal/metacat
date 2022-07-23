@@ -213,7 +213,7 @@ class GUIHandler(MetaCatHandler):
         return {"GLOBAL_User":self.authenticated_user()}
         
     def index(self, request, relpath, **args):
-        return self.redirect("./datasets")
+        return self.redirect("./datasets", **self.messages(args))
         
     def mql(self, request, relpath, **args):
         namespace = request.POST.get("namespace") or self.App.DefaultNamespace
@@ -251,9 +251,15 @@ class GUIHandler(MetaCatHandler):
             query_text = query_text or "", parsed = parsed, assembled = assembled, optimized = optimized,
                     with_sql = with_sql)
 
-    def show_file(self, request, relpath, fid=None, **args):
+    def show_file(self, request, relpath, fid=None, namespace=None, name=None, **args):
         db = self.connect()
-        f = DBFile.get(db, fid=fid, with_metadata=True)
+        if fid is None and (namespace is None or name is None):
+            self.redirect("./index?error=%s" % (quote_plus("invalid file specification"),))
+        if fid is not None:
+            f = DBFile.get(db, fid=fid, with_metadata=True)
+        else:
+            f = DBFile.get(db, namespace=namespace, name=name, with_metadata=True)
+        
         #print(f.__dict__)
         return self.render_to_response("show_file.html", f=f)
 
@@ -278,7 +284,7 @@ class GUIHandler(MetaCatHandler):
             out.append((name, sorted(clist, key=lambda vc: (-vc[1], vc[0]))))
         return sorted(out)
     
-    def query(self, request, relpath, query=None, namespace=None, **args):
+    def query(self, request, relpath, query=None, namespace=None, run="no", with_meta="yes", **args):
         
         db = self.App.connect()
         user = self.authenticated_user()
@@ -303,7 +309,6 @@ class GUIHandler(MetaCatHandler):
         datasets = None
         runtime = None
         meta_stats = None
-        with_meta = True
         
         view_meta_as =  request.POST.get("view_meta_as","table")
         
@@ -313,46 +318,52 @@ class GUIHandler(MetaCatHandler):
         error = None
         message = None
         query_type = None
-        if request.method == "POST":
-                if request.POST["action"] == "run":
-                        with_meta = request.POST.get("with_meta", "off") == "on"
-                        t0 = time.time()
-                        if query_text:
-                            url_query = query_text.replace("\n"," ")
-                            while "  " in url_query:
-                                url_query = url_query.replace("  ", " ")
-                            url_query = quote_plus(url_query)
-                            if namespace: url_query += "&namespace=%s" % (namespace,)
-                            #print("with_meta=", with_meta)
-                            parsed = MQLQuery.parse(query_text)
-                            query_type = parsed.Type
-                            #print("Server.query: with_meta:", with_meta)
-                            results = parsed.run(db, filters=self.App.filters(), 
-                                    default_namespace=namespace or None,
-                                    limit=1000 if not save_as_dataset else None, 
-                                    with_meta=with_meta)
-                        else:
-                            results = None
-                            url_query = None
-                        results = None if results is None else list(results)
-                        if query_type=="dataset":
-                            datasets = results
-                        else:
-                            files = results
-                            
-                        meta_stats = None if (not with_meta or parsed.Type=="dataset") else self._meta_stats(files)
-                        #print("meta_stats:", meta_stats, "    with_meta:", with_meta, request.POST.get("with_meta"))
-                            
-                        #print("query: results:", len(files))
-                        runtime = time.time() - t0
-                elif request.POST["action"] == "load":
-                        namespace, name = request.POST["query_to_load"].split(":",1)
-                        query_text = DBNamedQuery.get(db, namespace, name).Source
-                elif request.POST["action"] == "save" and query_text:
-                    name = request.POST["save_name"]
-                    namespace = request.POST["save_namespace"]
-                    saved = DBNamedQuery(db, name=name, namespace=namespace, source=query_text).save()
-                    message = "Query saved as %s:%s" % (namespace, name)
+        action = "show"     # just show the form
+        
+        if request.method == "GET" and run == "yes":
+            action = "run"
+            with_meta = with_meta == "yes"
+        elif request.method == "POST":
+            action = request.POST["action"]
+            with_meta = request.POST.get("with_meta", "off") == "on"
+        if action == "run":
+            t0 = time.time()
+            if query_text:
+                url_query = query_text.replace("\n"," ")
+                while "  " in url_query:
+                    url_query = url_query.replace("  ", " ")
+                url_query = quote_plus(url_query)
+                if namespace: url_query += "&namespace=%s" % (namespace,)
+                #print("with_meta=", with_meta)
+                parsed = MQLQuery.parse(query_text)
+                query_type = parsed.Type
+                #print("Server.query: with_meta:", with_meta)
+                results = parsed.run(db, filters=self.App.filters(), 
+                        default_namespace=namespace or None,
+                        limit=1000 if not save_as_dataset else None, 
+                        with_meta=with_meta)
+            else:
+                results = None
+                url_query = None
+            results = None if results is None else list(results)
+            if query_type=="dataset":
+                datasets = results
+            else:
+                files = results
+                
+            meta_stats = None if (not with_meta or parsed.Type=="dataset") else self._meta_stats(files)
+            #print("meta_stats:", meta_stats, "    with_meta:", with_meta, request.POST.get("with_meta"))
+                
+            #print("query: results:", len(files))
+            runtime = time.time() - t0
+        elif action == "load":
+            namespace, name = request.POST["query_to_load"].split(":",1)
+            query_text = DBNamedQuery.get(db, namespace, name).Source
+        elif action == "save" and query_text:
+            name = request.POST["save_name"]
+            namespace = request.POST["save_namespace"]
+            saved = DBNamedQuery(db, name=name, namespace=namespace, source=query_text).save()
+            message = "Query saved as %s:%s" % (namespace, name)
                             
         namespaces = None
         if True:
