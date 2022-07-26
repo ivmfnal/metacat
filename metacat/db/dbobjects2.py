@@ -643,6 +643,9 @@ class DBFile(object):
     def get_attribute(self, attrname, default=None):
         return self.Metadata.get(attrname, default)
 
+    # file attributes returned as JSON attributes not as part of the metadata
+    Properties = "fid,namespace,name,checksums,size,creator,created_timestamp,parents,children,datasets".split(',')
+
     def to_jsonable(self, with_datasets = False, with_metadata = False, with_provenance=False):
         ns = self.Name if self.Namespace is None else self.Namespace + ':' + self.Name
         data = dict(

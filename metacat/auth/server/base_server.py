@@ -172,18 +172,20 @@ class BaseHandler(WPHandler):
             
     def authenticated_username(self):
         username, error = self.App.user_from_request(self.Request)
-        return username
+        return username, error
 
     def authenticated_user(self):
-        username = self.authenticated_username()
+        username, error = self.authenticated_username()
         if username:
-            return BaseDBUser.get(self.App.user_db(), username)
-        else:
-            return None
+            user = BaseDBUser.get(self.connect(), username)
+            if user is not None:
+                return user, None
+            error = f"user {username} not found"
+        return None, error
 
     def messages(self, args):
         return {k: unquote_plus(args.get(k,"")) for k in ("error", "message")}
         
     def jinja_globals(self):
-        return {"GLOBAL_User":self.authenticated_user()}
+        return {"GLOBAL_User":self.authenticated_user()[0]}
 
