@@ -177,7 +177,7 @@ class BaseHandler(WPHandler):
     def authenticated_user(self):
         username, error = self.authenticated_username()
         if username:
-            user = BaseDBUser.get(self.connect(), username)
+            user = BaseDBUser.get(self.App.user_db(), username)
             if user is not None:
                 return user, None
             error = f"user {username} not found"
