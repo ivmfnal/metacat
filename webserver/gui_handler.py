@@ -219,7 +219,7 @@ class GUIHandler(MetaCatHandler):
             if error:   messages.append("error=", quote_plus(error))
             if message:   messages.append("message=", quote_plus(message))
             url += "?" + "&".join(messages)
-        return self.redirect(url, **self.messages(args))
+        return self.redirect(url)
         
     def mql(self, request, relpath, **args):
         namespace = request.POST.get("namespace") or self.App.DefaultNamespace
