@@ -19,7 +19,7 @@ class GUICategoryHandler(MetaCatHandler):
     index = categories
         
     def show(self, request, relpath, path=None):
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         db = self.connect()
         cat = DBParamCategory.get(db, path)
         admin = me.is_admin() if me is not None else False
@@ -36,7 +36,7 @@ class GUICategoryHandler(MetaCatHandler):
         
     def create(self, request, relpath):
         db = self.connect()
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/categories/create")
         admin = me.is_admin()
@@ -111,7 +111,7 @@ class GUICategoryHandler(MetaCatHandler):
     
     def do_create(self, user, request):
         db = self.connect()
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/categories/index")
         rpath = request.POST["rpath"]
@@ -154,7 +154,7 @@ class GUICategoryHandler(MetaCatHandler):
         
     def save(self, request, relpath):
         db = self.connect()
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/categories/index")
         mode = request.POST["mode"]
@@ -193,7 +193,7 @@ class GUICategoryHandler(MetaCatHandler):
         
     def remove_definition(self, request, relpath, path=None, param=None):
         db = self.connect()
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/categories/index")
         cat = DBParamCategory.get(db, path)
@@ -210,7 +210,7 @@ class GUIHandler(MetaCatHandler):
         self.categories = GUICategoryHandler(request, app)
         
     def jinja_globals(self):
-        return {"GLOBAL_User":self.authenticated_user()}
+        return {"GLOBAL_User":self.authenticated_user()[0]}
         
     def index(self, request, relpath, **args):
         return self.redirect("./datasets", **self.messages(args))
@@ -287,7 +287,7 @@ class GUIHandler(MetaCatHandler):
     def query(self, request, relpath, query=None, namespace=None, run="no", with_meta="yes", **args):
         
         db = self.App.connect()
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         user_namespace = None
         if user is not None:
             if DBNamespace.exists(db, user.Username):
@@ -447,7 +447,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("named_query.html", query=query, edit = edit=="yes")
 
     def create_named_query(self, request, relapth, **args):
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if me is None:   
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/create_named_query")
         
@@ -471,7 +471,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("named_query.html", query=query, edit = True)
         
     def users(self, request, relpath, error="", **args):
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/users")
         db = self.App.connect()
@@ -493,7 +493,7 @@ class GUIHandler(MetaCatHandler):
     def user(self, request, relpath, username=None, error="", message="", **args):
         db = self.App.connect()
         user = DBUser.get(db, username)
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         all_roles = DBRole.list(db)
         role_set = set(user.roles)
         #print("role_set:", role_set)
@@ -524,7 +524,7 @@ class GUIHandler(MetaCatHandler):
         
     def create_user(self, request, relpath, error="", **args):
         db = self.App.connect()
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if not me.is_admin():
             self.redirect("./users?error=%s" % (quote_plus("Not authorized to create users")))
         return self.render_to_response("user.html", error=unquote_plus(error), mode="create", all_roles = DBRole.list(db),
@@ -533,7 +533,7 @@ class GUIHandler(MetaCatHandler):
     def save_user(self, request, relpath, **args):
         db = self.App.connect()
         username = request.POST["username"]
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         
         new_user = request.POST["new_user"] == "yes"
         
@@ -590,7 +590,7 @@ class GUIHandler(MetaCatHandler):
 
     def generate_token(self, request, relpath, **args):
         db = self.App.connect()
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         expiration = int(request.POST["token_expiration"])
         token, encoded = self.App.generate_token(me.Username, expiration=expiration)
         n = len(encoded)
@@ -608,7 +608,7 @@ class GUIHandler(MetaCatHandler):
         if all:
             namespaces = DBNamespace.list(db)
         else:
-            me = self.authenticated_user()
+            me, error = self.authenticated_user()
             namespaces = DBNamespace.list(db, owned_by_user=me)
         return self.render_to_response("namespaces.html", namespaces=namespaces, showing_all=all, **self.messages(args))
         
@@ -617,7 +617,7 @@ class GUIHandler(MetaCatHandler):
         ns = DBNamespace.get(db, name)
         roles = []
         edit = False
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         admin = False
         if me is not None:
             admin = me.is_admin()
@@ -631,7 +631,7 @@ class GUIHandler(MetaCatHandler):
         
     def create_namespace(self, request, relpath, error="", **args):
         db = self.App.connect()
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/create_namespace")
         admin = me.is_admin()
@@ -640,7 +640,7 @@ class GUIHandler(MetaCatHandler):
         
     def save_namespace(self, request, relpath, **args):
         db = self.App.connect()
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if not me:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/namespaces")
             
@@ -680,7 +680,7 @@ class GUIHandler(MetaCatHandler):
         self.redirect("./namespaces")
         
     def datasets(self, request, relpath, **args):
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         admin = user is not None and user.is_admin()
         db = self.App.connect()
         datasets = DBDataset.list(db)
@@ -700,7 +700,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("dataset_files.html", files=files, dataset=dataset, with_meta=with_meta)
         
     def create_dataset(self, request, relpath, **args):
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         if not user:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/create_dataset")
         admin = user.is_admin()
@@ -728,7 +728,7 @@ class GUIHandler(MetaCatHandler):
                     attr_names.add(n)
         attr_names=sorted(list(attr_names))
 
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         edit = False
         mode = "view"
         if user is not None:
@@ -754,7 +754,7 @@ class GUIHandler(MetaCatHandler):
         return json.dumps({"namespace": namespace, "names": sorted([name for namespace, name in datasets])}), "text/json"
 
     def delete_dataset(self, request, relpath, namespace=None, name=None, **args):
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         if not user:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/datasets")
         admin = user.is_admin()
@@ -819,7 +819,7 @@ class GUIHandler(MetaCatHandler):
     def save_dataset(self, request, relpath, **args):
         #print("save_dataset:...")
         db = self.App.connect()
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         if not user:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/datasets")
         admin = user.is_admin()
@@ -868,7 +868,7 @@ class GUIHandler(MetaCatHandler):
         self.redirect(f"./dataset?namespace={namespace}&name={name}" + ("&message=" + quote_plus(warning) if warning else ""))
         
     def remove_child_dataset(self, request, relpath, namespace=None, name=None, child_namespace=None, child_name=None, **args):
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         if not user:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/datasets")
         db = self.App.connect()
@@ -891,7 +891,7 @@ class GUIHandler(MetaCatHandler):
 # --- roles
 #
     def roles(self, request, relpath, **args):
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if me is None:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/roles")
         db = self.App.connect()
@@ -900,7 +900,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("roles.html", roles=roles, edit=admin, create=admin, **self.messages(args))
         
     def role(self, request, relpath, name=None, **args):
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if me is None:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/roles")
         admin = me.is_admin()
@@ -911,7 +911,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("role.html", role=role, users=users, edit=admin or me in role, create=False, **self.messages(args))
 
     def create_role(self, request, relpath, **args):
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if me is None:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/create_role")
         if not me.is_admin():
@@ -921,7 +921,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("role.html", all_users=all_users, edit=False, create=True)
         
     def save_role(self, request, relpath, **args):
-        me = self.authenticated_user()
+        me, error = self.authenticated_user()
         if me is None:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/roles")
         db = self.App.connect()

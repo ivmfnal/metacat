@@ -109,9 +109,9 @@ class DataHandler(MetaCatHandler):
         
     def create_namespace(self, request, relpath, name=None, owner_role=None, description=None, **args):
         db = self.App.connect()
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         if user is None:
-            return 401
+            return 401, error
         owner_user = None
         if owner_role is None:
             owner_user = user.Username
@@ -186,9 +186,9 @@ class DataHandler(MetaCatHandler):
 
     def create_dataset(self, request, relpath):
         db = self.App.connect()
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         if user is None:
-            return 401
+            return 401, error
         if not request.body:
             return 400, "Dataset parameters are not specified"
         params = json.loads(request.body)
@@ -218,7 +218,7 @@ class DataHandler(MetaCatHandler):
         namespace, name = parse_name(dataset, None)
         if not namespace:
             return "Namespace is not specfied", 400
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         if user is None:
             return 403
         db = self.App.connect()
@@ -252,11 +252,11 @@ class DataHandler(MetaCatHandler):
     def add_child_dataset(self, request, relpath, parent=None, child=None, **args):
         if not parent or not child:
             return 400, "Parent or child dataset unspecified"
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
+        if user is None:
+            return 401, error
         parent_namespace, parent_name = parent.split(":",1)
         child_namespace, child_name = child.split(":",1)
-        if user is None:
-            return 401
         db = self.App.connect()
         parent_ns = DBNamespace.get(db, parent_namespace)
         child_ns = DBNamespace.get(db, child_namespace)
@@ -282,9 +282,9 @@ class DataHandler(MetaCatHandler):
         #
         # add existing files to a dataset
         #
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         if user is None:
-            return 401
+            return 401, error
         db = self.App.connect()
         default_namespace = namespace
         ds_namespace, ds_name = parse_name(dataset, default_namespace)
@@ -374,13 +374,13 @@ class DataHandler(MetaCatHandler):
         # ]
         #               
         default_namespace = namespace
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         if user is None:
             #print("Unauthenticated user")
-            return "Unauthenticated user", 401
+            return 401, error
             
         if dataset is None:
-            return "Dataset not specified", 400
+            return 400, "Dataset not specified"
             
         db = self.App.connect()
 
@@ -619,7 +619,7 @@ class DataHandler(MetaCatHandler):
         # }
         #
         default_namespace = namespace
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
         if user is None:
             return "Authentication required", 403
         db = self.App.connect()
@@ -750,11 +750,11 @@ class DataHandler(MetaCatHandler):
         add_namespace = add_name = ds_namespace = ds_name = None
 
         db = self.App.connect()
-        user = self.authenticated_user()
+        user, error = self.authenticated_user()
+        if (save_as or add_to) and user is None:
+            return 401, error
 
         if save_as:
-            if user is None:
-                return 401
             ds_namespace, ds_name = parse_name(save_as, namespace)
             ns = DBNamespace.get(db, ds_namespace)
 
@@ -768,8 +768,6 @@ class DataHandler(MetaCatHandler):
                 return f"Dataset {ds_namespace}:{ds_name} already exists", 409
 
         if add_to:
-            if user is None:
-                return 401
             add_namespace, add_name = parse_name(add_to, namespace)
             ns = DBNamespace.get(db, add_namespace)
 
