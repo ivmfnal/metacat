@@ -212,8 +212,14 @@ class GUIHandler(MetaCatHandler):
     def jinja_globals(self):
         return {"GLOBAL_User":self.authenticated_user()[0]}
         
-    def index(self, request, relpath, **args):
-        return self.redirect("./datasets", **self.messages(args))
+    def index(self, request, relpath, error=None, message=None, **args):
+        url = "./datasets"
+        if error or message:
+            messages = []
+            if error:   messages.append("error=", quote_plus(error))
+            if message:   messages.append("message=", quote_plus(message))
+            url += "?" + "&".join(messages)
+        return self.redirect(url, **self.messages(args))
         
     def mql(self, request, relpath, **args):
         namespace = request.POST.get("namespace") or self.App.DefaultNamespace
