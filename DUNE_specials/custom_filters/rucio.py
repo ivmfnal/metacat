@@ -13,6 +13,7 @@ class RucioReplicas(MetaCatFilter):
         if self.RucioConfig is not None:
             os.environ["RUCIO_CONFIG"] = self.RucioConfig
         client = ReplicaClient()
+        out = []
         with T["cnunk_loop"]:
             for chunk in inputs[0].chunked():
                 chunk_files = { f.did(): f for f in chunk }
@@ -31,7 +32,7 @@ class RucioReplicas(MetaCatFilter):
                                     f.Metadata["rucio.rses"] = list(r["rses"])
                     with T["yielding"]:
                         for f in chunk_files.values():
-                            yield f
+                            out.append(f)
                 else:
                     # include only files with replicas in specific RSEs
                     with T["list_replicas()"]:
@@ -41,7 +42,8 @@ class RucioReplicas(MetaCatFilter):
                         did = "%(scope)s:%(name)s" % r
                         f = chunk_files[did]
                         f.Metadata["rucio.rses"] = list(r["rses"])
-                        yield f
+                        out.append(f)
+        return out
         print("trace: ", T.formatStats())
                 
 
