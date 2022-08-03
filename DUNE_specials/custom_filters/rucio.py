@@ -23,7 +23,7 @@ class RucioReplicas(MetaCatFilter):
                     for f in chunk_files.values():
                         f.Metadata["rucio.rses"] = []
                     with T["list_replicas()"]:
-                        replicas = client.list_replicas(dids, all_states=False, ignore_availability=False)
+                        replicas = list(client.list_replicas(dids, all_states=False, ignore_availability=False))
                     with T["update_meta"]:
                         for r in replicas:
                             with T["update_meta_single"]:
