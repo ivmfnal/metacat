@@ -11,7 +11,7 @@ class RucioReplicas(MetaCatFilter):
         if self.RucioConfig is not None:
             os.environ["RUCIO_CONFIG"] = self.RucioConfig
         client = ReplicaClient()
-        for chunk in inputs[0].clunked():
+        for chunk in inputs[0].chunked():
             chunk_files = { f.did(): f }
             if rse_expression is None:
                 # no RSEs selected - include all files
