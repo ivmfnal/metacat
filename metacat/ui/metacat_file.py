@@ -183,7 +183,7 @@ class ShowCommand(CLICommand):
             if pretty:
                 pprint.pprint(data)
             elif as_json:
-                print(json.dumps(data))
+                print(json.dumps(data, indent=4, sort_keys=True))
             else:
                 for k, v in sorted(data.items()):
                     if k != "metadata":

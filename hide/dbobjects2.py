@@ -412,8 +412,6 @@ class DBFile(object):
             raise
         return self
 
-    def did(self):
-        return f"{self.Namespace}:{self.Name}"
 
     @staticmethod
     def create_many(db, files, creator=None, do_commit=True):
@@ -569,8 +567,9 @@ class DBFile(object):
         
     @staticmethod
     def get(db, fid = None, namespace = None, name = None, with_metadata = False):
-        assert (namespace is None) == (name is None), "Both name and namespace must be specified or both omited"
-        assert (fid is None) != (name is None), "Either FID or namespace/name must be specified, but not both"
+        
+        assert (fid is not None) != (namespace is not None or name is not None), "Can not specify both FID and namespace.name"
+        assert (namespace is None) == (name is None)
         c = db.cursor()
         fetch_meta = "metadata" if with_metadata else "null"
         attrs = DBFile.attr_columns()
@@ -644,9 +643,6 @@ class DBFile(object):
         
     def get_attribute(self, attrname, default=None):
         return self.Metadata.get(attrname, default)
-
-    # file attributes returned as JSON attributes not as part of the metadata
-    Properties = "fid,namespace,name,checksums,size,creator,created_timestamp,parents,children,datasets".split(',')
 
     def to_jsonable(self, with_datasets = False, with_metadata = False, with_provenance=False):
         ns = self.Name if self.Namespace is None else self.Namespace + ':' + self.Name
@@ -1154,7 +1150,7 @@ class DBDataset(DBObject):
     def remove_child(self, child):
         _DatasetParentToChild(self.DB, self).remove(child.Namespace, child.Name)
     
-    def __add_file(self, f, do_commit = True, validate_meta=True):
+    def add_file(self, f, do_commit = True):
         assert isinstance(f, DBFile)
         c = self.DB.cursor()
         c.execute("""
@@ -1164,35 +1160,44 @@ class DBDataset(DBObject):
         if do_commit:   c.execute("commit")
         return self
         
-    def add_file(self, f, **args):
-        return self.add_files([f], **args)
-        
     def add_files(self, files, do_commit=True, validate_meta=True):
-        if isinstance(files, DBFile):
-            files = [files]
-        files = list(files)     # in case it was a generator
+        c = self.DB.cursor()
+        c.execute("begin")
+        
+        existing = set(f.FID for f in self.list_files(with_metadata=False))
+
+        csv = []
+        null = r"\N"
+
+        to_add = set(f.FID for f in files) - existing
+        
         if validate_meta:
             meta_errors = []
             for f in files:
-                assert isinstance(f, DBFile)
-                errors = self.validate_file_metadata(f.Metadata)
-                if errors:
-                    meta_errors += errors
+                if f.FID in to_add:
+                    errors = self.validate_file_metadata(f.Metadata)
+                    if errors:
+                        meta_errors += errors
             if meta_errors:
                 raise MetaValidationError("File metadata validation errors", meta_errors)
-        c = self.DB.cursor()
-        c.execute("begin")
+        
+        for fid in to_add:
+            csv.append("%s\t%s\t%s" % (
+                fid, self.Namespace, self.Name
+            ))
+        csv = io.StringIO("\n".join(csv))
+        
+
         try:
-            c.executemany("""
-                insert into files_datasets(file_id, dataset_namespace, dataset_name) values(%s, %s, %s)
-                    on conflict do nothing""",
-                [(f.FID, self.Namespace, self.Name) for f in files])
-            c.execute("commit")
+            #open("/tmp/files.csv", "w").write(files_data)
+            if to_add:
+                c.copy_from(csv, "files_datasets", 
+                        columns = ["file_id", "dataset_namespace", "dataset_name"])
+            if do_commit:   c.execute("commit")
         except Exception as e:
-            #print(traceback.format_exc())
+            print(traceback.format_exc())
             c.execute("rollback")
             raise
-        return self
 
     def list_files(self, with_metadata=False, limit=None):
         meta = "null as metadata" if not with_metadata else "f.metadata"
@@ -1593,7 +1598,7 @@ class DBUser(BaseDBUser):
     def from_base_user(bu):
         if bu is None:  return None
         u = DBUser(bu.DB, bu.Username, bu.Name, bu.EMail, bu.Flags)
-        u.AuthInfo = (bu.AuthInfo or {}).copy()
+        u.AuthInfo = bu.AuthInfo.copy()
         u.RoleNames = bu.RoleNames
         if isinstance(u.RoleNames, list):
             u.RoleNames = u.RoleNames[:]

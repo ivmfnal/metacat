@@ -8,10 +8,14 @@ class MetaCatHandler(BaseHandler):
         self.NamespaceAuthorizations = {}
 
     def authenticated_user(self):
-        username = self.authenticated_username()
+        username, error = self.authenticated_username()
         if username is None:
-            return None
-        return DBUser.get(self.App.connect(), username)
+            return None, error
+        user = DBUser.get(self.App.connect(), username)
+        if user is not None:
+            return user, None
+        else:
+            return None, "user not found"
 
     def _namespace_authorized(self, db, namespace, user):
         authorized = self.NamespaceAuthorizations.get(namespace)
