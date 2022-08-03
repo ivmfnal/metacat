@@ -105,7 +105,8 @@ def create_application(config=None):
         config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
     cookie_path = config.get("cookie_path", "/metacat")
     static_location = config.get("static_location", os.environ.get("METACAT_SERVER_STATIC_DIR", "static"))
-    application=App(config, RootHandler, static_location=static_location)
+    prefix = config.get("prefix")
+    application=App(config, RootHandler, static_location=static_location, prefix=prefix)
 
     if False:
         templdir = config.get("templates", "")
