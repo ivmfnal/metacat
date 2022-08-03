@@ -25,9 +25,10 @@ class RucioReplicas(MetaCatFilter):
                         replicas = client.list_replicas(dids, all_states=False, ignore_availability=False)
                     with T["update_meta"]:
                         for r in replicas:
-                            did = "%(scope)s:%(name)s" % r
-                            f = chunk_files[did]
-                            f.Metadata["rucio.rses"] = list(r["rses"])
+                            with T["update_meta_single"]:
+                                    did = "%(scope)s:%(name)s" % r
+                                    f = chunk_files[did]
+                                    f.Metadata["rucio.rses"] = list(r["rses"])
                     with T["yielding"]:
                         for f in chunk_files.values():
                             yield f
