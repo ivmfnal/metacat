@@ -1,4 +1,5 @@
 import os
+from metacat.filters import MetaCatFilter
 
 class RucioReplicas(MetaCatFilter):
     
