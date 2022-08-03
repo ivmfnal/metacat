@@ -43,8 +43,8 @@ class RucioReplicas(MetaCatFilter):
                         f = chunk_files[did]
                         f.Metadata["rucio.rses"] = list(r["rses"])
                         out.append(f)
-        return out
         print("trace: ", T.formatStats())
+        return out
                 
 
 
