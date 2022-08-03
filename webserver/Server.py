@@ -96,12 +96,13 @@ class App(BaseApp):
             }
         )
 
-def create_application(config_file=None):
-    config_file = config_file or os.environ.get("METACAT_SERVER_CFG")
-    if not config_file:
+def create_application(config=None):
+    config = config or os.environ.get("METACAT_SERVER_CFG")
+    if config is None:
         print("Configuration file must be provided using METACAT_SERVER_CFG environment variable")
         return None
-    config = yaml.load(open(config_file, "r"), Loader=yaml.SafeLoader)  
+    if isinstance(config_file, str):
+        config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
     cookie_path = config.get("cookie_path", "/metacat")
     static_location = config.get("static_location", os.environ.get("METACAT_SERVER_STATIC_DIR", "static"))
     application=App(config, RootHandler, static_location=static_location)
@@ -133,9 +134,15 @@ if __name__ == "__main__":
 
     opts, args = getopt.getopt(sys.argv[1:], "c:p:")
     opts = dict(opts)
-    port = int(opts.get("-p", 8080))
-    config_file = opts.get("-c")
-    
+
+    config_file = opts.get("-c") or os.environ.get("METACAT_SERVER_CFG")
+    if config_file is None:
+        print("Config file must be specified with -c or METACAT_SERVER_CFG")
+        sys.exit(1)
+    config_file = yaml.load(open(config_file, "r"), Loader=yaml.SafeLoader)
+
+    port = int(opts.get("-p", config_file.get("port", 8080)))
+    print(f"Starting the server on port {port} ...")   
     server = HTTPServer(port, create_application(config_file), debug=sys.stdout)
     server.run()
     #application.run_server(port)
