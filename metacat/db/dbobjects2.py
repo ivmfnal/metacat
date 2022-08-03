@@ -412,6 +412,8 @@ class DBFile(object):
             raise
         return self
 
+    def did(self):
+        return f"{self.Namespace}:{self.Name}"
 
     @staticmethod
     def create_many(db, files, creator=None, do_commit=True):

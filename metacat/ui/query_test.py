@@ -81,7 +81,10 @@ elif cmd == "run":
     
     def connect(dbcfg):
         connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % dbcfg
-        return psycopg2.connect(connstr)
+        conn = psycopg2.connect(connstr)
+        if "namespace" in dbcfg:
+            conn.cursor().execute("set search_path to %s" % (dbcfg["namespace"],))
+        return conn
     
     config = opts.get("-c", os.environ.get("METACAT_SERVER_CFG"))
     if not config:

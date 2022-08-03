@@ -1,5 +1,5 @@
 from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet, limited
-from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter
+from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter, LarkToNodes
 from .sql_converter import SQLConverter
 from .meta_evaluator import MetaEvaluator
 import json, time
