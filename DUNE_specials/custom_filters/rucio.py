@@ -33,7 +33,6 @@ class RucioReplicas(MetaCatFilter):
                     for f in chunk_files.values():
                         yield f
         #print("trace: ", T.formatStats())
-        return out
                 
 
 
