@@ -23,7 +23,8 @@ class RucioReplicas(MetaCatFilter):
                     for f in chunk_files.values():
                         f.Metadata["rucio.rses"] = []
                     with T["list_replicas()"]:
-                        replicas = list(client.list_replicas(dids, all_states=False, ignore_availability=False))
+                        replicas = list(client.list_replicas(dids, all_states=False, ignore_availability=False,
+                            resolve_archives=False))
                     with T["update_meta"]:
                         for r in replicas:
                             with T["update_meta_single"]:
@@ -37,7 +38,7 @@ class RucioReplicas(MetaCatFilter):
                     # include only files with replicas in specific RSEs
                     with T["list_replicas()"]:
                         replicas = client.list_replicas(dids, all_states=False, ignore_availability=False,
-                            rse_expression=rse_expression)
+                            rse_expression=rse_expression, resolve_archives=False)
                     for r in replicas:
                         did = "%(scope)s:%(name)s" % r
                         f = chunk_files[did]
