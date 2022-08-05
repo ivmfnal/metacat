@@ -96,7 +96,7 @@ class App(BaseApp):
             }
         )
 
-def create_application(config=None):
+def create_application(config=None, prefix=None):
     config = config or os.environ.get("METACAT_SERVER_CFG")
     if config is None:
         print("Configuration file must be provided using METACAT_SERVER_CFG environment variable")
@@ -105,7 +105,7 @@ def create_application(config=None):
         config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
     cookie_path = config.get("cookie_path", "/metacat")
     static_location = config.get("static_location", os.environ.get("METACAT_SERVER_STATIC_DIR", "static"))
-    prefix = config.get("prefix")
+    print("metacat server prefix:", prefix)
     application=App(config, RootHandler, static_location=static_location, prefix=prefix)
 
     if False:
@@ -143,13 +143,12 @@ if __name__ == "__main__":
     config_file = yaml.load(open(config_file, "r"), Loader=yaml.SafeLoader)
 
     port = int(opts.get("-p", config_file.get("port", 8080)))
+    prefix = config_file.get("prefix")
     print(f"Starting the server on port {port} ...")   
-    server = HTTPServer(port, create_application(config_file), debug=sys.stdout)
+    server = HTTPServer(port, create_application(config_file, prefix=prefix), debug=sys.stdout)
     server.run()
     #application.run_server(port)
 else:
-    # running under uwsgi
-    application = create_application()
-    
-    
-        
+    # running under uwsgi or sumilar framework - assume the framework handles the prefix
+    print("creating application...")
+    application = create_application(prefix="")
