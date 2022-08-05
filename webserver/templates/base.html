@@ -2,13 +2,13 @@
 
 <head>
 
-	<link rel="shortcut icon" href="{{GLOBAL_AppTopPath}}/static/images/favicon.png" type="image/x-icon"/>
+	<link rel="shortcut icon" href="{{GLOBAL_AppRootPath}}/static/images/favicon.png" type="image/x-icon"/>
 
     <style type="text/css">
 
         @font-face {
           font-family: source_code;
-          src: url({{GLOBAL_AppTopPath}}/static/fonts/source-code-pro/SourceCodePro-Regular.ttf.woff);
+          src: url({{GLOBAL_AppRootPath}}/static/fonts/source-code-pro/SourceCodePro-Regular.ttf.woff);
         }
 
 
@@ -216,7 +216,7 @@
     
     </style>
     
-    <script src="{{GLOBAL_AppTopPath}}/static/js/request.js"></script>
+    <script src="{{GLOBAL_AppRootPath}}/static/js/request.js"></script>
     
     {% block html_head %}{% endblock %}
 	
@@ -228,7 +228,7 @@
 <!--  Globals 
     APP_URL: "{{APP_URL}}"
     MY_PATH: "{{MY_PATH}}"
-    GLOBAL_AppTopPath: "{{GLOBAL_AppTopPath}}"
+    GLOBAL_AppRootPath: "{{GLOBAL_AppRootPath}}"
     GLOBAL_AppDirPath: "{{GLOBAL_AppDirPath}}"
     GLOBAL_ImagesPath: "{{GLOBAL_ImagesPath}}"
     GLOBAL_AppVersion: "{{GLOBAL_AppVersion}}"
@@ -240,28 +240,28 @@
 	<table class="placement">
 		<tr>
 			<td style="vertical-align: middle; padding: 0px 20px;">
-				<img src="{{GLOBAL_AppTopPath}}/static/images/logo.png" heights=100 width=100>
+				<img src="{{GLOBAL_AppRootPath}}/static/images/logo.png" heights=100 width=100>
 			</td>
 			<td style="vertical-align: middle; padding: 0px 20px; width:100%">
 				<h1>{{GLOBAL_SiteTitle}}</h1>
 			    <div id="main_menu">
 					<table class="placement link_menu" width="100%">
 					<tr>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/users">users</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/roles">roles</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/namespaces">namepaces</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/datasets">datasets</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/categories/index">categories</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/query">query</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/named_queries">named queries</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/users">users</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/roles">roles</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/namespaces">namepaces</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/datasets">datasets</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/categories/index">categories</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/query">query</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/named_queries">named queries</a></td>
 					    <td width="100%" align="right">
-							<a href="{{GLOBAL_AppTopPath}}/static/docs/html/index.html" target="_new">docs</a>
+							<a href="{{GLOBAL_AppRootPath}}/static/docs/html/index.html" target="_new">docs</a>
 						</td>
 						<td>
 			                        {% if GLOBAL_User %}
-			                            <span style="color:#AAA">logged in as {{GLOBAL_User.Name or ""}}&nbsp;<a href="./user?username={{GLOBAL_User.Username}}">{{GLOBAL_User.Username}}</a>&nbsp;</span><a href="{{GLOBAL_AppTopPath}}/auth/logout?redirect={{GLOBAL_AppTopPath}}/gui/index">log out</a>
+			                            <span style="color:#AAA">logged in as {{GLOBAL_User.Name or ""}}&nbsp;<a href="./user?username={{GLOBAL_User.Username}}">{{GLOBAL_User.Username}}</a>&nbsp;</span><a href="{{GLOBAL_AppRootPath}}/auth/logout?redirect={{GLOBAL_AppRootPath}}/gui/index">log out</a>
 			                        {% else %}
-			                            <a href="{{GLOBAL_AppTopPath}}/auth/login?redirect={{GLOBAL_AppTopPath}}/gui/index">log in</a>
+			                            <a href="{{GLOBAL_AppRootPath}}/auth/login?redirect={{GLOBAL_AppRootPath}}/gui/index">log in</a>
 			                        {% endif %}
 						</td>
 					</tr>
@@ -278,21 +278,21 @@
     <div id="main_menu">
 	<table class="placement link_menu">
 		<tr>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/users">users</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/roles">roles</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/namespaces">namepaces</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/datasets">datasets</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/categories/index">categories</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/query">query</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/named_queries">named queries</a></td>
+		    <td><a href="{{GLOBAL_AppRootPath}}/gui/users">users</a></td>
+		    <td><a href="{{GLOBAL_AppRootPath}}/gui/roles">roles</a></td>
+		    <td><a href="{{GLOBAL_AppRootPath}}/gui/namespaces">namepaces</a></td>
+		    <td><a href="{{GLOBAL_AppRootPath}}/gui/datasets">datasets</a></td>
+		    <td><a href="{{GLOBAL_AppRootPath}}/gui/categories/index">categories</a></td>
+		    <td><a href="{{GLOBAL_AppRootPath}}/gui/query">query</a></td>
+		    <td><a href="{{GLOBAL_AppRootPath}}/gui/named_queries">named queries</a></td>
 		    <td width="100%" align="right">
-				<a href="{{GLOBAL_AppTopPath}}/static/docs/html/index.html" target="_new">docs</a>
+				<a href="{{GLOBAL_AppRootPath}}/static/docs/html/index.html" target="_new">docs</a>
 			</td>
 			<td>
                         {% if GLOBAL_User %}
-                            <span style="color:#AAA">logged in as {{GLOBAL_User.Name or ""}}&nbsp;<a href="./user?username={{GLOBAL_User.Username}}">{{GLOBAL_User.Username}}</a>&nbsp;</span><a href="{{GLOBAL_AppTopPath}}/auth/logout?redirect={{GLOBAL_AppTopPath}}/gui/index">log out</a>
+                            <span style="color:#AAA">logged in as {{GLOBAL_User.Name or ""}}&nbsp;<a href="./user?username={{GLOBAL_User.Username}}">{{GLOBAL_User.Username}}</a>&nbsp;</span><a href="{{GLOBAL_AppRootPath}}/auth/logout?redirect={{GLOBAL_AppRootPath}}/gui/index">log out</a>
                         {% else %}
-                            <a href="{{GLOBAL_AppTopPath}}/auth/login?redirect={{GLOBAL_AppTopPath}}/gui/index">log in</a>
+                            <a href="{{GLOBAL_AppRootPath}}/auth/login?redirect={{GLOBAL_AppRootPath}}/gui/index">log in</a>
                         {% endif %}
 			</td>
 		</tr>
