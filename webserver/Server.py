@@ -101,7 +101,7 @@ def create_application(config=None):
     if config is None:
         print("Configuration file must be provided using METACAT_SERVER_CFG environment variable")
         return None
-    if isinstance(config_file, str):
+    if isinstance(config, str):
         config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
     cookie_path = config.get("cookie_path", "/metacat")
     static_location = config.get("static_location", os.environ.get("METACAT_SERVER_STATIC_DIR", "static"))
