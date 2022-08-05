@@ -105,29 +105,11 @@ def create_application(config=None, prefix=None):
         config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
     cookie_path = config.get("cookie_path", "/metacat")
     static_location = config.get("static_location", os.environ.get("METACAT_SERVER_STATIC_DIR", "static"))
-    print("metacat server prefix:", prefix)
     application=App(config, RootHandler, static_location=static_location, prefix=prefix)
-
-    if False:
-        templdir = config.get("templates", "")
-        if templdir.startswith("$"):
-            templdir = os.environ[templdir[1:]]
-
-        application.initJinjaEnvironment(
-            filters={"as_dt_utc":as_dt_utc,
-                "as_dt_local":as_dt_local,
-                "json": as_json
-            },
-            tempdirs=[templdir, "."],
-            globals={
-                "GLOBAL_Version": Version, 
-                "GLOBAL_SiteTitle": config.get("site_title", "DEMO Metadata Catalog")
-            }
-        )
-    
     return application
 
 if __name__ == "__main__":
+    # running from shell
     from webpie import HTTPServer
     import sys
     import yaml, os
@@ -145,10 +127,5 @@ if __name__ == "__main__":
     port = int(opts.get("-p", config_file.get("port", 8080)))
     prefix = config_file.get("prefix")
     print(f"Starting the server on port {port} ...")   
-    server = HTTPServer(port, create_application(config_file, prefix=prefix), debug=sys.stdout)
+    server = HTTPServer(port, create_application(config_file, prefix), debug=sys.stdout)
     server.run()
-    #application.run_server(port)
-else:
-    # running under uwsgi or sumilar framework - assume the framework handles the prefix
-    print("creating application...")
-    application = create_application(prefix="")
