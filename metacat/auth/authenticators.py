@@ -93,6 +93,12 @@ class DN(object):
             part = part.strip()
             if part:
                 name, value = part.split('=', 1)
+                name = name.upper()
+                if name == "CN":
+                    # if this is numric CN, e.g. CN=12345, ignore it
+                    try:    _=int(value)
+                    except: pass
+                    else:   continue        # if it's an integer, skip it
                 fields.setdefault(name, []).append(value)
         return {name: sorted(lst) for name, lst in fields.items()}
 
