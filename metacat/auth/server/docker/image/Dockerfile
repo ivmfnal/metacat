@@ -47,7 +47,7 @@ WORKDIR /tmp/rwsi-wsdbtools
 RUN make HOME=/tmp
 
 WORKDIR /tmp
-RUN echo 2 >/dev/null
+RUN echo 8 >/dev/null
 RUN git clone https://github.com/ivmfnal/metacat.git 
 RUN cd metacat; git checkout main
 
