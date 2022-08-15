@@ -425,11 +425,11 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                     "name": "filename",                 # optional,
                     "did": "namespace:filename",        # optional, convenience for Rucio users
                                                         # either "did" or "name", "namespace" must be present
-                    "fid":  "...",                      # optional, file id. Will be auto-generated if unspecified.
-                                                        # if specified, must be unique for the instance
-                    "parents": ["fid","fid",...],       # optional, list of parent file ids
+                    "size": ...,                        # required, integer number of bytes, must be > 0
                     "metadata": {...},                  # optional, file metadata, a dictionary with arbitrary JSON'able contents
-                    "size": ...,                        # optional, integer number of bytes
+                    "fid":  "...",                      # optional, file id. Will be auto-generated if unspecified.
+                                                        # if specified, must be unique
+                    "parents": ["fid","fid",...],       # optional, list of parent file ids
                     "checksums": {                      # optional, checksums dictionary
                         "method": "value",...
                     }
@@ -458,11 +458,16 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                 raise ValueError(f"A file without a name or DID found at index {i}")
             f["namespace"] = namespace
             f["name"] = name
+            size = f.get("size")
+            if not isinstance(size, int) or size < 0:
+                raise ValueError("File size is unspecified or invalid for for {namespace}:{name} (#{i} in the list)")
 
-            for k in f.get("metadata", {}).keys():
+            meta = item.get("metadata", {})
+            for k in meta.keys():
                 if '.' not in k:
-                    raise ValueError(f'Invalid metadata key "{k}" for {namespace}:{name} (#{i}): must contain dot (.)')
+                    raise ValueError(f'Invalid metadata key "{k}" for {namespace}:{name} (#{i} in the list): metadata key must contain dot (.)')
 
+            f["metadata"] = meta
             lst.append(f)
 
         url = f"data/declare_files?dataset={dataset}"
