@@ -20,7 +20,7 @@ setup(
     keywords = "metadata, data management, database, web service",
     url = "https://github.com/ivmfnal/metacat",
     packages=['metacat', 'metacat.db', 'metacat.util', 'metacat.webapi', 'metacat.ui', 'metacat.auth', 'metacat.ui.cli'],
-    install_requires=["pyjwt", "requests"],
+    install_requires=["pyjwt", "requests", "pythreader>=2.8.0"],
     zip_safe = False,
     classifiers=[
     ],
