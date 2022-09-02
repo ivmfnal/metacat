@@ -8,14 +8,21 @@ class UnknownCommand(Exception):
     def __str__(self):
         return f"Uknown command: {self.Command}\n" + \
             f"    command line: {self.Argv}"
+            
+class CLIException(Exception):
+    def __init__(self, message=None):
+        self.Message = message
 
-class EmptyCommandLine(Exception):
+    def __str__(self):
+        return self.Message or self.__class__.__name__
+
+class EmptyCommandLine(CLIException):
     pass
     
-class InvalidArguments(Exception):
+class InvalidArguments(CLIException):
     pass
     
-class InvalidOptions(Exception):
+class InvalidOptions(CLIException):
     pass
     
 def format_paragraph(indent, text):
@@ -97,10 +104,12 @@ class CLICommand(CLIInterpreter):
         try:
             opts, args = self.getopt(argv)
             return self(command, context, opts, args)
-        except (InvalidOptions, InvalidArguments):
+        except (InvalidOptions, InvalidArguments) as e:
             if usage_on_error:
                 cmd = "" if not command else f"for {command}"
-                print(f"Invalid arguments or options for {cmd}\n", file=sys.stderr)
+                msg = e.Message or f"Invalid arguments or options for {cmd}\n"
+                print(msg, file=sys.stderr)
+                print("\nUsage:")
                 print(self.help(command), file=sys.stderr)
                 return
             else:

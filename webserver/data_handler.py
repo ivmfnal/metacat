@@ -474,7 +474,7 @@ class DataHandler(MetaCatHandler):
                 })
                 continue
 
-            f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=meta, size=size)
+            f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=meta, size=size, creator=user.Username)
             f.Parents = file_item.get("parents")
             f.Checksums = file_item.get("checksums")
 

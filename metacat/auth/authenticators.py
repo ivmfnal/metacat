@@ -74,7 +74,8 @@ class LDAPAuthenticator(Authenticator):
         
     def enabled(self):
         return self.Info is not None or "dn_template" in self.Config
-        
+
+
 class DN(object):
 
     def __init__(self, inp):
@@ -86,20 +87,25 @@ class DN(object):
 
     __repr__ = __str__
 
+    RFCRE=re.compile(",?([A-Z]+)=")
+    LegacyRE=re.compile("/([A-Z]+)=")
+
     @staticmethod
     def parse(text):
         fields = {}
-        for part in text.split(','):
-            part = part.strip()
-            if part:
-                name, value = part.split('=', 1)
-                name = name.upper()
-                if name == "CN":
-                    # if this is numric CN, e.g. CN=12345, ignore it
-                    try:    _=int(value)
-                    except: pass
-                    else:   continue        # if it's an integer, skip it
-                fields.setdefault(name, []).append(value)
+        if text.startswith('/'):
+            parts = DN.LegacyRE.split(text)[1:]
+        else:
+            parts = DN.RFCRE.split(text)[1:]
+        pairs = [parts[i:i+2] for i in range(0, len(parts), 2)]
+        for name, value in pairs:
+            name = name.upper()
+            if name == "CN":
+                # if this is numric CN, e.g. CN=12345, ignore it
+                try:    _=int(value)
+                except: pass
+                else:   continue        # if it's an integer, skip it
+            fields.setdefault(name, []).append(value)
         return {name: sorted(lst) for name, lst in fields.items()}
 
     def __eq__(self, other):
@@ -115,6 +121,20 @@ class DN(object):
 
     def __le__(self, other):
         return other >= self
+
+    def legacy(self):
+        out = []
+        for name, values in self.Fields.items():
+            for value in values:
+                out.append(f"/{name}={value}")
+        return ''.join(out)
+
+    def rfc(self):
+        out = []
+        for name, values in self.Fields.items():
+            for value in values:
+                out.append(f"{name}={value}")
+        return ','.join(out)
 
 
 class X509Authenticator(Authenticator):

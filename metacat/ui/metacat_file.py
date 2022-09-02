@@ -26,22 +26,9 @@ def parse_namespace_name(spec, default_namespace=None):
         return tuple(spec.split(":", 1))
     else:
         return default_namespace, spec
-
-class DeclareCommand(CLICommand):
-    
-    Opts = ("N:j:p:m:s:", ["json=", "namespace=", "sample", "parents=", "metadata=", "size="])
+        
+class DeclareSampleCommand(CLICommand):
     Usage = """
-    signle file:
-        declare [options] [<file namespace>:]<filename> [<dataset namespace>:]<dataset>
-            -s|--size <file size, bytes>
-            -N|--namespace <default namespace>
-            -p|--parents <parent_id>,... 
-            -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
-
-    multiple files:
-        declare [-N|--namespace <default namespace>] -j|--json <json file> [<dataset namespace>:]<dataset>
-
-        declare --sample                                   - print JSON declaration file sample
     """
     
     DeclareSample = json.dumps([
@@ -66,17 +53,33 @@ class DeclareCommand(CLICommand):
                 "format":"raw",
                 "done":False
             },
-            "size": 1734,
-            "parents":[ "4723345", "4322954" ]
+            "size": 1734
         }
     ], indent=4, sort_keys=True)
+    
+    def __call__(self, command, client, opts, args):
+        print(self.DeclareSample)
+        return
+
+class DeclareCommand(CLICommand):
+    
+    Opts = ("N:j:p:m:s:", ["json=", "namespace=", "parents=", "metadata=", "size="])
+    Usage = """[options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset>
+    signle file:
+        declare [options] [<file namespace>:]<filename> [<dataset namespace>:]<dataset>
+            -s|--size <file size, bytes>
+            -N|--namespace <default namespace>
+            -p|--parents <parent_id>,... 
+            -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
+
+    multiple files:
+        declare [-N|--namespace <default namespace>] -j|--json <json file> [<dataset namespace>:]<dataset>
+    """
+    
 
     def __call__(self, command, client, opts, args):
         default_namespace = opts.get("-N") or opts.get("--namespace")
 
-        if "--sample" in opts:
-            print(self.DeclareSample)
-            return
     
         size = opts.get("-s", opts.get("--size"))
 
@@ -129,7 +132,7 @@ class DeclareCommand(CLICommand):
 class ShowCommand(CLICommand):
 
     Opts = ("jmpi:l:In", ["json","meta-only","pretty","names-only","lineage","provenance","ids"])
-    Usage = """[<options>] (-i <file id>|<namespace>:<name>)
+    Usage = """[options] (-i <file id>|<namespace>:<name>)
             -m|--meta-only            - metadata only
             -j|--json                 - as JSON
             -p|--pretty               - pretty-print information
@@ -195,7 +198,7 @@ class ShowCommand(CLICommand):
 class UpdateCommand(CLICommand):
     
     Opts = ("i:n:N:r", ["namespace=", "names=", "ids=", "sample", "replace"])
-    Usage = """[<options>] (@<JSON file with metadata>|'<JSON expression>')
+    Usage = """[options] (@<JSON file with metadata>|'<JSON expression>')
 
             -r|--replace          - replace metadata, otherwise update
 
@@ -284,7 +287,7 @@ class UpdateCommand(CLICommand):
 class AddCommand(CLICommand):
     
     Opts = ("i:j:n:N:", ["namespace=", "json=", "names=", "ids=", "sample"])
-    Usage = """[<options>] <dataset namespace>:<dataset name>
+    Usage = """[options] <dataset namespace>:<dataset name>
 
             list files by name
             -N|--namespace <default namespace>           - default namespace for files
@@ -336,6 +339,7 @@ class AddCommand(CLICommand):
 
 FileCLI = CLI(
     "declare",  DeclareCommand(),
+    "declare-sample",  DeclareSampleCommand(),
     "add",      AddCommand(),
     "update",   UpdateCommand(),
     "show",     ShowCommand()
