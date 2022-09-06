@@ -468,10 +468,7 @@ class DataHandler(MetaCatHandler):
                 })
                 continue
 
-            f = DBFile(db, namespace=namespace, name=name, fid=file_item.get("fid"), metadata=meta, size=size, creator=user.Username)
-            f.Parents = file_item.get("parents")
-            f.Checksums = file_item.get("checksums")
-
+            fid = file_item.get("fid") or DBFile.generate_id()
             if name is None:
                 pattern = file_item.get("auto_name", "$fid")
                 clock = int(time.time() * 1000)
@@ -485,8 +482,11 @@ class DataHandler(MetaCatHandler):
                 name = pattern.replace("$clock3", clock3).replace("$clock6", clock6).replace("$clock9", clock9)\
                     .replace("$clock", clock)\
                     .replace("$uuid8", u8).replace("$uuid16", u16).replace("$uuid", u)\
-                    .replace("$fid", f.FID)
-                f.Name = name
+                    .replace("$fid", fid)
+
+            f = DBFile(db, namespace=namespace, name=name, fid=fid, metadata=meta, size=size, creator=user.Username)
+            f.Parents = file_item.get("parents")
+            f.Checksums = file_item.get("checksums")
 
             files.append(f)
             #print("data_handler.declare_files: file appended:", f)

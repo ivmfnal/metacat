@@ -1,4 +1,4 @@
-import hashlib
+import hashlib, re
 from .py3 import to_str, to_bytes
 from .password_hash import password_digest_hash
 
