@@ -368,17 +368,19 @@ class QueryConverter(Converter):
         v = args[0]
         #print("bool_constant:", args, args[0].value)
         return Node("bool", value=v.value.lower() == "true")
-        
+
     def string_constant(self, args):
         v = args[0]
         s = v.value
         if s[0] in ('"', "'"):
             s = s[1:-1]
+        if '"' in s or "'" in s:        # sanitize
+            raise ValueError("Unsafe string constant containing double or single quote: %s" % (repr(s),))
         return Node("string", value=s)
-        
+
     def constant_list(self, args):
         return [n["value"] for n in args]
-        
+
     def dataset_selector(self, args):
         name_or_pattern = args[0]
         assert name_or_pattern.T in ("dataset_pattern", "qualified_name")
