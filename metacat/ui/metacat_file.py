@@ -28,7 +28,7 @@ def parse_namespace_name(spec, default_namespace=None):
         return default_namespace, spec
         
 class DeclareSampleCommand(CLICommand):
-    Usage = """
+    Usage = """-- print sample input for declare-many command
     """
     
     DeclareSample = json.dumps([
@@ -61,66 +61,95 @@ class DeclareSampleCommand(CLICommand):
         print(self.DeclareSample)
         return
 
-class DeclareCommand(CLICommand):
+class DeclareSingleCommand(CLICommand):
     
-    Opts = ("N:j:p:m:s:", ["json=", "namespace=", "parents=", "metadata=", "size="])
-    Usage = """[options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset>
-    signle file:
-        declare [options] [<file namespace>:]<filename> [<dataset namespace>:]<dataset>
-            -s|--size <file size, bytes>
+    MinArgs = 3
+    Opts = ("N:p:m:c:", ["namespace=", "parents=", "metadata=", "checksums="])
+    Usage = """[options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset name>
+    Declare signle file:
+        declare [options] <size> [<file namespace>:]<filename> [<dataset namespace>:]<dataset>
+            -c|--checksums <type>:<value>[,...] - checksums
             -N|--namespace <default namespace>
             -p|--parents <parent_id>,... 
             -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
-
-    multiple files:
-        declare [-N|--namespace <default namespace>] -j|--json <json file> [<dataset namespace>:]<dataset>
     """
-    
 
     def __call__(self, command, client, opts, args):
+        size, file_spec, dataset_spec = args
+        default_namespace = opts.get("-N") or opts.get("--namespace")
+        file_namespace, file_name = parse_namespace_name(file_spec, default_namespace)
+        file_name = file_name or None           # for auto-generation
+        if not file_namespace:
+            raise InvalidArguments("File namespace not specified")
+            sys.exit(1)
+        dataset_namespace, dataset_name = parse_namespace_name(dataset_spec, default_namespace)
+        if not dataset_namespace:
+            raise InvalidArguments("Dataset namespace not specified")
+            sys.exit(1)
+
+        try:    size = int(size)
+        except: size = -1
+        if size < 0:
+            raise InvalidArguments("File size must be zero or positive integer")
+
+        parents = opts.get("-p") or opts.get("--parents")
+        if parents:
+            parents = parents.split(",")
+
+        metadata_file = opts.get("-m") or opts.get("--metadata")
+        if metadata_file:
+            metadata = json.load(open(metadata_file, "r"))
+        else:
+            metadata = {}
+        assert isinstance(metadata, dict)
+        file_data = {
+                "namespace":    file_namespace,
+                "name":         file_name,
+                "metadata":     metadata,
+                "size":         size
+            }
+        if parents:
+            file_data["parents"] = parents
+
+        checksums = opts.get("-c") or opts.get("--checksums")
+        if checksums:
+            ckdict = {}
+            for item in checksums.split(","):
+                name, value = item.split(":", 1)
+                ckdict[name] = value
+            file_data["checksums"] = ckdict
+
+        files = [file_data]
+    
+        try:
+            response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace)    
+            print(response)
+        except MCInvalidMetadataError as e:
+            print(e)
+            sys.exit(1)
+
+
+class DeclareManyCommand(CLICommand):
+    
+    MinArgs = 2
+    Opts = ("N:", ["namespace="])
+    Usage = """[options] <file list JSON file> [<dataset namespace>:]<dataset name>
+    Declare multiple files:
+        declare [-N|--namespace <default namespace>] <json file> [<dataset namespace>:]<dataset>
+    """
+
+    def __call__(self, command, client, opts, args):
+        json_file, dataset_spec = args
         default_namespace = opts.get("-N") or opts.get("--namespace")
 
-    
-        size = opts.get("-s", opts.get("--size"))
+        files = json.load(open(json_file, "r"))       # parse to validate JSON
 
-        if "-j" in opts or "--json" in opts:
-            json_file = opts.get("-j") or opts.get("--json")
-            files = json.load(open(json_file, "r"))       # parse to validate JSON
-            dataset_namespace, dataset_name = parse_namespace_name(args[0], default_namespace)
-            if dataset_namespace is None:
-                raise InvalidArguments("dataset not specified")
-                sys.exit(1)
-        else:
-            parents = opts.get("-p") or opts.get("--parents")
-            if parents:
-                parents = parents.split(",")
-            file_spec, dataset_spec = args
-            file_namespace, file_name = parse_namespace_name(file_spec, default_namespace)
-            if not file_namespace:
-                raise InvalidArguments("File namespace not specified")
-                sys.exit(1)
-            dataset_namespace, dataset_name = parse_namespace_name(dataset_spec, default_namespace)
-            if not dataset_namespace:
-                raise InvalidArguments("Dataset namespace not specified")
-                sys.exit(1)
+        dataset_namespace, dataset_name = parse_namespace_name(dataset_spec, default_namespace)
 
-            metadata_file = opts.get("-m") or opts.get("--metadata")
-            if metadata_file:
-                metadata = json.load(open(metadata_file, "r"))
-            else:
-                metadata = {}
-            assert isinstance(metadata, dict)
-            file_data = {
-                    "namespace":    file_namespace,
-                    "name":         file_name,
-                    "metadata":     metadata
-                }
-            if size is not None:
-                file_data["size"] = size
-            if parents:
-                file_data["parents"] = parents
-            files = [file_data]
-    
+        if dataset_namespace is None:
+            raise InvalidArguments("dataset not specified")
+            sys.exit(1)
+
         try:
             response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace)    
             print(response)
@@ -338,7 +367,8 @@ class AddCommand(CLICommand):
         print(out)
 
 FileCLI = CLI(
-    "declare",  DeclareCommand(),
+    "declare",  DeclareSingleCommand(),
+    "declare-many",  DeclareManyCommand(),
     "declare-sample",  DeclareSampleCommand(),
     "add",      AddCommand(),
     "update",   UpdateCommand(),

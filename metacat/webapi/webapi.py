@@ -444,20 +444,14 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         for i, item in enumerate(files):
             f = item.copy()
+            namespace = f.get("namespace", default_namespace)
             if "did" in f:
-                did = f.pop("did")
                 if "name" in f or "namespace" in f:
                     raise ValueError(f"Both DID and namespace/name specified for {did}")
+                did = f.pop("did")
                 namespace, name = parse_name(did, default_namespace)
-            elif "name" in f:
-                name = f["name"]
-                namespace = f.get("namespace", default_namespace)
-                if not namespace:
-                    raise ValueError(f"Namespace not specified for {name}")
-            else:
-                raise ValueError(f"A file without a name or DID found at index {i}")
+                f["name"] = name
             f["namespace"] = namespace
-            f["name"] = name
             size = f.get("size")
             if not isinstance(size, int) or size < 0:
                 raise ValueError("File size is unspecified or invalid for for {namespace}:{name} (#{i} in the list)")
@@ -471,8 +465,6 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             lst.append(f)
 
         url = f"data/declare_files?dataset={dataset}"
-        if namespace:
-            url += f"&namespace={namespace}"
         out = self.post_json(url, lst)
         return out
 

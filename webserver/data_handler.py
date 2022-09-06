@@ -428,22 +428,16 @@ class DataHandler(MetaCatHandler):
 
             if name is None:
                 did = file_item.get("did")
-                if did is None:
-                    errors.append({
-                        "message": "Missing file did and name",
-                        "fid": fid,
-                        "index": inx
-                    })
-                    continue
+                if did is not None:
+                    namespace, name = parse_name(did, namespace)
 
-                namespace, name = parse_name(did, namespace)
-                if not namespace:
-                    errors.append({
-                        "message":"Missing namespace",
-                        "index": inx,
-                        "fid":fid
-                    })
-                    continue
+            if not namespace:
+                errors.append({
+                    "message":"Missing namespace",
+                    "index": inx,
+                    "fid":fid
+                })
+                continue
 
             try:
                 if not self._namespace_authorized(db, namespace, user):
