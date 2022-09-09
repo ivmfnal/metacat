@@ -175,6 +175,8 @@ class HTTPClient(object):
 
 class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     
+    Version = "1.0"
+    
     def __init__(self, server_url=None, auth_server_url=None, max_concurrent_queries = 5,
                 token = None, token_file = None, timeout = None):    
 
@@ -206,15 +208,15 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             if isinstance(token, (str, bytes)):
                 token = SignedToken.decode(token)
             self.Token = token
-            
-        if token is None:
-            self.TokenLib = TokenLib()
-            token = self.TokenLib.get(server_url)
-        
+
         server_url = server_url or os.environ.get("METACAT_SERVER_URL")
         if not server_url:
             raise RuntimeError("MetaCat server URL unspecified")
-        
+
+        if token is None:
+            self.TokenLib = TokenLib()
+            token = self.TokenLib.get(server_url)
+
         HTTPClient.__init__(self, server_url, token, timeout)
         self.AuthURL = auth_server_url or server_url + "/auth"
         self.MaxConcurrent = max_concurrent_queries
@@ -361,19 +363,25 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         Parameters
         ----------
         dataset : str
-            "namespace:name"
+            "namespace:name" or "name", if namespace argument is given
         file_list : list
             List of dictionaries, one dictionary per file. Each dictionary must contain either a file id
         
             .. code-block:: python
         
-                    { "fid": "..." }
+                    { "fid": "abcd12345" }
 
-            or a file namespace/name:
+            or namespace/name:
         
             .. code-block:: python
 
-                    { "name": "namespace:name" }
+                    { "name": "filename.data", "namespace": "my_namespace" }
+
+            or DID:
+        
+            .. code-block:: python
+
+                    { "did": "my_namespace:filename.data" }
         
         namespace : str, optional
             Default namespace. If a ``file_list`` item is specified with a name without a namespace, the ``default namespace``
@@ -384,10 +392,33 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         list
             list of dictionaries, one dictionary per file with file ids: { "fid": "..." }
         """        
+            
+        default_namespace = namespace
+        if ':' not in dataset:
+            if default_namespace is None:
+                raise ValueError("Namespace not specified for the target dataset")
+            dataset = f"{default_namespace}:{dataset}"
+
         url = f"data/add_files?dataset={dataset}"
-        if namespace:
-            url += f"&namespace={namespace}"
-        out = self.post_json(url, file_list)
+        
+        data = []
+        for f in file_list:
+            if "fid" in f:
+                f = {"fid":f["fid"]}
+            elif "did" in f:
+                namespace, name = parse_name(f["did"], default_namespace)
+                if namespace is None:
+                    raise ValueError("Namespace not specified for file with did=" + f["did"])
+                f = {"namespace":namespace, "name":name}
+            elif "name" in f:
+                namespace = f.get("namespace") or default_namespace
+                if not namespace:
+                    raise ValueError("Namespace not specified for file with name=" + f["name"])
+                f = {"namespace":namespace, "name":f["name"]}
+            else:
+                raise ValueError("Infalid file specification: %s. Must contain either did or namespace/name or fid" % (f,))
+            data.append(f)
+        out = self.post_json(url, data)
         return out
 
     def declare_files(self, dataset, files, namespace=None):

@@ -290,7 +290,7 @@ class DataHandler(MetaCatHandler):
         ds_namespace, ds_name = parse_name(dataset, default_namespace)
         if ds_namespace is None:
             return "Dataset namespace unspecified", 400
-        if not self._namespace_authorized(db, user, ds_namespace):
+        if not self._namespace_authorized(db, ds_namespace, user):
             return f"Permission to add files dataset {dataset} denied", 403
         ds = DBDataset.get(db, ds_namespace, ds_name)
         if ds is None:
