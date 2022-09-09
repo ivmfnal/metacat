@@ -6,7 +6,14 @@ Installation
 
 You will need Python 3.7 or newer.
 
-To install the client side components:
+Preferred way to install the client is using pip:
+
+  .. code-block:: shell
+
+    $ pip install metacat --user
+    $ pip3 install metacat --user
+
+Alternatively, it can be installed from github:
 
   .. code-block:: shell
 
@@ -25,6 +32,8 @@ If you use your own Python installation, e.g. Anaconda or Miniconda, then you ca
   .. code-block:: shell
 
       $ python setup.py install
+
+It is also possible to install MetaCat client from a tarball from https://cdcvs.fnal.gov/redmine/projects/metacat/files
 
 
 General CLI command syntax
