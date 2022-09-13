@@ -87,17 +87,23 @@ class DN(object):
 
     __repr__ = __str__
 
-    RFCRE=re.compile(",?([A-Z]+)=")
-    LegacyRE=re.compile("/([A-Z]+)=")
+    RFCRE=re.compile("(\s*,\s*)?([A-Z]+)=")
+    LegacyRE=re.compile("\s*/([A-Z]+)=")
+    
+    def items(self):
+        yield from sorted(self.Fields.items())
+    
+    __iter__ = items
 
     @staticmethod
     def parse(text):
         fields = {}
         if text.startswith('/'):
             parts = DN.LegacyRE.split(text)[1:]
+            pairs = [(parts[i], parts[i+1]) for i in range(0, len(parts), 2)]
         else:
             parts = DN.RFCRE.split(text)[1:]
-        pairs = [parts[i:i+2] for i in range(0, len(parts), 2)]
+            pairs = [(parts[i+1], parts[i+2]) for i in range(0, len(parts), 3)]
         for name, value in pairs:
             name = name.upper()
             if name == "CN":
@@ -124,17 +130,18 @@ class DN(object):
 
     def legacy(self):
         out = []
-        for name, values in self.Fields.items():
+        for name, values in self:
             for value in values:
                 out.append(f"/{name}={value}")
         return ''.join(out)
 
     def rfc(self):
         out = []
-        for name, values in self.Fields.items():
+        for name, values in self:
             for value in values:
                 out.append(f"{name}={value}")
         return ','.join(out)
+
 
 
 class X509Authenticator(Authenticator):
