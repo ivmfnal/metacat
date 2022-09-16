@@ -78,6 +78,42 @@ This will return all the files in the dataset, which have a floating point metad
                         and ( type="MC" or type="Data" )
                         
 Generally, all white space is ignored in MQL.
+
+File Provenance
+---------------
+MetaCat supports the parent/child relationship between files. A file can have 0 or more child files and 0 or more parent files.
+To get list of parents or children of all files matching certain criteria, use ``parents`` and ``children`` keywords:
+
+.. code-block:: sql
+
+        parents (
+            files from MyScope:MyDataset
+                where x > 0.5 and x < 1.5 
+                        and run = 123 
+                        and ( type="MC" or type="Data" )
+        )
+
+        children (
+            files from MyScope:MyDataset
+                where x > 0.5 and x < 1.5 
+                        and run = 123 
+                        and ( type="MC" or type="Data" )
+        )
+
+You can use MQL to get parents or children of a single 
+
+
+If you want to get a list of files without any children, you can use this trick with file set subtraction:
+
+.. code-block:: sql
+
+        parents (
+            children (
+                files from MyScope:MyDataset
+            )
+        ) - files from MyScope:MyDataset
+
+
                 
 Combining Queries
 -----------------

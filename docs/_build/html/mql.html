@@ -99,6 +99,35 @@ into any dataset, you can omit the “from …” portion:</p>
 </div>
 <p>Generally, all white space is ignored in MQL.</p>
 </section>
+<section id="file-provenance">
+<h3>File Provenance<a class="headerlink" href="#file-provenance" title="Permalink to this headline">¶</a></h3>
+<p>MetaCat supports the parent/child relationship between files. A file can have 0 or more child files and 0 or more parent files.
+To get list of parents or children of all files matching certain criteria, use <code class="docutils literal notranslate"><span class="pre">parents</span></code> and <code class="docutils literal notranslate"><span class="pre">children</span></code> keywords:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">parents</span> <span class="p">(</span>
+    <span class="n">files</span> <span class="k">from</span> <span class="n">MyScope</span><span class="p">:</span><span class="n">MyDataset</span>
+        <span class="k">where</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">.</span><span class="mi">5</span> <span class="k">and</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">.</span><span class="mi">5</span>
+                <span class="k">and</span> <span class="n">run</span> <span class="o">=</span> <span class="mi">123</span>
+                <span class="k">and</span> <span class="p">(</span> <span class="k">type</span><span class="o">=</span><span class="ss">&quot;MC&quot;</span> <span class="k">or</span> <span class="k">type</span><span class="o">=</span><span class="ss">&quot;Data&quot;</span> <span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">children</span> <span class="p">(</span>
+    <span class="n">files</span> <span class="k">from</span> <span class="n">MyScope</span><span class="p">:</span><span class="n">MyDataset</span>
+        <span class="k">where</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">.</span><span class="mi">5</span> <span class="k">and</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">.</span><span class="mi">5</span>
+                <span class="k">and</span> <span class="n">run</span> <span class="o">=</span> <span class="mi">123</span>
+                <span class="k">and</span> <span class="p">(</span> <span class="k">type</span><span class="o">=</span><span class="ss">&quot;MC&quot;</span> <span class="k">or</span> <span class="k">type</span><span class="o">=</span><span class="ss">&quot;Data&quot;</span> <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>You can use MQL to get parents or children of a single</p>
+<p>If you want to get a list of files without any children, you can use this trick with file set subtraction:</p>
+<div class="highlight-sql notranslate"><div class="highlight"><pre><span></span><span class="n">parents</span> <span class="p">(</span>
+    <span class="n">children</span> <span class="p">(</span>
+        <span class="n">files</span> <span class="k">from</span> <span class="n">MyScope</span><span class="p">:</span><span class="n">MyDataset</span>
+    <span class="p">)</span>
+<span class="p">)</span> <span class="o">-</span> <span class="n">files</span> <span class="k">from</span> <span class="n">MyScope</span><span class="p">:</span><span class="n">MyDataset</span>
+</pre></div>
+</div>
+</section>
 <section id="combining-queries">
 <h3>Combining Queries<a class="headerlink" href="#combining-queries" title="Permalink to this headline">¶</a></h3>
 <p>Queries can be combined using boolean operations <em>union</em>, <em>join</em>, and subtraction to produce new queries:</p>
@@ -502,6 +531,7 @@ of the array is less or equal <cite>high</cite>”. For example, consider this m
 <li><a class="reference internal" href="#file-queries">File Queries</a><ul>
 <li><a class="reference internal" href="#simple-query">Simple Query</a></li>
 <li><a class="reference internal" href="#metadata-filtering">Metadata Filtering</a></li>
+<li><a class="reference internal" href="#file-provenance">File Provenance</a></li>
 <li><a class="reference internal" href="#combining-queries">Combining Queries</a></li>
 <li><a class="reference internal" href="#external-filters">External Filters</a><ul>
 <li><a class="reference internal" href="#standard-metacat-filters">Standard MetaCat Filters</a></li>

@@ -45,7 +45,14 @@
 <section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
 <p>You will need Python 3.7 or newer.</p>
-<p>To install the client side components:</p>
+<p>Preferred way to install the client is using pip:</p>
+<blockquote>
+<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ pip install metacat --user
+$ pip3 install metacat --user
+</pre></div>
+</div>
+</div></blockquote>
+<p>Alternatively, it can be installed from github:</p>
 <blockquote>
 <div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ git clone https://github.com/ivmfnal/metacat.git
 $ <span class="nb">cd</span> metacat
@@ -65,6 +72,7 @@ $ python setup.py install --user
 </pre></div>
 </div>
 </div></blockquote>
+<p>It is also possible to install MetaCat client from a tarball from <a class="reference external" href="https://cdcvs.fnal.gov/redmine/projects/metacat/files">https://cdcvs.fnal.gov/redmine/projects/metacat/files</a></p>
 </section>
 <section id="general-cli-command-syntax">
 <h2>General CLI command syntax<a class="headerlink" href="#general-cli-command-syntax" title="Permalink to this headline">¶</a></h2>
@@ -78,15 +86,29 @@ $ python setup.py install --user
 -s option specified the server URL. Alternativey, you can define the METACAT_AUTH_SERVER_URL and METACAT_SERVER_URL environment variables:</p>
 <blockquote>
 <div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ <span class="nb">export</span> <span class="nv">METACAT_SERVER_URL</span><span class="o">=</span><span class="s2">&quot;http://server:port/path&quot;</span>
-$ <span class="c1"># optionally: export METACAT_AUTH_SERVER_URL=&quot;http://auth_server:port/auth_path&quot;</span>
-$ metacat &lt;command&gt; <span class="o">[</span><span class="nb">command</span> options<span class="o">]</span> <span class="o">[</span>arguments ...<span class="o">]</span>
+$ <span class="nb">export</span> <span class="nv">METACAT_AUTH_SERVER_URL</span><span class="o">=</span><span class="s2">&quot;http://auth_server:port/auth_path&quot;</span>
+$ metacat &lt;<span class="nb">command</span> group&gt; &lt;command&gt; <span class="o">[</span><span class="nb">command</span> options<span class="o">]</span> <span class="o">[</span>arguments ...<span class="o">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+</section>
+<section id="versions">
+<h2>Versions<a class="headerlink" href="#versions" title="Permalink to this headline">¶</a></h2>
+<p>To quickly check the connectivity to the MetaCat server and see what software versions are used on the server
+and the client sides, use the <code class="docutils literal notranslate"><span class="pre">version</span></code> command:</p>
+<blockquote>
+<div><div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat version
+MetaCat Server URL:         https://metacat.fnal.gov:9443/dune_meta_demo/app
+Authentication server URL:  https://metacat.fnal.gov:8143/auth/dune
+Server version:             <span class="m">3</span>.9.1
+Client version:             <span class="m">3</span>.9.1
 </pre></div>
 </div>
 </div></blockquote>
 </section>
 <section id="user-authentication">
 <h2>User Authentication<a class="headerlink" href="#user-authentication" title="Permalink to this headline">¶</a></h2>
-<p>Main purpose of authentication commands is to obtain an authentication token and store it in
+<p>Main purpose of MetaCat authentication commands is to obtain an authentication token and store it in
 the MetaCat <em>token library</em> located at ~/.metacat_tokens. The library may contain multiple
 tokens, one per MetaCat server instance the user communicates with. The instances are identified
 by their URL.</p>
@@ -128,8 +150,10 @@ option with <code class="docutils literal notranslate"><span class="pre">mydn</s
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth token <span class="o">[</span>-o &lt;token file&gt;<span class="o">]</span>
 </pre></div>
 </div>
-<p>Verify a token</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>metacat auth whoami <span class="o">[</span>-t &lt;token file&gt;<span class="o">]</span>
+<p>On successful authentication, the following command will show your username and the token expiration:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat auth whoami <span class="o">[</span>-t &lt;token file&gt;<span class="o">]</span>
+User:    jdoe
+Expires: Fri Jul <span class="m">20</span> <span class="m">12</span>:35:10 <span class="m">2022</span>
 </pre></div>
 </div>
 </section>
@@ -183,6 +207,14 @@ $ metacat dataset list *:A*
         -r<span class="p">|</span>--replace            - replace metadata, otherwise update
         -m<span class="p">|</span>--metadata @&lt;JSON file with metadata&gt;
         -m<span class="p">|</span>--metadata <span class="s1">&#39;&lt;JSON expression&gt;&#39;</span>
+</pre></div>
+</div>
+</section>
+<section id="listing-files-in-the-dataset">
+<h3>Listing files in the dataset<a class="headerlink" href="#listing-files-in-the-dataset" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ metacat dataset files <span class="o">[</span>&lt;options&gt;<span class="o">]</span> &lt;dataset namespace&gt;:&lt;dataset name&gt;
+        -m<span class="p">|</span>--with-metadata      - include file metadata
+        -j                      - as JSON
 </pre></div>
 </div>
 </section>
@@ -361,12 +393,14 @@ Options:
 <li><a class="reference internal" href="#">Command Line Interface</a><ul>
 <li><a class="reference internal" href="#installation">Installation</a></li>
 <li><a class="reference internal" href="#general-cli-command-syntax">General CLI command syntax</a></li>
+<li><a class="reference internal" href="#versions">Versions</a></li>
 <li><a class="reference internal" href="#user-authentication">User Authentication</a></li>
 <li><a class="reference internal" href="#namespaces">Namespaces</a></li>
 <li><a class="reference internal" href="#datasets">Datasets</a><ul>
 <li><a class="reference internal" href="#creating-a-dataset">Creating a dataset</a></li>
 <li><a class="reference internal" href="#listing-existing-datasets">Listing existing datasets</a></li>
 <li><a class="reference internal" href="#updating-a-dataset-metadata-and-flags">Updating a dataset metadata and flags</a></li>
+<li><a class="reference internal" href="#listing-files-in-the-dataset">Listing files in the dataset</a></li>
 <li><a class="reference internal" href="#adding-removing-subsets-to-from-a-dataset">Adding/removing subsets to/from a dataset</a></li>
 </ul>
 </li>

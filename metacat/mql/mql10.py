@@ -183,8 +183,9 @@ class BasicFileQuery(object):
 
     def apply_params(self, params):
         default_namespace = params.get("namespace")
-        for ds in self.DatasetSelectors:
-            ds.apply_params(params)
+        if self.DatasetSelectors:
+            for ds in self.DatasetSelectors:
+                ds.apply_params(params)
         
 class DatasetQuery(object):
     
@@ -349,9 +350,12 @@ class QueryConverter(Converter):
         return Node("meta_filter", query=q, meta_exp=_make_DNF(meta_exp))
                 
     def basic_file_query(self, args):
-        assert len(args) == 1, str(args)
-        assert args[0].T == "dataset_selector_list"
-        return Node("basic_file_query", query=BasicFileQuery(args[0]["selectors"]))
+        if args:
+            assert len(args) == 1, "Expected 0 or 1 dataset selector list. Got: "+str(args)
+            assert args[0].T == "dataset_selector_list"
+            return Node("basic_file_query", query=BasicFileQuery(args[0]["selectors"]))
+        else:
+            return Node("basic_file_query", query=BasicFileQuery([]))
         
     def file_list(self, args):
         return Node("file_list", specs=[a.value[1:-1] for a in args], with_meta=False, with_provenance=False, limit=None)

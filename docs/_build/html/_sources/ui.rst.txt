@@ -6,7 +6,14 @@ Installation
 
 You will need Python 3.7 or newer.
 
-To install the client side components:
+Preferred way to install the client is using pip:
+
+  .. code-block:: shell
+
+    $ pip install metacat --user
+    $ pip3 install metacat --user
+
+Alternatively, it can be installed from github:
 
   .. code-block:: shell
 
@@ -26,6 +33,8 @@ If you use your own Python installation, e.g. Anaconda or Miniconda, then you ca
 
       $ python setup.py install
 
+It is also possible to install MetaCat client from a tarball from https://cdcvs.fnal.gov/redmine/projects/metacat/files
+
 
 General CLI command syntax
 --------------------------
@@ -43,14 +52,28 @@ General command looks like this:
     .. code-block:: shell
     
         $ export METACAT_SERVER_URL="http://server:port/path"
-        $ # optionally: export METACAT_AUTH_SERVER_URL="http://auth_server:port/auth_path"
-        $ metacat <command> [command options] [arguments ...]
+        $ export METACAT_AUTH_SERVER_URL="http://auth_server:port/auth_path"
+        $ metacat <command group> <command> [command options] [arguments ...]
         
-    
+
+Versions
+--------
+
+To quickly check the connectivity to the MetaCat server and see what software versions are used on the server
+and the client sides, use the ``version`` command:
+
+    .. code-block:: shell
+
+        $ metacat version
+        MetaCat Server URL:         https://metacat.fnal.gov:9443/dune_meta_demo/app
+        Authentication server URL:  https://metacat.fnal.gov:8143/auth/dune
+        Server version:             3.9.1
+        Client version:             3.9.1
+
 User Authentication
 -------------------
 
-Main purpose of authentication commands is to obtain an authentication token and store it in
+Main purpose of MetaCat authentication commands is to obtain an authentication token and store it in
 the MetaCat *token library* located at ~/.metacat_tokens. The library may contain multiple
 tokens, one per MetaCat server instance the user communicates with. The instances are identified
 by their URL.
@@ -110,12 +133,13 @@ Export token to a file or to stdout
     
     metacat auth token [-o <token file>]
 	
-Verify a token
+On successful authentication, the following command will show your username and the token expiration:
 
 .. code-block:: shell
     
-    metacat auth whoami [-t <token file>]
-	
+    $ metacat auth whoami [-t <token file>]
+    User:    jdoe
+    Expires: Fri Jul 20 12:35:10 2022
 
 
 Namespaces
@@ -185,7 +209,15 @@ Updating a dataset metadata and flags
             -r|--replace            - replace metadata, otherwise update
             -m|--metadata @<JSON file with metadata> 
             -m|--metadata '<JSON expression>' 
+            
+Listing files in the dataset
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. code-block:: shell
+
+    $ metacat dataset files [<options>] <dataset namespace>:<dataset name>
+            -m|--with-metadata      - include file metadata
+            -j                      - as JSON
 
 Adding/removing subsets to/from a dataset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
