@@ -276,8 +276,7 @@ class GUIHandler(MetaCatHandler):
         stats = {}
         for f in files:
             for n, v in f.Metadata.items():
-                if isinstance(v, list): v = tuple(v)
-                elif isinstance(v, dict): v = repr(v)
+                if isinstance(v, (dict, list)): v = repr(v)
                 n_dict = stats.setdefault(n, {})
                 try:
                     count = n_dict.setdefault(v, 0)
