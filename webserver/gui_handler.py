@@ -279,6 +279,8 @@ class GUIHandler(MetaCatHandler):
                 if isinstance(v, list): v = tuple(v)
                 elif isinstance(v, dict): v = repr(v)
                 n_dict = stats.setdefault(n, {})
+                if isinstance(v, (dict, list)):
+                    v = str(v)
                 count = n_dict.setdefault(v, 0)
                 n_dict[v] = count + 1
         out = []
