@@ -314,6 +314,9 @@ class QueryConverter(Converter):
         
     def __default__(self, typ, children, meta):
         return Node(typ, children, _meta=meta)
+        
+    def file_query_term(self, args):
+        return args[0]
 
     def merge_meta(self, m1, m2):
         if m1 is None or m2 is None:
@@ -348,7 +351,7 @@ class QueryConverter(Converter):
     def meta_filter(self, args):
         q, meta_exp = args
         return Node("meta_filter", query=q, meta_exp=_make_DNF(meta_exp))
-                
+
     def basic_file_query(self, args):
         if args:
             assert len(args) == 1, "Expected 0 or 1 dataset selector list. Got: "+str(args)
@@ -356,10 +359,28 @@ class QueryConverter(Converter):
             return Node("basic_file_query", query=BasicFileQuery(args[0]["selectors"]))
         else:
             return Node("basic_file_query", query=BasicFileQuery([]))
-        
-    def file_list(self, args):
-        return Node("file_list", specs=[a.value[1:-1] for a in args], with_meta=False, with_provenance=False, limit=None)
+            
+    def name_list(self, args):
+        return [a.value for a in args]
 
+    def file_list(self, args):
+        spec_type = args[0].value
+        assert spec_type in ("files", "fids", "file", "fid")
+        if spec_type.endswith('s'):
+            spec_type = spec_type[:-1]
+        if spec_type == "file":
+            namespace = None
+            specs = []
+            for qname in args[-1].C:
+                assert qname.T == "qualified_name"
+                namespace = qname.get("namespace") or namespace
+                specs.append(dict(namespace=namespace, name=qname["name"]))
+        else:       # "fids"
+            #print(args[-1], args[-1].C)
+            specs = [fid.value for fid in args[-1].C]
+        return Node("file_list", specs=specs, spec_type=spec_type,
+                 with_meta=False, with_provenance=False, limit=None)
+                 
     def int_constant(self, args):
         v = args[0]
         return Node("int", value=int(v.value))
@@ -707,15 +728,11 @@ class _WithParamsApplier(Descender):
     
     def file_list(self, node, params):
         namespace = params.get("namespace")
-        if not namespace:
-            return node
-        new_specs = []
-        for s in node["specs"]:
-            parts = s.split(":",1)
-            if len(parts) == 2 and not parts[0]:
-                s = namespace + ":" + parts[1]
-            new_specs.append(s)
-        node["specs"] = new_specs
+        if namespace and node["spec_type"] == "file":
+            for spec in node["specs"]:
+                if not spec.get("namespace"):
+                    spec["namespace"] = namespace
+        return node
 
     def basic_file_query(self, node, params):
         bfq = node["query"]
@@ -859,45 +876,6 @@ class _RemoveEmpty(Ascender):
         else:
             return node
             
-class _____QueryLimitApplier(Descender):
-    
-    def limit(self, node, limit):
-        #print("_LimitPusher.limit: node:", node)
-        assert len(node.C) == 1
-        node_limit = node["limit"]
-        limit = node_limit if limit is None else min(limit,node_limit)
-        return self.walk(node.C[0], limit)
-        
-    def union(self, node, limit):
-        if limit is not None:
-            return Node("limit", 
-                [Node("union", 
-                    [self.walk(c, limit) for c in node.C]
-                    )
-                ], limit=limit)
-        else:
-            return node
-
-    def basic_file_query(self, node, limit):
-        #print("LimitApplier: applying limit", limit)
-        node["query"].addLimit(limit)
-        return node
-        
-    def filter(self, node, limit):
-        node["limit"] = limit
-        return Node("limit", [node], limit=limit)
-
-    def file_list(self, node, limit):
-        node["limit"] = limit
-        return node
-        
-    def _default(self, node, limit):
-        #print("_LimitApplier._default: node:", node.pretty())
-        if limit is not None:
-            return Node("limit", [node], limit=limit)
-        else:
-            return node
-            
 class _QueryOptionsApplier(Descender):
     
     #
@@ -1028,9 +1006,7 @@ def parse_query(text, debug=False):
         l = l.split('#', 1)[0]
         out.append(l)
     text = '\n'.join(out)
-    
     parsed = _Parser.parse(text)
-
     if debug:
         print("--- parsed ---\n", LarkToNodes()(parsed).pretty())
     converted = QueryConverter()(parsed)
@@ -1049,6 +1025,7 @@ class MQLQuery(object):
         text = '\n'.join(out)
     
         parsed = _Parser.parse(text)
+        #print(parsed)
         return QueryConverter().convert(parsed)
         
     @staticmethod

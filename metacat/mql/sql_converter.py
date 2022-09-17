@@ -68,6 +68,7 @@ class SQLConverter(Ascender):
         return file_set
         
     def node_to_file_set(self, node):
+        print("node_to_file_set: node:", node)
         if node.T == "sql":
             file_set = DBFileSet.from_sql(self.DB, node["sql"])
         elif node.T == "empty":
@@ -123,9 +124,10 @@ class SQLConverter(Ascender):
         self.debug("basic_file_query: sql: --------\n", sql, "\n--------")
         return Node("sql", sql=sql)
         
-    def file_list(self, node, specs=None, with_meta=False, with_provenance=False):
-        return Node("sql", sql=DBFileSet.sql_for_file_list(specs, with_meta, with_provenance))
-    
+    def file_list(self, node, specs=None, spec_type=None, with_meta=False, with_provenance=False, limit=None, skip=0):
+        assert limit is None and skip == 0
+        return Node("sql", sql=DBFileSet.sql_for_file_list(spec_type, specs, with_meta, with_provenance, limit))
+
     def union(self, node, *args):
         #print("Evaluator.union: args:", args)
         assert all(n.T in ("sql","file_set","empty") for n in args)
@@ -267,7 +269,7 @@ class SQLConverter(Ascender):
             return arg
         if arg.T == "empty":
             return arg
-        assert arg.T in ("file_set", "sql")
+        assert arg.T in ("file_set", "sql", "file_list")
         if arg.T == "sql":
             sql = arg["sql"]
             tmp = alias()
@@ -285,6 +287,14 @@ class SQLConverter(Ascender):
                 -- end of limit {limit} {tmp}
             """
             return Node("sql", sql=new_sql)
+        elif arg.T == "file_list":
+            specs = arg["specs"]
+            if skip > 0:
+                specs = specs[skip:]
+            if limit:
+                specs = specs[:limit]
+            arg["specs"] = specs
+            return arg
         else:
             return Node("file_set", file_set = arg["file_set"].skip(skip).limit(limit))
             

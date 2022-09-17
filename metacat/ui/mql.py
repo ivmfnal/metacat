@@ -68,7 +68,7 @@ debug = "-d" in opts
 if cmd == "parse":
     qtext = " ".join(args)
     print("Query text:'%s'" % (qtext,))
-    q = parse_query(qtext)
+    q = parse_query(qtext, debug)
     print("Converted:---------------")
     print(q.Tree.pretty("    "))
     if "-o" in opts:
@@ -82,8 +82,9 @@ elif cmd == "run":
     def connect(dbcfg):
         connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % dbcfg
         conn = psycopg2.connect(connstr)
-        if "namespace" in dbcfg:
-            conn.cursor().execute("set search_path to %s" % (dbcfg["namespace"],))
+        schema = dbcfg.get("schema") or dbcfg.get("namespace")
+        if schema:
+            conn.cursor().execute("set search_path to %s" % (schema,))
         return conn
     
     config = opts.get("-c", os.environ.get("METACAT_SERVER_CFG"))

@@ -2,6 +2,9 @@ from lark import Lark
 from lark import Transformer, Tree, Token
 import pprint
 
+class SyntaxTreeConversionError(Exception):
+    pass
+
 class Token(object):
     
     JSON_CLASS = "token"
@@ -167,12 +170,15 @@ class Visitor(object):	# deprecated
         if not isinstance(node, Node):
             return
         node_type, children = node.T, node.C
-        
-        if hasattr(self, node_type):
-            method = getattr(self, node_type)
-            visit_children = method(node, context)
-        else:
-            visit_children = self._default(node, context)
+
+        try:
+            if hasattr(self, node_type):
+                method = getattr(self, node_type)
+                visit_children = method(node, context)
+            else:
+                visit_children = self._default(node, context)
+        except Exception as e:
+            raise SyntaxTreeConversionError(f"Error while processing node {node_type} with children {children}") from e
 
         if visit_children:
             for c in children:
@@ -237,12 +243,15 @@ class Descender(Traveler):
 
             node_type = node.T
         
-            if hasattr(self, node_type):
-                method = getattr(self, node_type)
-                new_node = method(node, context)
-            else:
-                new_node = self._default(node, context)
-
+            try:
+                if hasattr(self, node_type):
+                    method = getattr(self, node_type)
+                    new_node = method(node, context)
+                else:
+                    new_node = self._default(node, context)
+            except Exception as e:
+                raise SyntaxTreeConversionError(f"Error while processing node {node_type}") from e
+            
             if new_node is None:
                 new_node = node
 
@@ -296,7 +305,9 @@ class Ascender(Traveler):
                     for name, c in node.D.items()
                 }
                 node.C = children = [self._walk(c, debug) for c in children]
-                out = method(node, *children, **named_children)
+                try:    out = method(node, *children, **named_children)
+                except Exception as e:
+                    raise SyntaxTreeConversionError(f"Error while processing node {node_type}({children}, {named_children}) ") from e
                 if debug:
                     me = self.__class__.__name__
                     print(f"{me}: method {node_type} returned:", out.pretty("      "))

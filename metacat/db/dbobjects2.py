@@ -262,24 +262,12 @@ class DBFileSet(object):
         return sql
         
     @staticmethod
-    def sql_for_file_list(spec_list, with_meta, with_provenance, limit):
+    def sql_for_file_list(spec_type, spec_list, with_meta, with_provenance, limit):
+        
         f = alias("f")
         meta = f"{f}.metadata" if with_meta else "null as metadata"
         ids = []
         specs = []
-        
-        for s in spec_list:
-            if ':' in s:
-                specs.append(s)
-            else:
-                ids.append(s)
-                
-        debug("sql_for_file_list: specs, ids:", specs, ids)
-                
-        ids_part = ""
-        specs_part = ""
-        
-        parts = []
         
         attrs = DBFile.attr_columns(f)
 
@@ -289,34 +277,29 @@ class DBFileSet(object):
         else:
             table = "files"
             prov_columns = f"null as parents, null as children"
-        
-        if ids:
-            id_list = ",".join(["'%s'" % (i,) for i in ids])
-            ids_part = f"""
-                select {f}.id, {f}.namespace, {f}.name, {meta}, {prov_columns}, {attrs} from {table} {f}
-                    where id in ({id_list})
-                """
-            parts.append(ids_part)
-        
-        if specs:
-            parsed = [s.split(":",1) for s in specs]
-            namespaces, names = zip(*parsed)
-            namespaces = list(set(namespaces))
-            assert not "" in namespaces
-            names = list(set(names))
-            
-            namespaces = ",".join([f"'{ns}'" for ns in namespaces])
-            names = ",".join([f"'{n}'" for n in names])
-            specs = ",".join([f"'{s}'" for s in specs])
-            
-            specs_part = f"""
-                select {f}.id, {f}.namespace, {f}.name, {meta}, {prov_columns}, {attrs} from {table} {f}
-                    where {f}.name in ({names}) and {f}.namespace in ({namespaces}) and
-                         {f}.namespace || ':' || {f}.name in ({specs})
-            """
-            parts.append(specs_part)
 
-        return "\nunion\n".join(parts)
+        sql = f"""
+                select {f}.id, {f}.namespace, {f}.name, {meta}, {prov_columns}, {attrs} from {table} {f}
+        """
+
+        if spec_type == "fid":
+            id_list = ",".join(["'%s'" % (i,) for i in spec_list])
+            sql += f""" where id in ({id_list})
+            """
+        else:
+            namespace_names = []
+            for spec in spec_list:
+                if not spec.get("namespace"):
+                    raise ValueError("No namespace is given for " + spec.get("name"))
+                namespace_names.append("('%(namespace)s', '%(name)s')" % spec)
+            namespace_names = ','.join(namespace_names)
+            sql += f""" where (namespace, name) in ({namespace_names})
+                """
+
+        if limit is not None:
+            sql += f" limit {limit}"
+
+        return sql
 
     @staticmethod
     def from_sql(db, sql):

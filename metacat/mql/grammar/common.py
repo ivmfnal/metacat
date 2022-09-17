@@ -10,6 +10,14 @@ dataset_pattern:    (FNAME ":")? STRING
 
 qualified_name:     (FNAME ":")? FNAME
 
+qualified_name_list:   qualified_name ("," qualified_name)*
+
+?did:    FNAME ":" FNAME
+
+fid_list:  FID ("," FID)*
+
+//?did_list:  did ("," did)*
+
 param_def_list :  param_def ("," param_def)*
 
 param_def: CNAME "=" constant
@@ -53,7 +61,9 @@ index:  STRING
 ANAME: "." WORD
     | WORD ("." WORD)*
 
-FNAME: LETTER ("_"|"-"|"."|LETTER|DIGIT)*
+FNAME: LETTER ("_"|"-"|"."|LETTER|DIGIT|"/")*
+
+FID: ("_"|"-"|"."|LETTER|DIGIT|"/")+
 
 WORD: LETTER ("_"|LETTER|DIGIT)*
 

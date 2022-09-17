@@ -30,7 +30,10 @@ top_dataset_query       :    dataset_query
 term_file_query: "files" ("from" dataset_term_list)?                                -> basic_file_query
     |   "filter" FNAME "(" filter_params ? ")" "(" file_query_list ")"              -> filter
     |   "query" qualified_name                                                      -> named_query
-    |   "files" STRING ("," STRING)*                                                -> file_list
+    |   ("dids"|"fids") string_list                                                 -> file_list
+    |   "names" STRING? string_list                                                 -> file_list
+
+?string_list:    STRING ("," STRING)*
 
 filter_params : constant_list
     |   (constant_list ",")? param_def_list
