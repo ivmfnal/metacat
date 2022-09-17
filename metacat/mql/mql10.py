@@ -829,8 +829,8 @@ class _SkipLimitApplier(Descender):
 
     def file_list(self, node, skip_limit):
         skip, limit = skip_limit
-        node["limit"] = limit
-        node["skip"] = skip
+        node["limit"] = node.get("limit") or limit
+        node["skip"] = node.get("skip") or skip
         return node
     
     def empty(self, node, skip_limit):

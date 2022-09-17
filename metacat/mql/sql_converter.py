@@ -125,8 +125,7 @@ class SQLConverter(Ascender):
         return Node("sql", sql=sql)
         
     def file_list(self, node, specs=None, spec_type=None, with_meta=False, with_provenance=False, limit=None, skip=0):
-        assert limit is None and skip == 0
-        return Node("sql", sql=DBFileSet.sql_for_file_list(spec_type, specs, with_meta, with_provenance, limit))
+        return Node("sql", sql=DBFileSet.sql_for_file_list(spec_type, specs, with_meta, with_provenance, limit, skip))
 
     def union(self, node, *args):
         #print("Evaluator.union: args:", args)
@@ -287,14 +286,6 @@ class SQLConverter(Ascender):
                 -- end of limit {limit} {tmp}
             """
             return Node("sql", sql=new_sql)
-        elif arg.T == "file_list":
-            specs = arg["specs"]
-            if skip > 0:
-                specs = specs[skip:]
-            if limit:
-                specs = specs[:limit]
-            arg["specs"] = specs
-            return arg
         else:
             return Node("file_set", file_set = arg["file_set"].skip(skip).limit(limit))
             

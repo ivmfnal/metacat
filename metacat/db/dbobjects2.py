@@ -262,7 +262,7 @@ class DBFileSet(object):
         return sql
         
     @staticmethod
-    def sql_for_file_list(spec_type, spec_list, with_meta, with_provenance, limit):
+    def sql_for_file_list(spec_type, spec_list, with_meta, with_provenance, limit, skip):
         
         f = alias("f")
         meta = f"{f}.metadata" if with_meta else "null as metadata"
@@ -298,6 +298,8 @@ class DBFileSet(object):
 
         if limit is not None:
             sql += f" limit {limit}"
+        if skip > 0:
+            sql += f" offset {skip}"
 
         return sql
 
