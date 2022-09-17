@@ -29,7 +29,7 @@ class NotFoundError(Exception):
         return "Not found error: %s" % (self.Message,)
 
 
-def parse_name(name, default_namespace):
+def parse_name(name, default_namespace=None):
     words = (name or "").split(":", 1)
     if not words or not words[0]:
         assert not not default_namespace, "Null default namespace"

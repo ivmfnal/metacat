@@ -3,7 +3,7 @@ import psycopg2, json, time, secrets, traceback, hashlib, pprint
 from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, DBParamCategory, \
         parse_name, AlreadyExistsError, IntegrityError
 from wsdbtools import ConnectionPool
-from urllib.parse import quote_plus, unquote_plus
+from urllib.parse import quote_plus, unquote_plus, unquote
 from metacat.util import to_str, to_bytes
 from metacat.mql import MQLQuery
 from metacat import Version
@@ -216,8 +216,8 @@ class GUIHandler(MetaCatHandler):
         url = "./datasets"
         if error or message:
             messages = []
-            if error:   messages.append("error=", quote_plus(error))
-            if message:   messages.append("message=", quote_plus(message))
+            if error:   messages.append("error=" + error)       # assume they are quoted already
+            if message:   messages.append("message=" + message)
             url += "?" + "&".join(messages)
         return self.redirect(url)
         
@@ -257,17 +257,28 @@ class GUIHandler(MetaCatHandler):
             query_text = query_text or "", parsed = parsed, assembled = assembled, optimized = optimized,
                     with_sql = with_sql)
 
-    def show_file(self, request, relpath, fid=None, namespace=None, name=None, **args):
+    def show_file(self, request, relpath, fid=None, namespace=None, name=None, did=None, show_form="no", **args):
         db = self.connect()
-        if fid is None and (namespace is None or name is None):
-            self.redirect("./index?error=%s" % (quote_plus("invalid file specification"),))
-        if fid is not None:
+        f = None
+        namespace=namespace and unquote(namespace)
+        name=name and unquote(name)
+        did=did and unquote(did)
+        fid=fid and unquote(fid)
+        if fid:
             f = DBFile.get(db, fid=fid, with_metadata=True)
         else:
-            f = DBFile.get(db, namespace=namespace, name=name, with_metadata=True)
+            if did:
+                try:    namespace, name = parse_name(did)
+                except Exception as e:
+                    print(e)
+                    self.redirect("./show_file?error=%s&show_form=yes" % (quote_plus("invalid DID format"),))
+            if namespace and name:
+                f = DBFile.get(db, namespace=namespace, name=name, with_metadata=True)
+        show_form = show_form == "yes"
+        return self.render_to_response("show_file.html", f=f, show_form=show_form, namespace=namespace, name=name, did=did, fid=fid)
         
-        #print(f.__dict__)
-        return self.render_to_response("show_file.html", f=f)
+    def find_file(self, request, relpath, **args):
+        self.redirect("./show_file?show_form=yes")
 
     def _meta_stats(self, files):
         #
@@ -292,7 +303,7 @@ class GUIHandler(MetaCatHandler):
                 clist.append((v, c))
             out.append((name, sorted(clist, key=lambda vc: (-vc[1], vc[0]))))
         return sorted(out)
-    
+        
     def query(self, request, relpath, query=None, namespace=None, run="no", with_meta="yes", **args):
         
         db = self.App.connect()

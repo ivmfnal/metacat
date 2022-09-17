@@ -2,75 +2,104 @@
 
 {% block content %}
 
-<table class="placement">
-    <tr>
-        <td>
-            <h3>File Information</h3>
-            <table class=tabular>
-                <tr>
-	                <th>File ID</th><td>{{f.FID}}</td>
-                </tr>
-                <tr>
-	                <th>Namespace</th><td class="filename">{{f.Namespace}}</td>
-                </tr>
-                <tr>
-	                <th>Name</th><td class="filename">{{f.Name}}</td>
-                </tr>
-                <tr>
-	                <th>Size</th><td>{{f.Size}} {% if f.Size %}({{"%.3f" % (f.Size/1024.0/1024.0,)}} MB){% endif %}</td>
-                </tr>
-                <tr>
-                    <th>Created at</th><td>{{f.CreatedTimestamp or ""}}</td>
-                </tr>
-                <tr>
-                    <th>Created by</th><td>{% if f.Creator %}<a href="./user?username={{f.Creator}}">{{f.Creator}}</a>{% endif %}</td>
-                </tr>
-                <tr>
-	                <th>Checksums</th>
-                    <td>
-                            {% for ckn, ckv in f.Checksums.items() %}
-                                {{ckn}}:&nbsp;{{ckv}}<br/>
-                            {% endfor %}
-	                </td>
-                </tr>
-                <tr>
-	                <th>Parents</th>
-                    <td>
-		                {% for p in f.parents() -%}
-		                    <a href="./show_file?fid={{p.FID}}">{{p.Namespace}}:{{p.Name}}</a><br/>
-		                {%- endfor %}
-	                </td>
-                </tr>
-                <tr>
-	                <th>Children</th>
-                    <td>
-		                {% for p in f.children() -%}
-		                    <a href="./show_file?fid={{p.FID}}">{{p.Namespace}}:{{p.Name}}</a><br/>
-		                {%- endfor %}
-	                </td>
-                </tr>
-            </table>
-        </td>
-        <td>
-            <h3>Datasets</h3>
-            {% for ns, n in f.datasets %}
-                <a href="./dataset?namespace={{ns}}&name={{n}}">{{ns}}:{{n}}</a><br/>
-            {% endfor %}
-        </td>
-    </tr>
-</table>
+{% if show_form %}
+<form action="" method="GET">    
+    <input type="hidden" name="show_form" value="yes"/>
+    <table class="form">
+        <tr>
+            <th>Namespace</th><td><input type="text" name="namespace" value="{{namespace or ''}}" size=150></td>
+        </tr>
+        <tr>
+            <th>Name</th><td><input type="text" name="name" value="{{name or ''}}" size=150></td>
+        </tr>
+        <tr>
+            <td colspan=2>&nbsp;</td>
+        </tr>
+        <tr>
+            <th>DID (namespace:name)</th><td><input type="text" name="did" value="{{did or ''}}" size=150></td>
+        </tr>
+        <tr>
+            <th>File id</th><td><input type="text" name="fid" value="{{fid or ''}}" size=150></td>
+        </tr>
+        <tr>
+            <td></td><td><input type="submit" value="Find"/></td>
+        <tr>
+    </table>
+</form>
+{% endif %}
 
-<h3>Metadata</h3>
+{% if f %}
+    <table class="placement">
+        <tr>
+            <td>
+                <h3>File Information</h3>
+                <table class=tabular>
+                    <tr>
+    	                <th>File ID</th><td>{{f.FID}}</td>
+                    </tr>
+                    <tr>
+    	                <th>Namespace</th><td class="filename">{{f.Namespace}}</td>
+                    </tr>
+                    <tr>
+    	                <th>Name</th><td class="filename">{{f.Name}}</td>
+                    </tr>
+                    <tr>
+    	                <th>Size</th><td>{{f.Size}} {% if f.Size %}({{"%.3f" % (f.Size/1024.0/1024.0,)}} MB){% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th>Created at</th><td>{{f.CreatedTimestamp or ""}}</td>
+                    </tr>
+                    <tr>
+                        <th>Created by</th><td>{% if f.Creator %}<a href="./user?username={{f.Creator}}">{{f.Creator}}</a>{% endif %}</td>
+                    </tr>
+                    <tr>
+    	                <th>Checksums</th>
+                        <td>
+                                {% for ckn, ckv in f.Checksums.items() %}
+                                    {{ckn}}:&nbsp;{{ckv}}<br/>
+                                {% endfor %}
+    	                </td>
+                    </tr>
+                    <tr>
+    	                <th>Parents</th>
+                        <td>
+    		                {% for p in f.parents() -%}
+    		                    <a href="./show_file?fid={{p.FID}}">{{p.Namespace}}:{{p.Name}}</a><br/>
+    		                {%- endfor %}
+    	                </td>
+                    </tr>
+                    <tr>
+    	                <th>Children</th>
+                        <td>
+    		                {% for p in f.children() -%}
+    		                    <a href="./show_file?fid={{p.FID}}">{{p.Namespace}}:{{p.Name}}</a><br/>
+    		                {%- endfor %}
+    	                </td>
+                    </tr>
+                </table>
+            </td>
+            <td>
+                <h3>Datasets</h3>
+                {% for ns, n in f.datasets %}
+                    <a href="./dataset?namespace={{ns}}&name={{n}}">{{ns}}:{{n}}</a><br/>
+                {% endfor %}
+            </td>
+        </tr>
+    </table>
+
+    <h3>Metadata</h3>
 
 
-<table class="file_metadata">
-    <tr>
-        <th>Parameter</th><th>Value</th>
-    </tr>
-    {% for k, v in f.Metadata.items()|sort %}
-	<tr><td class="attr_name">{{k}}</td><td class="attr_value">{{v}}</td></tr>
-    {% endfor %}
-</table>
+    <table class="file_metadata">
+        <tr>
+            <th>Parameter</th><th>Value</th>
+        </tr>
+        {% for k, v in f.Metadata.items()|sort %}
+    	<tr><td class="attr_name">{{k}}</td><td class="attr_value">{{v}}</td></tr>
+        {% endfor %}
+    </table>
+
+{% endif %} {# f #}
 
 {% endblock %}
                 
