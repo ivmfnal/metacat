@@ -279,7 +279,7 @@ class DBFileSet(object):
             prov_columns = f"null as parents, null as children"
 
         sql = f"""
-                select {f}.id, {f}.namespace, {f}.name, {meta}, {prov_columns}, {attrs} from {table} {f}
+                select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {prov_columns} from {table} {f}
         """
 
         if spec_type == "fid":
@@ -305,8 +305,9 @@ class DBFileSet(object):
 
     @staticmethod
     def from_sql(db, sql):
+        print("")
         c = db.cursor()
-        debug("DBFileSet.from_sql: executing sql...")
+        debug("DBFileSet.from_sql: executing sql:", sql)
         c.execute(sql)
         debug("DBFileSet.from_sql: return from execute()")
         fs = DBFileSet.from_tuples(db, fetch_generator(c))
@@ -458,7 +459,7 @@ class DBFile(object):
         
     @staticmethod
     def from_tuple(db, tup):
-        #print("----DBFile.from_tup: tup:", tup)
+        debug("----DBFile.from_tup: tup:", tup)
         if tup is None: return None
         try:
             try:    

@@ -1,4 +1,4 @@
-import sys, traceback, yaml, os
+import sys, traceback, yaml, os, pprint
 import psycopg2
 from metacat.mql import parse_query
 from getopt import getopt
@@ -103,7 +103,7 @@ elif cmd == "run":
     results = q.run(db, debug=True, filters=filters, with_meta=True, with_provenance=False)
     print("Query results:")
     for r in results:
-        print(r)
+        pprint.pprint(r.to_jsonable())
 else:
     print(Usage)
     sys.exit(2)
