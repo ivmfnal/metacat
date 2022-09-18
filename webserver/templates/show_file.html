@@ -35,13 +35,16 @@
                 <h3>File Information</h3>
                 <table class=tabular>
                     <tr>
-    	                <th>File ID</th><td>{{f.FID}}</td>
+    	                <th>File ID</th><td class="filename">{{f.FID}}</td>
                     </tr>
                     <tr>
-    	                <th>Namespace</th><td class="filename">{{f.Namespace}}</td>
+    	                <th>Namespace</th><td><a href="./namespace?name={{f.Namespace}}">{{f.Namespace}}</a></td>
                     </tr>
                     <tr>
     	                <th>Name</th><td class="filename">{{f.Name}}</td>
+                    </tr>
+                    <tr>
+    	                <th>DID</th><td class="filename">{{f.Namespace}}:{{f.Name}}</td>
                     </tr>
                     <tr>
     	                <th>Size</th><td>{{f.Size}} {% if f.Size %}({{"%.3f" % (f.Size/1024.0/1024.0,)}} MB){% endif %}</td>

@@ -68,7 +68,7 @@ class SQLConverter(Ascender):
         return file_set
         
     def node_to_file_set(self, node):
-        print("node_to_file_set: node:", node)
+        #print("node_to_file_set: node:", node)
         if node.T == "sql":
             file_set = DBFileSet.from_sql(self.DB, node["sql"])
         elif node.T == "empty":
