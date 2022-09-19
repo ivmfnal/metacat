@@ -1,17 +1,17 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MetaCat Server REST API &#8212; MetaCat  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/nature.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" /> 
@@ -32,34 +32,34 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <section id="metacat-server-rest-api">
-<h1>MetaCat Server REST API<a class="headerlink" href="#metacat-server-rest-api" title="Permalink to this headline">¶</a></h1>
-<section id="client-authentication">
-<h2>Client authentication<a class="headerlink" href="#client-authentication" title="Permalink to this headline">¶</a></h2>
-<section id="obtain-token">
-<h3>Obtain Token<a class="headerlink" href="#obtain-token" title="Permalink to this headline">¶</a></h3>
+  <div class="section" id="metacat-server-rest-api">
+<h1>MetaCat Server REST API<a class="headerlink" href="#metacat-server-rest-api" title="Permalink to this heading">¶</a></h1>
+<div class="section" id="client-authentication">
+<h2>Client authentication<a class="headerlink" href="#client-authentication" title="Permalink to this heading">¶</a></h2>
+<div class="section" id="obtain-token">
+<h3>Obtain Token<a class="headerlink" href="#obtain-token" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl --digest -u user:password -c cookie.jar <span class="s2">&quot;https://host:port/auth/auth?method=digest&quot;</span>
 curl -T password_file.txt -c cookie.jar      <span class="s2">&quot;https://host:port/auth/auth?method=ldap&amp;username=user&quot;</span>
 curl --cert<span class="o">=</span>... --key<span class="o">=</span>... -c cookie.jar      <span class="s2">&quot;https://host:port/auth/auth?method=x509&amp;username=user&quot;</span>
 </pre></div>
 </div>
 <p>The token will be stored in the cookie.jar file</p>
-</section>
-<section id="check-token">
-<h3>Check Token<a class="headerlink" href="#check-token" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="check-token">
+<h3>Check Token<a class="headerlink" href="#check-token" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -b cookie.jar <span class="s2">&quot;https://host:port/auth/whoami&quot;</span>
 </pre></div>
 </div>
-</section>
-<section id="extract-token-as-string">
-<h3>Extract token as string:<a class="headerlink" href="#extract-token-as-string" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="extract-token-as-string">
+<h3>Extract token as string:<a class="headerlink" href="#extract-token-as-string" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -b cookie.jar -o token.file <span class="s2">&quot;https://host:port/auth/token&quot;</span>
 </pre></div>
 </div>
 <p>this will save the token in the “token.file”</p>
-</section>
-<section id="use-token">
-<h3>Use Token<a class="headerlink" href="#use-token" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="use-token">
+<h3>Use Token<a class="headerlink" href="#use-token" title="Permalink to this heading">¶</a></h3>
 <p>As a cookie from the cookie jar file:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -b cookie.jar <span class="s2">&quot;http://host:port/data/create_dataset?dataset=test:test&quot;</span>
 </pre></div>
@@ -68,13 +68,13 @@ curl --cert<span class="o">=</span>... --key<span class="o">=</span>... -c cooki
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl -H <span class="s2">&quot;X-Authentication-Token: `cat token.file`&quot;</span> http://localhost:8080/auth/whoami
 </pre></div>
 </div>
-</section>
-</section>
-<section id="rest-methods">
-<h2>REST Methods<a class="headerlink" href="#rest-methods" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+<div class="section" id="rest-methods">
+<h2>REST Methods<a class="headerlink" href="#rest-methods" title="Permalink to this heading">¶</a></h2>
 <p>All data methods return JSON structure</p>
-<section id="namespaces">
-<h3>Namespaces<a class="headerlink" href="#namespaces" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="namespaces">
+<h3>Namespaces<a class="headerlink" href="#namespaces" title="Permalink to this heading">¶</a></h3>
 <dl>
 <dt>Create namespace</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">GET</span> <span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">create_namespace</span>
     <span class="n">name</span><span class="o">=&lt;</span><span class="n">namespace</span> <span class="n">name</span><span class="o">&gt;</span>
@@ -107,9 +107,9 @@ all namespaces.</p>
 </div>
 <p>Returns: Dictionary with counts of files, datasets and saved queries in the namespace</p>
 </div></blockquote>
-</section>
-<section id="datasets">
-<h3>Datasets<a class="headerlink" href="#datasets" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="datasets">
+<h3>Datasets<a class="headerlink" href="#datasets" title="Permalink to this heading">¶</a></h3>
 <dl>
 <dt>Get all datasets</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">GET</span> <span class="o">/</span><span class="n">data</span><span class="o">/</span><span class="n">datasets</span>
     <span class="p">[</span><span class="n">with_file_counts</span><span class="o">=</span><span class="p">(</span><span class="n">yes</span><span class="o">|</span><span class="n">no</span><span class="p">)</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;no&quot;</span><span class="p">]</span>
@@ -149,9 +149,9 @@ each dictionary will include “file_count” field.</p>
 </div>
 <p>Returns: JSON dictionary <code class="docutils literal notranslate"><span class="pre">{&quot;file_count&quot;:n}</span></code></p>
 </div></blockquote>
-</section>
-<section id="file-metadata">
-<h3>File Metadata<a class="headerlink" href="#file-metadata" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="file-metadata">
+<h3>File Metadata<a class="headerlink" href="#file-metadata" title="Permalink to this heading">¶</a></h3>
 <dl>
 <dt>Declare new files</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>POST /data/declare_files?dataset=[&lt;namespace&gt;:]&lt;name&gt;
     [namespace=&lt;default namespace name&gt;]
@@ -160,22 +160,22 @@ each dictionary will include “file_count” field.</p>
 <p>If specified, the defaut namespace will be used for the dataset and for all the files to be declared</p>
 <p>Request body: JSON list of dictionaries, one dictionary per file:</p>
 <blockquote>
-<div><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
-    <span class="p">{</span>
-        <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span>
-        <span class="nt">&quot;parents&quot;</span><span class="p">:</span> <span class="p">[</span> <span class="s2">&quot;fid1&quot;</span><span class="p">,</span> <span class="s2">&quot;fid2&quot;</span> <span class="p">],</span>
-        <span class="nt">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&quot;i&quot;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="nt">&quot;x&quot;</span><span class="p">:</span><span class="mf">3.14</span><span class="p">,</span> <span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="s2">&quot;data&quot;</span> <span class="p">}</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span>
-        <span class="nt">&quot;parents&quot;</span><span class="p">:</span> <span class="p">[</span> <span class="s2">&quot;fid1&quot;</span><span class="p">,</span> <span class="s2">&quot;fid2&quot;</span> <span class="p">],</span>
-        <span class="nt">&quot;metadata&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="nt">&quot;i&quot;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="nt">&quot;x&quot;</span><span class="p">:</span><span class="mf">3.14</span><span class="p">,</span> <span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="s2">&quot;data&quot;</span> <span class="p">}</span>
-    <span class="p">},</span>
-    <span class="p">{</span>
-        <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;namespace:file_test_3.dat&quot;</span><span class="p">,</span>
-        <span class="nt">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;6452476294&quot;</span>
-    <span class="p">}</span>
-<span class="p">]</span>
+<div><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;parents&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">&quot;fid1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;fid2&quot;</span><span class="w"> </span><span class="p">],</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;i&quot;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;x&quot;</span><span class="p">:</span><span class="mf">3.14</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="s2">&quot;data&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;parents&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s2">&quot;fid1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;fid2&quot;</span><span class="w"> </span><span class="p">],</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;i&quot;</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;x&quot;</span><span class="p">:</span><span class="mf">3.14</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="s2">&quot;data&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;namespace:file_test_3.dat&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;6452476294&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="p">]</span><span class="w"></span>
 </pre></div>
 </div>
 </div></blockquote>
@@ -199,11 +199,11 @@ each dictionary will include “file_count” field.</p>
 <p>If specified, the defaut namespace will be used for the dataset and for all the files to be declared</p>
 <p>Request body: JSON list of dictionaries, one dictionary per file:</p>
 <blockquote>
-<div><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
-    <span class="p">{</span>   <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span>  <span class="p">},</span>
-    <span class="p">{</span>   <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;namespace:file_test_3.dat&quot;</span> <span class="p">},</span>
-    <span class="p">{</span>   <span class="nt">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;6452476294&quot;</span>  <span class="p">}</span>
-<span class="p">]</span>
+<div><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span><span class="w">  </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;namespace:file_test_3.dat&quot;</span><span class="w"> </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="nt">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;6452476294&quot;</span><span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">]</span><span class="w"></span>
 </pre></div>
 </div>
 </div></blockquote>
@@ -258,11 +258,11 @@ GET /data/file?fid=&lt;file id&gt;
 <p>Request body: JSON list of dictionaries, one dictionary per file:</p>
 <p>Returns: JSON dictionary with file information</p>
 <blockquote>
-<div><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
-    <span class="p">{</span>   <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span>  <span class="p">},</span>
-    <span class="p">{</span>   <span class="nt">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;namespace:file_test_3.dat&quot;</span> <span class="p">},</span>
-    <span class="p">{</span>   <span class="nt">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;6452476294&quot;</span>  <span class="p">}</span>
-<span class="p">]</span>
+<div><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file_test_1.dat&quot;</span><span class="p">,</span><span class="w">  </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;namespace:file_test_3.dat&quot;</span><span class="w"> </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w">   </span><span class="nt">&quot;fid&quot;</span><span class="p">:</span><span class="s2">&quot;6452476294&quot;</span><span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">]</span><span class="w"></span>
 </pre></div>
 </div>
 </div></blockquote>
@@ -275,9 +275,9 @@ GET /data/file?fid=&lt;file id&gt;
 </div></blockquote>
 <p>Returns: JSON list of dictionaries with file information</p>
 </div></blockquote>
-</section>
-<section id="queries">
-<h3>Queries<a class="headerlink" href="#queries" title="Permalink to this headline">¶</a></h3>
+</div>
+<div class="section" id="queries">
+<h3>Queries<a class="headerlink" href="#queries" title="Permalink to this heading">¶</a></h3>
 <blockquote>
 <div><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>GET /data/query?query=&lt;url encoded query&gt;
 POST /data/query
@@ -296,9 +296,9 @@ whether the file metadata and provenance will be included, respectively.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">save_as</span></code> is specified, the selected files will be saved as the new dataset. If the dataset already exists,
 the request will fail with an error.</p>
 </div></blockquote>
-</section>
-</section>
-</section>
+</div>
+</div>
+</div>
 
 
             <div class="clearer"></div>
@@ -307,8 +307,9 @@ the request will fail with an error.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="index.html">Table of Contents</a></h3>
-  <ul>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
 <li><a class="reference internal" href="#">MetaCat Server REST API</a><ul>
 <li><a class="reference internal" href="#client-authentication">Client authentication</a><ul>
 <li><a class="reference internal" href="#obtain-token">Obtain Token</a></li>
@@ -328,6 +329,7 @@ the request will fail with an error.</p>
 </li>
 </ul>
 
+  </div>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -344,7 +346,7 @@ the request will fail with an error.</p>
     </form>
     </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -361,7 +363,7 @@ the request will fail with an error.</p>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2020, Igor Mandrichenko.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.1.1.
     </div>
   </body>
 </html>

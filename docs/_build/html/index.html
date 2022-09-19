@@ -1,21 +1,21 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MetaCat Documentation &#8212; MetaCat  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/nature.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Command Line Interface" href="ui.html" /> 
+    <link rel="next" title="MetaCat Concepts" href="concepts.html" /> 
   </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
@@ -24,7 +24,7 @@
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="ui.html" title="Command Line Interface"
+          <a href="concepts.html" title="MetaCat Concepts"
              accesskey="N">next</a> |</li>
         <li class="nav-item nav-item-0"><a href="#">MetaCat  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">MetaCat Documentation</a></li> 
@@ -36,11 +36,17 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <section id="metacat-documentation">
-<h1>MetaCat Documentation<a class="headerlink" href="#metacat-documentation" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="metacat-documentation">
+<h1>MetaCat Documentation<a class="headerlink" href="#metacat-documentation" title="Permalink to this heading">¶</a></h1>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">MetaCat Concepts</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#file">File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#dataset">Dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#query">Query</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="ui.html">Command Line Interface</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="ui.html#installation">Installation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ui.html#general-cli-command-syntax">General CLI command syntax</a></li>
@@ -66,7 +72,7 @@
 <li class="toctree-l2"><a class="reference internal" href="mql.html#metadata-comparison">Metadata Comparison</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mql.html#array-or-dictionary-elements-access">Array or Dictionary Elements Access</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mql.html#ranges-and-sets">Ranges and Sets</a></li>
-<li class="toctree-l2"><a class="reference internal" href="mql.html#limiting-query-results">Limiting Query Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mql.html#limiting-and-skipping-query-results">Limiting and Skipping Query Results</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mql.html#dataset-queries">Dataset Queries</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mql.html#combining-file-and-dataset-metadata-filtering">Combining File and Dataset Metadata Filtering</a></li>
 </ul>
@@ -74,7 +80,7 @@
 <li class="toctree-l1"><a class="reference internal" href="regexp.html">Regular Expressions Cheat Sheet</a></li>
 </ul>
 </div>
-</section>
+</div>
 
 
             <div class="clearer"></div>
@@ -83,9 +89,11 @@
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h4>Next topic</h4>
-  <p class="topless"><a href="ui.html"
-                        title="next chapter">Command Line Interface</a></p>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="concepts.html"
+                          title="next chapter">MetaCat Concepts</a></p>
+  </div>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -102,7 +110,7 @@
     </form>
     </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -114,7 +122,7 @@
           <a href="genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="ui.html" title="Command Line Interface"
+          <a href="concepts.html" title="MetaCat Concepts"
              >next</a> |</li>
         <li class="nav-item nav-item-0"><a href="#">MetaCat  documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">MetaCat Documentation</a></li> 
@@ -122,7 +130,7 @@
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2020, Igor Mandrichenko.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.1.1.
     </div>
   </body>
 </html>

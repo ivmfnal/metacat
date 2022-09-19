@@ -1,0 +1,182 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MetaCat Concepts &#8212; MetaCat  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/nature.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Command Line Interface" href="ui.html" />
+    <link rel="prev" title="MetaCat Documentation" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="ui.html" title="Command Line Interface"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="MetaCat Documentation"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">MetaCat Concepts</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="metacat-concepts">
+<h1>MetaCat Concepts<a class="headerlink" href="#metacat-concepts" title="Permalink to this heading">¶</a></h1>
+<p>MetaCat is a general purpose metadata catalog. It has 4 major functions:</p>
+<ol class="arabic simple">
+<li><p>Store metadata associated with a <em>file</em></p></li>
+<li><p>Provide a mechanism to retrieve the metadata associated with a file</p></li>
+<li><p>Efficiently query the metadata database to find files matching the list of crieria expressed in terms of file metadata</p></li>
+<li><p>Provide a mechanism to seamlessly and efficiently integrate metadata stored in external sources to the query results and use it select files based on their metadata values</p></li>
+</ol>
+<div class="section" id="file">
+<h2>File<a class="headerlink" href="#file" title="Permalink to this heading">¶</a></h2>
+<p>MetaCat is a purely metadata database. Replica management is outside of MetaCat scope. That is why in MetaCat, <em>file</em> is
+rather abstract object. MetaCat “file” is anything wich has the following attributes:</p>
+<ul class="simple">
+<li><p>Unique text <em>file id</em></p></li>
+<li><p>Unique <em>Name</em> within a <em>Namespace</em></p></li>
+<li><p><em>Metadata</em> dictionary</p></li>
+<li><p>File <em>provenance</em> information - list of file <em>parents</em> and <em>clildren</em></p></li>
+</ul>
+<p>MetaCat also stores the following file attributes, but they are not used by MetaCat itself, and therefore, depending on the
+use case, they do not necessarily have to have some meaningful values:</p>
+<ul class="simple">
+<li><p>File creator username</p></li>
+<li><p>Creation time</p></li>
+<li><p>File size</p></li>
+<li><p>One or more checksums</p></li>
+</ul>
+<p>File also can be a memeber of one or more <em>Datasets</em></p>
+</div>
+<div class="section" id="dataset">
+<h2>Dataset<a class="headerlink" href="#dataset" title="Permalink to this heading">¶</a></h2>
+<p>In MetaCat, <em>Dataset</em> is a relatively static collection of files. “Relatively static” means that files are added to and removed from
+a dataset explicitly. There is no such thing as a “dynamic” dataset, which automatically contains files matching certain criteria.
+MetaCat Dataset has the following attributes:</p>
+<ul class="simple">
+<li><p>Unique <em>Name</em> within a <em>Namespace</em></p></li>
+<li><p><em>Metadata</em> dictionary</p></li>
+</ul>
+<p>A Dataset can have zero or more subsets. MetaCat enforces non-circular relationship between data datasets, i.e. it is impossible
+to add a dataset as its own direct ot indirect subset.</p>
+<p>Dataset also has the following attributes, not used by MetaCat:</p>
+<ul class="simple">
+<li><p>Creator username</p></li>
+<li><p>Creation time</p></li>
+</ul>
+<p>Dataset can define metadata restrictions. They can be used to enforce certain requirements for files added to the dataset. The rules can be defined to:</p>
+<ul class="simple">
+<li><p>Require certain metadata fields to be present in the file metadata</p></li>
+<li><p>Define acceptable ranges, enumeration or patterns for parameter values</p></li>
+</ul>
+</div>
+<div class="section" id="query">
+<h2>Query<a class="headerlink" href="#query" title="Permalink to this heading">¶</a></h2>
+<p>MetaCat query is an algorithm to select files based on the set of criteria defined by the user. Result of a query execution is a <em>file set</em>.
+File set is an unordered collection of files, which match given set of criteria at the time when the query is executed.
+Because the contents of the database is dynamic and can change at any time, the same query is <em>not</em> guaranteed to always return the same results
+next time it is executed.</p>
+<p>Currently, MetaCat does not have a mechanism to specify the order of the resulting file set. Therefore, even if the set of files returned by the
+query is the same, MetaCat does not guarantee that they are returned in the same order.</p>
+<p>MetaCat queries are written in Metadata Query Language (MQL). Fundamental concept behind MQL is that it provides a mechanism to
+build a complicated query from simpler queries. The file sets produced by simple queries are transformed into results of more complicated
+queries as the query is executed.</p>
+<p>Most of MQL queries are translated internally into SQL. This allows most of the queries to be executed by the database engine, which is supposed
+to be able to do that efficiently. The only exception is when an <em>external data filter</em> is used in the query.
+In this case, MetaCat translates portions of the query into SQL as much as possible and the rest of the query.</p>
+</div>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">MetaCat Concepts</a><ul>
+<li><a class="reference internal" href="#file">File</a></li>
+<li><a class="reference internal" href="#dataset">Dataset</a></li>
+<li><a class="reference internal" href="#query">Query</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="index.html"
+                          title="previous chapter">MetaCat Documentation</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="ui.html"
+                          title="next chapter">Command Line Interface</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/concepts.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="ui.html" title="Command Line Interface"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="MetaCat Documentation"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">MetaCat Concepts</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020, Igor Mandrichenko.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.1.1.
+    </div>
+  </body>
+</html>

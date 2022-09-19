@@ -1,17 +1,17 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MetaCat Web API &#8212; MetaCat  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/nature.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -40,10 +40,10 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <section id="metacat-web-api">
-<h1>MetaCat Web API<a class="headerlink" href="#metacat-web-api" title="Permalink to this headline">¶</a></h1>
-<section id="creating-metacat-client-interface">
-<h2>Creating MetaCat Client Interface<a class="headerlink" href="#creating-metacat-client-interface" title="Permalink to this headline">¶</a></h2>
+  <div class="section" id="metacat-web-api">
+<h1>MetaCat Web API<a class="headerlink" href="#metacat-web-api" title="Permalink to this heading">¶</a></h1>
+<div class="section" id="creating-metacat-client-interface">
+<h2>Creating MetaCat Client Interface<a class="headerlink" href="#creating-metacat-client-interface" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">MetaCatClient</span></code> object is the client side interface to MetaCat server. To create a <code class="docutils literal notranslate"><span class="pre">MetaCatClient</span></code>, you need the URL for the server:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">metacat.webapi</span> <span class="kn">import</span> <span class="n">MetaCatClient</span>
 
@@ -58,15 +58,15 @@ Password:...
 </div>
 <p>Not all client methods requie any client authentication. Most of read-only methods can be used without any authentication.
 Authentication is required to get information about users and roles (these methods are not yet implemented).</p>
-</section>
-<section id="metacatclient-class-methods-reference">
-<h2>MetaCatClient Class Methods Reference<a class="headerlink" href="#metacatclient-class-methods-reference" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="metacatclient-class-methods-reference">
+<h2>MetaCatClient Class Methods Reference<a class="headerlink" href="#metacatclient-class-methods-reference" title="Permalink to this heading">¶</a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="metacat.webapi.MetaCatClient">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">metacat.webapi.</span></span><span class="sig-name descname"><span class="pre">MetaCatClient</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">server_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auth_server_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_concurrent_queries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient" title="Permalink to this definition">¶</a></dt>
 <dd><p>Initializes the MetaCatClient object</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>server_url</strong> (<em>str</em>) – The server endpoint URL, defult = from METACAT_SERVER_URL environment variable</p></li>
 <li><p><strong>auth_server_url</strong> (<em>str</em>) – The endpoint URL for the Authentication server, default = server_url + “/auth”</p></li>
@@ -82,7 +82,7 @@ Authentication is required to get information about users and roles (these metho
 <span class="sig-name descname"><span class="pre">add_child_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent_spec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">child_spec</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.add_child_dataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Adds a child dataset to a dataset.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>parent_spec</strong> (<em>str</em>) – Parent namespace, name (“namespace:name”)</p></li>
 <li><p><strong>child_spec</strong> (<em>str</em>) – Child namespace, name (“namespace:name”)</p></li>
@@ -96,7 +96,7 @@ Authentication is required to get information about users and roles (these metho
 <span class="sig-name descname"><span class="pre">add_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.add_files" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add existing files to an existing dataset. Requires client authentication.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>dataset</strong> (<em>str</em>) – “namespace:name” or “name”, if namespace argument is given</p></li>
 <li><p><strong>file_list</strong> (<em>list</em>) – <p>List of dictionaries, one dictionary per file. Each dictionary must contain either a file id</p>
@@ -116,10 +116,10 @@ Authentication is required to get information about users and roles (these metho
 will be used.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>list of dictionaries, one dictionary per file with file ids: { “fid”: “…” }</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>list</p>
 </dd>
 </dl>
@@ -130,20 +130,20 @@ will be used.</p></li>
 <span class="sig-name descname"><span class="pre">async_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.async_query" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run the query asynchronously. Requires client authentication if save_as or add_to are used.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>query</strong> (<em>str</em>) – Query in MQL</p></li>
 <li><p><strong>data</strong> (<em>anything</em>) – Arbitrary data associated with this query</p></li>
 <li><p><strong>args</strong> – Same keyword arguments as for the query() method</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p><p><code class="docutils literal notranslate"><span class="pre">pythreader</span></code> Promise object associated with this query. The promise object will have Data attribute containig the object passed as the <code class="docutils literal notranslate"><span class="pre">data</span></code>
 argument to the <code class="docutils literal notranslate"><span class="pre">async_query</span></code> call.</p>
 <p>See notes below for more on how to use this method.</p>
 </p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Promise</p>
 </dd>
 </dl>
@@ -154,7 +154,7 @@ argument to the <code class="docutils literal notranslate"><span class="pre">asy
 <span class="sig-name descname"><span class="pre">auth_info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.auth_info" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns information about current authentication token.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p><ul class="simple">
 <li><p><em>str</em> – username of the authenticated user</p></li>
 <li><p><em>numeric</em> – token expiration timestamp</p></li>
@@ -169,7 +169,7 @@ argument to the <code class="docutils literal notranslate"><span class="pre">asy
 <span class="sig-name descname"><span class="pre">create_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frozen</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">monotonic</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">creator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata_requirements</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.create_dataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Creates new dataset. Requires client authentication.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>spec</strong> (<em>str</em>) – “namespace:name”</p></li>
 <li><p><strong>frozen</strong> (<em>bool</em>) – </p></li>
@@ -180,10 +180,10 @@ argument to the <code class="docutils literal notranslate"><span class="pre">asy
 <li><p><strong>description</strong> (<em>str</em>) – </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>created dataset attributes</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>dict</p>
 </dd>
 </dl>
@@ -194,7 +194,7 @@ argument to the <code class="docutils literal notranslate"><span class="pre">asy
 <span class="sig-name descname"><span class="pre">create_namespace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">owner_role</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.create_namespace" title="Permalink to this definition">¶</a></dt>
 <dd><p>Creates new namespace. Requires client authentication.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>name</strong> (<em>str</em>) – Namespace name</p></li>
 <li><p><strong>owner_role</strong> (<em>str</em>) – Owner role for the new namespace. The user must be a member of the role.
@@ -202,10 +202,10 @@ Optional. If unspecified, the new namespace will be owned by the user.</p></li>
 <li><p><strong>description</strong> (<em>str</em>) – New namespace description</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>New namespace information</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>dict</p>
 </dd>
 </dl>
@@ -216,7 +216,7 @@ Optional. If unspecified, the new namespace will be owned by the user.</p></li>
 <span class="sig-name descname"><span class="pre">declare_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">files</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.declare_files" title="Permalink to this definition">¶</a></dt>
 <dd><p>Declare new files and add them to an existing dataset. Requires client authentication.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>dataset</strong> (<em>str</em>) – “namespace:name”</p></li>
 <li><p><strong>files</strong> (<em>list</em><em> or </em><em>dict</em>) – List of dictionaries, one dictionary per a file to be declared. See Notes below for the expected contents of each
@@ -225,10 +225,10 @@ For convenience, if declaring single file, the argument can be the single file d
 <li><p><strong>namespace</strong> (<em>str</em><em>, </em><em>optional</em>) – Default namespace for files to be declared</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>list of dictionaries, one dictionary per file with file ids: { “fid”: “…” }</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>list</p>
 </dd>
 </dl>
@@ -267,17 +267,17 @@ For convenience, if declaring single file, the argument can be the single file d
 <span class="sig-name descname"><span class="pre">get_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">did</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.get_dataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Gets single dataset</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>did</strong> (<em>str - &quot;namespace:name&quot;</em>) – </p></li>
 <li><p><strong>namespace</strong> (<em>str</em>) – </p></li>
 <li><p><strong>name</strong> (<em>str</em>) – </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>dataset attributes or None if the dataset was not found</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>dict</p>
 </dd>
 </dl>
@@ -288,17 +288,17 @@ For convenience, if declaring single file, the argument can be the single file d
 <span class="sig-name descname"><span class="pre">get_dataset_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">did</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.get_dataset_files" title="Permalink to this definition">¶</a></dt>
 <dd><p>Gets single dataset</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>did</strong> (<em>str - &quot;namespace:name&quot;</em>) – </p></li>
 <li><p><strong>namespace</strong> (<em>str</em>) – </p></li>
 <li><p><strong>name</strong> (<em>str</em>) – </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>generates sequence of dictionaries, one dictionary per file</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>generator</p>
 </dd>
 </dl>
@@ -309,7 +309,7 @@ For convenience, if declaring single file, the argument can be the single file d
 <span class="sig-name descname"><span class="pre">get_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">did</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_provenance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.get_file" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get one file record</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>fid</strong> (<em>str</em><em>, </em><em>optional</em>) – File id</p></li>
 <li><p><strong>name</strong> (<em>str</em><em>, </em><em>optional</em>) – </p></li>
@@ -319,7 +319,7 @@ For convenience, if declaring single file, the argument can be the single file d
 <li><p><strong>with_provenance</strong> – whether to include parents and children list</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p><p>dictionary with file information or None if the file was not found</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
     <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;namespace:filename&quot;</span><span class="p">,</span>       <span class="c1"># file name, namespace</span>
@@ -336,7 +336,7 @@ For convenience, if declaring single file, the argument can be the single file d
 </div>
 </p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>dict</p>
 </dd>
 </dl>
@@ -349,7 +349,7 @@ For convenience, if declaring single file, the argument can be the single file d
 <span class="sig-name descname"><span class="pre">get_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lookup_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_provenance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.get_files" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get many file records</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>lookup_list</strong> (<em>list</em>) – <dl class="simple">
 <dt>List of dictionaries, one dictionary per file. Each dictionary must have either</dt><dd><p>”did”:”namespace:name”, or
@@ -362,11 +362,8 @@ For convenience, if declaring single file, the argument can be the single file d
 <li><p><strong>with_provenance</strong> – whether to include parents and children list</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p></p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>List of file records, each record is the same as returned by get_file()</p>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>List of file records, each record is the same as returned by get_file()</p>
 </dd>
 </dl>
 </dd></dl>
@@ -376,13 +373,13 @@ For convenience, if declaring single file, the argument can be the single file d
 <span class="sig-name descname"><span class="pre">get_namespace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.get_namespace" title="Permalink to this definition">¶</a></dt>
 <dd><p>Creates new namespace</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>name</strong> (<em>str</em>) – Namespace name</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Namespace information or None if the namespace was not found</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>dict</p>
 </dd>
 </dl>
@@ -393,13 +390,13 @@ For convenience, if declaring single file, the argument can be the single file d
 <span class="sig-name descname"><span class="pre">get_namespaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">names</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.get_namespaces" title="Permalink to this definition">¶</a></dt>
 <dd><p>Creates new namespace</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>names</strong> (<em>list of str</em>) – Namespace names</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Namespace information</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>list</p>
 </dd>
 </dl>
@@ -417,14 +414,14 @@ For convenience, if declaring single file, the argument can be the single file d
 <dd><p>Gets the list of datasets with namespace/name matching the templates. The templates are
 Python <code class="docutils literal notranslate"><span class="pre">fnmatch</span></code> module style templates where <code class="docutils literal notranslate"><span class="pre">'*'</span></code> matches any substring and <code class="docutils literal notranslate"><span class="pre">'?'</span></code> matches a single character.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>namespace_pattern</strong> (<em>str</em>) – </p></li>
 <li><p><strong>name_pattern</strong> (<em>str</em>) – </p></li>
 <li><p><strong>with_file_counts</strong> (<em>boolean</em>) – controls whether the results should include file counts or dataset names only</p></li>
 </ul>
 </dd>
-<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dt class="field-even">Yields</dt>
 <dd class="field-even"><p><em>generator</em> – yields dictionaries like {“namespace”:…, “name”:…, “file_count”:…}</p>
 </dd>
 </dl>
@@ -435,13 +432,13 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 <span class="sig-name descname"><span class="pre">list_namespaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.list_namespaces" title="Permalink to this definition">¶</a></dt>
 <dd><p>Creates new namespace</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>pattern</strong> (<em>str</em>) – Optional fnmatch style pattern to filter namespaces by name</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>List of dictionaries with namespace information</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>list</p>
 </dd>
 </dl>
@@ -452,13 +449,13 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 <span class="sig-name descname"><span class="pre">login_digest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_token</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.login_digest" title="Permalink to this definition">¶</a></dt>
 <dd><p>Performs password-based authentication and stores the authentication token locally.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>username</strong> (<em>str</em>) – </p></li>
-<li><p><strong>password</strong> (<em>str</em>) – Password is not sent over the network. It is hashed and then used for digest authentication (<span class="target" id="index-0"></span><a class="rfc reference external" href="https://tools.ietf.org/html/rfc2617.html"><strong>RFC 2617</strong></a>).</p></li>
+<li><p><strong>password</strong> (<em>str</em>) – Password is not sent over the network. It is hashed and then used for digest authentication (<span class="target" id="index-0"></span><a class="rfc reference external" href="https://datatracker.ietf.org/doc/html/rfc2617.html"><strong>RFC 2617</strong></a>).</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p><ul class="simple">
 <li><p><em>str</em> – username of the authenticated user (same as <code class="docutils literal notranslate"><span class="pre">usernme</span></code> argument)</p></li>
 <li><p><em>numeric</em> – token expiration timestamp</p></li>
@@ -473,13 +470,13 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 <span class="sig-name descname"><span class="pre">login_ldap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.login_ldap" title="Permalink to this definition">¶</a></dt>
 <dd><p>Performs password-based authentication and stores the authentication token locally using LDAP.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>username</strong> (<em>str</em>) – </p></li>
 <li><p><strong>password</strong> (<em>str</em>) – Password</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p><ul class="simple">
 <li><p><em>str</em> – username of the authenticated user (same as <code class="docutils literal notranslate"><span class="pre">usernme</span></code> argument)</p></li>
 <li><p><em>numeric</em> – token expiration timestamp</p></li>
@@ -492,15 +489,15 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 <dl class="py method">
 <dt class="sig sig-object py" id="metacat.webapi.MetaCatClient.login_password">
 <span class="sig-name descname"><span class="pre">login_password</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">password</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.login_password" title="Permalink to this definition">¶</a></dt>
-<dd><p>Combines LDAP and <span class="target" id="index-1"></span><a class="rfc reference external" href="https://tools.ietf.org/html/rfc2617.html"><strong>RFC 2617</strong></a> digest authentication by calling <cite>login_ldap</cite> first and then, if it fails, <cite>ldap_digest</cite> methods</p>
+<dd><p>Combines LDAP and <span class="target" id="index-1"></span><a class="rfc reference external" href="https://datatracker.ietf.org/doc/html/rfc2617.html"><strong>RFC 2617</strong></a> digest authentication by calling <cite>login_ldap</cite> first and then, if it fails, <cite>ldap_digest</cite> methods</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>username</strong> (<em>str</em>) – </p></li>
 <li><p><strong>password</strong> (<em>str</em>) – Password</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p><ul class="simple">
 <li><p><em>str</em> – username of the authenticated user (same as <code class="docutils literal notranslate"><span class="pre">usernme</span></code> argument)</p></li>
 <li><p><em>numeric</em> – token expiration timestamp</p></li>
@@ -515,14 +512,14 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 <span class="sig-name descname"><span class="pre">login_x509</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">username</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cert</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.login_x509" title="Permalink to this definition">¶</a></dt>
 <dd><p>Performs X.509 authentication and stores the authentication token locally.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>username</strong> (<em>str</em>) – </p></li>
 <li><p><strong>cert</strong> (<em>str</em>) – Path to the file with the X.509 certificate or the certificate and private key</p></li>
 <li><p><strong>key</strong> (<em>str</em>) – Path to the file with the X.509 private key</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p><ul class="simple">
 <li><p><em>str</em> – username of the authenticated user (same as <code class="docutils literal notranslate"><span class="pre">usernme</span></code> argument)</p></li>
 <li><p><em>numeric</em> – token expiration timestamp</p></li>
@@ -537,7 +534,7 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 <span class="sig-name descname"><span class="pre">query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_provenance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_as</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_to</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.query" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run file query. Requires client authentication if save_as or add_to are used.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>query</strong> (<em>str</em>) – Query in MQL</p></li>
 <li><p><strong>namespace</strong> (<em>str</em>) – default namespace for the query</p></li>
@@ -547,10 +544,10 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 <li><p><strong>add_to</strong> – namespace:name for an existing dataset to add found files to</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>dictionary with file information. Each file will be represented with a dictionary in this list.</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>list of dicts</p>
 </dd>
 </dl>
@@ -569,7 +566,7 @@ Python <code class="docutils literal notranslate"><span class="pre">fnmatch</spa
 <span class="sig-name descname"><span class="pre">update_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'update'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frozen</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">monotonic</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.update_dataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Update dataset. Requires client authentication.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>dataset</strong> (<em>str</em>) – “namespace:name”</p></li>
 <li><p><strong>metadata</strong> (<em>dict</em><em> or </em><em>None</em>) – New metadata values, or, if None, leave the metadata unchanged</p></li>
@@ -581,10 +578,10 @@ If <code class="docutils literal notranslate"><span class="pre">metadata</span><
 <li><p><strong>description</strong> (<em>str</em><em> or </em><em>None</em>) – if str, new dataset description. If None, leave the description unchanged</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>dictionary with new dataset information</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>dict</p>
 </dd>
 </dl>
@@ -595,7 +592,7 @@ If <code class="docutils literal notranslate"><span class="pre">metadata</span><
 <span class="sig-name descname"><span class="pre">update_file_meta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">namespace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'update'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#metacat.webapi.MetaCatClient.update_file_meta" title="Permalink to this definition">¶</a></dt>
 <dd><p>Updates metadata for existing files. Requires client authentication.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>metadata</strong> (<em>dict</em><em> or </em><em>list</em>) – see Notes</p></li>
 <li><p><strong>names</strong> (<em>list of strings</em>) – List of file names. Requires namespace to be specified</p></li>
@@ -606,10 +603,10 @@ both.</p></li>
 values in <code class="docutils literal notranslate"><span class="pre">metadata</span></code>. If <code class="docutils literal notranslate"><span class="pre">&quot;replace&quot;</span></code>, then new values will replace existing metadata. Also, see notes below.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>list of dictionaries, one dictionary per file with file ids: { “fid”: “…” }</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>list</p>
 </dd>
 </dl>
@@ -656,9 +653,9 @@ case, <code class="docutils literal notranslate"><span class="pre">names</span><
 
 </dd></dl>
 
-</section>
-<section id="asynchronous-queries">
-<h2>Asynchronous Queries<a class="headerlink" href="#asynchronous-queries" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="asynchronous-queries">
+<h2>Asynchronous Queries<a class="headerlink" href="#asynchronous-queries" title="Permalink to this heading">¶</a></h2>
 <p>When you need to run multiple queries, you can use the <code class="docutils literal notranslate"><span class="pre">async_query</span></code> to run them concurrently by starting them asynchronously and then waiting for their
 results:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">client</span> <span class="o">=</span> <span class="n">MetaCatClient</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
@@ -708,8 +705,8 @@ before we call the corresponding promise <code class="docutils literal notransla
 <p>The <code class="docutils literal notranslate"><span class="pre">wait_queries</span></code> method will block until all asynchronous queries started by the client complete. In this case, calling <code class="docutils literal notranslate"><span class="pre">wait</span></code> method of the promise
 is still necessary to get the results of each individual query, but because we called <code class="docutils literal notranslate"><span class="pre">wait_queries</span></code> first, the <code class="docutils literal notranslate"><span class="pre">wait</span></code> method will return
 results immediately without blocking.</p>
-</section>
-</section>
+</div>
+</div>
 
 
             <div class="clearer"></div>
@@ -718,8 +715,9 @@ results immediately without blocking.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="index.html">Table of Contents</a></h3>
-  <ul>
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
 <li><a class="reference internal" href="#">MetaCat Web API</a><ul>
 <li><a class="reference internal" href="#creating-metacat-client-interface">Creating MetaCat Client Interface</a></li>
 <li><a class="reference internal" href="#metacatclient-class-methods-reference">MetaCatClient Class Methods Reference</a></li>
@@ -728,12 +726,17 @@ results immediately without blocking.</p>
 </li>
 </ul>
 
-  <h4>Previous topic</h4>
-  <p class="topless"><a href="ui.html"
-                        title="previous chapter">Command Line Interface</a></p>
-  <h4>Next topic</h4>
-  <p class="topless"><a href="mql.html"
-                        title="next chapter">MQL - Metadata Query Language</a></p>
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="ui.html"
+                          title="previous chapter">Command Line Interface</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="mql.html"
+                          title="next chapter">MQL - Metadata Query Language</a></p>
+  </div>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -750,7 +753,7 @@ results immediately without blocking.</p>
     </form>
     </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -773,7 +776,7 @@ results immediately without blocking.</p>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2020, Igor Mandrichenko.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.2.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.1.1.
     </div>
   </body>
 </html>

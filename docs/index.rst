@@ -10,6 +10,7 @@ MetaCat Documentation
    :maxdepth: 2
    :caption: Contents:
    
+   concepts
    ui
    webapi
    mql
