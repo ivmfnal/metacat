@@ -33,13 +33,15 @@ The following values in various formats can be used as part of the pattern:
 * Current timestamp
 * File id
 
-MetaCat also stores the following file attributes, but they are not used by MetaCat itself, and therefore, depending on the
-use case, they do not necessarily have to have some meaningful values:
+MetaCat also stores the following file attributes:
 
 * File creator username
-* Creation time
+* Declaration time
 * File size
 * One or more checksums
+
+These attributes are not used by MetaCat itself. The declaration timestamp and the creation time are recorded to the database automatically at the
+time of the file declaration. Depending on the use case, file size and checksums do not necessarily have to have some meaningful values.
 
 File can be a memeber of one or more *Datasets*
 
