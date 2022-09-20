@@ -1,18 +1,17 @@
 
 <!DOCTYPE html>
 
-<html lang="en">
+<html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MetaCat Concepts &#8212; MetaCat  documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="_static/nature.css" />
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
-    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Command Line Interface" href="ui.html" />
@@ -30,8 +29,7 @@
         <li class="right" >
           <a href="index.html" title="MetaCat Documentation"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">MetaCat Concepts</a></li> 
+        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li> 
       </ul>
     </div>  
 
@@ -41,7 +39,7 @@
           <div class="body" role="main">
             
   <div class="section" id="metacat-concepts">
-<h1>MetaCat Concepts<a class="headerlink" href="#metacat-concepts" title="Permalink to this heading">¶</a></h1>
+<h1>MetaCat Concepts<a class="headerlink" href="#metacat-concepts" title="Permalink to this headline">¶</a></h1>
 <p>MetaCat is a general purpose metadata catalog. It has 4 major functions:</p>
 <ol class="arabic simple">
 <li><p>Store metadata associated with a <em>file</em></p></li>
@@ -50,7 +48,7 @@
 <li><p>Provide a mechanism to seamlessly and efficiently integrate metadata stored in external sources to the query results and use it select files based on their metadata values</p></li>
 </ol>
 <div class="section" id="file">
-<h2>File<a class="headerlink" href="#file" title="Permalink to this heading">¶</a></h2>
+<h2>File<a class="headerlink" href="#file" title="Permalink to this headline">¶</a></h2>
 <p>MetaCat is a purely metadata database. Replica management is outside of MetaCat scope. That is why in MetaCat, <em>file</em> is
 rather abstract object. MetaCat “file” is anything wich has the following attributes:</p>
 <ul class="simple">
@@ -70,7 +68,7 @@ use case, they do not necessarily have to have some meaningful values:</p>
 <p>File also can be a memeber of one or more <em>Datasets</em></p>
 </div>
 <div class="section" id="dataset">
-<h2>Dataset<a class="headerlink" href="#dataset" title="Permalink to this heading">¶</a></h2>
+<h2>Dataset<a class="headerlink" href="#dataset" title="Permalink to this headline">¶</a></h2>
 <p>In MetaCat, <em>Dataset</em> is a relatively static collection of files. “Relatively static” means that files are added to and removed from
 a dataset explicitly. There is no such thing as a “dynamic” dataset, which automatically contains files matching certain criteria.
 MetaCat Dataset has the following attributes:</p>
@@ -92,7 +90,7 @@ to add a dataset as its own direct ot indirect subset.</p>
 </ul>
 </div>
 <div class="section" id="query">
-<h2>Query<a class="headerlink" href="#query" title="Permalink to this heading">¶</a></h2>
+<h2>Query<a class="headerlink" href="#query" title="Permalink to this headline">¶</a></h2>
 <p>MetaCat query is an algorithm to select files based on the set of criteria defined by the user. Result of a query execution is a <em>file set</em>.
 File set is an unordered collection of files, which match given set of criteria at the time when the query is executed.
 Because the contents of the database is dynamic and can change at any time, the same query is <em>not</em> guaranteed to always return the same results
@@ -109,15 +107,13 @@ In this case, MetaCat translates portions of the query into SQL as much as possi
 </div>
 
 
-            <div class="clearer"></div>
           </div>
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-  <div>
-    <h3><a href="index.html">Table of Contents</a></h3>
-    <ul>
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
 <li><a class="reference internal" href="#">MetaCat Concepts</a><ul>
 <li><a class="reference internal" href="#file">File</a></li>
 <li><a class="reference internal" href="#dataset">Dataset</a></li>
@@ -126,17 +122,12 @@ In this case, MetaCat translates portions of the query into SQL as much as possi
 </li>
 </ul>
 
-  </div>
-  <div>
-    <h4>Previous topic</h4>
-    <p class="topless"><a href="index.html"
-                          title="previous chapter">MetaCat Documentation</a></p>
-  </div>
-  <div>
-    <h4>Next topic</h4>
-    <p class="topless"><a href="ui.html"
-                          title="next chapter">Command Line Interface</a></p>
-  </div>
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">MetaCat Documentation</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="ui.html"
+                        title="next chapter">Command Line Interface</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -148,12 +139,12 @@ In this case, MetaCat translates portions of the query into SQL as much as possi
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script>document.getElementById('searchbox').style.display = "block"</script>
+<script>$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -170,13 +161,12 @@ In this case, MetaCat translates portions of the query into SQL as much as possi
         <li class="right" >
           <a href="index.html" title="MetaCat Documentation"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">MetaCat Concepts</a></li> 
+        <li class="nav-item nav-item-0"><a href="index.html">MetaCat  documentation</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2020, Igor Mandrichenko.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.1.1.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.4.
     </div>
   </body>
 </html>
