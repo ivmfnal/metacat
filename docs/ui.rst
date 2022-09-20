@@ -376,6 +376,8 @@ Update metadata:
 Retrieving
 ~~~~~~~~~~
 
+Retrieving single file metadata
+
 .. code-block:: shell
 
         metacat show [options] (-i <file id>|<namespace>:<name>)
