@@ -378,8 +378,11 @@ Retrieving
 
 .. code-block:: shell
 
-    metacat file show <namespace>:<name>            # - by namespace/name
-    metacat file show -i <fid>                      # - by file id
+        metacat show [options] (-i <file id>|<namespace>:<name>)
+            -m|--meta-only            - metadata only
+            -j|--json                 - as JSON
+            -p|--pretty               - pretty-print information
+            -l|--lineage|--provenance (p|c)        - parents or children instead of the file itself
 
 Query
 -----
