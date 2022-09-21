@@ -23,9 +23,9 @@ dune:
 generic:
 	make VERSION=`python metacat/version.py` generic_with_version_defined
 
-dune_with_version_defined:	dune_specifics tars
+dune_with_version_defined:	clean dune_specifics tars
 
-generic_with_version_defined:	tars
+generic_with_version_defined:	clean tars
 
 tars:  build $(TARDIR)
 	cd $(BUILD_DIR); tar cf $(SERVER_TAR) lib server docs
@@ -52,7 +52,7 @@ canned_client: build $(DEPS_DIR)
 dune_specifics:
 	cd DUNE_specials; make SERVER_DIR=$(SERVER_DIR) build
 
-build:  clean $(BUILD_DIR) 
+build:  $(BUILD_DIR) 
 	cd src; make LIBDIR=$(LIBDIR) VERSION=$(VERSION) build
 	cd metacat; make LIBDIR=$(LIBDIR) VERSION=$(VERSION) BINDIR=$(UI_DIR) build
 	cd webserver; make SERVER_DIR=$(SERVER_DIR) LIBDIR=$(LIBDIR) VERSION=$(VERSION) build
