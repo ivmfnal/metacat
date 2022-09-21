@@ -160,20 +160,21 @@ class DeclareManyCommand(CLICommand):
 
 class ShowCommand(CLICommand):
 
-    Opts = ("jmpi:l:In", ["json","meta-only","pretty","names-only","lineage","provenance","ids"])
+    Opts = ("jmpi:l:Ind", ["json","meta-only","pretty","name-only","lineage","provenance","ids", "id-only"])
     Usage = """[options] (-i <file id>|<namespace>:<name>)
-            -m|--meta-only            - metadata only
+            -m|--meta-only            - print file metadata only
+            -n|--name-only            - print file namespace, name only
+            -d|--id-only              - print file id only
+            
             -j|--json                 - as JSON
             -p|--pretty               - pretty-print information
+            
             -l|--lineage|--provenance (p|c)        - parents or children instead of the file itself
-            -n|--name-only            - print namespace:name only
-            -I|--ids-only             - for parents and children, print file IDs only
+            -I|--ids                               - for parents and children, print file ids instead of namespace/names
     """
 
     def __call__(self, command, client, opts, args):
         if not args and "-i" not in opts:
-            raise InvalidArguments("Either -i <file id> or <namespace:name> must be specified")
-        elif not args and "-i" in opts:
             raise InvalidArguments("Either -i <file id> or <namespace:name> must be specified")
             
 
@@ -182,10 +183,11 @@ class ShowCommand(CLICommand):
         as_json = "--json" in opts or "-j" in opts
         pretty = "-p" in opts or "--pretty" in opts
         provenance = opts.get("-l") or opts.get("--lineage") or opts.get("--provenance")
-        names_only = "--names-only" in opts or "-n" in opts
-        ids_only = "--ids-only" in opts or "-I" in opts
+        id_only = "--id-only" in opts or "-d" in opts
+        provenance_ids = "--ids" in opts or "-I" in opts
         meta_only = "--meta-only" in opts or "-m" in opts
-    
+        name_only = "--name-only" in opts or "-n" in opts
+
         did = fid = None
     
         if args:
@@ -193,8 +195,12 @@ class ShowCommand(CLICommand):
         else:
             fid = opts["-i"]
 
-        data = client.get_file(did=did, fid=fid, with_provenance=True)
-        if provenance:
+        data = client.get_file(did=did, fid=fid, with_provenance=provenance, with_metadata=not (name_only or id_only))
+        if id_only:
+            print(data["fid"])
+        elif name_only:
+            print("%(namespace)s:%(name)s" % data)
+        elif provenance:
             ids = data["parents"] if provenance == "p" else data["children"]
             if ids:
                 lst = [dict(fid=fid) for fid in ids]
@@ -205,7 +211,7 @@ class ShowCommand(CLICommand):
                     pprint.pprint(related)
                 else:
                     for f in related:
-                        if ids_only:
+                        if provenance_ids:
                             print(f["fid"])
                         else:
                             print("%(namespace)s:%(name)s" % f)

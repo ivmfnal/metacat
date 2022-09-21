@@ -376,10 +376,20 @@ Update metadata:
 Retrieving
 ~~~~~~~~~~
 
+Retrieving single file metadata
+
 .. code-block:: shell
 
-    metacat file show <namespace>:<name>            # - by namespace/name
-    metacat file show -i <fid>                      # - by file id
+        metacat file show [options] (-i <file id>|<namespace>:<name>)
+          -m|--meta-only            - print file metadata only
+          -n|--name-only            - print file namespace, name only
+          -d|--id-only              - print file id only
+
+          -j|--json                 - as JSON
+          -p|--pretty               - pretty-print information
+
+          -l|--lineage|--provenance (p|c)        - parents or children instead of the file itself
+          -I|--ids                               - for parents and children, print file ids instead of namespace/names
 
 Query
 -----
