@@ -511,40 +511,42 @@ class DBFile(object):
     def get_files(db, files):
         
         #
-        # NOT THREAD SAFE !!
+        # NOT really THREAD SAFE !!
         #
+
+        # files: list of dicts:
+        #  { "fid": ... } or {"namespace":..., "name":...}
         
         #print("DBFile.get_files: files:", files)
+        suffix = int(time.time()*1000)
+        temp_table = f"temp_files_{suffix}"
         c = db.cursor()
         strio = io.StringIO()
         for f in files:
-            fid = ns = n = None
-            if isinstance(f, str):
-                if ':' in f:
-                    ns, n = f.split(':', 1)
-                else:
-                    fid = f
-            else:
-                fid = f.get("fid")
+            ns = n = None
+            fid = f.get("fid")
+            if fid is None:
                 ns = f.get("namespace")
                 n = f.get("name")
+                if ns is None or n is None:
+                    raise ValueError("Invalid file specificication: " + str(f))
             strio.write("%s\t%s\t%s\n" % (fid or r'\N', ns or r'\N', n or r'\N'))
-        c.execute("""create temp table if not exists
-            temp_files (
+        c.execute(f"""create temp table if not exists
+            {temp_table} (
                 id text,
                 namespace text,
                 name text);
-            truncate table temp_files;
+            truncate table {temp_table};
                 """)
-        c.copy_from(io.StringIO(strio.getvalue()), "temp_files")
+        c.copy_from(io.StringIO(strio.getvalue()), temp_table)
         #print("DBFile.get_files: strio:", strio.getvalue())
         
         columns = DBFile.all_columns("f")
         
         sql = f"""
             select {columns}
-                 from files f, temp_files t
-                 where t.id = f.id or (f.namespace = t.namespace and f.name = t.name)
+                 from files f, {temp_table} t
+                 where t.id = f.id or f.namespace = t.namespace and f.name = t.name
         """
         
         #c.execute(sql)

@@ -650,8 +650,24 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         
         #print("with_metadata:", with_metadata)
         
-        return self.post_json("data/files?with_metadata=%s&with_provenance=%s" % (with_metadata, with_provenance), 
-            lookup_list) 
+        new_list = []
+        for item in lookup_list:
+            if "fid" in item or "namespace" in item and "name" in item:
+                pass
+            elif "did" in item:
+                did = item["did"]
+                try:
+                    namespace, name = did.split(':', 1)
+                except ValueError:
+                    raise ValueError("Invalid DID format: " + did)
+                item = {"namespace":namespace, "name":name}
+            else:
+                raise ValueError("Invalid file specifification: " + str(item))
+            new_list.append(item)
+
+        url = "data/files?with_metadata=%s&with_provenance=%s" % (with_metadata, with_provenance)
+
+        return self.post_json(url, new_list) 
         
     def get_file(self, name=None, namespace=None, fid=None, did=None, with_metadata = True, with_provenance=True):
         """Get one file record
