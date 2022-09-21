@@ -528,7 +528,7 @@ class DBFile(object):
             if fid is None:
                 ns = f.get("namespace")
                 n = f.get("name")
-                if ns is None or n in None:
+                if ns is None or n is None:
                     raise ValueError("Invalid file specificication: " + str(f))
             strio.write("%s\t%s\t%s\n" % (fid or r'\N', ns or r'\N', n or r'\N'))
         c.execute(f"""create temp table if not exists
@@ -538,7 +538,7 @@ class DBFile(object):
                 name text);
             truncate table {temp_table};
                 """)
-        c.copy_from(io.StringIO(strio.getvalue()), "temp_files")
+        c.copy_from(io.StringIO(strio.getvalue()), temp_table)
         #print("DBFile.get_files: strio:", strio.getvalue())
         
         columns = DBFile.all_columns("f")
