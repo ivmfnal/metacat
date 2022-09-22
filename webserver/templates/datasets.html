@@ -13,7 +13,7 @@
 <table class="data">
 	<tr>
 		<th>Dataset</th>
-        <th>Creator</th>
+        {% if logged_in %}<th>Creator</th>{% endif %}
         <th>Created</th>
 		<th>Frozen</th>
 		<th>Monotonic</th>
@@ -27,7 +27,9 @@
 	{% for ds in datasets %}
 		<tr>
             <td><a href="./dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">{{ds.Namespace}}:{{ds.Name}}</a></td>
-            <td>{% if logged_in and ds.Creator %}<a href="./user?username={{ds.Creator}}">{{ds.Creator}}</a>{% endif %}</td>
+            {% if logged_in %}
+                <td>{% if ds.Creator %}<a href="./user?username={{ds.Creator}}">{{ds.Creator}}</a>{% endif %}</td>
+            {% endif %}
             <td>{% if ds.CreatedTimestamp %}{{ds.CreatedTimestamp|as_dt_local}}{% endif %}</td>
             <td>{{'frozen' if ds.Frozen}}</td>
             <td>{{'monotonic' if ds.Monotonic}}</td>
