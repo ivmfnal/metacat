@@ -6,17 +6,17 @@ from metacat.auth import TokenAuthClientMixin
 
 INVALID_METADATA_ERROR_CODE = 488
 
-def parse_name(name, default_namespace):
-    words = (name or "").split(":", 1)
-    if not words or not words[0]:
+def parse_name(name, default_namespace=None):
+    words = name.split(":", 1)
+    if len(words) < 2:
         assert not not default_namespace, "Null default namespace"
         ns = default_namespace
         name = words[-1]
     else:
-        assert len(words) == 2, "Invalid namespace:name specification:" + name
         ns, name = words
     return ns, name
 
+undid = parse_name
 
 class ServerError(Exception):
     
@@ -421,6 +421,87 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         out = self.post_json(url, data)
         return out
 
+    def declare_file(self, did=None, namespace=None, name=None, auto_name=None,
+                     dataset_did=None, dataset_namespace=None,
+                     dataset_name=None, size=0, metadata={}, fid=None, parents=[], checksums={}):
+        """Declare new file and add it to the dataset. Requires client authentication.
+        
+        Parameters
+        ----------
+        did : str
+            file "namespace:name"
+        namespace : str
+            file namespace
+        name : str
+            file name
+        auto_name : str
+            pattern to use for file name auto generation, default None - do not auto-generate file name
+        dataset_did : str
+            dataset "namespace:name"
+        dataset_namespace : str
+            dataset namespace
+        dataset_name : str
+            dataset name
+        size : int
+            file size in bytes, default 0
+        metadata : dict
+            file metadata, default empty dictionary
+        fid : str
+            file id, default None - to be auto-generated
+        parents : list of str
+            list of parent files fids
+        checksums : dict
+            dictionary with checksum values by the checksum type: {"type":"value", ...}
+        
+        Returns
+        -------
+        dict
+            dictionary with file name, namespace and file id
+                     
+        Notes
+        -----
+        At least one of the following must be specified for the file:
+            - did
+            - namespace and either name or auto_name
+        At least one of the following must be specified for the dataset:
+            - dataset_did
+            - dataset_namespace and dataset_name
+
+        Auto-name pattern can be any string with the following substrings, which will be replaced with appropriate values to generate the file name:
+
+            - $clock - current interger timestamp in milliseconds
+            - $clock3 - last 3 digits of $clock - milliseconds only
+            - $clock6 - last 6 digits of $clock
+            - $clock9 - last 9 digits of $clock
+            - $uuid - random UUID in hexadecimal representation, 32 hex digits
+            - $uuid16 - 16 hex digits from random UUID hexadecimal representation
+            - $uuid8 - 8 hex digits from random UUID hexadecimal representation
+            - $fid - file id
+        """
+
+        if not did:
+            if not namespace:
+                raise ValueError("Unspecified file namespace")
+            if not name and not auto_name:
+                raise ValueError("Unspecified file name")
+        else:
+            namespace, name = undid(did)
+        if not (dataset_namespace and dataset_name) and not dataset_did:
+            raise ValueError("Either dataset_did or dataset_namespace and dataset_name must be provided")
+        if dataset_did is None:
+            dataset_did = f"{dataset_namespace}:{dataset_name}" 
+        info = dict(
+            namespace = namespace, 
+            name = name,
+            size = size,
+            checksums = checksums,
+            fid = fid,
+            parents = parents
+        )
+        if not name and auto_name:
+            info["auto_name"] = auto_name
+        return self.declare_files(dataset_did, [info])[0]
+
     def declare_files(self, dataset, files, namespace=None):
         """Declare new files and add them to an existing dataset. Requires client authentication.
         
@@ -448,6 +529,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                     "did" - string in the format "<namespace>:<name>"
                     "name" - file name and optionaly "namespace". If namespace is not present, the ``namespace`` argument will be used
                              as the default namespace
+                    "auto_name" - pattern to auto-generate file name
         
             .. code-block:: python
         
@@ -456,14 +538,15 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                     "name": "filename",                 # optional,
                     "did": "namespace:filename",        # optional, convenience for Rucio users
                                                         # either "did" or "name", "namespace" must be present
-                    "size": ...,                        # required, integer number of bytes, must be > 0
+                    "size": ...,                        # required, integer number of bytes
                     "metadata": {...},                  # optional, file metadata, a dictionary with arbitrary JSON'able contents
                     "fid":  "...",                      # optional, file id. Will be auto-generated if unspecified.
                                                         # if specified, must be unique
                     "parents": ["fid","fid",...],       # optional, list of parent file ids
                     "checksums": {                      # optional, checksums dictionary
                         "method": "value",...
-                    }
+                    },
+                    "auto_name": "..."                  # optional, pattern to auto-generate file name if name is not specified or null
                 },...
         """        
         

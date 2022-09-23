@@ -12,12 +12,12 @@ from common_handler import MetaCatHandler
 
 METADATA_ERROR_CODE = 488
 
-def parse_name(name, default_namespace):
+def parse_name(name, default_namespace=None):
     words = (name or "").split(":", 1)
-    if not words or not words[0]:
+    if len(words) < 2:
         assert not not default_namespace, "Null default namespace"
         ns = default_namespace
-        name = words[-1]
+        name = words[0]
     else:
         assert len(words) == 2, "Invalid namespace:name specification:" + name
         ns, name = words
@@ -399,8 +399,8 @@ class DataHandler(MetaCatHandler):
         if not file_list:
                 return "Empty file list", 400
         files = []
-
         errors = []
+        parents_to_resolve = set()
 
         metadata_validation_errors = DBParamCategory.validate_metadata_bulk(db, [f["metadata"] for f in file_list])
         if metadata_validation_errors:
@@ -485,12 +485,65 @@ class DataHandler(MetaCatHandler):
                     .replace("$fid", fid)
 
             f = DBFile(db, namespace=namespace, name=name, fid=fid, metadata=meta, size=size, creator=user.Username)
-            f.Parents = file_item.get("parents")
             f.Checksums = file_item.get("checksums")
 
+            parents = []
+            for item in file_item.get("parents") or []:
+                if isinstance(item, str):
+                    parents.append(item)
+                elif isinstance(item, dict):
+                    if "fid" in item:
+                        parents.append(item["fid"])
+                    else:
+                        if "did" in item:
+                            namespace, name = parse_name(item["did"], default_namespace)
+                        elif "name" in item:
+                            namespace = item.get("namespace", default_namespace)
+                            if not namespace:
+                                errors.append({
+                                    "index": inx,
+                                    "metadata_errors": "Parent specification error: no namespace: %s" % (item,)
+                                })
+                                error = True
+                                break
+                        else:
+                            errors.append({
+                                "index": inx,
+                                "metadata_errors": "Parent specification error: %s" % (item,)
+                            })
+                            break
+                        parents.append((namespace, name))
+                        parents_to_resolve.add((namespace, name))
+                else:
+                    errors.append({
+                        "index": inx,
+                        "metadata_errors": "Parent specification error: %s" % (item,)
+                    })
+                    
+            f.Parents = parents
             files.append(f)
             #print("data_handler.declare_files: file appended:", f)
-
+        
+        if not errors and parents_to_resolve:
+            resolved = DBFile.get_files(db, ({"namespace":ns, "name":n} for ns, n in parents_to_resolve))
+            did_to_fid = {(f.Namespace, f.Name): f.FID for f in resolved}
+            for inx, f in enumerate(files):
+                parents = []
+                for item in f.Parents:
+                    if isinstance(item, tuple):
+                        fid = did_to_fid.get(item)
+                        if not fid:
+                            errors.append({
+                                "index": inx,
+                                "metadata_errors": "Can not get file id for parent: %s:%s" % item
+                            })
+                            break
+                        parents.append(fid)
+                    else:
+                        # assume str with fid
+                        parents.append(item)
+                f.Parents = parents
+                                
         if errors:
             #print("data_handler.declare_files: errors:", errors)
             return json.dumps(errors), METADATA_ERROR_CODE, "text/json"

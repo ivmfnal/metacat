@@ -514,6 +514,8 @@ class GUIHandler(MetaCatHandler):
         db = self.App.connect()
         user = DBUser.get(db, username)
         me, auth_error = self.authenticated_user()
+        if me is None:
+            self.redirect("../auth/login")
         all_roles = DBRole.list(db)
         role_set = set(user.roles)
         #print("role_set:", role_set)
