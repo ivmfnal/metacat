@@ -255,7 +255,7 @@ Parents are specified with dictionaries, one dictionary per file. Each dictionar
   - "namespace":"...", "name":"..."
   - "fid": "<file id>"
 
-_Specifing parents with list of string file ids instead of dictionaries is still possible, but deprecated._
+Specifing parents with list of string file ids instead of dictionaries is still possible, but *is deprecated*.
 
 You can get a sample of the JSON file:
 
