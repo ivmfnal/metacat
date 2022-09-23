@@ -42,11 +42,26 @@ class DeclareSampleCommand(CLICommand):
                 "done":True
             },
             "size": 1234,
-            "parents":[ "4722545", "43954" ]
+            "parents":[
+                {"fid":"4722545"},
+                {"did":"my_scope:file_name.data"}, 
+                {"namespace":"my_files", "name":"file_name.data"} 
+            ]
         },
         {        
             "namespace":"test",
             "name":"file2.dat",
+            "metadata": {
+                "e": 2.718,
+                "version":"1.0",
+                "format":"raw",
+                "done":False
+            },
+            "size": 1734
+        },
+        {        
+            "namespace":"test2",
+            "auto_name":"files_$clock.dat",
             "metadata": {
                 "e": 2.718,
                 "version":"1.0",

@@ -448,8 +448,11 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             file metadata, default empty dictionary
         fid : str
             file id, default None - to be auto-generated
-        parents : list of str
-            list of parent files fids
+        parents : list of dicts
+            each dict represents one parent file. The dict may contain the following keys:
+                     "fid" - parent file id
+                     "namespace" and "name" - parent file namespace and name
+                     "did" - parent file DID ("<namespace>:<name>")
         checksums : dict
             dictionary with checksum values by the checksum type: {"type":"value", ...}
         
@@ -542,12 +545,20 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                     "metadata": {...},                  # optional, file metadata, a dictionary with arbitrary JSON'able contents
                     "fid":  "...",                      # optional, file id. Will be auto-generated if unspecified.
                                                         # if specified, must be unique
-                    "parents": ["fid","fid",...],       # optional, list of parent file ids
+                    "parents": [...],                   # optional, list of dicts, one dict per parent. See below.
                     "checksums": {                      # optional, checksums dictionary
                         "method": "value",...
                     },
                     "auto_name": "..."                  # optional, pattern to auto-generate file name if name is not specified or null
                 },...
+        
+            Parents are specified with dictionaries, one dictionary per file. Each dictionary specifies the parent file in one of three ways:
+
+                - "did": "<namespace>:<name>"
+                - "namespace":"...", "name":"..."
+                - "fid": "<file id>"
+        
+            DEPRECATED: if the parent is specified with a string instead of a dictionary, it is interpreferd as the parent file id.
         """        
         
         default_namespace = namespace

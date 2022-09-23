@@ -243,11 +243,19 @@ Create JSON file with metadata::
             "auto_name":pattern,        # optional
             "fid":"...",                # optional - if missing, new will be generated. If specified, must be unique
             "metadata": { ... },        # optional
-            "parents":  [ "fid1", "fid2", ... ]     # optional, must be file ids         
+            "parents":  [ ... ]         # optional, list of dictionaries, one dictionary per parent
             "size":   1234              # required - size of the file in bytes
         },
         ...
     ]
+    
+Parents are specified with dictionaries, one dictionary per file. Each dictionary specifies the parent file in one of three ways:
+
+  - "did": "<namespace>:<name>"
+  - "namespace":"...", "name":"..."
+  - "fid": "<file id>"
+
+_Specifing parents with list of string file ids instead of dictionaries is still possible, but deprecated._
 
 You can get a sample of the JSON file:
 
