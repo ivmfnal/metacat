@@ -448,14 +448,14 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             file metadata, default empty dictionary
         fid : str
             file id, default None - to be auto-generated
-        parents : list of dicts
-            each dict represents one parent file. The dict may contain the following keys:
-                     "fid" - parent file id
-                     "namespace" and "name" - parent file namespace and name
-                     "did" - parent file DID ("<namespace>:<name>")
         checksums : dict
             dictionary with checksum values by the checksum type: {"type":"value", ...}
-        
+        parents : list of dicts
+            each dict represents one parent file. The dict must contain one of the the following
+                - "fid" - parent file id
+                - "namespace" and "name" - parent file namespace and name
+                - "did" - parent file DID ("<namespace>:<name>")
+
         Returns
         -------
         dict
@@ -466,6 +466,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         At least one of the following must be specified for the file:
             - did
             - namespace and either name or auto_name
+
         At least one of the following must be specified for the dataset:
             - dataset_did
             - dataset_namespace and dataset_name
