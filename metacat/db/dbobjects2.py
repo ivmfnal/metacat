@@ -1155,7 +1155,7 @@ class DBDataset(DBObject):
     def add_file(self, f, **args):
         return self.add_files([f], **args)
         
-    def add_files(self, files, do_commit=True, validate_meta=True):
+    def ___add_files(self, files, do_commit=True, validate_meta=True):
         if isinstance(files, DBFile):
             files = [files]
         files = list(files)     # in case it was a generator
@@ -1178,6 +1178,43 @@ class DBDataset(DBObject):
             c.execute("commit")
         except Exception as e:
             #print(traceback.format_exc())
+            c.execute("rollback")
+            raise
+        return self
+
+    def add_files(self, files, do_commit=True, validate_meta=True):
+        if isinstance(files, DBFile):
+            files = [files]
+        meta_errors = []
+        c = self.DB.cursor()
+        c.execute("begin")
+        t = int(time.time()*1000) % 1000000
+        temp_table = "temp_{t}"
+        try:
+            c.execute(f"create temp table if not exists {temp_table} (fid text, namespace text, name text)")
+            c.execute(f"truncate table {temp_table}")
+            for chunk in chunked(files, 100):
+                if validate_meta:
+                    for f in chunk:
+                        assert isinstance(f, DBFile)
+                        errors = self.validate_file_metadata(f.Metadata)
+                        if errors:
+                            meta_errors += errors
+
+                csv = "\n".join(["%s\t%s\t%s" % (f.FID, self.Namespace, self.Name) for f in chunk])])
+                c.copy_from(io.StringIO(csv), temp_table, 
+                        columns = ["fid", "namespace", "name"])
+
+            if meta_errors:
+                raise MetaValidationError("File metadata validation errors", meta_errors)
+
+            c.execute(f"""
+                insert into files_datasets(file_id, dataset_namespace, dataset_name) 
+                    select fid, namespace, name from {temp_table}
+                    on conflict do nothing""")
+            c.execute(f"drop table {temp_table}")
+            c.execute("commit")
+        except:
             c.execute("rollback")
             raise
         return self
