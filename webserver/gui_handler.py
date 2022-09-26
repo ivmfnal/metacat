@@ -412,7 +412,7 @@ class GUIHandler(MetaCatHandler):
                         elif not ns.owned_by_user(user):
                             error = "User not authorized to access the namespace %s" % (dataset_namespace,)
                         else:
-                            ds = DBDataset(db, dataset_namespace, dataset_name)
+                            ds = DBDataset(db, dataset_namespace, dataset_name, creator=user.Username)
                             ds.create()
                             files = list(files)
                             ds.add_files(files)
@@ -853,8 +853,7 @@ class GUIHandler(MetaCatHandler):
                 self.redirect(f"./datasets?error=%s" % (quote_plus(f"No permission to modify namespace {namespace}"),))
 
         if request.POST["create"] == "yes":
-            ds = DBDataset(db, namespace, name)
-            ds.Creator = user.Username
+            ds = DBDataset(db, namespace, name, creator=user.Username)
         else:
             ds = DBDataset.get(db, namespace, name)
 
