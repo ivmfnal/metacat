@@ -22,8 +22,8 @@ Usage:
 class ListCommand(CLICommand):
     
     Opts = "dvu:r: verbose user: role: directly"
-    Usage = """[options] <pattern>
-        <pattern> is a UNIX shell style pattern (*?[])
+    Usage = """[options] [<pattern>]
+        <pattern> is a UNIX shell style pattern (*?[]), optional
         -u|--user <username>        - list namespaces owned by the user
         -d                          - exclude namespaces owned by the user via a role
         -r|--role <role>            - list namespaces owned by the role
