@@ -203,7 +203,7 @@ class DBFileSet(object):
 
         file_meta_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f) or "true"
 
-        datasets = DBDataset.datasets_for_selectors(db, basic_file_query.DatasetSelectors)
+        datasets = None if basic_file_query.DatasetSelectors is None else DBDataset.datasets_for_selectors(db, basic_file_query.DatasetSelectors)
         attrs = DBFile.attr_columns(f)
         if datasets is None:
             # no dataset selection
@@ -305,7 +305,6 @@ class DBFileSet(object):
 
     @staticmethod
     def from_sql(db, sql):
-        print("")
         c = db.cursor()
         debug("DBFileSet.from_sql: executing sql:", sql)
         c.execute(sql)
@@ -1201,9 +1200,8 @@ class DBDataset(DBObject):
                         if errors:
                             meta_errors += errors
 
-                csv = "\n".join(["%s\t%s\t%s" % (f.FID, self.Namespace, self.Name) for f in chunk])])
-                c.copy_from(io.StringIO(csv), temp_table, 
-                        columns = ["fid", "namespace", "name"])
+                csv = "\n".join(["%s\t%s\t%s" % (f.FID, self.Namespace, self.Name) for f in chunk])
+                c.copy_from(io.StringIO(csv), temp_table, columns = ["fid", "namespace", "name"])
 
             if meta_errors:
                 raise MetaValidationError("File metadata validation errors", meta_errors)

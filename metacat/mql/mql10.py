@@ -131,7 +131,9 @@ class DatasetSelector(object):
 class BasicFileQuery(object):
     
     def __init__(self, dataset_selectors, where=None):
-        assert all(isinstance(ds, DatasetSelector) for ds in dataset_selectors)
+        assert dataset_selectors is None or isinstance(dataset_selectors, list)
+        if isinstance(dataset_selectors, list):
+            assert all(isinstance(ds, DatasetSelector) for ds in dataset_selectors)
         self.DatasetSelectors = dataset_selectors
         self.Wheres = where
         self.Limit = None
@@ -358,7 +360,7 @@ class QueryConverter(Converter):
             assert args[0].T == "dataset_selector_list"
             return Node("basic_file_query", query=BasicFileQuery(args[0]["selectors"]))
         else:
-            return Node("basic_file_query", query=BasicFileQuery([]))
+            return Node("basic_file_query", query=BasicFileQuery(None))
             
     def name_list(self, args):
         return [a.value for a in args]
