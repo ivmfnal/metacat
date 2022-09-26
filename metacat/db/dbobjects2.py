@@ -1,6 +1,7 @@
 import uuid, json, hashlib, re, time, io, traceback, base64
 from metacat.util import to_bytes, to_str, epoch
 from metacat.auth import BaseDBUser
+from .common import chunked
 from psycopg2 import IntegrityError
 
 Debug = False
@@ -1188,7 +1189,7 @@ class DBDataset(DBObject):
         c = self.DB.cursor()
         c.execute("begin")
         t = int(time.time()*1000) % 1000000
-        temp_table = "temp_{t}"
+        temp_table = f"temp_{t}"
         try:
             c.execute(f"create temp table if not exists {temp_table} (fid text, namespace text, name text)")
             c.execute(f"truncate table {temp_table}")
