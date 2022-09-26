@@ -1750,7 +1750,7 @@ class DBNamespace(object):
                         from namespaces
             """
             args = ()
-        #print("DBNamespace.list: sql, args:", sql, args)
+        print("DBNamespace.list: sql, args:", sql, args)
         c.execute(sql, args)
         for name, owner_user, owner_role, description, creator, created_timestamp in c.fetchall():
             ns = DBNamespace(db, name, owner_user, owner_role, description)

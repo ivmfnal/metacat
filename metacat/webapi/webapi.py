@@ -958,20 +958,39 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         
         return self.post_json(f"data/namespaces", names)
         
-    def list_namespaces(self, pattern=None):
+    def list_namespaces(self, pattern=None, owner_user=None, owner_role=None, directly=False):
         """Creates new namespace
         
         Parameters
         ----------
         pattern : str
             Optional fnmatch style pattern to filter namespaces by name
+        owner_user : str
+            Optional, return only namespaces owned by the specified user
+        directly : boolean
+            If False and owner_user is specified, return also namespaces owned by all roles the user is in
+            Ignored if owner_user is not specified
+        owner_role : str
+            Optional, return only namespaces owned by the specified role.
+            Ignored if owner_user is also specified
 
         Returns
         -------
         list 
-            List of dictionaries with namespace information
+            List of dictionaries with namespace information sorted by the namespace name
         """
-        lst = self.get_json("data/namespaces")
+        url = "data/namespaces"
+        args = ""
+        if owner_user:
+            args += f"owner_user={owner_user}"
+            if directly:
+                args += "&directly=yes"
+        if owner_role:
+            if args: args += "&"            # low level API on the server side will ignore owner_role if owner_user is present, but pass both anyway
+            args += f"owner_role={owner_role}"
+        if args:
+            args = '?' + args
+        lst = self.get_json("data/namespaces" + args)
         for item in lst:
             if pattern is None or fnmatch.fnmatch(item["name"], pattern):
                 yield item

@@ -21,8 +21,12 @@ Usage:
 
 class ListCommand(CLICommand):
     
-    Opts = "v verbose"
-    Usage = """[-v|--verbose] [<namespace pattern>]
+    Opts = "dvu:r: verbose user: role: directly"
+    Usage = """[options] <pattern>
+        <pattern> is a UNIX shell style pattern (*?[])
+        -u|--user <username>        - list namespaces owned by the user
+        -d                          - exclude namespaces owned by the user via a role
+        -r|--role <role>            - list namespaces owned by the role
     """
 
     def __call__(self, command, client, opts, args):
@@ -30,17 +34,19 @@ class ListCommand(CLICommand):
     
         opts = dict(opts)
         verbose = "-v" in opts or "--verbose" in opts
-        output = client.list_namespaces(pattern)
+        match_owner_user = opts.get("-u", opts.get("--user"))
+        match_owner_role = opts.get("-r", opts.get("--role"))
+        if match_owner_user and match_owner_role:
+            raise InvalidOptions("Owner user and owner role can not be used together")
+        output = client.list_namespaces(pattern=pattern, owner_user=match_owner_user, owner_role=match_owner_role, directly="-d" in opts)
         for item in output:
             name = item["name"]
-            owner = ""
             owner_user = item.get("owner_user")
+            owner_role = item.get("owner_role")
             if owner_user:
-                owner="u:"+owner_user
+                owner = "u:"+owner_user
             else:
-                owner_role = item.get("owner_role")
-                if owner_role:
-                    owner = "r:"+owner_role
+                owner = "r:"+owner_role
             print("%-30s\t%-20s\t%s" % (name, owner, item.get("descrition") or ""))
                 
 class ShowCommand(CLICommand):

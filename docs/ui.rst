@@ -147,11 +147,19 @@ Namespaces
 
 .. code-block:: shell
 
-    $ metacat namespace create my_namespace
-    $ metacat namespace create -o owner_role my_namespace
-    $ metacat namespace list "protodune*"
-    $ metacat namespace show protodune-sp
-    
+    $ metacat namespace create <namespace>                     # create namespace owned by me
+    $ metacat namespace create -o <owner_role> <namespace>     # create namespace owned by a role
+    $ metacat namespace show <namespace>
+
+To list existing namespaces:
+
+.. code-block:: shell
+
+    $ metacat namespace list [options] <pattern>
+        <pattern> is a UNIX shell style pattern (*?[])
+        -u|--user <username>        - list namespaces owned by the user
+        -d                          - exclude namespaces owned by the user via a role
+        -r|--role <role>            - list namespaces owned by the role
 
 Datasets
 --------

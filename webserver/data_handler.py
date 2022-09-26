@@ -88,15 +88,17 @@ class DataHandler(MetaCatHandler):
             return 503, "try later"
         else:
             return "OK"
-        
 
-    def namespaces(self, request, relpath, **args):
+    def namespaces(self, request, relpath, owner_user=None, owner_role=None, directly="no", **args):
+        print("data_handler.namespaces: owner_user, owner_role, directly=", owner_user, owner_role, directly)
+        directly = directly == "yes"
         db = self.App.connect()
         if request.body:
             names = json.loads(request.body)
             lst = DBNamespace.get_many(db, names)
         else:
-            lst = DBNamespace.list(db)
+            lst = sorted(DBNamespace.list(db, owned_by_user=owner_user, owned_by_role=owner_role, directly=directly), 
+                    key=lambda ns: ns.Name)
         return json.dumps([ns.to_jsonable() for ns in lst]), "text/json"
 
     def namespace(self, request, relpath, name=None, **args):
