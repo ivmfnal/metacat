@@ -1193,7 +1193,7 @@ class DBDataset(DBObject):
         try:
             c.execute(f"create temp table if not exists {temp_table} (fid text, namespace text, name text)")
             c.execute(f"truncate table {temp_table}")
-            for chunk in chunked(files, 100):
+            for chunk in chunked(files, 1000):
                 if validate_meta:
                     for f in chunk:
                         assert isinstance(f, DBFile)

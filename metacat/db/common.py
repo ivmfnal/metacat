@@ -81,15 +81,19 @@ def skipped(iterable, n):
             yield f
             
 def chunked(iterable, n):
-    lst = []
-    for item in iterable:
-        if len(lst) >= n:
-            yield lst
-            lst = []
-        lst.append(item)
-    if lst:
-        yield lst
-            
+    if isinstance(iterable, (list, tuple)):
+        for i in range(0, len(iterable), n):
+            yield iterable[i:i+n]
+    else:
+        chunk = []
+        for item in iterable:
+            chunk.append(item)
+            if len(lst) >= n:
+                yield chunk
+                chunk = []
+        if chunk:
+            yield chunk
+
 class MetaValidationError(Exception):
     
     def __init__(self, message, errors):
