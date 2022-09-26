@@ -283,7 +283,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             return self.get_json(f"data/dataset?dataset={spec}")
         except NotFoundError:
             return None
-            
+
     def get_dataset_files(self, did, namespace=None, name=None, with_metadata=False):
         """Gets single dataset
         
@@ -764,7 +764,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         return self.post_json(url, new_list) 
         
-    def get_file(self, name=None, namespace=None, fid=None, did=None, with_metadata = True, with_provenance=True):
+    def get_file(self, name=None, namespace=None, fid=None, did=None, with_metadata = True, with_provenance=True, with_datasets=False):
         """Get one file record
         
         Parameters
@@ -794,12 +794,21 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                     "creator":  "...",                  # username of the file creator
                     "created_timestamp":   ...,         # numeric UNIX timestamp
                     "size": ...,                        # file size in bytes
+                    "checksums": { ... },               # file checksums
+
+                    # included if with_provenance=True
                     "parents":  ["fid",...],            # list of ids for the file parent files
                     "children": ["fid",...],            # list of ids for the file child files
+
+                    # included if with_metadata=True
                     "metadata": { ... },                # file metadata
-                    "checksums": { ... }                # file checksums
+
+                    # included if with_datasets=True
+                    "datasets": [
+                        {"namespace":"...", "name":"..."}, ...
+                    ]
                 }
-        
+
         Notes
         -----
         Retrieving file provenance and metadata takes slightly longer time
@@ -808,7 +817,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             "Either DID or file id or namespace and name must be specified"
         with_meta = "yes" if with_metadata else "no"
         with_rels = "yes" if with_provenance else "no"
-        url = f"data/file?with_metadata={with_meta}&with_provenance={with_rels}"
+        with_datasets = "yes" if with_datasets else "no"
+        url = f"data/file?with_metadata={with_meta}&with_provenance={with_rels}&with_datasets={with_datasets}"
         if did:
             namespace, name = parse_name(did, None)
             assert namespace is not None, f"Invalid DID format: {did}"

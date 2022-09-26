@@ -6,6 +6,7 @@ from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_str, to_bytes
 from metacat.mql import MQLQuery
+from metacat.common import ObjectSpec
 from metacat import Version
 
 from common_handler import MetaCatHandler
@@ -167,6 +168,10 @@ class DataHandler(MetaCatHandler):
             return 404, "Dataset not found"
         files = dataset.list_files(with_metadata=with_metadata)
         return self.json_stream((f.to_jsonable(with_metadata=with_metadata) for f in files)), "application/json-seq"
+        
+    def datasets_for_file(self, request, relpath, did=None, namespace=None, name=None, fid=None, **args):
+        spec = ObjectSpec(namespace, name, did, fid)
+        
 
     def dataset(self, request, relpath, dataset=None, **args):
         db = self.App.connect()
@@ -329,7 +334,31 @@ class DataHandler(MetaCatHandler):
             except MetaValidationError as e:
                 return e.as_json(), 400, "text/json"
         return json.dumps([f.FID for f in files]), "text/json"
-        
+
+    def datasets_for_files(self, request, relpath, **args):
+        #
+        # JSON data: list of one of the following
+        #       { "namespace": "...", "name":"..." },
+        #       { "fid":"..." }
+        #
+        db = self.App.connect()
+
+        # validate input data
+        file_list = json.loads(request.body) if request.body else []
+        datasets_by_file = DBDataset.datasets_for_files(db, file_list)
+        out = []
+        for item in file_list:
+            out_item = item.copy()
+            out_item["datasets"] = []
+            fid = item.get(fid)
+            namespace, name = item.get("namespace"), item.get("name")
+            if fid:
+                out_item["datasets"] = [ds.as_jsonable() for ds in datasets_by_file.get(fid, [])]
+            elif namespace and name:
+                out_item["datasets"] = [ds.as_jsonable() for ds in datasets_by_file.get((namespace, name), [])]
+            out.append(out_item)
+        return json.dumps(out), "text/json"
+
     def split_cat(self, path):
         if '.' in path:
             return tuple(path.rsplit(".",1))
@@ -597,8 +626,8 @@ class DataHandler(MetaCatHandler):
             file_set = DBFileSet.from_name_list(db, names or dids, default_namespace=default_namespace)
 
         file_set = list(file_set)        
-        files_datasets = DBDataset.datasets_for_files(db, file_set)        
-        
+        files_datasets = DBDataset.datasets_for_files(db, file_set)
+
         out = []
         for f in file_set:
             namespace = f.Namespace
@@ -742,7 +771,8 @@ class DataHandler(MetaCatHandler):
         ]
         return json.dumps(out), "text/json"
         
-    def file(self, request, relpath, namespace=None, name=None, fid=None, with_metadata="yes", with_provenance="yes", **args):
+    def file(self, request, relpath, namespace=None, name=None, fid=None, with_metadata="yes", with_provenance="yes", 
+            with_datasets="no", **args):
         with_metadata = with_metadata == "yes"
         with_provenance = with_provenance == "yes"
         
@@ -753,7 +783,7 @@ class DataHandler(MetaCatHandler):
             f = DBFile.get(db, namespace=namespace, name=name)
         if f is None:
             return "File not found", 404
-        return f.to_json(with_metadata=with_metadata, with_provenance=with_provenance), "text/json"
+        return f.to_json(with_metadata=with_metadata, with_provenance=with_provenance, with_datasets=with_datasets), "text/json"
 
     def files(self, request, relpath, with_metadata="no", with_provenance="no", **args):
         with_metadata = with_metadata=="yes"

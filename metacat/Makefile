@@ -1,4 +1,4 @@
-FILES = __init__.py version.py
+FILES = __init__.py version.py common.py
 DBFILES = __init__.py dbobjects2.py common.py param_category.py
 WEBAPIFILES = __init__.py webapi.py
 FILTERSFILES = __init__.py filters.py

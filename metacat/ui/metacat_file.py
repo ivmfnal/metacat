@@ -173,6 +173,38 @@ class DeclareManyCommand(CLICommand):
             sys.exit(1)
 
 
+class DatasetsCommand(CLICommand):
+
+    Opts = "jpi:"
+    Usage = """[-j|-p] (-i <file id>|<namespace>:<name>)
+            -p pretty-print the list of datasets
+            -j print the list as JSON
+            otherwise print dataset DIDs
+    """
+
+    def __call__(self, command, client, opts, args):
+        did = fid = None
+    
+        if args:
+            did = args[0]
+        else:
+            if "-i" not in opts:
+                raise InvalidArguments("File specification error")
+            fid = opts["-i"]
+        data = client.get_file(did=did, fid=fid, with_provenance=False, with_metadata=False, with_datasets=True)
+        if data is None:
+            print("file not found", file=sys.stderr)
+            sys.exit(1)
+        datasets = sorted(data.get("datasets", []), key = lambda ds: (ds["namespace"], ds["name"]))
+        if "-j" in opts:
+            print(json.dumps(datasets, indent=4, sort_keys=True))
+        elif "-p" in opts:
+            pprint.pprint(datasets)
+        else:
+            for item in datasets:
+                print(item["namespace"] + ":" + item["name"])
+
+
 class ShowCommand(CLICommand):
 
     Opts = ("jmpi:l:Ind", ["json","meta-only","pretty","name-only","lineage","provenance","ids", "id-only"])
@@ -211,6 +243,9 @@ class ShowCommand(CLICommand):
             fid = opts["-i"]
 
         data = client.get_file(did=did, fid=fid, with_provenance=provenance, with_metadata=not (name_only or id_only))
+        if data is None:
+            print("file not found", file=sys.stderr)
+            sys.exit(1)
         if id_only:
             print(data["fid"])
         elif name_only:
@@ -393,5 +428,6 @@ FileCLI = CLI(
     "declare-sample",  DeclareSampleCommand(),
     "add",      AddCommand(),
     "update",   UpdateCommand(),
-    "show",     ShowCommand()
+    "show",     ShowCommand(),
+    "datasets", DatasetsCommand()
 )

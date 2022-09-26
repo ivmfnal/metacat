@@ -356,10 +356,23 @@ Get a sample of the JSON file:
 
     $ metacat query -i -N test "files from A - files from B" > file_ids.txt
     $ metacat file add -i @file_ids.txt test:C
+    
+Listing datasets the file is in
+-------------------------------
+
+This command will print namespace/name for all the datasets the file is in. Currently, not recursively.
+
+.. code-block:: shell
+
+    $ metacat file datasets [-j|-p] -i <file id>
+    $ metacat file datasets [-j|-p] <namespace>:<name>
+      -p pretty-print the list of datasets
+      -j print the dataset list as JSON
+      otherwise print <namespace>:<name> for each dataset
+
 
 File Metadata
 -------------
-
         
 Updating
 ~~~~~~~~

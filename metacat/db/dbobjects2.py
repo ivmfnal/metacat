@@ -313,8 +313,6 @@ class DBFileSet(object):
         fs = DBFileSet.from_tuples(db, fetch_generator(c))
         fs.SQL = sql
         return fs
-    
-
         
 class DBFile(object):
     
@@ -324,9 +322,7 @@ class DBFile(object):
     def __init__(self, db, namespace = None, name = None, metadata = None, fid = None, size=None, checksums=None,
                     parents = None, children = None, creator = None, created_timestamp=None,
                     ):
-        
-        #print("DBFile.__init__: creator=", creator)            
-        
+
         assert (namespace is None) == (name is None)
         self.DB = db
         self.FID = fid or self.generate_id()
@@ -652,11 +648,11 @@ class DBFile(object):
             data["parents"] = [f.FID for f in self.parents()]
             data["children"] = [f.FID for f in self.children()]
         if with_datasets:
-            data["datasets"] = ["%s:%s" % tup for ds in self.datasets]
+            data["datasets"] = [{"namespace":ns, "name":n} for ns, n in self.datasets]
         return data
 
-    def to_json(self, with_metadata = False, with_provenance=False):
-        return json.dumps(self.to_jsonable(with_metadata=with_metadata, with_provenance=with_provenance))
+    def to_json(self, with_metadata = False, with_datasets = False, with_provenance=False):
+        return json.dumps(self.to_jsonable(with_metadata=with_metadata, with_provenance=with_provenance, with_datasets=with_datasets))
         
     def children(self, as_files=False, with_metadata = False):
         if self.Children is None:
@@ -725,16 +721,7 @@ class DBFile(object):
     def datasets(self):
         return _DBManyToMany(self.DB, "files_datasets", "dataset_namespace", "dataset_name", file_id = self.FID)
 
-    def __datasets(self):
-        # list all datasets this file is found in
-        c = self.DB.cursor()
-        c.execute("""
-            select fds.dataset_namespace, fds.dataset_name
-                from files_datasets fds
-                where fds.file_id = %s
-                order by fds.dataset_namespace, fds.dataset_name""", (self.FID,))
-        return (DBDataset(self.DB, namespace, name) for namespace, name in fetch_generator(c))
-        
+
 class MetaExpressionDNF(object):
     
     def __init__(self, exp):
@@ -1524,17 +1511,54 @@ class DBDataset(DBObject):
         
     @staticmethod
     def datasets_for_files(db, files):
-        file_ids = [f.FID for f in files]
+        #
+        # files: list of DBFile objects. Each DBFile has either valid FID or Namespace, Name
+        #        or dicts:
+        #           {"namespace":"...", "name":"..."}
+        #           {"fid":"..."}
+        #
+        # returns dict:
+        #    { "file_id" -> [DBDataset, ...] }
+        #    for files specified with namespace/name pairs, the output dictionary will also contain
+        #    { ("namespace", "name") -> [DBDataset, ...] }
+        #
+        file_ids = set()
+        pairs = []
+        for f in files:
+            if isinstance(f, DBFile):
+                if f.FID:
+                    file_ids.add(f.FID)
+                else:
+                    pairs.append(dict(namespace=f.Namespace, name=f.Name))
+            elif isinstance(f, dict):
+                fid = f.get("fid")
+                if fid:
+                    file_ids.add(fid)
+                else:
+                    namespace, name = f.get("namespace"), f.get("name")
+                    if not (namespace and name):
+                        raise ValueError("Unrecognozed file specification:", f)
+                    pairs.append((namespace, name))
+            else:
+                raise ValueError("Unrecognozed file specification:", f)
+
+        fid_to_pair = {}
+        if pairs:
+            pair_files = DBFile.get_files(db, pairs)
+            for f in pair_files:
+                file_ids.add(f.FID)
+                fid_to_pair[f.FID] = (f.Namespace, f.Name)
+
         dataset_map = {}       # { fid -> [DBDataset, ...]}
         datasets = {}       # {(ns,n) -> DBDataset}
         c = db.cursor()
         ds_columns = self.columns("ds")
+        
         c.execute(f"""
-            select distinct f.id, {ds_columns}
-                        from datasets ds, files f, files_datasets fd
-                        where f.id = any(%s) and
-                            fd.dataset_namespace = ds.namespace and fd.dataset_name = ds.name and fd.file_id = f.id
-                        order by f.id, ds.namespace, ds.name
+            select distinct fd.file_id, {ds_columns}
+                        from datasets ds, files_datasets fd
+                        where fd.dataset_namespace = ds.namespace and fd.dataset_name = ds.name and fd.file_id = any(%s)
+                        order by fd.file_id, ds.namespace, ds.name
                         """, (file_ids,)
         )
         
@@ -1546,9 +1570,14 @@ class DBDataset(DBObject):
                 ds = datasets[(namespace, name)] = DBDataset.from_tuple(db, tup[1:])
             dslist = dataset_map.setdefault(fid, [])
             dslist.append(ds)
-        
+            
+            ns_n_pair = fid_to_pair.get(fid)
+            if ns_n_pair:
+                dslist = dataset_map.setdefault(ns_n_pair, [])
+                dslist.append(ds)
+
         return dataset_map
-        
+
 class DBNamedQuery(object):
 
     def __init__(self, db, namespace, name, source, parameters=[]):
