@@ -28,7 +28,7 @@ dune_with_version_defined:	clean dune_specifics tars
 generic_with_version_defined:	clean tars
 
 tars:  build $(TARDIR)
-	cd $(BUILD_DIR); tar cf $(SERVER_TAR) lib server docs
+	cd $(BUILD_DIR); tar cf $(SERVER_TAR) lib server
 	@echo \|
 	@echo \| Server tarfile is created: $(SERVER_TAR)
 	@echo \|
@@ -56,7 +56,7 @@ build:  $(BUILD_DIR)
 	cd src; make LIBDIR=$(LIBDIR) VERSION=$(VERSION) build
 	cd metacat; make LIBDIR=$(LIBDIR) VERSION=$(VERSION) BINDIR=$(UI_DIR) build
 	cd webserver; make SERVER_DIR=$(SERVER_DIR) LIBDIR=$(LIBDIR) VERSION=$(VERSION) build
-	cd docs; make SERVER_DIR=$(SERVER_DIR) DOCSDIR=$(DOCSDIR) -f Makefile-product build
+	#cd docs; make SERVER_DIR=$(SERVER_DIR) DOCSDIR=$(DOCSDIR) -f Makefile-product build
 	find $(BUILD_DIR) -type d -name __pycache__ -print | xargs rm -rf
 	find $(BUILD_DIR) -type f -name \*.pyc -print -exec rm {} \;
 
