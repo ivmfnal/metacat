@@ -37,7 +37,7 @@ client:
 	make VERSION=`python metacat/version.py` client_with_version_defined
 
 client_with_version_defined: canned_client $(TARDIR)
-	cd $(BUILD_DIR); tar cf $(CLIENT_TAR) lib dependencies docs ui canned_client_setup.sh
+	cd $(BUILD_DIR); tar cf $(CLIENT_TAR) lib dependencies ui canned_client_setup.sh
 	@echo \|
 	@echo \| Canned client tarfile is created: $(CLIENT_TAR)
 	@echo \|
