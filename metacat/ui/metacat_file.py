@@ -1,6 +1,7 @@
 import sys, getopt, os, json, pprint, time
 from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
+from datetime import timezone, datetime
 
 def read_file_list(opts):
     if "-i" in opts or "--ids" in opts:
@@ -78,25 +79,51 @@ class DeclareSampleCommand(CLICommand):
 
 class DeclareSingleCommand(CLICommand):
     
-    MinArgs = 3
-    Opts = ("N:p:m:c:", ["namespace=", "parents=", "metadata=", "checksums="])
+    MinArgs = 2
+    Opts = ("N:p:m:c:das:P:j", ["namespace=", "parents=", "metadata=", "checksums=", "dry-run", "auto-name", "size=", "json"])
     Usage = """[options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset name>
     Declare signle file:
-        declare [options] <size> [<file namespace>:]<filename> [<dataset namespace>:]<dataset>
+        declare [options]    [<file namespace>:]<filename>          [<dataset namespace>:]<dataset>
+        declare [options] -a [<file namespace>:]<auto-name pattern> [<dataset namespace>:]<dataset>
+            -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
+            -j|--json                           - print results as JSON
+            -s|--size <size>                    - file size
             -c|--checksums <type>:<value>[,...] - checksums
             -N|--namespace <default namespace>
-            -p|--parents <parent_id>,... 
+            -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
+                                                  if the item contains colon ':', it is interpreted as DID
             -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
+            -a|--auto-name                      - generate file name automatically
     """
 
     def __call__(self, command, client, opts, args):
-        size, file_spec, dataset_spec = args
+
+        if len(args) != 2:
+            raise InvalidArguments("Invalid number of arguments")
+        file_spec, dataset_spec = args
+        file_namespace = file_name = auto_name_pattern = None
+        auto_name = "-a" in opts
         default_namespace = opts.get("-N") or opts.get("--namespace")
+        size = int(opts.get("-s", opts.get("--size", 0)))
+        if size < 0:
+            raise InvalidArguments("File size must be non-negative integer")
+
         file_namespace, file_name = parse_namespace_name(file_spec, default_namespace)
-        file_name = file_name or None           # for auto-generation
         if not file_namespace:
-            raise InvalidArguments("File namespace not specified")
-            sys.exit(1)
+            raise InvalidArguments("Namespace not specified")
+
+        if auto_name:
+            auto_name_pattern = file_name
+            file_name = None
+
+        metadata_file = opts.get("-m") or opts.get("--metadata")
+        if metadata_file:
+            metadata = json.load(open(metadata_file, "r"))
+        else:
+            metadata = {}
+        if not isinstance(metadata, dict):
+            raise InvalidArguments("Metadata must be a dictionary")
+
         dataset_namespace, dataset_name = parse_namespace_name(dataset_spec, default_namespace)
         if not dataset_namespace:
             raise InvalidArguments("Dataset namespace not specified")
@@ -104,25 +131,28 @@ class DeclareSingleCommand(CLICommand):
 
         try:    size = int(size)
         except: size = -1
-        if size < 0:
-            raise InvalidArguments("File size must be zero or positive integer")
 
-        parents = opts.get("-p") or opts.get("--parents")
-        if parents:
-            parents = parents.split(",")
+        parents = []
+        parent_specs = opts.get("-p") or opts.get("--parents")
+        if parent_specs:
+            for item in parent_specs.split(","):
+                if ':' in item:
+                    ns, n = parse_namespace_name(item)
+                    parents.append({"namespace": ns, "name": n})
+                else:
+                    parents.append({"fid": item})
 
-        metadata_file = opts.get("-m") or opts.get("--metadata")
-        if metadata_file:
-            metadata = json.load(open(metadata_file, "r"))
-        else:
-            metadata = {}
-        assert isinstance(metadata, dict)
         file_data = {
                 "namespace":    file_namespace,
-                "name":         file_name,
                 "metadata":     metadata,
                 "size":         size
             }
+
+        if file_name:
+            file_data["name"] = file_name
+        else:
+            file_data["auto_name"] = auto_name_pattern
+
         if parents:
             file_data["parents"] = parents
 
@@ -135,10 +165,14 @@ class DeclareSingleCommand(CLICommand):
             file_data["checksums"] = ckdict
 
         files = [file_data]
-    
+
         try:
-            response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace)    
-            print(response)
+            response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace,
+                    dry_run = "-d" in opts)[0]
+            if "-j" in opts or "--json" in opts:
+                print(json.dumps(response, indent=4, sort_keys=True))
+            else:
+                print(response["fid"], response["namespace"], response["name"])
         except MCInvalidMetadataError as e:
             print(e)
             sys.exit(1)
@@ -147,10 +181,12 @@ class DeclareSingleCommand(CLICommand):
 class DeclareManyCommand(CLICommand):
     
     MinArgs = 2
-    Opts = ("N:", ["namespace="])
+    Opts = ("N:dj", ["namespace=", "dry-run", "json"])
     Usage = """[options] <file list JSON file> [<dataset namespace>:]<dataset name>
     Declare multiple files:
-        declare [-N|--namespace <default namespace>] <json file> [<dataset namespace>:]<dataset>
+            -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
+            -j|--json                           - print results as JSON
+            -N|--namespace <default namespace>
     """
 
     def __call__(self, command, client, opts, args):
@@ -166,8 +202,13 @@ class DeclareManyCommand(CLICommand):
             sys.exit(1)
 
         try:
-            response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace)    
-            print(response)
+            response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace,
+                    dry_run = "-d" in opts)
+            if "-j" in opts or "--json" in opts:
+                print(json.dumps(response, indent=4, sort_keys=True))
+            else:
+                for f in response:
+                    print(f["fid"], f["namespace"], f["name"])
         except MCInvalidMetadataError as e:
             print(e)
             sys.exit(1)
@@ -203,82 +244,132 @@ class DatasetsCommand(CLICommand):
         else:
             for item in datasets:
                 print(item["namespace"] + ":" + item["name"])
+                
+class FileIDCommand(CLICommand):
 
-
-class ShowCommand(CLICommand):
-
-    Opts = ("jmpi:l:Ind", ["json","meta-only","pretty","name-only","lineage","provenance","ids", "id-only"])
-    Usage = """[options] (-i <file id>|<namespace>:<name>)
-            -m|--meta-only            - print file metadata only
-            -n|--name-only            - print file namespace, name only
-            -d|--id-only              - print file id only
-            
-            -j|--json                 - as JSON
-            -p|--pretty               - pretty-print information
-            
-            -l|--lineage|--provenance (p|c)        - parents or children instead of the file itself
-            -I|--ids                               - for parents and children, print file ids instead of namespace/names
+    MinArgs = 1
+    Usage = """<namespace>:<name>|<namespace> <name>  - print file id
     """
 
     def __call__(self, command, client, opts, args):
-        if not args and "-i" not in opts:
-            raise InvalidArguments("Either -i <file id> or <namespace:name> must be specified")
-            
+        did = namespace = name = None
+        if len(args) == 1:
+            did = args[0]
+            if ':' not in did:
+                raise InvalidArguments("Invalid DID: " + did)
+        elif len(args) == 2:
+            namespace, name = args
+        else:
+            raise InvalidArguments("Too many arguments")
+        
+        data = client.get_file(did=did, namespace=namespace, name=name, with_provenance=False, with_metadata=False,
+                               with_datasets=False)
+        if data is None:
+            print("File not found", file=sys.stderr)
+            sys.exit(1)
 
-        #print("opts:", opts,"    args:", args)
+        print(data["fid"])
+
+class NameCommand(CLICommand):
+
+    MinArgs = 1
+    Opts = "jd json did"
+    Usage = """[options] <file id>  - print namespace, name
+        -j|--json                   - as JSON {"namespace":..., "name":...}
+        -d|--did                    - as DID (namespace:name)
+    """
+
+    def __call__(self, command, client, opts, args):
+        fid = args[0]
     
+        data = client.get_file(fid=fid, with_provenance=False, with_metadata=False, with_datasets=False)
+        if data is None:
+            print("File not found", file=sys.stderr)
+            sys.exit(1)
+
+        namespace, name = data["namespace"], data["name"]
+        if "-j" in opts or "--json" in opts:
+            print(f'{{ "namespace": "{namespace}", "name": "{name}" }}')
+        elif "-d" in opts or "--did" in opts:
+            print(f'{namespace}:{name}')
+        else:
+            print("Namespace: ", namespace)
+            print("Name:      ", name)
+        
+
+class ShowCommand(CLICommand):
+
+    Opts = ("mdjpli:", ["json","metadata","pretty","lineage","provenance","id="])
+    Usage = """[options] (-i|--id <file id>|<namespace>:<name>)
+            -m|--metadata             - include file metadata
+            -d|--datasets             - include datasets the file is in
+
+            -j|--json                 - as JSON
+            -p|--pretty               - pretty-print information
+            
+            -l|--provenance           - include provenance information
+    """
+
+    def __call__(self, command, client, opts, args):
+        if not args and "-i" not in opts and "--id" not in opts:
+            raise InvalidArguments("Either <namespace:name> or -i|--id <file id> must be specified")
+
         as_json = "--json" in opts or "-j" in opts
         pretty = "-p" in opts or "--pretty" in opts
-        provenance = opts.get("-l") or opts.get("--lineage") or opts.get("--provenance")
-        id_only = "--id-only" in opts or "-d" in opts
-        provenance_ids = "--ids" in opts or "-I" in opts
-        meta_only = "--meta-only" in opts or "-m" in opts
-        name_only = "--name-only" in opts or "-n" in opts
+
+        include_provenance = "-l" in opts or "--provenance" in opts
+        include_meta = "--metadata" in opts or "-m" in opts
+        include_datasets = "--datasets" in opts or "-d" in opts
 
         did = fid = None
     
         if args:
             did = args[0]
         else:
-            fid = opts["-i"]
+            fid = opts.get("-i") or opts.get("--id")
+            
+        if not did and not fid:
+            raise InvalidArguments("Eirher DID or file id must be specified")
 
-        data = client.get_file(did=did, fid=fid, with_provenance=provenance, with_metadata=not (name_only or id_only))
+        data = client.get_file(did=did, fid=fid, 
+                        with_provenance=include_provenance, with_metadata=include_meta,
+                        with_datasets=include_datasets)
         if data is None:
             print("file not found", file=sys.stderr)
             sys.exit(1)
-        if id_only:
-            print(data["fid"])
-        elif name_only:
-            print("%(namespace)s:%(name)s" % data)
-        elif provenance:
-            ids = data["parents"] if provenance == "p" else data["children"]
-            if ids:
-                lst = [dict(fid=fid) for fid in ids]
-                related = client.get_files(lst)
-                if as_json:
-                    print(json.dumps(related))
-                elif pretty:
-                    pprint.pprint(related)
-                else:
-                    for f in related:
-                        if provenance_ids:
-                            print(f["fid"])
-                        else:
-                            print("%(namespace)s:%(name)s" % f)
+            
+        if as_json:
+            print(json.dumps(data, indent=4, sort_keys=True))
+        elif pretty:
+            pprint.pprint(data)
         else:
-            if meta_only:
-                data = data.get("metadata", {})
-            if pretty:
-                pprint.pprint(data)
-            elif as_json:
-                print(json.dumps(data, indent=4, sort_keys=True))
-            else:
-                for k, v in sorted(data.items()):
-                    if k != "metadata":
-                        print("%-15s:\t%s" % (k, v))
-                if "metadata" in data:
-                    print("%-15s:\t" % ("metadata",), end="")
-                    pprint.pprint(data["metadata"])
+            for k, v in sorted(data.items()):
+                if k == "checksums":
+                    print("checksums:")
+                    for typ, cksum in sorted(v.items()):
+                        print("    %-10s: %s" % (typ, cksum))
+                elif k == "created_timestamp":
+                    t = datetime.fromtimestamp(v, timezone.utc)
+                    print("%-20s:\t%s" % (k, t))
+                elif k not in ("metadata", "parents", "children", "datasets"):
+                    print("%-20s:\t%s" % (k, v))
+
+            if "metadata" in data:
+                print("metadata:")
+                for name, value in sorted(data["metadata"].items()):
+                    print("    %-20s: %s" % (name, value))
+            if "parents" in data:
+                print("parents:")
+                for fid in data["parents"]:
+                    print("   ", fid)
+            if "children" in data:
+                print("children:")
+                for fid in data["children"]:
+                    print("   ", fid)
+            if "datasets" in data:
+                print("datasets:")
+                for item in sorted(data["datasets"], key=lambda ds: (ds["namespace"], ds["name"])):
+                    print("    %(namespace)s:%(name)s" % item)
                     
 class UpdateCommand(CLICommand):
     
@@ -428,6 +519,7 @@ FileCLI = CLI(
     "declare-sample",  DeclareSampleCommand(),
     "add",      AddCommand(),
     "update",   UpdateCommand(),
-    "show",     ShowCommand(),
-    "datasets", DatasetsCommand()
+    "name",     NameCommand(),
+    "fid",      FileIDCommand(),
+    "show",     ShowCommand()
 )

@@ -1,4 +1,5 @@
 from .common import DBObject, fetch_generator
+import json
 
 class DBParamCategory(DBObject):
     
@@ -75,7 +76,6 @@ class DBParamCategory(DBObject):
     def save(self, do_commit=True):
         c = self.DB.cursor()
         defs = json.dumps(self.Definitions)
-        print("db save:", self.OwnerUser, self.OwnerRole)
         columns = self.columns()
         c.execute(f"""
             insert into parameter_categories({columns}) 
@@ -149,36 +149,38 @@ class DBParamCategory(DBObject):
     def validate_parameter(self, name, value):
         if not name in self.Definitions:    
             if self.Restricted:
-                return False, f"Restricted category"
+                return False, f"parameter not allowed in restricted category"
             else:
-                return True, "Unrestricted"
+                return True, "unrestricted"
         definition = self.Definitions[name]
         typ = definition["type"]
 
         if typ == "any":    return True, "valid"
+        
+        repv = repr(value)
 
-        if typ == "int" and not isinstance(value, int): return False, f"scalar int value required instead of {value}"
-        if typ == "float" and not isinstance(value, float): return False, f"scalar float value required instead of {value}"
-        if typ == "text" and not isinstance(value, str): return False, f"scalar text value required instead of {value}"
-        if typ == "boolean" and not isinstance(value, bool): return False, f"scalar boolean value required instead of {value}"
-        if typ == "dict" and not isinstance(value, dict): return False, f"dict value required instead of {value}"
-        if typ == "list" and not isinstance(value, list): return False, f"list value required instead of {value}"
+        if typ == "int" and not isinstance(value, int): return False, f"scalar int value required instead of {repv}"
+        if typ == "float" and not isinstance(value, float): return False, f"scalar float value required instead of {repv}"
+        if typ == "text" and not isinstance(value, str): return False, f"scalar text value required instead of {repv}"
+        if typ == "boolean" and not isinstance(value, bool): return False, f"scalar boolean value required instead of {repv}"
+        if typ == "dict" and not isinstance(value, dict): return False, f"dict value required instead of {repv}"
+        if typ == "list" and not isinstance(value, list): return False, f"list value required instead of {repv}"
 
         if typ == "int[]":
-            if not isinstance(value, list): return False, f"list of ints required instead of {value}"
-            if not all(isinstance(x, int) for x in value): return False, f"list of ints required instead of {value}"
+            if not isinstance(value, list): return False, f"list of ints required instead of {repv}"
+            if not all(isinstance(x, int) for x in value): return False, f"list of ints required instead of {repv}"
 
         elif typ == "float[]":
             if not isinstance(value, list): return False, f"list of floats required"
-            if not all(isinstance(x, float) for x in value): return False, f"list of floats required instead of {value}"
+            if not all(isinstance(x, float) for x in value): return False, f"list of floats required instead of {repv}"
             
         elif typ == "text[]":
             if not isinstance(value, list): return False, f"list of strings required"
-            if not all(isinstance(x, str) for x in value): return False, f"list of strings required instead of {value}"
+            if not all(isinstance(x, str) for x in value): return False, f"list of strings required instead of {repv}"
             
         elif typ == "boolean[]":
             if not isinstance(value, list): return False, f"list of booleans required"
-            if not all(isinstance(x, bool) for x in value): return False, f"list of booleans required instead of {value}"
+            if not all(isinstance(x, bool) for x in value): return False, f"list of booleans required instead of {repv}"
             
         if not typ in ("boolean", "boolean[]", "list", "dict", "any"):
             if "values" in definition:
@@ -186,27 +188,28 @@ class DBParamCategory(DBObject):
                 if isinstance(value, list):
                     if not all(x in values for x in value): return False, f"value in {value} is not allowed"
                 else:
-                    if not value in values: return False, f"value {value} is not allowed"
+                    if not value in values: return False, f"value {repv} is not allowed"
             else:
                 if "pattern" in definition:
-                    r = re.compile(definition["pattern"])
+                    pattern = definition["pattern"]
+                    r = re.compile(pattern)
                     if isinstance(value, list):
-                        if not all(r.match(v) is not None for v in value):  return False, f"value in {value} does not match the pattern"
+                        if not all(r.match(v) is not None for v in value):  return False, f"value in {value} does not match the pattern '{pattern}'"
                     else:
                         if r.match(value) is None:
-                            return False, f"value {value} does not match the pattern"
+                            return False, f"value {value} does not match the pattern '{pattern}'"
                 if "min" in definition:
                     vmin = definition["min"]
                     if isinstance(value, list):
-                        if not all(x >= vmin for x in value):   return False, f"value in {value} out of range"
+                        if not all(x >= vmin for x in value):   return False, f"value in {value} out of range (min:{vmin})"
                     else:
-                        if value < vmin:    return False, f"value {value} out of range"
+                        if value < vmin:    return False, f"value {value} out of range (min:{vmin})"
                 if "max" in definition:
                     vmax = definition["max"]
                     if isinstance(value, list):
-                        if not all(x <= vmax for x in value):   return False, f"value in {value} out of range"
+                        if not all(x <= vmax for x in value):   return False, f"value in {value} out of range (max:{vmax})"
                     else:
-                        if value > vmax:    return False, f"value {value} out of range"
+                        if value > vmax:    return False, f"value {value} out of range (max:{vmax})"
                         
         return True, "valid"
     
@@ -233,9 +236,9 @@ class DBParamCategory(DBObject):
         categories = {path:DBParamCategory.category_for_path(db, path) for path in category_paths}
 
         errors = []
-        for item in items:
+        for index, item in enumerate(items):
             meta = item if isinstance(item, dict) else item.metadata()
-            item_errors = {}
+            item_errors = []
             for name, value in meta.items():
                 if "." in name:
                     path, vname = name.rsplit(".", 1)
@@ -243,7 +246,7 @@ class DBParamCategory(DBObject):
                     if category is not None:
                         ok, error = category.validate_parameter(vname, value)
                         if not ok:
-                            item_errors[name] = error
+                            item_errors.append({"name": name, "reason": error, "value": value})
             if item_errors:
-                errors.append((item, item_errors))
+                errors.append((index, item_errors))
         return errors

@@ -239,10 +239,44 @@ When adding a dataset to another dataset, MetaCat checks whether the operation w
 to do so.
 
 
-Declaring new Files
+Declaring new files
 -------------------
 
-Create JSON file with metadata::
+Declare single file
+~~~~~~~~~~~~~~~~~~~
+
+Create JSON file with file metadata, e.g.:
+
+.. code-block:: json
+
+    {
+        "math.pi": 3.14,
+        "processing.status": "done",
+        "processing.version": "1.3.5"
+    }
+
+then decalre the file:
+
+.. code-block:: shell
+
+      $ metacat declare [options]    [<file namespace>:]<filename>          [<dataset namespace>:]<dataset>
+      $ metacat declare [options] -a [<file namespace>:]<auto-name pattern> [<dataset namespace>:]<dataset>
+          -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
+          -j|--json                           - print results as JSON
+          -s|--size <size>                    - file size
+          -c|--checksums <type>:<value>[,...] - checksums
+          -N|--namespace <default namespace>
+          -p|--parents   <parent>,...         - parents can be specified as file ids or DIDs
+          -m|--metadata  <JSON metadata file> - if unspecified, file will be declared with empty metadata
+          -a|--auto-name                      - generate file name automatically
+
+Declare multiple files
+~~~~~~~~~~~~~~~~~~~~~~
+
+When declaring multiple files, the command accepts JSON file path. The JSON file provides information about the files to be declared. The JSON structure in the file
+must be a list of dictionaries, one dictionary per file to be declared. Each dictionary has the following items:
+
+.. code-block:: json
 
     [
         {   
@@ -257,28 +291,6 @@ Create JSON file with metadata::
         ...
     ]
     
-Parents are specified with dictionaries, one dictionary per file. Each dictionary specifies the parent file in one of three ways:
-
-  - "did": "<namespace>:<name>"
-  - "namespace":"...", "name":"..."
-  - "fid": "<file id>"
-
-Specifing parents with list of string file ids instead of dictionaries is still possible, but *is deprecated*.
-
-You can get a sample of the JSON file:
-
-.. code-block:: shell
-    
-    metacat file declare --sample
-        
-Declare files:
-
-.. code-block:: shell
-
-    declare [-N|--namespace <default namespace>] -j|--json <json file> [<dataset namespace>:]<dataset>
-        
-When declaring multiple files, the command accepts JSON file path. The JSON file provides information about the files being declared. The JSON structure in the file
-must be a list of dictionaries, one dictionary per file to be declared. Each dictionary has the following items:
 
 ``fid`` : optional
     File ID for the new file. Must be unique for the MetaCat instance. 
@@ -313,24 +325,43 @@ must be a list of dictionaries, one dictionary per file to be declared. Each dic
     File metadata as dictionary
     
 ``parents`` : optional
-    List of parent files IDs
+    List of dictionaries, one dictionary per parent file, in one of 3 formats:
+        - { "did": "<namespace>:<name>" }
+        - { "namespace":"...", "name":"..." }
+        - { "fid": "<file id>" }
+    Individual parent dictionaries do not have to be in the same format.
+    Specifing parents with list of string file ids instead of dictionaries **is deprecated**.
+
+You can get a sample of the JSON file:
+
+.. code-block:: shell
     
-When declaring a file or multiple files, they must be added to a dataset.
+    $ metacat file declare-sample
+        
+Once you have the JSON file with files description, you can delare them:
+
+.. code-block:: shell
+
+    $ metacat file declare-many [options] <file list JSON file> [<dataset namespace>:]<dataset name>
+    Declare multiple files:
+          -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
+          -j|--json                           - print results as JSON
+          -N|--namespace <default namespace>
 
 Adding files to dataset
 -----------------------
 
 .. code-block:: shell
     
-    metacat add -n <namespace>:<name>[,...] <dataset namespace>:<dataset name>
-    metacat add -n @<file with names> <dataset namespace>:<dataset name>
-    metacat add -n - <dataset namespace>:<dataset name>             # read file namesspace:name's from stdin 
+    $ metacat add -n <namespace>:<name>[,...] <dataset namespace>:<dataset name>
+    $ metacat add -n @<file with names> <dataset namespace>:<dataset name>
+    $ metacat add -n - <dataset namespace>:<dataset name>             # read file namesspace:name's from stdin 
 
-    metacat add -i <file id>[,...] <dataset namespace>:<dataset name>
-    metacat add -i @<file with ids> <dataset namespace>:<dataset name>
-    metacat add -i - <dataset namespace>:<dataset name>             # read file ids from stdin 
+    $ metacat add -i <file id>[,...] <dataset namespace>:<dataset name>
+    $ metacat add -i @<file with ids> <dataset namespace>:<dataset name>
+    $ metacat add -i - <dataset namespace>:<dataset name>             # read file ids from stdin 
 
-    metacat add -j <JSON file> <dataset namespace>:<dataset name>
+    $ metacat add -j <JSON file> <dataset namespace>:<dataset name>
         
 JSON file structure::
     

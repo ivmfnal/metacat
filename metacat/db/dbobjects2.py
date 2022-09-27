@@ -534,7 +534,8 @@ class DBFile(object):
                 name text);
             truncate table {temp_table};
                 """)
-        c.copy_from(io.StringIO(strio.getvalue()), temp_table)
+        cvs = strio.getvalue()
+        c.copy_from(io.StringIO(cvs), temp_table)
         #print("DBFile.get_files: strio:", strio.getvalue())
         
         columns = DBFile.all_columns("f")
@@ -544,6 +545,8 @@ class DBFile(object):
                  from files f, {temp_table} t
                  where t.id = f.id or f.namespace = t.namespace and f.name = t.name
         """
+        
+        #print("   sql:", sql)
         
         #c.execute(sql)
         #for row in c.fetchall():
@@ -1779,7 +1782,6 @@ class DBNamespace(object):
                         from namespaces
             """
             args = ()
-        print("DBNamespace.list: sql, args:", sql, args)
         c.execute(sql, args)
         for name, owner_user, owner_role, description, creator, created_timestamp in c.fetchall():
             ns = DBNamespace(db, name, owner_user, owner_role, description)

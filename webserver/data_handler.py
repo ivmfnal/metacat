@@ -387,7 +387,7 @@ class DataHandler(MetaCatHandler):
                     invalid.append({"name":k, "value":v, "reason":reason})
         return invalid
         
-    def declare_files(self, request, relpath, namespace=None, dataset=None, **args):
+    def declare_files(self, request, relpath, namespace=None, dataset=None, dry_run="no", **args):
         # Declare new files, add to the dataset
         # request body: JSON with list:
         #
@@ -396,15 +396,21 @@ class DataHandler(MetaCatHandler):
         #               name: "namespace:name",   or "name", but then default namespace must be specified
         #               size: ..,                       // required
         #               fid: "fid",                     // optional
-        #               parents:        [fid,...],      // optional
+        #               parents:        [...],          // optional
         #               metadata: { ... }               // optional
         #               checksums: {                    // optional
         #                 "method":"value", ...
         #               }
         #       },...
         # ]
+        #
+        #   Parents can be specified with one of the following:
+        #       {"fid":"..."}
+        #       {"namespace":"...", "name":"..."}
         #               
+        #   Dry run - do all the steps and checks, including metadata validation up to actual declaration
         default_namespace = namespace
+        dry_run = dry_run == "yes"
         user, error = self.authenticated_user()
         if user is None:
             #print("Unauthenticated user")
@@ -435,11 +441,12 @@ class DataHandler(MetaCatHandler):
 
         metadata_validation_errors = DBParamCategory.validate_metadata_bulk(db, [f["metadata"] for f in file_list])
         if metadata_validation_errors:
-            for item, error_dict in metadata_validation_errors:
-                for name, error in error_dict.items():
-                    errors.append({
-                        "message": f"Metadata validation error for metadata parameter {name}: {error}"
-                    })
+            for index, item_errors in metadata_validation_errors:
+                errors.append({
+                    "index": index,
+                    "message":f"Metadata category validation errors",
+                    "metadata_errors":item_errors
+                })
             return json.dumps(errors), METADATA_ERROR_CODE, "text/json"
         
         for inx, file_item in enumerate(file_list):
@@ -490,11 +497,10 @@ class DataHandler(MetaCatHandler):
 
             ds_validation_errors = ds.validate_file_metadata(meta)
             if ds_validation_errors:
-                #print("validation errors:", ds_validation_errors)
+                print("validation errors:", ds_validation_errors)
                 errors.append({
                     "index": inx,
-                    "fid":fid,
-                    "message":f"Dataset metadata requirements violation",
+                    "message":f"Dataset metadata validation errors",
                     "metadata_errors":ds_validation_errors
                 })
                 continue
@@ -527,28 +533,29 @@ class DataHandler(MetaCatHandler):
                         parents.append(item["fid"])
                     else:
                         if "did" in item:
-                            namespace, name = parse_name(item["did"], default_namespace)
+                            pns, pn = parse_name(item["did"], default_namespace)
                         elif "name" in item:
-                            namespace = item.get("namespace", default_namespace)
-                            if not namespace:
+                            pn = item["name"]
+                            pns = item.get("namespace", default_namespace)
+                            if not pns:
                                 errors.append({
                                     "index": inx,
-                                    "metadata_errors": "Parent specification error: no namespace: %s" % (item,)
+                                    "message": "Parent specification error: no namespace: %s" % (item,)
                                 })
                                 error = True
                                 break
                         else:
                             errors.append({
                                 "index": inx,
-                                "metadata_errors": "Parent specification error: %s" % (item,)
+                                "message": "Parent specification error: %s" % (item,)
                             })
                             break
-                        parents.append((namespace, name))
-                        parents_to_resolve.add((namespace, name))
+                        parents.append((pns, pn))
+                        parents_to_resolve.add((pns, pn))
                 else:
                     errors.append({
                         "index": inx,
-                        "metadata_errors": "Parent specification error: %s" % (item,)
+                        "message": "Parent specification error: %s" % (item,)
                     })
                     
             f.Parents = parents
@@ -557,6 +564,7 @@ class DataHandler(MetaCatHandler):
         
         if not errors and parents_to_resolve:
             resolved = DBFile.get_files(db, ({"namespace":ns, "name":n} for ns, n in parents_to_resolve))
+            resolved = list(resolved)
             did_to_fid = {(f.Namespace, f.Name): f.FID for f in resolved}
             for inx, f in enumerate(files):
                 parents = []
@@ -566,7 +574,7 @@ class DataHandler(MetaCatHandler):
                         if not fid:
                             errors.append({
                                 "index": inx,
-                                "metadata_errors": "Can not get file id for parent: %s:%s" % item
+                                "message": "Can not get file id for parent: %s:%s" % item
                             })
                             break
                         parents.append(fid)
@@ -578,7 +586,19 @@ class DataHandler(MetaCatHandler):
         if errors:
             #print("data_handler.declare_files: errors:", errors)
             return json.dumps(errors), METADATA_ERROR_CODE, "text/json"
-        
+
+        if dry_run:
+            return 202, json.dumps(
+                [
+                    {
+                        "name": f.Name,
+                        "namespace": f.Namespace,
+                        "fid":  f.FID
+                    }
+                    for f in files
+                ]
+            ), "text/json"
+
         try:    
             results = DBFile.create_many(db, files)
             #print("data_server.declare_files: DBFile.create_may->results: ", results)
@@ -775,6 +795,9 @@ class DataHandler(MetaCatHandler):
             with_datasets="no", **args):
         with_metadata = with_metadata == "yes"
         with_provenance = with_provenance == "yes"
+        with_datasets = with_datasets == "yes"
+
+        print("DataHandler: file(): with_provenance:", with_provenance)
         
         db = self.App.connect()
         if fid:

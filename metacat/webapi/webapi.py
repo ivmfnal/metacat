@@ -74,6 +74,7 @@ class HTTPClient(object):
         self.ServerURL = server_url
         self.Token = token
         self.Timeout = timeout or self.DefaultTimeout
+        self.LastStatusCode = None
         
     def retry_request(self, method, url, timeout=None, **args):
         """
@@ -105,6 +106,7 @@ class HTTPClient(object):
             headers["X-Authentication-Token"] = self.Token.encode()
         response = self.retry_request("get", url, headers=headers)
         #print(response, response.text)
+        self.LastStatusCode = response.status_code
         if response.status_code == INVALID_METADATA_ERROR_CODE:
             raise InvalidMetadataError(url, response.status_code, response.text)
         if response.status_code == 404:
@@ -124,11 +126,12 @@ class HTTPClient(object):
             headers["X-Authentication-Token"] = self.Token.encode()
 
         with self.retry_request("get", url, headers=headers, stream=True) as response:
+            self.LastStatusCode = response.status_code
             if response.status_code == INVALID_METADATA_ERROR_CODE:
                 raise InvalidMetadataError(url, response.status_code, response.text)
             if response.status_code == 404:
                 raise NotFoundError(url, response.status_code, response.text)
-            elif response.status_code != 200:
+            elif response.status_code // 100 != 2:
                 raise WebAPIError(url, response.status_code, response.text)
             
             if response.headers.get("Content-Type") != "application/json-seq":
@@ -160,12 +163,13 @@ class HTTPClient(object):
         #print("HTTPClient.post_json: data:", data)
         
         response = self.retry_request("post", url, data = data, headers = headers)
+        self.LastStatusCode = response.status_code
+        #print("response.text:", response.text)
         if response.status_code == INVALID_METADATA_ERROR_CODE:
             #print("raising InvalidMetadataError")
             raise InvalidMetadataError(url, response.status_code, response.text)
-        if response.status_code != 200:
+        if response.status_code // 100 != 2:
             raise WebAPIError(url, response.status_code, response.text)
-        #print("response.text:", response.text)
         return response.text
         
     def post_json(self, uri_suffix, data):
@@ -386,7 +390,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         namespace : str, optional
             Default namespace. If a ``file_list`` item is specified with a name without a namespace, the ``default namespace``
             will be used.
-        
+
         Returns
         -------
         list
@@ -423,7 +427,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
     def declare_file(self, did=None, namespace=None, name=None, auto_name=None,
                      dataset_did=None, dataset_namespace=None,
-                     dataset_name=None, size=0, metadata={}, fid=None, parents=[], checksums={}):
+                     dataset_name=None, size=0, metadata={}, fid=None, parents=[], checksums={},
+                     dry_run=False):
         """Declare new file and add it to the dataset. Requires client authentication.
         
         Parameters
@@ -455,12 +460,16 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                 - "fid" - parent file id
                 - "namespace" and "name" - parent file namespace and name
                 - "did" - parent file DID ("<namespace>:<name>")
+        dry_run : boolean
+            If true, run all the necessary checks but stop short of actual file declaraion or adding to a dataset. 
+            If not all checks are successful, generate eirher InvalidMetadataError or WebApiError.
+            Default: False = do declare
 
         Returns
         -------
         dict
-            dictionary with file name, namespace and file id
-                     
+            dictionary with file name, namespace and file id. Names and file ids will be auto-generated as necessary.
+
         Notes
         -----
         At least one of the following must be specified for the file:
@@ -506,7 +515,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             info["auto_name"] = auto_name
         return self.declare_files(dataset_did, [info])[0]
 
-    def declare_files(self, dataset, files, namespace=None):
+    def declare_files(self, dataset, files, namespace=None, dry_run=False):
         """Declare new files and add them to an existing dataset. Requires client authentication.
         
         Parameters
@@ -519,7 +528,11 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             For convenience, if declaring single file, the argument can be the single file dictionary instead of a list.
         namespace: str, optional
             Default namespace for files to be declared
-        
+        dry_run : boolean
+            If true, run all the necessary checks but stop short of actual file declaraion or adding to a dataset. 
+            If not all checks are successful, generate eirher InvalidMetadataError or WebApiError.
+            Default: False = do declare
+
         Returns
         -------
         list
@@ -580,7 +593,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             f["namespace"] = namespace
             size = f.get("size")
             if not isinstance(size, int) or size < 0:
-                raise ValueError("File size is unspecified or invalid for for {namespace}:{name} (#{i} in the list)")
+                raise ValueError(f"File size is unspecified or invalid for file #{i} in the list")
 
             meta = item.get("metadata", {})
             for k in meta.keys():
@@ -591,6 +604,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             lst.append(f)
 
         url = f"data/declare_files?dataset={dataset}"
+        if dry_run: url += "&dry_run=yes"
         out = self.post_json(url, lst)
         return out
 
@@ -778,8 +792,10 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             "nemaspace:name"
         with_metadata : boolean
             whether to include file metadata
-        with_provenance:
+        with_provenance : boolean
             whether to include parents and children list
+        with_datasets : boolean
+            whether to include the list of datasets the file is in
 
         Returns
         -------

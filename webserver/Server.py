@@ -53,7 +53,11 @@ def as_dt_local(t):
 def as_json(x):
     return json.dumps(x)
 
-
+def none_as_blank(x):
+    if x is None:
+        return ""
+    else:
+        return str(x)
 
 class App(BaseApp):
 
@@ -87,6 +91,7 @@ class App(BaseApp):
         self.initJinjaEnvironment(
             filters={"as_dt_utc":as_dt_utc,
                 "as_dt_local":as_dt_local,
+                "none_as_blank":none_as_blank,
                 "json": as_json
             },
             tempdirs=[self.ScriptHome, self.ScriptHome + "/templates"],

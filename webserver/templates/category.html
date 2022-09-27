@@ -128,8 +128,8 @@
                                     <option value="{{t}}" {% if definition["type"] == t %}selected="selected"{% endif %}>{{t}}</option>
                                 {% endfor %}
                             </td>
-                            <td><input type="text" name="param:1_{{loop.index}}:min" value="{{definition['min'] or ''}}"/></td>
-                            <td><input type="text" name="param:1_{{loop.index}}:max" value="{{definition['max'] or ''}}"/></td>
+                            <td><input type="text" name="param:1_{{loop.index}}:min" value="{{definition['min']|default('')}}"/></td>
+                            <td><input type="text" name="param:1_{{loop.index}}:max" value="{{definition['max']|default('')}}"/></td>
                             <td><input type="text" name="param:1_{{loop.index}}:values" 
                                 {% if "values" in definition and definition['values'] %}
                                     value="{{definition['values']|join(',')}}"
