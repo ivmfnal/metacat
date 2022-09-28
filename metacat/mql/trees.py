@@ -93,17 +93,18 @@ class Node(object):
                 key_len = len(key)
                 shift = " "*key_len
                 #print("calling _pretty for %s" % (v,))
-                out += v._pretty(indent = indent + "| " + shift, headline_indent = indent + "| " + key)
+                out += v._pretty(indent = indent + "  " + shift, headline_indent = indent +  + key)
             else:
-                out.append(indent + f"| {key}{repr(v)}")
+                out.append(indent + f"{key}{repr(v)}")
         
         nc = len(self.C)
         for i, c in enumerate(self.C):
             extra = ". "
             if isinstance(c, (Token, Node)) or hasattr(c, "_pretty"):
-                out += c._pretty(indent+extra)
+                child = c._pretty("  ", "+-")
+                out.extend([indent + line for line in child])
             else:
-                out.append("%s%s" % (indent + ". ", repr(c)))
+                out.append("%s%s" % (indent + "+-", repr(c)))
         return out
         
     def pretty(self, indent=""):
@@ -252,9 +253,6 @@ class Descender(Traveler):
             except Exception as e:
                 raise SyntaxTreeConversionError(f"Error while processing node {node_type}") from e
             
-            if new_node is None:
-                new_node = node
-
             return new_node
 
         finally:
@@ -304,13 +302,14 @@ class Ascender(Traveler):
                     name:(self.walk(c, debug) if isinstance(c, Node) else c) 
                     for name, c in node.D.items()
                 }
-                node.C = children = [self._walk(c, debug) for c in children]
+                children = [self._walk(c, debug) for c in children]
+                node = node.clone(children)
                 try:    out = method(node, *children, **named_children)
                 except Exception as e:
                     raise SyntaxTreeConversionError(f"Error while processing node {node_type}({children}, {named_children}) ") from e
                 if debug:
                     me = self.__class__.__name__
-                    print(f"{me}: method {node_type} returned:", out.pretty("      "))
+                    print(f"{me}: method {node_type} returned:", out.pretty("      ") if isinstance(out, Node) else out)
         finally:
             self.WalkLevel -= 1
         return out
