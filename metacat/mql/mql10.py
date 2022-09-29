@@ -591,6 +591,9 @@ class QueryConverter(Converter):
             inx = int(inx.value)
         return Node("array_subscript", name=name.value, index=inx)
 
+    def json_path(self, args):
+        node = Node("json_path", [args[0]], neg=False)
+
     def cmp_op(self, args):
         node = Node("cmp_op", [args[0], args[2]], op=args[1].value, neg=False)
         return self._convert_array_all(node)
@@ -673,10 +676,10 @@ class QueryConverter(Converter):
             return Node("meta_and", [self._apply_not(c) for c in node.C])
         elif node.T == "meta_not":
             return node.C[0]
-        elif node.T in ("cmp_op", "in_set", "in_range"):
+        elif node.T in ("cmp_op", "in_set", "in_range", "json_path"):   # why cmp_op is here ??? 
             node["neg"] = not node["neg"]
             return node
-        elif node.T == "cmp_op":
+        elif node.T == "cmp_op":                                        # why cmp_op is not here ???
             new_op = {
                 "~":   "!~",
                 "!~":  "~",

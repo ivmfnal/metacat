@@ -39,7 +39,7 @@ meta_and:   term_meta ( "and" term_meta )*
     | constant "not" "in" ANAME                     -> constant_not_in_array
     | "(" meta_exp ")"                              
     | "!" term_meta                                 -> meta_not
-//    | "$" ( STRING )                                  -> json_path
+    | "json" STRING                                 -> json_path
 
 scalar:  ANAME
         | ANAME "[" "all" "]"                       -> array_all
