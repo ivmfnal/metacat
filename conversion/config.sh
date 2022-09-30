@@ -4,6 +4,7 @@ OUT_DB_PSQL="psql -h ifdb02.fnal.gov -d metadata"
 DUNE_DB_PSQL="psql -h ifdb02.fnal.gov -d dune_metadata"
 
 core_category="core"
+origin_category="origin"
 default_namespace="default"
 
 function create_meta_table () {
