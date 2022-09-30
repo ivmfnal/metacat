@@ -50,8 +50,8 @@ copy (
                 df.file_size_in_bytes,
                 coalesce(fck.checksums, '{}'::jsonb)
         from active_files df
-                left outer join persons pc on p.person_id = df.create_user_id
-                left outer join persons pu on p.person_id = df.update_user_id
+                left outer join persons pc on pc.person_id = df.create_user_id
+                left outer join persons pu on pu.person_id = df.update_user_id
                 left outer join file_rucio_scopes s on s.file_id = df.file_id
                 left outer join file_checksums fck on fck.file_id = df.file_id
 ) to stdout
