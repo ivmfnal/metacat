@@ -40,6 +40,12 @@ copy (
                 where df.end_time is not null
 ) to stdout;
 
+copy (
+    select df.file_id, '${origin_category}.worker_id', '"' || df.process_id || '"'      -- convert process id to string
+        from active_files df
+	where df.process_id is not null
+) to stdout;
+
 -- int attrs
 copy (
 	select f.file_id, pc.param_category || '.' || pt.param_type, param_value

@@ -44,12 +44,16 @@ create temp view file_checksums as
 ;
 
 copy (	
-    select df.file_id, coalesce(s.scope, '${default_namespace}'), df.file_name, extract(epoch from df.create_date), p.username, df.file_size_in_bytes,
+    select df.file_id, coalesce(s.scope, '${default_namespace}'), df.file_name, 
+                extract(epoch from df.create_date), pc.username, 
+                extract(epoch from df.update_date), pu.username, 
+                df.file_size_in_bytes,
                 coalesce(fck.checksums, '{}'::jsonb)
         from active_files df
-            left outer join persons p on p.person_id = df.create_user_id
-            left outer join file_rucio_scopes s on s.file_id = df.file_id
-            left outer join file_checksums fck on fck.file_id = df.file_id
+                left outer join persons pc on p.person_id = df.create_user_id
+                left outer join persons pu on p.person_id = df.update_user_id
+                left outer join file_rucio_scopes s on s.file_id = df.file_id
+                left outer join file_checksums fck on fck.file_id = df.file_id
 ) to stdout
 
 _EOF_
@@ -62,13 +66,15 @@ drop table if exists raw_files cascade;
 
 create table raw_files
 (
-	file_id	    text,
-    namespace   text,
-	name		text,
-	create_timestamp	double precision,
-	create_user	text,
-	size		bigint,
-    checksums   jsonb
+        file_id	    text,
+        namespace   text,
+        name		text,
+        create_timestamp	double precision,
+        create_user	text,
+        update_timestamp	double precision,
+        update_user	text,
+        size		bigint,
+        checksums   jsonb
 );
 
 \echo importing raw files
