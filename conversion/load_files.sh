@@ -79,7 +79,7 @@ create table raw_files
 
 \echo importing raw files
 
-\copy raw_files(file_id, namespace, name, create_timestamp, create_user, size, checksums) from 'data/files.csv';
+\copy raw_files(file_id, namespace, name, create_timestamp, create_user, update_timestamp, update_user, size, checksums) from 'data/files.csv';
 
 \echo creating files index
 create index raw_file_id on raw_files(file_id);
