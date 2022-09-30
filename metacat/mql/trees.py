@@ -10,6 +10,7 @@ class Token(object):
     JSON_CLASS = "token"
 
     def __init__(self, typ, value):
+        # print("Token created:", typ, value)
         self.T = typ
         self.V = value
 
@@ -20,7 +21,7 @@ class Token(object):
         #print("pretty---")
         return self._pretty()
         
-    def _pretty(self, indent=""):
+    def _pretty(self, indent="", headline_indent=None):
         return ['%s%s "%s"' % (indent, self.T, self.V)]
 
     def jsonable(self):
@@ -93,7 +94,7 @@ class Node(object):
                 key_len = len(key)
                 shift = " "*key_len
                 #print("calling _pretty for %s" % (v,))
-                out += v._pretty(indent = indent + "  " + shift, headline_indent = indent +  + key)
+                out += v._pretty(indent = indent + "  " + shift, headline_indent = indent + key)
             else:
                 out.append(indent + f"{key}{repr(v)}")
         
@@ -333,10 +334,11 @@ class LarkToNodes(Converter):
     #
     
     def __default__(self, data, children, meta):
-        #print("PostParser.__default(", data, children, meta, ")")
+        #print("LarkToNodes.__default(", data, children, meta, ")")
         return Node(data, children, meta=meta)
         
     def __default_token__(self, token):
+        #print("LarkToNodes.__default_token__: token:", token)
         return Token(token.type, token.value)
 
         
