@@ -28,7 +28,7 @@ create temp view combined_meta as
 		group by file_id
 ;
 
-insert into files(id, namespace, name, creator, created_timestamp, size, checksums, metadata)
+insert into files(id, namespace, name, creator, created_timestamp, updated_by, updated_timestamp, size, checksums, metadata)
 (
 	select r.file_id, r.namespace, r.name, 
                         r.create_user, to_timestamp(r.create_timestamp), 
