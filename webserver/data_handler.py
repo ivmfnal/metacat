@@ -5,7 +5,7 @@ from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNam
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_str, to_bytes
-from metacat.mql import MQLQuery
+from metacat.mql import MQLQuery, MQLSyntaxError
 from metacat.common import ObjectSpec
 from metacat import Version
 
@@ -886,11 +886,14 @@ class DataHandler(MetaCatHandler):
         if not query_text:
             return "[]", "text/json"
             
-        query = MQLQuery.parse(query_text)
-        query_type = query.Type
-        results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance, default_namespace=namespace or None,
-            debug = debug == "yes"
-        )
+        try:
+            query = MQLQuery.parse(query_text)
+            query_type = query.Type
+            results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance, default_namespace=namespace or None,
+                debug = debug == "yes"
+            )
+        except MQLSyntaxError as e:
+            return json.dumps({"error": {"value":e.Message, "type": e.__class__.__name__}}), "text/json"
 
         if not results:
             return "[]", "text/json"
@@ -918,8 +921,8 @@ class DataHandler(MetaCatHandler):
                         "metadata": d.Metadata if with_meta else {}
                     } for d in results 
             )
-            
-        return self.json_chunks(data), "text/json"
+        out = {"results": data}
+        return self.json_chunks(out), "text/json"
         
     def named_queries(self, request, relpath, namespace=None, **args):
         db = self.App.connect()
