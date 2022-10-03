@@ -94,7 +94,7 @@ class QueryCommand(CLICommand):
 
         in_line = "-l" in opts or "--line" in opts
 
-        #print("response data:", out)
+        #print("response results:", results)
     
         if "-s" in opts or "--summary" in opts and not with_meta:
             print("%d files" % (len(results),))

@@ -921,8 +921,7 @@ class DataHandler(MetaCatHandler):
                         "metadata": d.Metadata if with_meta else {}
                     } for d in results 
             )
-        out = {"results": data}
-        return self.json_chunks(out), "text/json"
+        return self.json_chunks(data), "text/json"
         
     def named_queries(self, request, relpath, namespace=None, **args):
         db = self.App.connect()
