@@ -27,7 +27,8 @@ class ServerError(Exception):
         self.Body = to_str(body)
         
     def __str__(self):
-        msg = f"MetaCatServer error:\n  URL: {self.URL}\n  HTTP status code: {self.StatusCode}\n  Message: {self.Message}"
+        #msg = f"MetaCatServer error:\n  URL: {self.URL}\n  HTTP status code: {self.StatusCode}\n  {self.Message}"
+        msg = self.Message
         if self.Body:
             msg += "\nMessage from the server:\n"+self.Body+"\n"
         return msg
@@ -74,18 +75,21 @@ class HTTPClient(object):
         self.ServerURL = server_url
         self.Token = token
         self.Timeout = timeout or self.DefaultTimeout
-        self.LastStatusCode = None
-        
+        self.LastResponse = self.LastURL = self.LastStatusCode = None
+
     def retry_request(self, method, url, timeout=None, **args):
         """
         Implements the functionality to retry on 503 response with random exponentially growing delay
+        Use timemout = 0 to try the request exactly once
+        Returns the response with status=503 on timeout
         """
         if timeout is None:
             timeout = self.DefaultTimeout
         tend = time.time() + timeout
         retry_interval = self.InitialRetry
         response = None
-        while time.time() < tend:
+        done = False
+        while not done:
             if method == "get":
                 response = requests.get(url, timeout=self.Timeout, **args)
             else:
@@ -95,16 +99,20 @@ class HTTPClient(object):
                 break
             sleep_time = min(random.random() * retry_interval, tend-time.time())
             retry_interval *= self.RetryExponent
-            if sleep_time > 0:
+            if sleep_time >= 0:
                 time.sleep(sleep_time)
+            else:
+                break       # time out
         return response
 
-    def get_text(self, uri_suffix):
-        url = "%s/%s" % (self.ServerURL, uri_suffix)
-        headers = {}
+    def send_request(self, method, uri_suffix, headers=None, timeout=None, **args):
+        self.LastURL = url = "%s/%s" % (self.ServerURL, uri_suffix)
+        if headers:
+            headers = headers.copy()
         if self.Token is not None:
+            headers = headers or {}
             headers["X-Authentication-Token"] = self.Token.encode()
-        response = self.retry_request("get", url, headers=headers)
+        self.LastResponse = response = self.retry_request(method, url, headers=headers, **args)
         #print(response, response.text)
         self.LastStatusCode = response.status_code
         if response.status_code == INVALID_METADATA_ERROR_CODE:
@@ -113,69 +121,30 @@ class HTTPClient(object):
             raise NotFoundError(url, response.status_code, response.text)
         elif response.status_code != 200:
             raise WebAPIError(url, response.status_code, response.text)
-        return response.text
+        return response
 
-    def get_json(self, uri_suffix):
-        text = self.get_text(uri_suffix)
-        return json.loads(text)
-        
-    def get_json_stream(self, uri_suffix):
-        url = "%s/%s" % (self.ServerURL, uri_suffix)
-        headers = {"Accept": "application/json-seq"}
-        if self.Token is not None:
-            headers["X-Authentication-Token"] = self.Token.encode()
-
-        with self.retry_request("get", url, headers=headers, stream=True) as response:
-            self.LastStatusCode = response.status_code
-            if response.status_code == INVALID_METADATA_ERROR_CODE:
-                raise InvalidMetadataError(url, response.status_code, response.text)
-            if response.status_code == 404:
-                raise NotFoundError(url, response.status_code, response.text)
-            elif response.status_code // 100 != 2:
-                raise WebAPIError(url, response.status_code, response.text)
-            
-            if response.headers.get("Content-Type") != "application/json-seq":
-                raise WebAPIError(url, 200, "Expected content type application/json-seq. Got %s instead." % (response.headers.get("Content-Type"),))
-
-            for line in response.iter_lines():
-                if line:    line = line.strip()
-                while line.startswith(b'\x1E'):
-                    line = line[1:]
-                if line:
-                    #print(f"stream line:[{line}]")
-                    obj = json.loads(line)
-                    yield obj
+    def get_text(self, uri_suffix):
+        return self.send_request("get", uri_suffix).text
 
     def post_text(self, uri_suffix, data):
-        #print("post_json: data:", type(data), data)
-        if isinstance(data, (dict, list)):
-            data = json.dumps(data)
-        else:
-            data = to_bytes(data)
-        #print("post_json: data:", type(data), data)
-            
-        url = "%s/%s" % (self.ServerURL, uri_suffix)
-        
-        headers = {}
-        if self.Token is not None:
-            headers["X-Authentication-Token"] = self.Token.encode()
-        #print("HTTPClient.post_json: url:", url)
-        #print("HTTPClient.post_json: data:", data)
-        
-        response = self.retry_request("post", url, data = data, headers = headers)
-        self.LastStatusCode = response.status_code
-        #print("response.text:", response.text)
-        if response.status_code == INVALID_METADATA_ERROR_CODE:
-            #print("raising InvalidMetadataError")
-            raise InvalidMetadataError(url, response.status_code, response.text)
-        if response.status_code // 100 != 2:
-            raise WebAPIError(url, response.status_code, response.text)
-        return response.text
-        
+        return self.send_request("post", uri_suffix, data=data).text
+
+    def unpack_json(self, json_text):
+        results = json.loads(json_text)
+        if isinstance(results, dict):
+            if "results" in results:
+                results = results["results"]
+            elif "error" in results:
+                message =  "Server side error: " + results["error"]["type"] + ": "
+                message += results["error"]["value"]
+                raise ServerError(self.LastURL, self.LastStatusCode, message)
+        return results
+                
+    def get_json(self, uri_suffix):
+        return self.unpack_json(self.send_request("get", uri_suffix).text)
+
     def post_json(self, uri_suffix, data):
-        text = self.post_text(uri_suffix, data)
-        return json.loads(text)
-        
+        return self.unpack_json(self.send_request("post", uri_suffix, data=data).text)
 
 class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     
@@ -885,7 +854,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             url += f"&add_to={add_to}"
         results = self.post_json(url, query)
         return results
-        
+
     def async_query(self, query, data=None, **args):
         """Run the query asynchronously. Requires client authentication if save_as or add_to are used.
         
