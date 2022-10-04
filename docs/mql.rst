@@ -95,7 +95,7 @@ This will return all the files in the dataset, which have a floating point metad
 White space is ignored in MQL.
 
 String constants containing only letters, digits and symbols ``:%$@_^.-`` can be entered without
-enclosing them into quotes. Unquoted literals which can be interpreted as numeric or boolean cou nstants
+enclosing them into quotes. Unquoted literals which can be interpreted as numeric or boolean constants
 will be interpreted as such. If you need to represent a string, which looks like a decimal representation of
 a number, you will have to put it in quotes, e.g.:
 
