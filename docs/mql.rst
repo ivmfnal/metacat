@@ -92,7 +92,18 @@ This will return all the files in the dataset, which have a floating point metad
                         and run = 123 
                         and ( type="MC" or type="Data" )
                         
-Generally, all white space is ignored in MQL.
+White space is ignored in MQL.
+
+String constants containing only letters, digits and symbols ``:%$@_^.-`` can be entered without
+enclosing them into quotes. Unquoted literals which can be interpreted as numeric or boolean cou nstants
+will be interpreted as such. If you need to represent a string, which looks like a decimal representation of
+a number, you will have to put it in quotes, e.g.:
+
+.. code-block:: sql
+
+	files from scope:dataset where software.version = 1.2      # will be comparing to floating point 1.2
+	files from scope:dataset where software.version = "1.2"    # will be comparing to string "1.2"
+
 
 File Provenance
 ---------------
