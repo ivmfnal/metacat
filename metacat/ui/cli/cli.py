@@ -40,6 +40,7 @@ class CLIInterpreter(object):
     Defaults = {}
     MinArgs = 0
     Hidden = False
+    GNUStyle = False
 
     def get_options(self):
         tup = self.Opts
@@ -76,7 +77,10 @@ class CLIInterpreter(object):
         short_opts, long_opts = self.get_options()
         #print(self, ".getopt(): short_opts, long_opts:", short_opts, long_opts)
         try:
-            opts, args = getopt.getopt(argv, short_opts, long_opts)
+            if self.GNUStyle:
+                opts, args = getopt.gnu_getopt(argv, short_opts, long_opts)
+            else:
+                opts, args = getopt.getopt(argv, short_opts, long_opts)
             #print(self, ".getopt(): opts, args:", opts, args)
         except getopt.GetoptError:
             raise InvalidOptions()
@@ -90,6 +94,8 @@ class CLIInterpreter(object):
         
     
 class CLICommand(CLIInterpreter):
+
+    GNUStyle = True
 
     def _run(self, command, context, argv, usage_on_error = True):
 
@@ -132,6 +138,8 @@ class CLICommand(CLIInterpreter):
 
 class CLI(CLIInterpreter):
     
+    GNUStyle = False
+
     def __init__(self, *args):
         self.UsageParagraph = self.Usage
         self.Words = []          
@@ -152,9 +160,6 @@ class CLI(CLIInterpreter):
         return context
     
     def _run(self, pre_command, context, argv, usage_on_error = True):
-        
-        #print(self,"._run: pre_command:", pre_command)
-
         if argv and argv[0] == "-?":
             print(self.usage(pre_command), file=sys.stderr)
             return
@@ -181,9 +186,6 @@ class CLI(CLIInterpreter):
             else:
                 raise EmptyCommandLine()
             
-
-        #print(f"{self.__class__.__name__}._run(): argv:", argv, "  args:", args)
-
         word, rest = args[0], args[1:]
         
         if word in ("help", "--help"):
