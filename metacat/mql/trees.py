@@ -305,9 +305,7 @@ class Ascender(Traveler):
                 }
                 children = [self._walk(c, debug) for c in children]
                 node = node.clone(children)
-                try:    out = method(node, *children, **named_children)
-                except Exception as e:
-                    raise SyntaxTreeConversionError(f"Error while processing node {node_type}({children}, {named_children}) ") from e
+                out = method(node, *children, **named_children)
                 if debug:
                     me = self.__class__.__name__
                     print(f"{me}: method {node_type} returned:", out.pretty("      ") if isinstance(out, Node) else out)

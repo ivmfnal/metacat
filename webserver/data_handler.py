@@ -5,7 +5,7 @@ from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNam
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_str, to_bytes
-from metacat.mql import MQLQuery, MQLSyntaxError
+from metacat.mql import MQLQuery, MQLSyntaxError, MQLExecutionError, MQLCompilationError, MQLError
 from metacat.common import ObjectSpec
 from metacat import Version
 
@@ -892,7 +892,7 @@ class DataHandler(MetaCatHandler):
             results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance, default_namespace=namespace or None,
                 debug = debug == "yes"
             )
-        except MQLSyntaxError as e:
+        except (AssertionError, ValueError, MQLError) as e:
             return json.dumps({"error": {"value":e.Message, "type": e.__class__.__name__}}), "text/json"
 
         if not results:

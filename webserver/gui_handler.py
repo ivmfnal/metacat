@@ -5,7 +5,7 @@ from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNam
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus, unquote
 from metacat.util import to_str, to_bytes
-from metacat.mql import MQLQuery
+from metacat.mql import MQLQuery, MQLError
 from metacat import Version
 from common_handler import MetaCatHandler
 
@@ -210,7 +210,10 @@ class GUIHandler(MetaCatHandler):
         self.categories = GUICategoryHandler(request, app)
         
     def jinja_globals(self):
-        return {"GLOBAL_User":self.authenticated_user()[0]}
+        return {
+            "GLOBAL_User": self.authenticated_user()[0],
+            "GLOBAL_StaticRoot": self.absolutePath("static")
+        }
         
     def index(self, request, relpath, error=None, message=None, **args):
         url = "./datasets"
@@ -330,7 +333,7 @@ class GUIHandler(MetaCatHandler):
         runtime = None
         meta_stats = None
         
-        view_meta_as =  request.POST.get("view_meta_as","table")
+        view_meta_as = request.POST.get("view_meta_as","table")
         
         save_as_dataset = "save_as_dataset" in request.POST
         
@@ -358,10 +361,15 @@ class GUIHandler(MetaCatHandler):
                 parsed = MQLQuery.parse(query_text)
                 query_type = parsed.Type
                 #print("Server.query: with_meta:", with_meta)
-                results = parsed.run(db, filters=self.App.filters(), 
+                try:
+                    results = parsed.run(db, filters=self.App.filters(), 
                         default_namespace=namespace or None,
                         limit=1000 if not save_as_dataset else None, 
                         with_meta=with_meta)
+                except MQLError as e:
+                    error = str(e)
+                    results = []
+                    url_query = None
             else:
                 results = None
                 url_query = None
