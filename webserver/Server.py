@@ -96,8 +96,8 @@ class App(BaseApp):
             },
             tempdirs=[self.ScriptHome, self.ScriptHome + "/templates"],
             globals={
-                "GLOBAL_Version": Version, 
-                "GLOBAL_SiteTitle": self.Title
+                "G_Version": Version, 
+                "G_SiteTitle": self.Title
             }
         )
 

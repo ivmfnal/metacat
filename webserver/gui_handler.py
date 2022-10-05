@@ -209,12 +209,6 @@ class GUIHandler(MetaCatHandler):
         MetaCatHandler.__init__(self, request, app)
         self.categories = GUICategoryHandler(request, app)
         
-    def jinja_globals(self):
-        return {
-            "GLOBAL_User": self.authenticated_user()[0],
-            "GLOBAL_StaticRoot": self.absolutePath("static")
-        }
-        
     def index(self, request, relpath, error=None, message=None, **args):
         url = "./datasets"
         if error or message:

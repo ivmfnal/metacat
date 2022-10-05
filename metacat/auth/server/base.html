@@ -171,7 +171,7 @@
     
     {% block html_head %}{% endblock %}
 	
-	<title>{% block page_title %}{{GLOBAL_SiteTitle}}{% endblock %}</title>
+	<title>{% block page_title %}{{G_SiteTitle}}{% endblock %}</title>
 </head>
 
 <body>
@@ -191,7 +191,6 @@
     <div id=content style="clear:both">{% block content %}{% endblock %}</div>
 </div>	<!-- body -->
 
-{# <div id="version">Version: {{GLOBAL_AppVersion}}</div> #}
 </body>
 
 </html>

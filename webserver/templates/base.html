@@ -1,16 +1,16 @@
-<html>
+{% set G_StaticRoot = GLOBAL_AppTopPath + "/static" %}
 
-{% set GLOBAL_StaticRoot = GLOBAL_AppRootPath + '/static' %}
+<html>
 
 <head>
 
-	<link rel="shortcut icon" href="{{GLOBAL_StaticRoot}}/images/favicon.png" type="image/x-icon"/>
+	<link rel="shortcut icon" href="{{GLOBAL_AppTopPath}}/static/images/favicon.png" type="image/x-icon"/>
 
     <style type="text/css">
 
         @font-face {
           font-family: source_code;
-          src: url({{GLOBAL_StaticRoot}}/fonts/source-code-pro/SourceCodePro-Regular.ttf.woff);
+          src: url({{GLOBAL_AppTopPath}}/static/fonts/source-code-pro/SourceCodePro-Regular.ttf.woff);
         }
 
 
@@ -151,18 +151,22 @@
         }
         
     p.message {
-        color: #117711;
-        border-left: solid 5px #117711;
-        padding: 0px 5px;
+		background-color: #DDD;
+		color: black;
+        padding: 15px 15px;
+		white-space: pre;
     }
     
     .error {
-        color: #A11;
+        c-olor: #A11;
     }
 
     p.error {
-        border-left: solid 5px #A11;
-        padding: 0px 5px;
+		background-color: #FDD;
+		color: black;
+        b-order-left: solid 5px #A11;
+        padding: 15px 15px;
+		white-space: pre;
     }
         
     a.button {
@@ -213,11 +217,11 @@
     
     </style>
     
-    <script src="{{GLOBAL_StaticRoot}}/js/request.js"></script>
+    <script src="{{GLOBAL_AppTopPath}}/static/js/request.js"></script>
     
     {% block html_head %}{% endblock %}
 	
-	<title>{% block page_title %}{{GLOBAL_SiteTitle}}{% endblock %}</title>
+	<title>{% block page_title %}{{G_SiteTitle}}{% endblock %}</title>
 </head>
 
 <body>
@@ -226,22 +230,19 @@
     APP_URL: "{{APP_URL}}"
     MY_PATH: "{{MY_PATH}}"
     GLOBAL_AppRootPath: "{{GLOBAL_AppRootPath}}"
-    GLOBAL_StaticRoot: "{{GLOBAL_StaticRoot}}"
-    GLOBAL_AppDirPath: "{{GLOBAL_AppDirPath}}"
-    GLOBAL_ImagesPath: "{{GLOBAL_ImagesPath}}"
-    GLOBAL_AppVersion: "{{GLOBAL_AppVersion}}"
-    GLOBAL_AppObject:  "{{GLOBAL_AppObject}}"
-    GLOBAL_User:  "{{GLOBAL_User}}"
+    G_StaticRoot: "{{G_StaticRoot}}"
+    G_AppVersion: "{{G_AppVersion}}"
+    G_User:  "{{G_User}}"
 -->
     
 <div id="banner">
 	<table class="placement">
 		<tr>
 			<td style="vertical-align: middle; padding: 0px 20px;">
-				<img src="{{GLOBAL_StaticRoot}}/images/logo.png" heights=100 width=100>
+				<img src="{{GLOBAL_AppTopPath}}/static/images/logo.png" heights=100 width=100>
 			</td>
 			<td style="vertical-align: middle; padding: 0px 20px; width:100%">
-				<h1>{{GLOBAL_SiteTitle}}</h1>
+				<h1>{{G_SiteTitle}}</h1>
 			    <div id="main_menu">
 					<table class="placement link_menu" width="100%">
 					<tr>
@@ -257,8 +258,8 @@
 							<a href="https://metacat.readthedocs.io" target="_new">docs</a>
 						</td>
 						<td>
-			                        {% if GLOBAL_User %}
-			                            <span style="color:#AAA">logged in as {{GLOBAL_User.Name or ""}}&nbsp;<a href="./user?username={{GLOBAL_User.Username}}">{{GLOBAL_User.Username}}</a>&nbsp;</span><a href="{{GLOBAL_AppRootPath}}/auth/logout?redirect={{GLOBAL_AppRootPath}}/gui/index">log out</a>
+			                        {% if G_User %}
+			                            <span style="color:#AAA">logged in as {{G_User.Name or ""}}&nbsp;<a href="./user?username={{G_User.Username}}">{{G_User.Username}}</a>&nbsp;</span><a href="{{GLOBAL_AppRootPath}}/auth/logout?redirect={{GLOBAL_AppRootPath}}/gui/index">log out</a>
 			                        {% else %}
 			                            <a href="{{GLOBAL_AppRootPath}}/auth/login?redirect={{GLOBAL_AppRootPath}}/gui/index">log in</a>
 			                        {% endif %}
@@ -285,7 +286,7 @@
     <div id=content style="clear:both">{% block content %}{% endblock %}</div>
 </div>	<!-- body -->
 
-<div id="version">Version: {{GLOBAL_AppVersion}}</div>
+<div id="version">Version: {{G_Version}}</div>
 </body>
 
 </html>
