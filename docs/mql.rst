@@ -33,28 +33,22 @@ You can also specify multiple datasets in the same query:
         files from MyScope:MC1, MyScope:MC2, AnotherScope:MC
 
 Also, you can use wildcards in the dataset name (but not in the scope name). If the dataset name is in quotes,
-it is interpreted as an SQL wildcard.
+it is interpreted as an SQL style wildcard.
 
 .. code-block:: sql
 
         files from MyScope:"MC%", AnotherScope:MC
 
-Note that you have to use database wildcard notation where '%' matches any string, including empty string, and '_' matches any single
+By SQL wildcard standard, '%' matches any string, including empty string, and '_' matches any single
 character.
 
-If you want to select all files from all known datasets, you can do this:
+If you want to select all files in the database, regardless the dataset, you can do this:
 
 .. code-block:: sql
 
-    files from "%"
-            where run=1234
+    files where data_type="mc"
 
-The "from <dataset>" part is optional. If you want to select files from all datasets and even files not included
-into any dataset, you can omit the "from ..." portion:
-
-.. code-block:: sql
-
-        files where data_type="mc"
+but this can take long time because it will scan the entire MetaCat database.
 
 To select files by their namespaces and names:
 
