@@ -496,7 +496,7 @@ class AddCommand(CLICommand):
         indent=4, sort_keys=True
     )
 
-    def __call__(self, command, context, opts, args):
+    def __call__(self, command, client, opts, args):
         if "--sample" in opts:
             print(json.dumps(_add_smaple, sort_keys=True, indent=4, separators=(',', ': ')))
             sys.exit(0)

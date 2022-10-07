@@ -91,7 +91,6 @@ class DataHandler(MetaCatHandler):
             return "OK"
 
     def namespaces(self, request, relpath, owner_user=None, owner_role=None, directly="no", **args):
-        print("data_handler.namespaces: owner_user, owner_role, directly=", owner_user, owner_role, directly)
         directly = directly == "yes"
         db = self.App.connect()
         if request.body:
@@ -332,6 +331,7 @@ class DataHandler(MetaCatHandler):
         if files:
             try:    ds.add_files(files, do_commit=True)
             except MetaValidationError as e:
+                print("error:", e)
                 return e.as_json(), 400, "text/json"
         return json.dumps([f.FID for f in files]), "text/json"
 

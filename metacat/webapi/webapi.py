@@ -94,7 +94,6 @@ class HTTPClient(object):
                 response = requests.get(url, timeout=self.Timeout, **args)
             else:
                 response = requests.post(url, timeout=self.Timeout, **args)
-            #print("retry_request: response:", response)
             if response.status_code != 503:
                 break
             sleep_time = min(random.random() * retry_interval, tend-time.time())
@@ -144,7 +143,7 @@ class HTTPClient(object):
         return self.unpack_json(self.send_request("get", uri_suffix).text)
 
     def post_json(self, uri_suffix, data):
-        return self.unpack_json(self.send_request("post", uri_suffix, data=data).text)
+        return self.unpack_json(self.send_request("post", uri_suffix, data=json.dumps(data)).text)
 
 class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     
