@@ -1,5 +1,5 @@
 import requests, json, fnmatch, sys, os, random, time
-from metacat.util import to_str, to_bytes
+from metacat.util import to_str, to_bytes, ObjectSpec
 from metacat.auth import SignedToken, TokenLib, AuthenticationError
 from urllib.parse import quote_plus, unquote_plus
 from metacat.auth import TokenAuthClientMixin
@@ -576,13 +576,15 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         out = self.post_json(url, lst)
         return out
 
-    def update_file_meta(self, metadata, names=None, fids=None, namespace=None, dids=None, mode="update"):
+    def update_file_meta(self, metadata, files=None, names=None, fids=None, namespace=None, dids=None, mode="update"):
         """Updates metadata for existing files. Requires client authentication.
         
         Parameters
         ----------
-        metadata : dict or list
+        metadata : dict
             see Notes
+        files : list of dicts
+            Each dict specifies a file. See Notes
         names : list of strings
             List of file names. Requires namespace to be specified
         dids : list of strings
@@ -590,6 +592,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         fids : list of strings
             List of file ids. The list of files can be specified with ``fids`` or with ``names`` argument, but not
             both.
+        namespace : string
+            Default namespace
         mode : str
             Either ``"update"`` (default) or ``"replace"``. If mode is ``"update"``, existing metadata will be updated with
             values in ``metadata``. If ``"replace"``, then new values will replace existing metadata. Also, see notes below.
@@ -602,39 +606,24 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         
         Notes
         -----
-        This method can be be used in 2 different ways:
-            * to apply the same metadata change to a list of files
-            * to update a set of files individually
+        This method can be be used to apply common metadata changes to a list of files. This method **can not** be used to update
+        file provenance information.
         
-        To apply *common changes* to multiple files, use a dictionary as the value for ``metadata`` argument and
-        specify the list of files to be affected either with ``fids`` or with ``names`` argument.
+        The``metadata`` argument is used to specify the common changes to the metadata to apply to multiple files.
         The ``metadata`` dictionary will be used to either update existing metadata of listed files (if ``mode="update"``) or
         replace it (if ``mode="replace"``).
         
-        To make changes on *file-by-file basis*, use a list of dictionaries for ``metadata`` argument. In this
-        case, ``names`` and ``fids`` arguments of the method are ignored. The ``metadata`` list should look like this:
+        Files to update have to be specified in one of the following ways:
         
-        .. code-block:: python
-    
-            [
-                {       
-                    "did": "namespace:filename",       # namespace can be specified for each file explicitly,
-                    "name": "filename",                 # or implicitly using the namespace=... argument
-                    "fid":  "...",                      # file id, optional. 
+            - files = [list of dicts] - each dict must be in one of the following formats:
         
-                                                        # Each dictionary in the list
-                                                        #   must have either ``"name"`` element or ``"fid"``
-                    
-                    "parents":  ["fid",...],            # list of ids for the file parent files, optional
-                    "metadata": { ... },                # new metadata values, optional,
-                                                        #   will be used to either update or replace existing file metadata
-                    "checksums": { ... }                # optional dictionary with checksums, will update or replace existing
-                                                        #   checksums dictionary
-                }, ...
-            ]
+                - {"fid":"<file id>"} 
+                - {"namespace":"<file namespace>", "name":"<file name>"} - namespace is optional. Default: the value of the "namespace" method argument
+                - {"did":"<file namespace>:<file name>"} 
         
-        In this case, you can also update file parentage and checksums dictionary.
-        
+            - dids = [list of file DIDs]
+            - names = [list of file names] - "namespace" argument method must be used to specify the common namespace
+            - fids = [list of file ids]
         """        
         if isinstance(metadata, list):
             if names is not None or dids is not None or fids is not None:
@@ -651,20 +640,33 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             if names is not None or dids is not None:
                 raise ValueError("List of file IDs can not be specified together with list if DIDs or list of file names")
 
+        for 
+
+    def __update_file_meta(self, metadata, files=None, names=None, fids=None, namespace=None, dids=None, mode="update"):
         url = f"data/update_file_meta?mode={mode}"
         if namespace:
             url += f"&namespace={namespace}"
         data = {
             "metadata":metadata
         }
-        if dids:
-            data["dids"] = dids
-        if fids:
-            data["fids"] = fids
-        if names:
-            data["names"] = names
-        out = self.post_json(url, data)
-        return out
+        file_list = []
+        for name in names or []:
+            spec = ObjectSpec(namespace, name)
+            spec.validadate()
+            file_list.append(spec.to_dict())
+        for did in dids or []:
+            spec = ObjectSpec(did, namespace=namespace)
+            spec.validadate()
+            file_list.append(spec.to_dict())
+        for fid in fids or []:
+            spec = ObjectSpec(fid=fid)
+            spec.validadate()
+            file_list.append(spec.to_dict())
+        if file_list:
+            data["files"] = file_list
+            return self.post_json(url, data)
+        else:
+            return []
         
     def update_dataset(self, dataset, metadata=None, mode="update", frozen=None, monotonic=None, description=None):   
         """Update dataset. Requires client authentication.

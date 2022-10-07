@@ -623,13 +623,7 @@ class DataHandler(MetaCatHandler):
         ]
         return json.dumps(out), "text/json"
         
-    def update_meta_bulk(self, db, user, data, mode, default_namespace):
-        new_meta = data["metadata"]
-        ids = data.get("fids")
-        names = data.get("names")
-        dids = data.get("dids")
-        new_meta = data["metadata"]
-        
+    def __update_meta_bulk(self, db, user, new_meta, mode, names=None, ids=None):
         metadata_errors = self.validate_metadata(new_meta)
         if metadata_errors:
             return json.dumps({
@@ -637,159 +631,98 @@ class DataHandler(MetaCatHandler):
                 "metadata_errors":metadata_errors
             }), METADATA_ERROR_CODE, "text/json"
         
-        if sum(int(x is not None) for x in (ids, names, dids)) != 1:
-            return "Only one of file ids or names or dids must be specified", 400
-            
-        if ids:
-            file_set = DBFileSet.from_id_list(db, ids)
-        else:
-            file_set = DBFileSet.from_name_list(db, names or dids, default_namespace=default_namespace)
-
-        file_set = list(file_set)        
-        files_datasets = DBDataset.datasets_for_files(db, file_set)
-
+        file_sets = []
         out = []
-        for f in file_set:
-            namespace = f.Namespace
-            try:
-                if not self._namespace_authorized(db, namespace, user):
-                    return f"Permission to update files in namespace {namespace} denied", 403
-            except KeyError:
-                return f"Namespace {namespace} does not exist", 404
-            
-            meta = new_meta
-            if mode == "update":
-                meta = {}
-                meta.update(f.metadata())   # to make a copy
-                meta.update(new_meta)
+        if ids:
+            file_sets.append(DBFileSet.from_id_list(db, ids))
+        if names:
+            file_sets.append(DBFileSet.from_namespace_name_specs(db, names))
 
-            for ds in files_datasets[f.FID]:
+        if file_sets:
+            file_set = list(DBFileSet.union(file_sets))
+            files_datasets = DBDataset.datasets_for_files(db, file_set)
+            
+            #
+            # validate new metadata for affected datasets
+            #
+            all_datasets = {(ds.Namespace, ds.Name): ds for ds in files_datasets.values()}
+            for ds in all_datasets.values():
                 errors = ds.validate_file_metadata(meta)
                 if errors:
                     metadata_errors += errors
 
-            f.Metadata = meta
+            if metadata_errors:
+                #print("update_files_bulk:", metadata_errors)
+                return json.dumps({
+                    "message":"Metadata validation errors",
+                    "metadata_errors":metadata_errors
+                }), METADATA_ERROR_CODE, "text/json"
+
+            #
+            # check namespace permissions
+            #
+            for f in file_set:
+                namespace = f.Namespace
+                try:
+                    if not self._namespace_authorized(db, namespace, user):
+                        return f"Permission to update files in namespace {namespace} denied", 403
+                except KeyError:
+                    return f"Namespace {namespace} does not exist", 404
             
-            out.append(                    
-                dict(
-                        name="%s:%s" % (f.Namespace, f.Name), 
-                        fid=f.FID,
-                        metadata=meta
-                    )
-            )
-            
-        if metadata_errors:
-            #print("update_files_bulk:", metadata_errors)
-            return json.dumps({
-                "message":"Metadata validation errors",
-                "metadata_errors":metadata_errors
-            }), METADATA_ERROR_CODE, "text/json"
-            
-        
-        DBFile.update_many(db, file_set, do_commit=True)
-        return json.dumps(out), 200
+                #
+                # update the metadata
+                #
+                meta = new_meta
+                if mode == "update":
+                    meta = {}
+                    meta.update(f.Metadata)   # to make a copy
+                    meta.update(new_meta)
+
+                f.Metadata = meta
+
+                out.append(                    
+                    dict(
+                            name=f.Name,
+                            namespace=f.Namespace,
+                            fid=f.FID,
+                            metadata=meta
+                        )
+                )
+
+            DBFile.update_many(db, file_set, do_commit=True)
+
+        return json.dumps(out), "text/json"
                 
-    def update_file_meta(self, request, relpath, namespace=None, mode="update", **args):
+    def update_file_meta(self, request, relpath, mode="update", **args):
         # mode can be "update" - add/pdate metadata with new values
         #             "replace" - discard old metadata and update with new values
         # 
         # Update metadata for existing files
         #
-        # mode1: metadata for each file is specified separately
-        # [
-        #       {       
-        #               did: "namespace:name",   or "name", but then default namespace must be specified
-        #               name: "name",
-        #               namespace: "namespace",
-        #               fid: "fid",               // optional
-        #               parents:        [fid,...],              // optional
-        #               metadata: { ... },       // optional
-        #               checksums: { ...}       // optional
-        #       }, ... 
-        # ]
-        #
         # mode2: common changes for many files, cannot be used to update parents
         # {
-        #   names: [ ... ], # either names (and namespace) or fids or dids must be present
-        #   dids: [ ... ],  
-        #   fids:  [ ... ],
+        #   files: [ ... ]              # dicts, either namespace/name or fid
         #   metadata: { ... }
         # }
         #
-        default_namespace = namespace
         user, error = self.authenticated_user()
         if user is None:
             return "Authentication required", 403
         db = self.App.connect()
         data = json.loads(request.body)
+        
+        if not isinstance(data, dict):
+            return 400, "Unsupported request data format"
 
-        if isinstance(data, dict):
-            return self.update_meta_bulk(db, user, data, mode, default_namespace)
-        else:
-            return "Not implemented", 400
-        
-        file_list = data or []
-        if not file_list:
-                return "Empty file list", 400
-        files = []
-        
-        errors = []
-        
-        for file_item in file_list:
-            fid, spec = None, None
-            if "fid" in file_item:
-                fid = file_item.get("fid")
-                f = DBFile.get(db, fid=fid)
+        by_fid = []
+        by_namespace_name = []
+        for f in data["files"]:
+            spec = ObjectSpec.from_dict(f)
+            if spec.FID:
+                by_fid.append(spec.FID)
             else:
-                did = file_item.get("did")
-                if did:
-                    namespace, name = parse_name(did, None)
-                else:
-                    namespace, name = file_item.get("namespace", default_namespace), file_item.get("name")
-                if namespace is None or name is None:
-                    return "Namespace or name unspecified", 400
-                f = DBFile.get(db, namespace=namespace, name=name)
-            if f is None:
-                return "File %s not found" % (fid or spec,), 404
-            namespace = f.Namespace
-            try:
-                if not self._namespace_authorized(db, namespace, user):
-                    return f"Permission to update files in namespace {namespace} denied", 403
-            except KeyError:
-                return f"Namespace {namespace} does not exist", 404
-            
-            if "metadata" in file_item:
-                if mode == "update":
-                    f.Metadata.update(file_item["metadata"])
-                else:
-                    f.Metadata = file_item["metadata"]
-            
-            if "checksums" in file_item:
-                if mode == "update":
-                    f.Checksums.update(file_item["checksums"])
-                else:
-                    f.Checksums = file_item["checksums"]
-                
-            files.append((f, file_item.get("parents")))
-
-        for f, parents in files:
-            if parents is not None:
-                f.set_parents(parents, do_commit=False)
-                
-        files = [f for f, _ in files]
-                
-        DBFile.update_many(db, files)
-        
-        out = [
-                    dict(
-                        name="%s:%s" % (f.Namespace, f.Name), 
-                        fid=f.FID,
-                        metadata=f.Metadata,
-                        parents=[p.FID for p in f.parents()]
-                    )
-                    for f in files
-        ]
-        return json.dumps(out), "text/json"
+                by_namespace_name.append((spec.Namespace, spec.Name))
+        return self.__update_meta_bulk(db, user, data["metadata"], mode, ids=by_fid, names=by_namespace_name)
         
     def file(self, request, relpath, namespace=None, name=None, fid=None, with_metadata="yes", with_provenance="yes", 
             with_datasets="no", **args):

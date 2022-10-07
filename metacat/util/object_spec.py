@@ -9,8 +9,15 @@ def undid(did, default_namespace=None):
 class ObjectSpec(object):
 
     def __init__(self, p1=None, p2=None, namespace=None, fid=None):
-        self.FID = fid
         name = None
+        if isinstance(p1, dict):
+            if "did" in p1:
+                namespace, name = undid(p1, namespace)
+            fid = p1.get("fid")
+            name = p1.get("name")
+            namespace = p1.get("namespace", namespace)
+            p1 = None
+        self.FID = fid
         if p1 and p2:
             namespace, name = p1, p2
         elif p1:
@@ -26,12 +33,12 @@ class ObjectSpec(object):
         return f"{self.Namespace}:{self.Name}"
 
     @staticmethod
-    def from_dict(self, data):
+    def from_dict(self, data, namespace=None):
         name = data.get("name")
         if name:
-            spec = Spec(data.get("namespace"), name, fid=data.get("fid"))
+            spec = ObjectSpec(data.get("namespace", namespace), name, fid=data.get("fid"))
         else:
-            spec = Spec(namespace=data.get("namespace"), did=data["did"], fid=data.get("fid"))
+            spec = ObjectSpec(data["did"], namespace=data.get("namespace", namespace), fid=data.get("fid"))
         return spec
 
     def valid(self):

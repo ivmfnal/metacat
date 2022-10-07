@@ -1,33 +1,53 @@
 import sys, getopt, os, json, pprint, time
 from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
+from metacat.util import ObjectSpec
 from datetime import timezone, datetime
 
-def read_file_list(opts):
-    if "-i" in opts or "--ids" in opts:
-        field = "fid"
-        source = opts.get("-i") or opts.get("--ids")
-    elif "-n" in opts or "--names" in opts:
-        field = "name"
-        source = opts.get("-n") or opts.get("--names")
-    else:
-        raise InvalidArguments("File list must be specified either with --names or --ids")
-        
-    if source == "-":
-        lst = (x.strip() for x in sys.stdin.readlines())
-    elif source.startswith("@"):
-        lst = (x.strip() for x in open(source[1:], "r").readlines())
-    else:
-        lst = source.split(",")
-
-    return [{field:x} for x in lst if x]
-
-def parse_namespace_name(spec, default_namespace=None):
+def undid(did, default_namespace=None):
     if ":" in spec:
         return tuple(spec.split(":", 1))
     else:
         return default_namespace, spec
         
+def read_file_list(opts):
+    default_namespace = opts.get("-N")
+    if "-i" in opts or "--ids" in opts:
+        field = "fid"
+        source = opts.get("-i") or opts.get("--ids")
+    elif "-n" in opts or "--names" in opts:
+        field = "did"
+        source = opts.get("-n") or opts.get("--names")
+    elif "-j" in opts or "--json" in opts:
+        field = "dict"
+        source = json.load(open(opts["-j"], "r"))
+    else:
+        raise InvalidArguments("File list must be specified either with -n(--names) or -i(--ids)")
+        
+    if isinstnce(source, str):
+        if source == "-":
+            lst = ({field:x.strip(), "source":x} for x in sys.stdin.readlines())
+        elif source.startswith("@"):
+            lst = ({field:x.strip(), "source":x} for x in open(source[1:], "r").readlines())
+        else:
+            lst = ({field:x.strip(), "source":x} for x in source.split(","))
+    elif isinstance(source, list):
+        lst = source
+    else:
+        raise InvalidArguments("Unrecognized file list specification")
+        
+    out = []
+    for item in lst:
+        spec = ObjectSpec.from_dict(item)
+
+        try:    spec.validate():
+        except ValueError:
+            InvalidArguments("Invalid file specification:", item.get("source", item))
+            
+        out.append(spec.as_dict())
+    return out
+                
+
 class DeclareSampleCommand(CLICommand):
     Usage = """-- print sample input for declare-many command
     """
@@ -378,7 +398,7 @@ class UpdateCommand(CLICommand):
 
             -r|--replace          - replace metadata, otherwise update
 
-            list files by name
+            list files by DIDs or namespace/names
             -N|--namespace <default namespace>           - default namespace for files
             -n|--names <file namespace>:<file name>[,...]
             -n|--names -          - read the list from stdin
@@ -434,21 +454,8 @@ class UpdateCommand(CLICommand):
         namespace = opts.get("-N") or opts.get("--namespace")
     
         file_list = read_file_list(opts)
-        names = fids = None
-        if "-i" in opts or "--ids" in opts:
-            fids = [f["fid"] for f in file_list]
-        else:
-            names = [f["name"] for f in file_list]
-        
-        meta = args[0]
-        if meta.startswith('@'):
-            meta = json.load(open(meta[1:], "r"))
-        elif meta == "-":
-            meta = json.load(sys.stdin)
-        else:
-            meta = json.loads(meta)
 
-        try:    response = client.update_file_meta(meta, names=names, fids=fids, mode=mode, namespace=namespace)
+        try:    response = client.update_file_meta(meta, files=file_list, mode=mode, namespace=namespace)
         except MCInvalidMetadataError as e:
             data = e.json()
             print(data["message"], file=sys.stderr)
@@ -465,7 +472,7 @@ class AddCommand(CLICommand):
     Opts = ("i:j:n:N:", ["namespace=", "json=", "names=", "ids=", "sample"])
     Usage = """[options] <dataset namespace>:<dataset name>
 
-            list files by name
+            list files by DIDs or namespace/names
             -N|--namespace <default namespace>           - default namespace for files
             -n|--names <file namespace>:<file name>[,...]
             -n|--names -          - read the list from stdin
@@ -484,10 +491,11 @@ class AddCommand(CLICommand):
     AddSample = json.dumps(
         [
             {        
-                "name":"test:file1.dat"
+                "did":"test:file1.dat"
             },
             {        
-                "name":"test:file1.dat"
+                "namespace":"test"
+                "name":"file2.dat"
             },
             {        
                 "fid":"54634"
@@ -501,12 +509,14 @@ class AddCommand(CLICommand):
             print(json.dumps(_add_smaple, sort_keys=True, indent=4, separators=(',', ': ')))
             sys.exit(0)
 
-        file_list = []
-
         if "-j" in opts or "--json" in opts:
-            file_list = json.load(open(opts.get("-f") or opts.get("--files"), "r"))
+            lst = json.load(open(opts.get("-j") or opts.get("--json"), "r"))
         else:
-            file_list = read_file_list(opts)
+            lst = read_file_list(opts)
+
+        file_list = []
+        for item in lst:
+            if 
 
         dataset = args[-1]
         namespace = opts.get("-N") or opts.get("--namespace")

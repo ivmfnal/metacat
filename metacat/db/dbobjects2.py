@@ -1,7 +1,6 @@
 import uuid, json, hashlib, re, time, io, traceback, base64
-from metacat.util import to_bytes, to_str, epoch
+from metacat.util import to_bytes, to_str, epoch, chunked
 from metacat.auth import BaseDBUser
-from .common import chunked
 from psycopg2 import IntegrityError
 
 Debug = False
@@ -35,15 +34,7 @@ class DBFileSet(object):
         return DBFileSet(self.DB, strided(self.Files, n, i))
         
     def chunked(self, chunk_size=1000):
-        chunk = []
-        for f in self.Files:
-            #print("chunked:", f.Namespace, f.Name)
-            chunk.append(f)
-            if len(chunk) >= chunk_size:
-                yield chunk
-                chunk = []
-        if chunk:
-            yield chunk
+        return chunked(self.Files, chunk_size)
         
     @staticmethod
     def from_tuples(db, g):
@@ -77,6 +68,23 @@ class DBFileSet(object):
         selected = ((fid, namespace, name, metadata) 
                     for (fid, namespace, name, metadata) in fetch_generator(c)
                     if "%s:%s" % (namespace, name) in joined)
+        return DBFileSet.from_tuples(db, selected)
+        
+    @staticmethod
+    def from_namespace_name_specs(db, specs, default_namespace=None):
+        # specs: list of dicts {"name":..., "namespace":...} - namespace is optional
+        specs = [(s.get("namespace", default_namespace), s["name"]) for s in specs]
+        assert all(s["namespace"] for s in specs), "Incomplete file specification: " + s["name"]
+        just_names = set(name for ns, name in specs)
+        dids = set("%s:%s" % t for t in specs)
+        c = db.cursor()
+        columns = DBFile.all_columns()
+        c.execute(f"""
+            select {columns}, null as parents, null as children from files
+                where name = any(%s)""", (just_names,))
+        selected = ((fid, namespace, name, metadata) 
+                    for (fid, namespace, name, metadata) in fetch_generator(c)
+                    if "%s:%s" % (namespace, name) in dids)
         return DBFileSet.from_tuples(db, selected)
         
     def __iter__(self):
@@ -152,6 +160,10 @@ class DBFileSet(object):
         
     __sub__ = subtract
     
+    def __add__(self, other):
+        assert self.DB is other.DB
+        return DBFileSet.union([self, other])
+        
     @staticmethod
     def from_basic_query(db, basic_file_query, with_metadata, limit):
         
