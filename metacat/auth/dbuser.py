@@ -88,6 +88,7 @@ class BaseDBUser(object):
         c = db.cursor()
         c.execute("""select u.username, u.name, u.email, u.flags, array(select ur.role_name from users_roles ur where ur.username=u.username)
             from users u
+            order by u.username
         """)
         for username, name, email, flags, roles in c.fetchall():
             u = BaseDBUser(db, username, name, email, flags)

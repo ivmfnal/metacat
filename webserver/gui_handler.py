@@ -645,9 +645,10 @@ class GUIHandler(MetaCatHandler):
             admin = me.is_admin()
             edit = admin or ns.owned_by_user(me)
             roles = DBRole.list(db) if admin else [DBRole.get(db, r) for r in me.roles]
+            users = DBUser.list(db) if admin else [me]
         datasets = DBDataset.list(db, namespace=name) if ns is not None else None
         #print("namespace: roles", roles)
-        return self.render_to_response("namespace.html", user=me, namespace=ns, edit=edit, create=False, roles=roles, admin=admin, 
+        return self.render_to_response("namespace.html", user=me, namespace=ns, edit=edit, create=False, roles=roles, users=users, admin=admin, 
             datasets = datasets,
             **self.messages(args))
         
@@ -658,7 +659,8 @@ class GUIHandler(MetaCatHandler):
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/create_namespace")
         admin = me.is_admin()
         roles = DBRole.list(db) if admin else [DBRole.get(db, r) for r in me.roles]
-        return self.render_to_response("namespace.html", user=me, roles=roles, create=True, edit=False, error=unquote_plus(error))
+        users = DBUser.list(db) if admin else [me]
+        return self.render_to_response("namespace.html", user=me, roles=roles, users=users, create=True, edit=False, error=unquote_plus(error))
         
     def save_namespace(self, request, relpath, **args):
         db = self.App.connect()
@@ -677,10 +679,13 @@ class GUIHandler(MetaCatHandler):
         elif ns is not None and create:
             self.redirect("./namespace?name=%s&error=%s" % (name, quote_plus("Namespace already exists")))            
 
-        owner_role = owner_user = None
-        owner = request.POST.get("owner", "")
-        if owner.startswith("u:"):  owner_user = owner[2:]
-        elif owner.startswith("r:"):  owner_role = owner[2:]
+        owner_user = owner_role = None
+        ownership = request.POST["ownership"]
+        if ownership == "user":
+            owner_user = request.POST["owner_user"]
+        else:
+            owner_role = request.POST["owner_role"]
+        assert (owner_user is None) != (owner_role is None)
 
         if ns is None:
             # create new
@@ -688,14 +693,12 @@ class GUIHandler(MetaCatHandler):
                 if owner_user and owner_user != me.Username or \
                     owner_role and not owner_role in me.roles:
                         self.redirect("./namespaces?error=%s" % (quote_plus("Not authorized"),))                    
-            assert (owner_user is None) != (owner_role is None)
             ns = DBNamespace(db, name, owner_role=owner_role, owner_user=owner_user, description=description)
         else:
             if not admin and not ns.owned_by_user(me):
                 self.redirect("./namespaces?error=%s" % (quote_plus("Not authorized"),))
             ns.Description = description
             if admin:
-                assert (owner_user is None) != (owner_role is None)
                 ns.OwnerUser = owner_user
                 ns.OwnerRole = owner_role
         ns.save()
