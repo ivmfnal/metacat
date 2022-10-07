@@ -85,7 +85,7 @@ class App(BaseApp):
 
     def filters(self):
         return self.Filters
-
+        
     def init(self):
         #print("ScriptHome:", self.ScriptHome)
         self.initJinjaEnvironment(
@@ -96,8 +96,8 @@ class App(BaseApp):
             },
             tempdirs=[self.ScriptHome, self.ScriptHome + "/templates"],
             globals={
-                "GLOBAL_Version": Version, 
-                "GLOBAL_SiteTitle": self.Title
+                "G_Version": Version, 
+                "G_SiteTitle": self.Title
             }
         )
 
@@ -110,6 +110,7 @@ def create_application(config=None, prefix=None):
         config = yaml.load(open(config, "r"), Loader=yaml.SafeLoader)  
     cookie_path = config.get("cookie_path", "/metacat")
     static_location = config.get("static_location", os.environ.get("METACAT_SERVER_STATIC_DIR", "static"))
+    #print("static_location:", static_location)
     application=App(config, RootHandler, static_location=static_location, prefix=prefix)
     return application
 

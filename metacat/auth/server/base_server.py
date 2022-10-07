@@ -187,5 +187,5 @@ class BaseHandler(WPHandler):
         return {k: unquote_plus(args.get(k,"")) for k in ("error", "message")}
         
     def jinja_globals(self):
-        return {"GLOBAL_User":self.authenticated_user()[0]}
+        return {"G_User":self.authenticated_user()[0]}
 

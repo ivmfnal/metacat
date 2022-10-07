@@ -53,9 +53,9 @@ constant_list:    constant ("," constant)*
 
 constant : SIGNED_FLOAT                             -> float_constant                      
     | STRING                                        -> string_constant
-    | UNQUOTED_STRING                               -> string_constant
     | SIGNED_INT                                    -> int_constant
     | BOOL                                          -> bool_constant
+    | UNQUOTED_STRING                               -> string_constant
 
 index:  STRING
     | SIGNED_INT
@@ -75,7 +75,7 @@ BOOL: "true"i | "false"i
 
 
 STRING : /("(?!"").*?(?<!\\\\)(\\\\\\\\)*?"|'(?!'').*?(?<!\\\\)(\\\\\\\\)*?')/i
-UNQUOTED_STRING : /[a-z0-9:%$@_^-]+/i
+UNQUOTED_STRING : /[a-z0-9:%$@_^.-]+/i
 
 %import common.CNAME
 %import common.SIGNED_INT

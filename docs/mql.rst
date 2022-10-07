@@ -33,28 +33,22 @@ You can also specify multiple datasets in the same query:
         files from MyScope:MC1, MyScope:MC2, AnotherScope:MC
 
 Also, you can use wildcards in the dataset name (but not in the scope name). If the dataset name is in quotes,
-it is interpreted as an SQL wildcard.
+it is interpreted as an SQL style wildcard.
 
 .. code-block:: sql
 
         files from MyScope:"MC%", AnotherScope:MC
 
-Note that you have to use database wildcard notation where '%' matches any string, including empty string, and '_' matches any single
+By SQL wildcard standard, '%' matches any string, including empty string, and '_' matches any single
 character.
 
-If you want to select all files from all known datasets, you can do this:
+If you want to select all files in the database, regardless the dataset, you can do this:
 
 .. code-block:: sql
 
-    files from "%"
-            where run=1234
+    files where data_type="mc"
 
-The "from <dataset>" part is optional. If you want to select files from all datasets and even files not included
-into any dataset, you can omit the "from ..." portion:
-
-.. code-block:: sql
-
-        files where data_type="mc"
+but this can take long time because it will scan the entire MetaCat database.
 
 To select files by their namespaces and names:
 
@@ -92,7 +86,18 @@ This will return all the files in the dataset, which have a floating point metad
                         and run = 123 
                         and ( type="MC" or type="Data" )
                         
-Generally, all white space is ignored in MQL.
+White space is ignored in MQL.
+
+String constants containing only letters, digits and symbols ``:%$@_^.-`` can be entered without
+enclosing them into quotes. Unquoted literals which can be interpreted as numeric or boolean constants
+will be interpreted as such. If you need to represent a string, which looks like a decimal representation of
+a number, you will have to put it in quotes, e.g.:
+
+.. code-block:: sql
+
+	files from scope:dataset where software.version = 1.2      # will be comparing to floating point 1.2
+	files from scope:dataset where software.version = "1.2"    # will be comparing to string "1.2"
+
 
 File Provenance
 ---------------

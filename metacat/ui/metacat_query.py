@@ -28,7 +28,8 @@ Usage: --
 """
 
 class QueryCommand(CLICommand):
-    
+
+    GNUStyle = False    
     Opts = (
         "jism:N:pq:S:A:lP", 
         ["line", "json", "ids", "summary", "metadata=", "namespace=", "pretty",

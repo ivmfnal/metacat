@@ -68,7 +68,7 @@ debug = "-d" in opts
 if cmd == "parse":
     qtext = " ".join(args)
     print("Query text:'%s'" % (qtext,))
-    q = MQLQuery.parse(qtext, debug)
+    q = MQLQuery.parse(qtext, debug=debug)
     print("Converted:---------------")
     print(q.Tree.pretty("    "))
     if "-o" in opts:

@@ -1,1 +1,1 @@
-from .mql10 import MQLQuery, MQLSyntaxError
+from .mql10 import MQLQuery, MQLSyntaxError, MQLCompilationError, MQLExecutionError, MQLError

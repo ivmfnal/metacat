@@ -191,8 +191,7 @@ class DBFileSet(object):
         limit = "" if limit is None else f"limit {limit}"
         offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
         debug("sql_for_basic_query: offset:", offset)
-            
-        
+
         f = alias("f")
 
         meta = f"{f}.metadata" if basic_file_query.WithMeta else "null as metadata"
@@ -819,7 +818,11 @@ class MetaExpressionDNF(object):
                 aname = arg["name"]
                 if not '.' in aname:
                     assert arg.T == "scalar", f"File attribute {aname} value must be a scalar. Got {arg.T} instead"
-                    assert aname in DBFile.ColumnAttributes, f"Unrecognized file attribute {aname}"
+                    if not aname in DBFile.ColumnAttributes:
+                        raise ValueError(f"Unrecognized file attribute \"{aname}\"\n" +
+                            "  Allowed file attibutes: " +
+                            ", ".join(DBFile.ColumnAttributes)
+                        )
                     
                 if arg.T == "array_subscript":
                     # a[i] = x
@@ -835,7 +838,7 @@ class MetaExpressionDNF(object):
                 elif arg.T == "array_length":
                     aname = arg["name"]
                 else:
-                    raise ValueError(f"Unrecognozed argument type={arg.T}")
+                    raise ValueError(f"Unrecognozed argument type \"{arg.T}\"")
 
                 #parts.append(f"{table_name}.metadata ? '{aname}'")
 
@@ -1434,6 +1437,10 @@ class DBDataset(DBObject):
 
     @staticmethod
     def datasets_for_selector(db, selector):
+        #print("datasets_for_selector: selector:", selector)
+        if not (selector.Namespace and (selector.Name or selector.Pattern)):
+            name_or_pattern = selector.Name or selector.Pattern
+            raise ValueError(f"Dataset specification error: {selector.Namespace}:{name_or_pattern}")
         if selector.is_explicit():
             ds = DBDataset.get(db, selector.Namespace, selector.Name)
             if ds is None:
