@@ -518,6 +518,7 @@ FileCLI = CLI(
     "declare-many",  DeclareManyCommand(),
     "declare-sample",  DeclareSampleCommand(),
     "add",      AddCommand(),
+    "datasets", DatasetsCommand(),
     "update",   UpdateCommand(),
     "name",     NameCommand(),
     "fid",      FileIDCommand(),
