@@ -1782,11 +1782,13 @@ class DBNamespace(object):
             sql = """select name, owner_user, owner_role, description, creator, created_timestamp 
                         from namespaces
                         where owner_role=%s
+                        order by name
             """
             args = (owned_by_role,)
         else:
             sql = """select name, owner_user, owner_role, description, creator, created_timestamp 
                         from namespaces
+                        order by name
             """
             args = ()
         c.execute(sql, args)

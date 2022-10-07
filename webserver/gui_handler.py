@@ -634,6 +634,7 @@ class GUIHandler(MetaCatHandler):
         else:
             me, auth_error = self.authenticated_user()
             namespaces = DBNamespace.list(db, owned_by_user=me)
+        namespaces = sorted(namespaces, key=lambda ns: ns.Name)
         return self.render_to_response("namespaces.html", namespaces=namespaces, showing_all=all, **self.messages(args))
         
     def namespace(self, request, relpath, name=None, **args):
