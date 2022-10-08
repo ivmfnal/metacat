@@ -24,8 +24,7 @@ file_query_term: "files" ("from" dataset_selector_list)?                        
     |   "query" qualified_name                                                      -> named_query
     |   file_list
 
-!file_list:
-    |   ("fids"|"fid") fid_list
+!file_list: ("fids"|"fid") fid_list
     |   ("files"|"file") qualified_name_list
 
 filter_params : constant_list

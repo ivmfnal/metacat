@@ -1043,6 +1043,8 @@ class MQLQuery(object):
     
         try:
             parsed = _Parser.parse(text)
+            if debug:
+                print("parsed:\n", parsed.pretty())
             converted = QueryConverter().convert(parsed)
         except LarkError as e:
             raise MQLSyntaxError(str(e))

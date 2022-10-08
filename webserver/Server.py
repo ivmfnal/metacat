@@ -97,7 +97,8 @@ class App(BaseApp):
             tempdirs=[self.ScriptHome, self.ScriptHome + "/templates"],
             globals={
                 "G_Version": Version, 
-                "G_SiteTitle": self.Title
+                "G_SiteTitle": self.Title,
+                "G_StaticRoot": self.externalPath("/" + self.StaticLocation)
             }
         )
 
