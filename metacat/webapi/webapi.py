@@ -143,7 +143,9 @@ class HTTPClient(object):
         return self.unpack_json(self.send_request("get", uri_suffix).text)
 
     def post_json(self, uri_suffix, data):
-        return self.unpack_json(self.send_request("post", uri_suffix, data=json.dumps(data)).text)
+        if not isinstance(data, (str, bytes)):
+            data = json.dumps(data)
+        return self.unpack_json(self.send_request("post", uri_suffix, data=data).text)
 
 class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     
@@ -375,21 +377,9 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         
         data = []
         for f in file_list:
-            if "fid" in f:
-                f = {"fid":f["fid"]}
-            elif "did" in f:
-                namespace, name = parse_name(f["did"], default_namespace)
-                if namespace is None:
-                    raise ValueError("Namespace not specified for file with did=" + f["did"])
-                f = {"namespace":namespace, "name":name}
-            elif "name" in f:
-                namespace = f.get("namespace") or default_namespace
-                if not namespace:
-                    raise ValueError("Namespace not specified for file with name=" + f["name"])
-                f = {"namespace":namespace, "name":f["name"]}
-            else:
-                raise ValueError("Infalid file specification: %s. Must contain either did or namespace/name or fid" % (f,))
-            data.append(f)
+            spec = ObjectSpec.from_dict(f, default_namespace)
+            spec.validate()
+            data.append(spec.as_dict())
         out = self.post_json(url, data)
         return out
 
@@ -624,50 +614,37 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             - dids = [list of file DIDs]
             - names = [list of file names] - "namespace" argument method must be used to specify the common namespace
             - fids = [list of file ids]
-        """        
-        if isinstance(metadata, list):
-            if names is not None or dids is not None or fids is not None:
-                raise ValueError("Explicit metadata updates can not be specified together with names, dids or fids")
-        elif names is not None:
-            if namespace is None:
-                raise ValueError("List of file names requires the namespace to be specified")
-            if fids is not None or dids is not None:
-                raise ValueError("List of file names can not be specified together with list if FIDs or list of DIDs")
-        elif dids is not None:
-            if names is not None or fids is not None:
-                raise ValueError("List of DIDs can not be specified together with list if FIDs or list of file names")
-        elif fids is not None:
-            if names is not None or dids is not None:
-                raise ValueError("List of file IDs can not be specified together with list if DIDs or list of file names")
-
-        for 
-
-    def __update_file_meta(self, metadata, files=None, names=None, fids=None, namespace=None, dids=None, mode="update"):
-        url = f"data/update_file_meta?mode={mode}"
-        if namespace:
-            url += f"&namespace={namespace}"
-        data = {
-            "metadata":metadata
-        }
-        file_list = []
-        for name in names or []:
-            spec = ObjectSpec(namespace, name)
-            spec.validadate()
-            file_list.append(spec.to_dict())
-        for did in dids or []:
-            spec = ObjectSpec(did, namespace=namespace)
-            spec.validadate()
-            file_list.append(spec.to_dict())
-        for fid in fids or []:
-            spec = ObjectSpec(fid=fid)
-            spec.validadate()
-            file_list.append(spec.to_dict())
-        if file_list:
-            data["files"] = file_list
-            return self.post_json(url, data)
-        else:
-            return []
+        """
         
+        if names and not namespace:
+            raise ValueError("Namespace must be specified with names argument")
+
+        def combined():
+            for name in (names or []):
+                yield ObjectSpec(namespace, name).to_dict()
+            for did in (dids or []):
+                spec = ObjectSpec(did)
+                spec.validate()             # will raise ValueError
+                yield spec.to_dict()
+            for fid in (fids or []):
+                yield ObjectSpec(fid=fid).to_dict()
+            for item in (files or []):
+                spec = ObjectSpec.from_dict(item)
+                spec.validate()             # will raise ValueError
+                yield spec.to_dict()
+
+        url = f"data/update_file_meta"
+        out = []
+        for chunk in chunked(combined(), 1000):
+            data = {
+                "metadata":metadata,
+                "files":chunk,
+                "mode":mode
+            }
+            out.extend(self.post_json(url, data))
+
+        return out
+
     def update_dataset(self, dataset, metadata=None, mode="update", frozen=None, monotonic=None, description=None):   
         """Update dataset. Requires client authentication.
         

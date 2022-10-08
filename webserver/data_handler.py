@@ -4,9 +4,8 @@ from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNam
     DBParamCategory, parse_name, AlreadyExistsError, IntegrityError, MetaValidationError
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
-from metacat.util import to_str, to_bytes
+from metacat.util import to_str, to_bytes, ObjectSpec
 from metacat.mql import MQLQuery, MQLSyntaxError, MQLExecutionError, MQLCompilationError, MQLError
-from metacat.common import ObjectSpec
 from metacat import Version
 
 from common_handler import MetaCatHandler
@@ -693,7 +692,7 @@ class DataHandler(MetaCatHandler):
 
         return json.dumps(out), "text/json"
                 
-    def update_file_meta(self, request, relpath, mode="update", **args):
+    def update_file_meta(self, request, relpath, **args):
         # mode can be "update" - add/pdate metadata with new values
         #             "replace" - discard old metadata and update with new values
         # 
@@ -703,6 +702,7 @@ class DataHandler(MetaCatHandler):
         # {
         #   files: [ ... ]              # dicts, either namespace/name or fid
         #   metadata: { ... }
+        #   mode: "update" or "replace"
         # }
         #
         user, error = self.authenticated_user()
@@ -710,9 +710,11 @@ class DataHandler(MetaCatHandler):
             return "Authentication required", 403
         db = self.App.connect()
         data = json.loads(request.body)
-        
         if not isinstance(data, dict):
             return 400, "Unsupported request data format"
+        mode = data["mode"]
+        if mode not in ("update", "replace"):
+            return 400, "Invalid mode"
 
         by_fid = []
         by_namespace_name = []
@@ -722,7 +724,7 @@ class DataHandler(MetaCatHandler):
                 by_fid.append(spec.FID)
             else:
                 by_namespace_name.append((spec.Namespace, spec.Name))
-        return self.__update_meta_bulk(db, user, data["metadata"], mode, ids=by_fid, names=by_namespace_name)
+        return self.__update_meta_bulk(db, user, data["metadata"], data["mode"], ids=by_fid, names=by_namespace_name)
         
     def file(self, request, relpath, namespace=None, name=None, fid=None, with_metadata="yes", with_provenance="yes", 
             with_datasets="no", **args):

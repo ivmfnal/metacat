@@ -20,11 +20,12 @@ def read_file_list(opts):
         source = opts.get("-n") or opts.get("--names")
     elif "-j" in opts or "--json" in opts:
         field = "dict"
-        source = json.load(open(opts["-j"], "r"))
+        json_file = opts.get("-j") or opts.get("--json")
+        source = json.load(sys.stdin if json_file == "-" else open(json_file, "r"))
     else:
         raise InvalidArguments("File list must be specified either with -n(--names) or -i(--ids)")
         
-    if isinstnce(source, str):
+    if isinstance(source, str):
         if source == "-":
             lst = ({field:x.strip(), "source":x} for x in sys.stdin.readlines())
         elif source.startswith("@"):
@@ -40,7 +41,7 @@ def read_file_list(opts):
     for item in lst:
         spec = ObjectSpec.from_dict(item)
 
-        try:    spec.validate():
+        try:    spec.validate()
         except ValueError:
             InvalidArguments("Invalid file specification:", item.get("source", item))
             
@@ -393,7 +394,7 @@ class ShowCommand(CLICommand):
                     
 class UpdateCommand(CLICommand):
     
-    Opts = ("i:n:N:r", ["namespace=", "names=", "ids=", "sample", "replace"])
+    Opts = ("i:n:N:rs", ["namespace=", "names=", "ids=", "sample", "replace","sample"])
     Usage = """[options] (@<JSON file with metadata>|'<JSON expression>')
 
             -r|--replace          - replace metadata, otherwise update
@@ -408,48 +409,37 @@ class UpdateCommand(CLICommand):
             -i|--ids <file id>[,...] 
             -i|--ids -            - read the list from stdin
             -i|--ids @<file>      - read the list from file
+
+            read file list from JSON file
+            -j|--json <json file>
+            -j|--json -           - read JSON file list from stdin 
+            -s|--sample           - print JOSN file list sample
     """
 
-    UpdateSample = json.dumps([
+    UpdateSample = json.dumps(
+        [
             {        
-                "name":"test:file1.dat",
-                "metadata": {
-                    "pi": 3.14,
-                    "version":"1.0",
-                    "format":"raw",
-                    "done":True
-                },
-                "parents":[ "4722545", "43954" ]
+                "did":"test:file1.dat"
             },
             {        
-                "name":"test:file1.dat",
-                "metadata": {
-                    "pi": 3.14,
-                    "version":"1.0",
-                    "format":"raw",
-                    "done":True
-                },
-                "parents":[ "4722545", "43954" ]
+                "namespace":"test",
+                "name":"file2.dat"
             },
             {        
-                "fid":"54634",
-                "metadata": {
-                    "q": 2.8718,
-                    "version":"1.1",
-                    "format":"processed",
-                    "params": [1,2],
-                    "done":False
-                }
+                "fid":"54634"
             }
         ],
         indent=4, sort_keys=True)
         
     def __call__(self, command, client, opts, args):
         
-        if "--sample" in opts:
+        if "--sample" in opts or "-s" in opts:
             print(self.UpdateSample)
             sys.exit(0)
         
+        if len(args) != 1:
+            raise InvalidArguments("Invalid arguments")
+
         mode = "replace" if ("-r" in opts or "--replace" in opts) else "update"
         namespace = opts.get("-N") or opts.get("--namespace")
     
@@ -469,7 +459,7 @@ class UpdateCommand(CLICommand):
 
 class AddCommand(CLICommand):
     
-    Opts = ("i:j:n:N:", ["namespace=", "json=", "names=", "ids=", "sample"])
+    Opts = ("i:j:n:N:s", ["namespace=", "json=", "names=", "ids=", "sample"])
     Usage = """[options] <dataset namespace>:<dataset name>
 
             list files by DIDs or namespace/names
@@ -485,8 +475,9 @@ class AddCommand(CLICommand):
 
             read file list from JSON file
             -j|--json <json file>
+            -j|--json -           - read JSON file list from stdin 
+            -s|--sample           - print JOSN file list sample
     """
-    MinArgs = 1
     
     AddSample = json.dumps(
         [
@@ -494,7 +485,7 @@ class AddCommand(CLICommand):
                 "did":"test:file1.dat"
             },
             {        
-                "namespace":"test"
+                "namespace":"test",
                 "name":"file2.dat"
             },
             {        
@@ -505,23 +496,16 @@ class AddCommand(CLICommand):
     )
 
     def __call__(self, command, client, opts, args):
-        if "--sample" in opts:
-            print(json.dumps(_add_smaple, sort_keys=True, indent=4, separators=(',', ': ')))
+        if "--sample" in opts or "-s" in opts:
+            print(self.AddSample)
             sys.exit(0)
 
-        if "-j" in opts or "--json" in opts:
-            lst = json.load(open(opts.get("-j") or opts.get("--json"), "r"))
-        else:
-            lst = read_file_list(opts)
+        if len(args) != 1:
+            raise InvalidArguments("Invalid arguments")
 
-        file_list = []
-        for item in lst:
-            if 
-
+        file_list = read_file_list(opts)
         dataset = args[-1]
-        namespace = opts.get("-N") or opts.get("--namespace")
-        out = client.add_files(dataset, file_list, namespace=namespace)
-        print(out)
+        out = client.add_files(dataset, file_list)
 
 FileCLI = CLI(
     "declare",  DeclareSingleCommand(),
