@@ -479,6 +479,8 @@ class AddCommand(CLICommand):
             -s|--sample           - print JOSN file list sample
     """
     
+    Usage = 'Use "metacat dataset add..." instead'
+    
     AddSample = json.dumps(
         [
             {        
@@ -496,6 +498,9 @@ class AddCommand(CLICommand):
     )
 
     def __call__(self, command, client, opts, args):
+        print('Use "metacat dataset add..." instead')
+        sys.exit(1)
+        
         if "--sample" in opts or "-s" in opts:
             print(self.AddSample)
             sys.exit(0)

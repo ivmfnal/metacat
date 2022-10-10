@@ -282,28 +282,34 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             return None
         
         
-    def create_dataset(self, spec, frozen=False, monotonic=False, creator=None, metadata=None, metadata_requirements=None, description=""):
+    def create_dataset(self, spec, frozen=False, monotonic=False, metadata=None, metadata_requirements=None, 
+            files_query=None, subsets_query=None,
+            description=""):
+
         """Creates new dataset. Requires client authentication.
-        
+
         Parameters
         ----------
         spec : str
             "namespace:name"
         frozen : bool
         monotonic : bool
-        creator : str
-            Dataset creator. Ignored if the user is not an admin
         metadata : dict
             Dataset metadata
         metadata_requirements : dict
             Metadata requirements for files in the dataset
+        file_query : str
+            Run MQL file query and add resulting files to the new dataset
+        dataset_query : str
+            Run MQL dataset query and add resulting datasets to the new dataset as subsets
         description : str
-        
+
         Returns
         -------
         dict
             created dataset attributes
-        """   
+        """
+
         namespace, name = spec.split(":",1)     
         params = {
             "namespace":    namespace,
@@ -311,9 +317,10 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             "frozen":       frozen,
             "monotonic":    monotonic,
             "metadata":     metadata or {},
-            "metadata_requirements":    metadata_requirements or {},
-            "creator":      creator,
-            "description":  description or ""
+            "metadata_requirements":    metadata_requirements or None,
+            "description":  description or "",
+            "files_query":  files_query or None,
+            "subsets_query":  subsets_query or None
         }
         url = f"data/create_dataset"
         return self.post_json(url, params)
@@ -331,13 +338,15 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         url = f"data/add_child_dataset?parent={parent_spec}&child={child_spec}"
         return self.get_text(url)
         
-    def add_files(self, dataset, file_list, namespace=None):
+    def add_files(self, dataset, file_list=None, namespace=None, query=None):
         """Add existing files to an existing dataset. Requires client authentication.
         
         Parameters
         ----------
         dataset : str
             "namespace:name" or "name", if namespace argument is given
+        query : str
+            MQL query to run and add files matching the query
         file_list : list
             List of dictionaries, one dictionary per file. Each dictionary must contain either a file id
         
@@ -365,7 +374,11 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         -------
         list
             list of dictionaries, one dictionary per file with file ids: { "fid": "..." }
-        """        
+        
+        Notes
+        -----
+        Either ``file_list`` or ``query`` must be specified, but not both
+        """
             
         default_namespace = namespace
         if ':' not in dataset:
@@ -375,12 +388,25 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         url = f"data/add_files?dataset={dataset}"
         
-        data = []
-        for f in file_list:
-            spec = ObjectSpec.from_dict(f, default_namespace)
-            spec.validate()
-            data.append(spec.as_dict())
-        out = self.post_json(url, data)
+        if (file_list is None) == (query is None):
+            raise ValueError("Either file_list or query must be specified, but not both")
+        
+        params = {
+            "namespace": namespace,
+        }
+        if file_list:
+            lst = []
+            for f in file_list:
+                spec = ObjectSpec.from_dict(f, default_namespace)
+                spec.validate()
+                lst.append(spec.as_dict())
+            params["file_list"] = lst
+        elif query:
+            params["query"] = query
+        else:
+            raise ValueError("Either file_list or query must be specified, but not both")
+            
+        out = self.post_json(url, params)
         return out
 
     def declare_file(self, did=None, namespace=None, name=None, auto_name=None,
