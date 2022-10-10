@@ -6,7 +6,7 @@ def chunked(iterable, n):
         chunk = []
         for item in iterable:
             chunk.append(item)
-            if len(lst) >= n:
+            if len(chunk) >= n:
                 yield chunk
                 chunk = []
         if chunk:

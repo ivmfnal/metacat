@@ -1978,4 +1978,3 @@ class DBRole(object):
         
     def __iter__(self):
         return self.members.__iter__()
-            
