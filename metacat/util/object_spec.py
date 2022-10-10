@@ -8,16 +8,15 @@ def undid(did, default_namespace=None):
 
 class ObjectSpec(object):
 
-    def __init__(self, p1=None, p2=None, namespace=None, fid=None, validate=True):
+    def __init__(self, p1=None, p2=None, name=None, namespace=None, fid=None, validate=True):
         self.Params = (p1, p2, namespace, fid)
-        name = None
         self.DID = None
         if isinstance(p1, dict):
             if "did" in p1:
                 did = self.DID = p1["did"]
                 namespace, name = undid(did, namespace)
             fid = p1.get("fid")
-            name = p1.get("name")
+            name = p1.get("name", name)
             namespace = p1.get("namespace", namespace)
             p1 = None
         self.FID = fid

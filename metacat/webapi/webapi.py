@@ -236,7 +236,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                 continue
             yield item
     
-    def get_dataset(self, did, namespace=None, name=None):
+    def get_dataset(self, did=None, namespace=None, name=None):
         """Gets single dataset
         
         Parameters
@@ -250,9 +250,9 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         dict
             dataset attributes or None if the dataset was not found
         """        
-        
-        if namespace is not None:
-            spec = namespace + ':' + name
+
+        spec = ObjectSpec(did, namespace=namespace, name=name).did()
+
         try:
             return self.get_json(f"data/dataset?dataset={spec}")
         except NotFoundError:
