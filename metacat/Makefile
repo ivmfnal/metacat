@@ -6,7 +6,6 @@ MODULEDIR=$(LIBDIR)/metacat
 
 build:
 	mkdir -p $(MODULEDIR) $(MODULEDIR)/db $(MODULEDIR)/mql $(MODULEDIR)/util $(MODULEDIR)/webapi $(MODULEDIR)/filters $(MODULEDIR)/common
-	cp common/*.py $(MODULEDIR)/common
 	cp $(FILES) $(MODULEDIR)
 	cd db; cp $(DBFILES) $(MODULEDIR)/db
 	cd ui; make LIBDIR=$(MODULEDIR)/ui BINDIR=$(BINDIR) build
