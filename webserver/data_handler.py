@@ -127,8 +127,9 @@ class DataHandler(MetaCatHandler):
         if description:
             description = unquote_plus(description)
             
-        ns = DBNamespace(db, name, owner_role = owner_role, owner_user=owner_user, description=description)
-        ns.save()
+        ns = DBNamespace(db, name, owner_user=owner_user, owner_role = owner_role, description=description)
+        ns.Creator = user.Username
+        ns.create()
         return json.dumps(ns.to_jsonable()), "text/json"
             
     def namespace_counts(self, request, relpath, name=None, **args):
@@ -186,6 +187,24 @@ class DataHandler(MetaCatHandler):
         db = self.App.connect()
         nfiles = DBDataset(db, namespace, name).nfiles
         return '{"file_count":%d}\n' % (nfiles,), {"Content-Type":"text/json",
+            "Access-Control-Allow-Origin":"*"
+        } 
+
+    def dataset_counts(self, request, relpath, dataset=None, **args):
+        namespace, name = (dataset or relpath).split(":", 1)
+        db = self.App.connect()
+        ds = DBDataset(db, namespace, name)
+        
+        nfiles = DBDataset(db, namespace, name).nfiles
+        data = {
+            "dataset":      namespace + ":" + name,
+            "file_count":   ds.nfiles,
+            "parent_count": ds.parent_count(),
+            "child_count":  ds.child_count(),
+            "superset_count":  ds.ancestor_count(),
+            "subset_count":  ds.subset_count()
+        }
+        return json.dumps(data), {"Content-Type":"text/json",
             "Access-Control-Allow-Origin":"*"
         } 
 

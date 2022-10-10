@@ -10,12 +10,16 @@
 	<tr>
 		<th>Namespace</th>
 		<th>Name</th>
+        {% if logged_in %}<th>Creator</th>{% endif %}
+        <th>Created</th>
 	</tr>
 	{% for q in queries %}
 		<tr>
-				<td>{{q.Namespace}}</td>
+				<td><a href="./namespaces/{{q.Namespace}}">{{q.Namespace}}</a></td>
 				<td><a href="./named_query?name={{q.Namespace}}:{{q.Name}}&edit=yes">{{q.Name}}</td>
-	</tr>
+                {% if logged_in %}<td><a href="./user/{{q.Creator}}">{{q.Creator}}</a></td>{% endif %}
+                <td>{{q.CreatedTimestamp}}</td>
+	    </tr>
 	{% endfor %}
 </table>
 

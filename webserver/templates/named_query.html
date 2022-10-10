@@ -43,9 +43,20 @@
 			{% endif %}
 		</td>
 	</tr>
+    {% if not create %}
+    	<tr>
+    		<th>Created by</th>
+    		<td>{{query.Creator}}</td>
+    	</tr>
+    	<tr>
+    		<th>Created timestamp</th>
+    		<td>{{query.CreatedTimestamp}}</td>
+    	</tr>
+    {% endif %}
 	<tr>
 		<th>Query</th>
-		<td>	{% if edit or create %}
+		<td>	
+            {% if edit or create %}
 				<textarea name="text" cols=80 rows=10>{% if not create %}{{query.Source}}{% endif %}</textarea>
 			{% else %}
 				<pre class="source">{{query.Source}}</pre>

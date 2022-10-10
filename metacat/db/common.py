@@ -95,7 +95,10 @@ class MetaValidationError(Exception):
         )
         
 class DBObject(object):
-    
+
+    PK = None
+    Table = None
+
     @classmethod
     def columns(cls, table_name=None, as_text=True, exclude=[]):
         if isinstance(exclude, str):
@@ -107,6 +110,21 @@ class DBObject(object):
             return ",".join(clist)
         else:
             return clist
+
+    @classmethod
+    def get(cls, db, *pkvalues):
+        assert len(pkvalues) == len(cls.PK)
+        wheres = " and ".join([f"{pkc} = '{pkv}'" for pkc, pkv in zip(cls.PK, pkvalues)])
+        columns = cls.columns()
+        sql = f"""
+            select {columns}
+                from {cls.Table}
+                where {wheres}
+        """
+        c = db.cursor()
+        c.execute(sql)
+        tup = c.fetchone()
+        return None if tup is None else cls.from_tupe(db, tup)
 
 def make_list_if_short(iterable, limit):
     # convert iterable to list if it is short. otherwise return another iterable with the same elements
