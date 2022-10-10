@@ -124,7 +124,7 @@ class DBObject(object):
         c = db.cursor()
         c.execute(sql)
         tup = c.fetchone()
-        return None if tup is None else cls.from_tupe(db, tup)
+        return None if tup is None else cls.from_tuple(db, tup)
 
 def make_list_if_short(iterable, limit):
     # convert iterable to list if it is short. otherwise return another iterable with the same elements
