@@ -1343,24 +1343,27 @@ class DBDataset(DBObject):
                         where dataset_namespace=%s and dataset_name=%s""", (self.Namespace, self.Name))
         return c.fetchone()[0]     
     
-    def to_jsonable(self):
-        return dict(
+    def to_jsonable(self, with_relatives=False):
+        out = dict(
             namespace = self.Namespace.Name if isinstance(self.Namespace, DBNamespace) else self.Namespace,
             name = self.Name,
             frozen = self.Frozen,
             monotonic = self.Monotonic,
-            parents = [
-                p.Namespace + ":" + p.Name for p in self.parents()
-            ],
-            children = [
-                c.Namespace + ":" + c.Name for c in self.children()
-            ],
             metadata = self.Metadata or {},
             creator = self.Creator,
             created_timestamp = epoch(self.CreatedTimestamp),
             file_meta_requirements = self.FileMetaRequirements,
             description = self.Description
         )
+        if with_relatives:
+            out["parents"] = [
+                p.Namespace + ":" + p.Name for p in self.parents()
+            ]
+            out["children"] = [
+                c.Namespace + ":" + c.Name for c in self.children()
+            ]
+        return out
+    
     
     def to_json(self):
         return json.dumps(self.to_jsonable())

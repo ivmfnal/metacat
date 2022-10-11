@@ -148,6 +148,7 @@ class DataHandler(MetaCatHandler):
         
     def datasets(self, request, relpath, with_file_counts="no", **args):
         with_file_counts = with_file_counts == "yes"
+        print("data_server.datasets: with_file_counts:", with_file_counts)
         db = self.App.connect()
         datasets = DBDataset.list(db)
         out = []

@@ -80,14 +80,14 @@ class ListDatasetsCommand(CLICommand):
         include_counts = verbose and ("-c" in opts or "--file-counts" in opts)
         output = client.list_datasets(with_file_counts=include_counts)
     
-        verbose_format = "%-16s %-19s %4d/%-4d %10s %s"
-        header_format = "%-16s %-19s %9s %-10s %s"
+        verbose_format = "%-16s %-19s %10s %s"
+        header_format = "%-16s %-19s %-10s %s"
     
         if verbose:
             print(header_format % (
-                "creator", "created", "prnt/chld", "files", "namespace/name"
+                "creator", "created", "files", "namespace/name"
             ))
-            print("-"*16, "-"*19, "-"*9, "-"*10, "-"*40)
+            print("-"*16, "-"*19, "-"*10, "-"*40)
     
         for item in output:
             match = False
@@ -103,8 +103,6 @@ class ListDatasetsCommand(CLICommand):
                     break
             if match:
                 if verbose:
-                    nparents = len(item.get("parents", []))
-                    nchildren = len(item.get("children", []))
                     ct = item.get("created_timestamp")
                     if not ct:
                         ct = ""
@@ -112,13 +110,12 @@ class ListDatasetsCommand(CLICommand):
                         ct = datetime.datetime.fromtimestamp(ct).strftime("%Y-%m-%d %H:%M:%S")
                     file_count = item.get("file_count")
                     if file_count is None:
-                        file_count = ""
+                        file_count = "?"
                     else:
                         file_count = str(file_count)
                     print(verbose_format % (
                         item.get("creator") or "",
                         ct,
-                        nparents, nchildren,
                         file_count, 
                         namespace + ":" + name
                     ))
