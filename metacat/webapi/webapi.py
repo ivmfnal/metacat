@@ -194,8 +194,18 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         HTTPClient.__init__(self, server_url, token, timeout)
         self.AuthURL = auth_server_url or server_url + "/auth"
         self.MaxConcurrent = max_concurrent_queries
-        self.QueryQueue = None
-        
+        self.AsyncQueue = None
+
+    @property
+    def async_queue(self):
+        if self.AsyncQueue is None:
+            try:    
+                from pythreader import TaskQueue
+            except ModuleNotFoundError:
+                raise ModuleNotFoundError("pythreader module required for asynchronous queries. Use: pip install 'pythreader>=2.7.0'")
+            self.AsyncQueue = TaskQueue(self.MaxConcurrent)
+        return self.AsyncQueue
+
     def resfresh_token(self):
         if self.TokenFile:
              token = open(self.TokenFile, "rb").read()
@@ -210,32 +220,70 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         """
         return self.get_text("data/version")
 
-    def list_datasets(self, namespace_pattern=None, name_pattern=None, with_file_counts=False):
+    def list_datasets(self, namespace_pattern=None, name_pattern=None, with_counts=False):
         """Gets the list of datasets with namespace/name matching the templates. The templates are
         Python ``fnmatch`` module style templates where ``'*'`` matches any substring and ``'?'`` matches a single character.
-        
+
         Parameters
         ----------
         namespace_pattern : str
         name_pattern : str
         with_file_counts : boolean
             controls whether the results should include file counts or dataset names only
-        
+
         Yields
         ------
         generator
             yields dictionaries like {"namespace":..., "name":..., "file_count":...}
         """        
-        url = "data/datasets?with_file_counts=%s" % ("yes" if with_file_counts else "no")
+        #url = "data/datasets?with_file_counts=%s" % ("yes" if with_file_counts else "no")
+        url = "data/datasets?with_counts=no"
         lst = self.get_json(url)
+        promises = []        # [(dataset_dict, promise)]
         for item in lst:
             namespace, name = item["namespace"], item["name"]
             if namespace_pattern is not None and not fnmatch.fnmatch(namespace, namespace_pattern):
                 continue
             if name_pattern is not None and not fnmatch.fnmatch(name, name_pattern):
                 continue
+            if not with_counts:
+                yield item
+            else:
+                # fetch counts asynchronously
+                did = namespace + ":" + name
+                promises.append(self.async_queue.add(self.get_dataset_counts, did, promise_data = item))
+
+        for promise in promises:
+            counts = promise.wait()
+            #print("promise: counts:", counts)
+            item = promise.Data
+            item.update(counts)
             yield item
-    
+
+    def get_dataset_counts(self, did=None, namespace=None, name=None):
+        """Gets single dataset files, subsets, supersets, etc. counts
+        
+        Parameters
+        ----------
+        did : str - "namespace:name"
+        namespace : str
+        name : str
+        
+        Returns
+        -------
+        dict
+            dataset counts or None if the dataset was not found
+        """        
+
+        spec = ObjectSpec(did, namespace=namespace, name=name).did()
+        try:
+            out = self.get_json(f"data/dataset_counts/{spec}")
+            #print("get_dataset_counts", did, " out=", out)
+            return out
+        except NotFoundError:
+            print("get_dataset_counts: None")
+            return None
+
     def get_dataset(self, did=None, namespace=None, name=None):
         """Gets single dataset
         
@@ -880,20 +928,13 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             See notes below for more on how to use this method.
         """
         
-        if self.QueryQueue is None:
-            try:    
-                from pythreader import TaskQueue
-            except ModuleNotFoundError:
-                raise ModuleNotFoundError("pythreader module required for asynchronous queries. Use: pip install 'pythreader>=2.7.0'")
-            self.QueryQueue = TaskQueue(self.MaxConcurrent)
-            
-        return self.QueryQueue.add_lambda(self.query, query, promise_data=data, **args)
+        return self.async_queue.add_lambda(self.query, query, promise_data=data, **args)
 
     def wait_queries(self):
-        """Wait for all issued asynchronous queries to complete
         """
-        if self.QueryQueue is not None:
-            self.QueryQueue.waitUntilEmpty()
+        Wait for all issued asynchronous queries to complete
+        """
+        self.async_queue.waitUntilEmpty()
     
     def create_namespace(self, name, owner_role=None, description=None):
         """Creates new namespace. Requires client authentication.

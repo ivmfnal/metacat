@@ -65,29 +65,35 @@ class ListDatasetFilesCommand(CLICommand):
 class ListDatasetsCommand(CLICommand):
     
     Opts = ("lc", ["--long", "--file-counts"])
-    Usage = """ [<options>] [[<namespace pattern>:]<name pattern>]      -- list datasets
+    Usage = """ [<options>] [<namespace pattern>:<name pattern>]      -- list datasets
             -l|--long           - detailed output
             -c|--file-counts    - include file counts if detailed output
             """
     
     def __call__(self, command, client, opts, args):
         if args:
-            patterns = args
+            patterns = args[0]
         else:
-            patterns = ["*"]
-        opts = dict(opts)
+            patterns = "*:*"
+        
+        if not ':' in patterns:
+            raise InvalidArguments()
+
+        ns_pattern, name_pattern = patterns.split(':', 1)
+            
         verbose = "-l" in opts or "--long" in opts
         include_counts = verbose and ("-c" in opts or "--file-counts" in opts)
-        output = client.list_datasets(with_file_counts=include_counts)
+        output = list(client.list_datasets(ns_pattern, name_pattern, with_counts=include_counts))
+        output = sorted(output, key=lambda ds:(ds["namespace"], ds["name"]))
     
-        verbose_format = "%-16s %-19s %10s %s"
-        header_format = "%-16s %-19s %-10s %s"
+        verbose_format = "%-16s %-19s %10s %5s/%-5s %s"
+        header_format = "%-16s %-19s %-10s %-11s %s"
     
         if verbose:
             print(header_format % (
-                "creator", "created", "files", "namespace/name"
+                "creator", "created", "files", "subsets", "namespace:name"
             ))
-            print("-"*16, "-"*19, "-"*10, "-"*40)
+            print("-"*16, "-"*19, "-"*10, "-"*11, "-"*60)
     
         for item in output:
             match = False
@@ -113,10 +119,12 @@ class ListDatasetsCommand(CLICommand):
                         file_count = "?"
                     else:
                         file_count = str(file_count)
+                    child_count = item.get("child_count", "?")
+                    subset_count = item.get("subset_count", "?")
                     print(verbose_format % (
                         item.get("creator") or "",
                         ct,
-                        file_count, 
+                        file_count, child_count, subset_count,
                         namespace + ":" + name
                     ))
                 else:
