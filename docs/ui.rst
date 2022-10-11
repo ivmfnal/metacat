@@ -173,10 +173,14 @@ Creating a dataset
 .. code-block:: shell
 
     $ metacat dataset create [<options>] <namespace>:<name> [<description>]
-            -M|--monotonic
-            -F|--frozen
-            -m|--metadata '<JSON expression>'
-            -m|--metadata @<JSON file>
+      -M|--monotonic
+      -F|--frozen
+      -m|--metadata '<JSON expression>'
+      -m|--metadata @<JSON file>
+      -f|--file-query '<MQL file query>'          - run the query and add files to the dataset
+      -f|--file-query @<file_with_query>          - run the query and add files to the dataset
+      -r|--meta-requirements '<JSON expression>'  - add metadata requirements
+      -r|--meta-requirements @<JSON file>         - add metadata requirements
 
 A multi-word description does not have to be put in quotes. E.g., the following two commands are equivalent:
 
@@ -184,6 +188,78 @@ A multi-word description does not have to be put in quotes. E.g., the following 
 
     $ metacat dataset create scope:name Carefully selected files
     $ metacat dataset create scope:name "Carefully selected files"
+    
+``-f`` option can be used to create a dataset with files matching the MQL query. The query can be given inline or read from a file.
+
+``-r`` is used to create a dataset with specified metadata requirements. They are specified as a JSON dictionary (to be documented...)
+
+Adding files to dataset
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: shell
+
+    $ metacat dataset add-files [options] <dataset namespace>:<dataset name>
+  
+      list files by DIDs or namespace/names
+      -N|--namespace <default namespace>           - default namespace for files
+      -d|--names <file namespace>:<file name>[,...]
+      -d|--names -            - read the list from stdin
+      -d|--names @<file>      - read the list from file
+  
+      list files by file id
+      -i|--ids <file id>[,...]
+      -i|--ids -              - read the list from stdin
+      -i|--ids @<file>        - read the list from file
+  
+      read file list from JSON file
+      -j|--json <json file>
+      -j|--json -             - read JSON file list from stdin
+      -s|--sample             - print JOSN file list sample
+  
+      add files matching a query
+      -q|--query "<MQL query>"
+      -q|--query @<file>      - read query from the file
+
+There are several ways to specify the list of files to be added to the dataset:
+
+``-d`` option is used to specify s list of file DIDs ("namespace:name"). ``-i`` option specifies a list of file ids. 
+
+``-j`` option can be used to specify the list of files as a JSON document. The JSON document must contain a list of dictionaries. E.g.:
+
+
+.. code-block:: json
+
+    [
+        {   
+            "did":"my_scope:file.data"
+        },
+        {   
+            "namespace":"my_scope",
+            "name":"file.data"
+        },
+        {
+            "fid":"abcd1234"
+        }
+    ]
+
+Each dictionary represents a single file to add. The dictionary must contain one of the following keys and corresponding values:
+
+  - "did" - file DID
+  - "namespace" and "name"
+  - "fid" - file id
+
+To add files which match an MQL query, use ``-q`` option.
+
+An alternative way to add files matching a query is to pipe the outout of ``query`` command into ``dataset add``:
+
+.. code-block:: shell
+
+    $ metacat query -i files from scope:dataset1 | metacat dataset add-files -i - scope:dataset2
+
+Using ``-q`` can be faster because piping involves sending the file list to the client and back to the server, 
+whereas ``-q`` only sends the list of file ids to the client one way.
+
+Note that it is not an error to attempt to add a file if it is already included in the dataset.
 
 Listing existing datasets
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -232,12 +308,10 @@ Adding/removing subsets to/from a dataset
 
 .. code-block:: shell
 
-    $ metacat dataset add <parent dataset namespace>:<parent name> <child dataset namespace>:<child name> [<child dataset namespace>:<child name> ...]
-    $ metacat dataset remove <parent namespace>:<parent name> <child namespace>:<child name> 
+    $ metacat dataset add-subset <parent dataset namespace>:<parent name> <child dataset namespace>:<child name> [<child dataset namespace>:<child name> ...]
 
 When adding a dataset to another dataset, MetaCat checks whether the operation will create a circle in the ancestor/descendent relationship and refuses
 to do so.
-
 
 Declaring new files
 -------------------
@@ -348,46 +422,6 @@ Once you have the JSON file with files description, you can delare them:
           -j|--json                           - print results as JSON
           -N|--namespace <default namespace>
 
-Adding files to dataset
------------------------
-
-.. code-block:: shell
-    
-    $ metacat add -n <namespace>:<name>[,...] <dataset namespace>:<dataset name>
-    $ metacat add -n @<file with names> <dataset namespace>:<dataset name>
-    $ metacat add -n - <dataset namespace>:<dataset name>             # read file namesspace:name's from stdin 
-
-    $ metacat add -i <file id>[,...] <dataset namespace>:<dataset name>
-    $ metacat add -i @<file with ids> <dataset namespace>:<dataset name>
-    $ metacat add -i - <dataset namespace>:<dataset name>             # read file ids from stdin 
-
-    $ metacat add -j <JSON file> <dataset namespace>:<dataset name>
-        
-JSON file structure::
-    
-    [
-        {   
-            "name":"namespace:name"
-        },
-        {
-            "fid":"..."
-        },
-        ...
-    ]
-
-Get a sample of the JSON file:
-
-.. code-block:: shell
-    
-    metacat file add --sample
-
-**Example:** add files from dataset A but not in dataset B to dataset C:
-
-.. code-block:: shell
-
-    $ metacat query -i -N test "files from A - files from B" > file_ids.txt
-    $ metacat file add -i @file_ids.txt test:C
-    
 Listing datasets the file is in
 -------------------------------
 

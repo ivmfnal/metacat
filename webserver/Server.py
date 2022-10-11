@@ -134,5 +134,5 @@ if __name__ == "__main__":
     port = int(opts.get("-p", config_file.get("port", 8080)))
     prefix = config_file.get("prefix")
     print(f"Starting the server on port {port} ...")   
-    server = HTTPServer(port, create_application(config_file, prefix), debug=sys.stdout)
+    server = HTTPServer(port, create_application(config_file, prefix), debug=False)
     server.run()
