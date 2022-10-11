@@ -366,6 +366,7 @@ class DataHandler(MetaCatHandler):
                 else:
                     f = DBFile(db, spec.Namespace, spec.Name)
                 files.append(f)
+                print("add_files: files:", files)
         
         if files:
             try:    ds.add_files(files, do_commit=True)

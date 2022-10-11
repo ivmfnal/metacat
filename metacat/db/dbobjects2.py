@@ -1236,7 +1236,7 @@ class DBDataset(DBObject):
                         if errors:
                             meta_errors += errors
 
-                csv = "\n".join(["%s\t%s\t%s" % (f.FID, self.Namespace, self.Name) for f in chunk])
+                csv = "\n".join(["%s\t%s\t%s" % (f.FID, f.Namespace, f.Name) for f in chunk])
                 c.copy_from(io.StringIO(csv), temp_table, columns = ["fid", "namespace", "name"])
 
             if meta_errors:
@@ -1244,7 +1244,9 @@ class DBDataset(DBObject):
 
             c.execute(f"""
                 insert into files_datasets(file_id, dataset_namespace, dataset_name) 
-                    select fid, namespace, name from {temp_table}
+                    select distinct f.id, '{self.Namespace}', '{self.Name}' 
+                        from {temp_table} tt, files f
+                        where tt.fid = f.id or tt.namespace = f.namespace and tt.name = f.name
                     on conflict do nothing""")
             c.execute(f"drop table {temp_table}")
             c.execute("commit")
