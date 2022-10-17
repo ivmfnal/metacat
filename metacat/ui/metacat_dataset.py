@@ -3,7 +3,7 @@ import sys, getopt, os, json, fnmatch, pprint, datetime
 from metacat.util import to_bytes, to_str, epoch
 from metacat.webapi import MetaCatClient
 
-from metacat.ui.cli import CLI, CLICommand
+from metacat.ui.cli import CLI, CLICommand, InvalidArguments
 
 Usage = """
 Usage: 
@@ -65,29 +65,35 @@ class ListDatasetFilesCommand(CLICommand):
 class ListDatasetsCommand(CLICommand):
     
     Opts = ("lc", ["--long", "--file-counts"])
-    Usage = """ [<options>] [[<namespace pattern>:]<name pattern>]      -- list datasets
+    Usage = """ [<options>] [<namespace pattern>:<name pattern>]      -- list datasets
             -l|--long           - detailed output
             -c|--file-counts    - include file counts if detailed output
             """
     
     def __call__(self, command, client, opts, args):
         if args:
-            patterns = args
+            patterns = args[0]
         else:
-            patterns = ["*"]
-        opts = dict(opts)
+            patterns = "*:*"
+        
+        if not ':' in patterns:
+            raise InvalidArguments()
+
+        ns_pattern, name_pattern = patterns.split(':', 1)
+            
         verbose = "-l" in opts or "--long" in opts
         include_counts = verbose and ("-c" in opts or "--file-counts" in opts)
-        output = client.list_datasets(with_file_counts=include_counts)
+        output = list(client.list_datasets(ns_pattern, name_pattern, with_counts=include_counts))
+        output = sorted(output, key=lambda ds:(ds["namespace"], ds["name"]))
     
-        verbose_format = "%-16s %-19s %4d/%-4d %10s %s"
-        header_format = "%-16s %-19s %9s %-10s %s"
+        verbose_format = "%-16s %-19s %10s %5s/%-5s %s"
+        header_format = "%-16s %-19s %-10s %-11s %s"
     
         if verbose:
             print(header_format % (
-                "creator", "created", "prnt/chld", "files", "namespace/name"
+                "creator", "created", "files", "subsets", "namespace:name"
             ))
-            print("-"*16, "-"*19, "-"*9, "-"*10, "-"*40)
+            print("-"*16, "-"*19, "-"*10, "-"*11, "-"*60)
     
         for item in output:
             match = False
@@ -103,8 +109,6 @@ class ListDatasetsCommand(CLICommand):
                     break
             if match:
                 if verbose:
-                    nparents = len(item.get("parents", []))
-                    nchildren = len(item.get("children", []))
                     ct = item.get("created_timestamp")
                     if not ct:
                         ct = ""
@@ -112,14 +116,15 @@ class ListDatasetsCommand(CLICommand):
                         ct = datetime.datetime.fromtimestamp(ct).strftime("%Y-%m-%d %H:%M:%S")
                     file_count = item.get("file_count")
                     if file_count is None:
-                        file_count = ""
+                        file_count = "?"
                     else:
                         file_count = str(file_count)
+                    child_count = item.get("child_count", "?")
+                    subset_count = item.get("subset_count", "?")
                     print(verbose_format % (
                         item.get("creator") or "",
                         ct,
-                        nparents, nchildren,
-                        file_count, 
+                        file_count, child_count, subset_count,
                         namespace + ":" + name
                     ))
                 else:
@@ -180,15 +185,29 @@ def load_metadata(opts):
     
 class CreateDatasetCommand(CLICommand):
 
-    Opts = ("MFm:", ["monotonic", "frozen", "metadata="])
+    Opts = ("MFm:f:d:r:", ["monotonic", "frozen", "metadata=", "dataset-query=", "file-query=", "meta-requirements="])
     Usage = """[<options>] <namespace>:<name> [<description>]           -- create dataset
         -M|--monotonic
         -F|--frozen
         -m|--metadata '<JSON expression>'
         -m|--metadata @<JSON file>
+        -f|--file-query '<MQL file query>'          - run the query and add files to the dataset
+        -f|--file-query @<file_with_query>          - run the query and add files to the dataset
+        -r|--meta-requirements '<JSON expression>'  - add metadata requirements
+        -r|--meta-requirements @<JSON file>         - add metadata requirements
         """
     MinArgs = 1
-        
+    
+    def get_text(self, opts, opt_keys):
+        opt_value = None
+        for key in opt_keys:
+            opt_value = opts.get(key)
+            if opt_value:   break
+        if opt_value:
+            if opt_value.startswith('@'):
+                opt_value = open(opt_value[1:], "r").read()
+        return opt_value
+
     def __call__(self, command, client, opts, args):
         dataset_spec, desc = args[0], args[1:]
         if desc:
@@ -198,7 +217,11 @@ class CreateDatasetCommand(CLICommand):
         monotonic = "-M" in opts or "--monotonic" in opts
         frozen = "-F" in opts or "--frozen" in opts
         metadata = load_metadata(opts) or {}
-        out = client.create_dataset(dataset_spec, monotonic = monotonic, frozen = frozen, description=desc, metadata = metadata)
+        files_query = self.get_text(opts, ["-f", "--file-query"])
+        #subsets_query = self.get_text(opts, ["-d", "--datasets-query"])
+        out = client.create_dataset(dataset_spec, monotonic = monotonic, frozen = frozen, description=desc, metadata = metadata,
+            files_query = files_query, subsets_query = subsets_query
+        )
         print(out)
 
 class UpdateDatasetCommand(CLICommand):
@@ -243,12 +266,106 @@ class UpdateDatasetCommand(CLICommand):
         response = client.update_dataset(dataset, metadata=metadata, frozen=frozen, monotonic=monotonic, mode=mode, description=desc)
         print(response)
 
+class AddFilesCommand(CLICommand):
+    
+    Opts = ("i:j:d:N:sq:", ["namespace=", "json=", "dids=", "ids=", "sample", "query="])
+    Usage = """[options] <dataset namespace>:<dataset name>
+
+            list files by DIDs or namespace/names
+            -N|--namespace <default namespace>           - default namespace for files
+            -d|--names <file namespace>:<file name>[,...]
+            -d|--names -            - read the list from stdin
+            -d|--names @<file>      - read the list from file
+
+            list files by file id
+            -i|--ids <file id>[,...]
+            -i|--ids -              - read the list from stdin
+            -i|--ids @<file>        - read the list from file
+
+            read file list from JSON file
+            -j|--json <json file>
+            -j|--json -             - read JSON file list from stdin
+            -s|--sample             - print JOSN file list sample
+
+            add files matching a query
+            -q|--query "<MQL query>"
+            -q|--query @<file>      - read query from the file
+    """
+    
+    AddSample = json.dumps(
+        [
+            {        
+                "did":"test:file1.dat"
+            },
+            {        
+                "namespace":"test",
+                "name":"file2.dat"
+            },
+            {        
+                "fid":"54634"
+            }
+        ],
+        indent=4, sort_keys=True
+    )
+
+    def get_text(self, opts, opt_keys):
+        opt_value = None
+        for key in opt_keys:
+            opt_value = opts.get(key)
+            if opt_value:   break
+        if opt_value:
+            if opt_value.startswith('@'):
+                opt_value = open(opt_value[1:], "r").read()
+            if opt_value == "-":
+                opt_value = sys.stdin.read()
+        return opt_value
+
+    def get_list(self, opts, opt_keys):
+        opt_value = self.get_text(opts, opt_keys)
+        out = []
+        if opt_value:
+            for line in opt_value.split():
+                for word in line.split(","):
+                    word = word.strip()
+                    if word:
+                        out.append(word)
+        return out
+
+    def __call__(self, command, client, opts, args):
+
+        if "--sample" in opts or "-s" in opts:
+            print(self.AddSample)
+            sys.exit(0)
+
+        if len(args) != 1:
+            raise InvalidArguments("Invalid arguments")
+
+        default_namespace = opts.get("-N")
+        files = query = None
+        if "-i" in opts or "--ids" in opts:
+            files = [{"fid": fid} for fid in self.get_list(opts, ["-i", "--ids"])]
+        elif "-d" in opts or "--dids" in opts:
+            files = [{"did": did} for did in self.get_list(opts, ["-d", "--dids"])]
+        elif "-j" in opts or "--json" in opts:
+            json_file = opts.get("-j") or opts.get("--json")
+            files = json.loads(self.get_text(opts, ["-j", "--json"]))
+        else:
+            query = opts.get("-q") or opts("--query")
+            
+        if (query is None) == (files is None):
+            raise InvalidArguments("Eitther file list or a query must be specified, but not both")
+
+        dataset = args[-1]
+        out = client.add_files(dataset, file_list=files, query=query)
+        print("Added", len(out), "files")
+
 DatasetCLI = CLI(
     "create",       CreateDatasetCommand(),
     "show",         ShowDatasetCommand(),
     "files",        ListDatasetFilesCommand(),
     "list",         ListDatasetsCommand(),
-    "add",          AddSubsetCommand(),
+    "add-subset",   AddSubsetCommand(),
+    "add-files",    AddFilesCommand(),
     "update",       UpdateDatasetCommand()
 )
     

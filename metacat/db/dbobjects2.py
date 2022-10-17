@@ -1,7 +1,6 @@
 import uuid, json, hashlib, re, time, io, traceback, base64
-from metacat.util import to_bytes, to_str, epoch
+from metacat.util import to_bytes, to_str, epoch, chunked
 from metacat.auth import BaseDBUser
-from .common import chunked
 from psycopg2 import IntegrityError
 
 Debug = False
@@ -35,15 +34,7 @@ class DBFileSet(object):
         return DBFileSet(self.DB, strided(self.Files, n, i))
         
     def chunked(self, chunk_size=1000):
-        chunk = []
-        for f in self.Files:
-            #print("chunked:", f.Namespace, f.Name)
-            chunk.append(f)
-            if len(chunk) >= chunk_size:
-                yield chunk
-                chunk = []
-        if chunk:
-            yield chunk
+        return chunked(self.Files, chunk_size)
         
     @staticmethod
     def from_tuples(db, g):
@@ -77,6 +68,23 @@ class DBFileSet(object):
         selected = ((fid, namespace, name, metadata) 
                     for (fid, namespace, name, metadata) in fetch_generator(c)
                     if "%s:%s" % (namespace, name) in joined)
+        return DBFileSet.from_tuples(db, selected)
+        
+    @staticmethod
+    def from_namespace_name_specs(db, specs, default_namespace=None):
+        # specs: list of dicts {"name":..., "namespace":...} - namespace is optional
+        specs = [(s.get("namespace", default_namespace), s["name"]) for s in specs]
+        assert all(s["namespace"] for s in specs), "Incomplete file specification: " + s["name"]
+        just_names = set(name for ns, name in specs)
+        dids = set("%s:%s" % t for t in specs)
+        c = db.cursor()
+        columns = DBFile.all_columns()
+        c.execute(f"""
+            select {columns}, null as parents, null as children from files
+                where name = any(%s)""", (just_names,))
+        selected = ((fid, namespace, name, metadata) 
+                    for (fid, namespace, name, metadata) in fetch_generator(c)
+                    if "%s:%s" % (namespace, name) in dids)
         return DBFileSet.from_tuples(db, selected)
         
     def __iter__(self):
@@ -152,6 +160,10 @@ class DBFileSet(object):
         
     __sub__ = subtract
     
+    def __add__(self, other):
+        assert self.DB is other.DB
+        return DBFileSet.union([self, other])
+        
     @staticmethod
     def from_basic_query(db, basic_file_query, with_metadata, limit):
         
@@ -191,8 +203,7 @@ class DBFileSet(object):
         limit = "" if limit is None else f"limit {limit}"
         offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
         debug("sql_for_basic_query: offset:", offset)
-            
-        
+
         f = alias("f")
 
         meta = f"{f}.metadata" if basic_file_query.WithMeta else "null as metadata"
@@ -378,8 +389,10 @@ class DBFile(object):
             checksums = json.dumps(self.Checksums or {})
             c.execute("""
                 insert into files(id, namespace, name, metadata, size, checksums, creator) values(%s, %s, %s, %s, %s, %s, %s)
+                    returning created_timestamp
                 """,
                 (self.FID, self.Namespace, self.Name, meta, self.Size, checksums, creator))
+            self.CreatedTimestamp = c.fetchone()[0]
             if self.Parents:
                 insert_bulk(
                     c, 
@@ -819,7 +832,11 @@ class MetaExpressionDNF(object):
                 aname = arg["name"]
                 if not '.' in aname:
                     assert arg.T == "scalar", f"File attribute {aname} value must be a scalar. Got {arg.T} instead"
-                    assert aname in DBFile.ColumnAttributes, f"Unrecognized file attribute {aname}"
+                    if not aname in DBFile.ColumnAttributes:
+                        raise ValueError(f"Unrecognized file attribute \"{aname}\"\n" +
+                            "  Allowed file attibutes: " +
+                            ", ".join(DBFile.ColumnAttributes)
+                        )
                     
                 if arg.T == "array_subscript":
                     # a[i] = x
@@ -835,7 +852,7 @@ class MetaExpressionDNF(object):
                 elif arg.T == "array_length":
                     aname = arg["name"]
                 else:
-                    raise ValueError(f"Unrecognozed argument type={arg.T}")
+                    raise ValueError(f"Unrecognozed argument type \"{arg.T}\"")
 
                 #parts.append(f"{table_name}.metadata ? '{aname}'")
 
@@ -996,11 +1013,13 @@ class DBDataset(DBObject):
         c.execute(f"""
             insert into datasets({column_names}) 
                 values(%s, %s, %s, %s, %s, %s, %s, %s)
+                returning created_timestamp
             """,
             (namespace, self.Name, self.Frozen, self.Monotonic, meta, self.Creator, 
                     self.Description, file_meta_requirements
             )
         )
+        self.CreatedTimestamp = c.fetchone()[0]
         if do_commit:   c.execute("commit")
         return self
         
@@ -1101,7 +1120,7 @@ class DBDataset(DBObject):
                         """, (self.Namespace, self.Name)
         )
         return (DBDataset.from_tuple(self.DB, tup) for tup in fetch_generator(c))
-        
+
     def has_children(self):
         c = self.DB.cursor()
         c.execute(f"""select exists (
@@ -1125,7 +1144,33 @@ class DBDataset(DBObject):
                         """, (self.Namespace, self.Name)
         )
         return (DBDataset.from_tuple(self.DB, tup) for tup in fetch_generator(c))
-    
+
+    def parent_count(self):
+        # immediate children as filled DBDataset objects
+        c = self.DB.cursor()
+        columns = self.columns("p")
+        c.execute(f"""select count(*)
+                        from datasets p, datasets_parent_child pc
+                        where pc.child_namespace=%s and pc.child_name=%s
+                            and pc.parent_namespace=p.namespace
+                            and pc.parent_name=p.name
+                        """, (self.Namespace, self.Name)
+        )
+        return c.fetchone()[0]
+        
+    def child_count(self,):
+        # immediate children as filled DBDataset objects
+        c = self.DB.cursor()
+        columns = self.columns("c")
+        c.execute(f"""select count(*)
+                        from datasets c, datasets_parent_child pc
+                        where pc.parent_namespace=%s and pc.parent_name=%s
+                            and pc.child_namespace=c.namespace
+                            and pc.child_name=c.name
+                        """, (self.Namespace, self.Name)
+        )
+        return c.fetchone()[0]
+
     def add_child(self, child):
         _DatasetParentToChild(self.DB, self).add(child.Namespace, child.Name)
     
@@ -1191,7 +1236,7 @@ class DBDataset(DBObject):
                         if errors:
                             meta_errors += errors
 
-                csv = "\n".join(["%s\t%s\t%s" % (f.FID, self.Namespace, self.Name) for f in chunk])
+                csv = "\n".join(["%s\t%s\t%s" % (f.FID, f.Namespace, f.Name) for f in chunk])
                 c.copy_from(io.StringIO(csv), temp_table, columns = ["fid", "namespace", "name"])
 
             if meta_errors:
@@ -1199,7 +1244,9 @@ class DBDataset(DBObject):
 
             c.execute(f"""
                 insert into files_datasets(file_id, dataset_namespace, dataset_name) 
-                    select fid, namespace, name from {temp_table}
+                    select distinct f.id, '{self.Namespace}', '{self.Name}' 
+                        from {temp_table} tt, files f
+                        where tt.fid = f.id or tt.namespace = f.namespace and tt.name = f.name
                     on conflict do nothing""")
             c.execute(f"drop table {temp_table}")
             c.execute("commit")
@@ -1298,24 +1345,27 @@ class DBDataset(DBObject):
                         where dataset_namespace=%s and dataset_name=%s""", (self.Namespace, self.Name))
         return c.fetchone()[0]     
     
-    def to_jsonable(self):
-        return dict(
+    def to_jsonable(self, with_relatives=False):
+        out = dict(
             namespace = self.Namespace.Name if isinstance(self.Namespace, DBNamespace) else self.Namespace,
             name = self.Name,
             frozen = self.Frozen,
             monotonic = self.Monotonic,
-            parents = [
-                p.Namespace + ":" + p.Name for p in self.parents()
-            ],
-            children = [
-                c.Namespace + ":" + c.Name for c in self.children()
-            ],
             metadata = self.Metadata or {},
             creator = self.Creator,
             created_timestamp = epoch(self.CreatedTimestamp),
             file_meta_requirements = self.FileMetaRequirements,
             description = self.Description
         )
+        if with_relatives:
+            out["parents"] = [
+                p.Namespace + ":" + p.Name for p in self.parents()
+            ]
+            out["children"] = [
+                c.Namespace + ":" + c.Name for c in self.children()
+            ]
+        return out
+    
     
     def to_json(self):
         return json.dumps(self.to_jsonable())
@@ -1434,6 +1484,10 @@ class DBDataset(DBObject):
 
     @staticmethod
     def datasets_for_selector(db, selector):
+        #print("datasets_for_selector: selector:", selector)
+        if not (selector.Namespace and (selector.Name or selector.Pattern)):
+            name_or_pattern = selector.Name or selector.Pattern
+            raise ValueError(f"Dataset specification error: {selector.Namespace}:{name_or_pattern}")
         if selector.is_explicit():
             ds = DBDataset.get(db, selector.Namespace, selector.Name)
             if ds is None:
@@ -1581,7 +1635,11 @@ class DBDataset(DBObject):
 
         return dataset_map
 
-class DBNamedQuery(object):
+class DBNamedQuery(DBObject):
+    
+    Columns = "namespace,name,parameters,source,creator,created_timestamp".split(",")
+    Table = "queries"
+    PK = ["namespace", "name"]
 
     def __init__(self, db, namespace, name, source, parameters=[]):
         assert namespace is not None and name is not None
@@ -1592,43 +1650,58 @@ class DBNamedQuery(object):
         self.Parameters = parameters
         self.Creator = None
         self.CreatedTimestamp = None
+    
+    @staticmethod
+    def from_tuple(db, tup):
+        namespace, name, parameters, source, creator, created_timespamp = tup
+        #print("DBNamedQuery.from_tuple:", tup)
+        query = DBNamedQuery(db, namespace, name, source, parameters)
+        query.Creator = creator
+        query.CreatedTimestamp = created_timespamp
+        return query
         
+    def create(self, do_commit=True):
+        c = self.DB.cursor()
+        c.execute("""
+            insert into queries(namespace, name, source, parameters, creator) values(%s, %s, %s, %s, %s)
+            returning created_timestamp""",
+            (self.Namespace, self.Name, self.Source, self.Parameters, self.Creator)
+        )
+        self.CreatedTimestamp = c.fetchone()[0]
+        if do_commit:
+            c.execute("commit")
+        return self
+            
     def save(self):
         self.DB.cursor().execute("""
-            insert into queries(namespace, name, source, parameters) values(%s, %s, %s, %s)
-                on conflict(namespace, name) 
-                    do update set source=%s, parameters=%s;
-            commit""",
-            (self.Namespace, self.Name, self.Source, self.Parameters, self.Source, self.Parameters))
+            update queries 
+                set source=%s, parameters=%s
+                where namespace=%s and name=%s;
+            commit
+            """,
+            (self.Source, self.Parameters, self.Namespace, self.Name)
+        )
         return self
             
     @staticmethod
-    def get(db, namespace, name):
-        c = db.cursor()
-        debug("DBNamedQuery:get():", namespace, name)
-        c.execute("""select source, parameters
-                        from queries
-                        where namespace=%s and name=%s""",
-                (namespace, name))
-        (source, params) = c.fetchone()
-        return DBNamedQuery(db, namespace, name, source, params)
-        
-    @staticmethod
     def list(db, namespace=None):
         c = db.cursor()
+        columns = DBNamedQuery.columns()
         if namespace is not None:
-            c.execute("""select namespace, name, source, parameters
+            c.execute(f"""select {columns}
                         from queries
-                        where namespace=%s""",
+                        where namespace=%s
+                        order by namespace, name
+                        """,
                 (namespace,)
             )
         else:
-            c.execute("""select namespace, name, source, parameters
-                        from queries"""
+            c.execute(f"""select {columns}
+                        from queries
+                        order by namespace, name
+                        """
             )
-        return (DBNamedQuery(db, namespace, name, source, parameters) 
-                    for namespace, name, source, parameters in fetch_generator(c)
-        )
+        return (DBNamedQuery.from_tuple(db, tup) for tup in fetch_generator(c))
 
 """DBBaseUser:
         class DBUser(object):
@@ -1701,12 +1774,11 @@ class DBNamespace(object):
     def save(self, do_commit=True):
         c = self.DB.cursor()
         c.execute("""
-            insert into namespaces(name, owner_user, owner_role, description, creator) values(%s, %s, %s, %s, %s)
+            insert into namespaces(name, owner_user, owner_role, description) values(%s, %s, %s, %s)
                 on conflict(name) 
-                    do update set owner_user=%s, owner_role=%s, description=%s, creator=%s;
-            commit
+                    do update set owner_user=%s, owner_role=%s, description=%s;
             """,
-            (self.Name, self.OwnerUser, self.OwnerRole, self.Description, self.Creator, self.OwnerUser, self.OwnerRole, self.Description, self.Creator))
+            (self.Name, self.OwnerUser, self.OwnerRole, self.Description, self.OwnerUser, self.OwnerRole, self.Description))
         if do_commit:
             c.execute("commit")
         return self
@@ -1715,8 +1787,10 @@ class DBNamespace(object):
         c = self.DB.cursor()
         c.execute("""
             insert into namespaces(name, owner_user, owner_role, description, creator) values(%s, %s, %s, %s, %s)
+                returning created_timestamp
             """,
             (self.Name, self.OwnerUser, self.OwnerRole, self.Description, self.Creator))
+        self.CreatedTimestamp = c.fetchone()[0]
         if do_commit:
             c.execute("commit")
         return self
@@ -1775,11 +1849,13 @@ class DBNamespace(object):
             sql = """select name, owner_user, owner_role, description, creator, created_timestamp 
                         from namespaces
                         where owner_role=%s
+                        order by name
             """
             args = (owned_by_role,)
         else:
             sql = """select name, owner_user, owner_role, description, creator, created_timestamp 
                         from namespaces
+                        order by name
             """
             args = ()
         c.execute(sql, args)
@@ -1907,4 +1983,3 @@ class DBRole(object):
         
     def __iter__(self):
         return self.members.__iter__()
-            

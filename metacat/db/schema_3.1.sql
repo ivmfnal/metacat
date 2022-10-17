@@ -53,10 +53,12 @@ create table files
     namespace   text 	references namespaces(name),
     name        text,
     metadata    jsonb   default '{}',
-    creator text references users(username),
+    creator     text references users(username),
     size        bigint,
     checksums   jsonb   default '{}',
-    created_timestamp   timestamp with time zone    default now()
+    created_timestamp   timestamp with time zone    default now(),
+    updated_by  text references users(username),
+    updated_timestamp   timestamp with time zone    default now()
 );
 
 create unique index file_names_unique on files(namespace, name);

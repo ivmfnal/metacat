@@ -39,7 +39,7 @@ meta_and:   term_meta ( "and" term_meta )*
     | constant "not" "in" ANAME                     -> constant_not_in_array
     | "(" meta_exp ")"                              
     | "!" term_meta                                 -> meta_not
-    | "json" STRING                                 -> json_path
+    | "exists" STRING                               -> json_path
 
 scalar:  ANAME
         | ANAME "[" "all" "]"                       -> array_all
@@ -55,6 +55,7 @@ constant : SIGNED_FLOAT                             -> float_constant
     | STRING                                        -> string_constant
     | SIGNED_INT                                    -> int_constant
     | BOOL                                          -> bool_constant
+    | UNQUOTED_STRING                               -> string_constant
 
 index:  STRING
     | SIGNED_INT
@@ -72,7 +73,9 @@ CMPOP:  "<" "="? | "!"? "=" "="? | "!"? "~" "*"? | ">" "="? | "like"            
 
 BOOL: "true"i | "false"i
 
+
 STRING : /("(?!"").*?(?<!\\\\)(\\\\\\\\)*?"|'(?!'').*?(?<!\\\\)(\\\\\\\\)*?')/i
+UNQUOTED_STRING : /[a-z0-9:%$@_^.-]+/i
 
 %import common.CNAME
 %import common.SIGNED_INT

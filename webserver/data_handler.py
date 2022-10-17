@@ -4,9 +4,8 @@ from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNam
     DBParamCategory, parse_name, AlreadyExistsError, IntegrityError, MetaValidationError
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus
-from metacat.util import to_str, to_bytes
-from metacat.mql import MQLQuery
-from metacat.common import ObjectSpec
+from metacat.util import to_str, to_bytes, ObjectSpec
+from metacat.mql import MQLQuery, MQLSyntaxError, MQLExecutionError, MQLCompilationError, MQLError
 from metacat import Version
 
 from common_handler import MetaCatHandler
@@ -91,7 +90,6 @@ class DataHandler(MetaCatHandler):
             return "OK"
 
     def namespaces(self, request, relpath, owner_user=None, owner_role=None, directly="no", **args):
-        print("data_handler.namespaces: owner_user, owner_role, directly=", owner_user, owner_role, directly)
         directly = directly == "yes"
         db = self.App.connect()
         if request.body:
@@ -129,8 +127,9 @@ class DataHandler(MetaCatHandler):
         if description:
             description = unquote_plus(description)
             
-        ns = DBNamespace(db, name, owner_role = owner_role, owner_user=owner_user, description=description)
-        ns.save()
+        ns = DBNamespace(db, name, owner_user=owner_user, owner_role = owner_role, description=description)
+        ns.Creator = user.Username
+        ns.create()
         return json.dumps(ns.to_jsonable()), "text/json"
             
     def namespace_counts(self, request, relpath, name=None, **args):
@@ -149,6 +148,7 @@ class DataHandler(MetaCatHandler):
         
     def datasets(self, request, relpath, with_file_counts="no", **args):
         with_file_counts = with_file_counts == "yes"
+        print("data_server.datasets: with_file_counts:", with_file_counts)
         db = self.App.connect()
         datasets = DBDataset.list(db)
         out = []
@@ -169,10 +169,6 @@ class DataHandler(MetaCatHandler):
         files = dataset.list_files(with_metadata=with_metadata)
         return self.json_stream((f.to_jsonable(with_metadata=with_metadata) for f in files)), "application/json-seq"
         
-    def datasets_for_file(self, request, relpath, did=None, namespace=None, name=None, fid=None, **args):
-        spec = ObjectSpec(namespace, name, did, fid)
-        
-
     def dataset(self, request, relpath, dataset=None, **args):
         db = self.App.connect()
         namespace, name = (dataset or relpath).split(":", 1)
@@ -191,6 +187,24 @@ class DataHandler(MetaCatHandler):
             "Access-Control-Allow-Origin":"*"
         } 
 
+    def dataset_counts(self, request, relpath, dataset=None, **args):
+        namespace, name = (dataset or relpath).split(":", 1)
+        db = self.App.connect()
+        ds = DBDataset(db, namespace, name)
+        
+        nfiles = DBDataset(db, namespace, name).nfiles
+        data = {
+            "dataset":      namespace + ":" + name,
+            "file_count":   ds.nfiles,
+            "parent_count": ds.parent_count(),
+            "child_count":  ds.child_count(),
+            "superset_count":  ds.ancestor_count(),
+            "subset_count":  ds.subset_count()
+        }
+        return json.dumps(data), {"Content-Type":"text/json",
+            "Access-Control-Allow-Origin":"*"
+        } 
+
     def create_dataset(self, request, relpath):
         db = self.App.connect()
         user, error = self.authenticated_user()
@@ -206,17 +220,39 @@ class DataHandler(MetaCatHandler):
             return 403
         if DBDataset.get(db, namespace, name) is not None:
             return "Already exists", 409
-            
+
         creator = user.Username 
-        if user.is_admin():
-            creator = params.get("creator") or creator
+
+        files = subsets = None
+        files_query = params.get("files_query")
+        print("create_dataset: files query:", files_query)
+        if files_query:
+            query = MQLQuery.parse(files_query)
+            if query.Type != "file":
+                return 400, f"Invalid file query: {file_query}"
+            files = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False, default_namespace=namespace or None)
+        subsets_query = params.get("subsets_query")
+        if subsets_query:
+            query = MQLQuery.parse(subsets_query)
+            if query.Type != "dataset":
+                return 400, f"Invalid dataset query: {subsets_query}"
+            subsets = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False, default_namespace=namespace or None)
 
         dataset = DBDataset(db, namespace, name,
             frozen = params.get("frozen", False), monotonic = params.get("monotonic", False),
             creator = creator, description = params.get("description", ""),
+            file_meta_requirements = params.get("file_meta_requirements"),
             metadata = params.get("metadata") or {}
         )
         dataset.create()
+
+        if files:
+            dataset.add_files(files)
+
+        if subsets:
+            for child in subsets:
+                dataset.add_child(child)
+
         return dataset.to_json(), "text/json"
         
     def update_dataset(self, request, relapth, dataset=None):
@@ -292,8 +328,18 @@ class DataHandler(MetaCatHandler):
         user, error = self.authenticated_user()
         if user is None:
             return 401, error
+
+        params = json.loads(request.body)        
+        file_list = params.get("file_list")
+        query_text = params.get("query")
+        default_namespace = params.get("namespace")
+
+        if not file_list and not query_text:
+            return "No files to add", 400
+        if file_list and query_text:
+            return "Either file list or query must be specified, but not both", 400
+            
         db = self.App.connect()
-        default_namespace = namespace
         ds_namespace, ds_name = parse_name(dataset, default_namespace)
         if ds_namespace is None:
             return "Dataset namespace unspecified", 400
@@ -304,34 +350,28 @@ class DataHandler(MetaCatHandler):
             return "Dataset not found", 404
         if ds.Frozen:
             return "Dataset is frozen", 403
-        file_list = json.loads(request.body) if request.body else []
-        if not file_list:
-                return "Empty file list", 400
-        files = []
-        for file_item in file_list:
-            fid = file_item.get("fid")
-            if fid is not None:
-                f = DBFile.get(db, fid=fid)
-                if f is None:
-                    return "File with id '%s' not found" % (fid,), 404
-            else:
-                did = file_item.get("did")
-                if did is not None:
-                    namespace, name = parse_name(did, None)
+        
+        if query_text:
+            query = MQLQuery.parse(query_text)
+            if query.Type != "file":
+                return 400, f"Invalid file query: {query_text}"
+            files = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False, default_namespace=namespace or None)
+            files = list(files)
+        elif file_list:
+            files = []
+            for file_item in file_list:
+                spec = ObjectSpec(file_item, namespace=default_namespace)
+                if spec.FID:
+                    f = DBFile(db, fid=spec.FID)
                 else:
-                    namespace, name = file_item.get("namespace", default_namespace), file_item["name"]
-                if not namespace:
-                    return "File namespace unspecified", 400
-                f = DBFile.get(db, name=name, namespace=namespace)
-                if f is None:
-                    return f"File {namespace}:{name} not found", 404
-            #namespace = f.Namespace
-            #if not self._namespace_authorized(db, user, namespace):
-            #    return f"Permission to add files from namespace {namespace} is denied", 403
-            files.append(f)
+                    f = DBFile(db, spec.Namespace, spec.Name)
+                files.append(f)
+                print("add_files: files:", files)
+        
         if files:
             try:    ds.add_files(files, do_commit=True)
             except MetaValidationError as e:
+                print("error:", e)
                 return e.as_json(), 400, "text/json"
         return json.dumps([f.FID for f in files]), "text/json"
 
@@ -623,13 +663,7 @@ class DataHandler(MetaCatHandler):
         ]
         return json.dumps(out), "text/json"
         
-    def update_meta_bulk(self, db, user, data, mode, default_namespace):
-        new_meta = data["metadata"]
-        ids = data.get("fids")
-        names = data.get("names")
-        dids = data.get("dids")
-        new_meta = data["metadata"]
-        
+    def __update_meta_bulk(self, db, user, new_meta, mode, names=None, ids=None):
         metadata_errors = self.validate_metadata(new_meta)
         if metadata_errors:
             return json.dumps({
@@ -637,159 +671,101 @@ class DataHandler(MetaCatHandler):
                 "metadata_errors":metadata_errors
             }), METADATA_ERROR_CODE, "text/json"
         
-        if sum(int(x is not None) for x in (ids, names, dids)) != 1:
-            return "Only one of file ids or names or dids must be specified", 400
-            
-        if ids:
-            file_set = DBFileSet.from_id_list(db, ids)
-        else:
-            file_set = DBFileSet.from_name_list(db, names or dids, default_namespace=default_namespace)
-
-        file_set = list(file_set)        
-        files_datasets = DBDataset.datasets_for_files(db, file_set)
-
+        file_sets = []
         out = []
-        for f in file_set:
-            namespace = f.Namespace
-            try:
-                if not self._namespace_authorized(db, namespace, user):
-                    return f"Permission to update files in namespace {namespace} denied", 403
-            except KeyError:
-                return f"Namespace {namespace} does not exist", 404
-            
-            meta = new_meta
-            if mode == "update":
-                meta = {}
-                meta.update(f.metadata())   # to make a copy
-                meta.update(new_meta)
+        if ids:
+            file_sets.append(DBFileSet.from_id_list(db, ids))
+        if names:
+            file_sets.append(DBFileSet.from_namespace_name_specs(db, names))
 
-            for ds in files_datasets[f.FID]:
+        if file_sets:
+            file_set = list(DBFileSet.union(file_sets))
+            files_datasets = DBDataset.datasets_for_files(db, file_set)
+            
+            #
+            # validate new metadata for affected datasets
+            #
+            all_datasets = {(ds.Namespace, ds.Name): ds for ds in files_datasets.values()}
+            for ds in all_datasets.values():
                 errors = ds.validate_file_metadata(meta)
                 if errors:
                     metadata_errors += errors
 
-            f.Metadata = meta
+            if metadata_errors:
+                #print("update_files_bulk:", metadata_errors)
+                return json.dumps({
+                    "message":"Metadata validation errors",
+                    "metadata_errors":metadata_errors
+                }), METADATA_ERROR_CODE, "text/json"
+
+            #
+            # check namespace permissions
+            #
+            for f in file_set:
+                namespace = f.Namespace
+                try:
+                    if not self._namespace_authorized(db, namespace, user):
+                        return f"Permission to update files in namespace {namespace} denied", 403
+                except KeyError:
+                    return f"Namespace {namespace} does not exist", 404
             
-            out.append(                    
-                dict(
-                        name="%s:%s" % (f.Namespace, f.Name), 
-                        fid=f.FID,
-                        metadata=meta
-                    )
-            )
-            
-        if metadata_errors:
-            #print("update_files_bulk:", metadata_errors)
-            return json.dumps({
-                "message":"Metadata validation errors",
-                "metadata_errors":metadata_errors
-            }), METADATA_ERROR_CODE, "text/json"
-            
-        
-        DBFile.update_many(db, file_set, do_commit=True)
-        return json.dumps(out), 200
+                #
+                # update the metadata
+                #
+                meta = new_meta
+                if mode == "update":
+                    meta = {}
+                    meta.update(f.Metadata)   # to make a copy
+                    meta.update(new_meta)
+
+                f.Metadata = meta
+
+                out.append(                    
+                    dict(
+                            name=f.Name,
+                            namespace=f.Namespace,
+                            fid=f.FID,
+                            metadata=meta
+                        )
+                )
+
+            DBFile.update_many(db, file_set, do_commit=True)
+
+        return json.dumps(out), "text/json"
                 
-    def update_file_meta(self, request, relpath, namespace=None, mode="update", **args):
+    def update_file_meta(self, request, relpath, **args):
         # mode can be "update" - add/pdate metadata with new values
         #             "replace" - discard old metadata and update with new values
         # 
         # Update metadata for existing files
         #
-        # mode1: metadata for each file is specified separately
-        # [
-        #       {       
-        #               did: "namespace:name",   or "name", but then default namespace must be specified
-        #               name: "name",
-        #               namespace: "namespace",
-        #               fid: "fid",               // optional
-        #               parents:        [fid,...],              // optional
-        #               metadata: { ... },       // optional
-        #               checksums: { ...}       // optional
-        #       }, ... 
-        # ]
-        #
         # mode2: common changes for many files, cannot be used to update parents
         # {
-        #   names: [ ... ], # either names (and namespace) or fids or dids must be present
-        #   dids: [ ... ],  
-        #   fids:  [ ... ],
+        #   files: [ ... ]              # dicts, either namespace/name or fid
         #   metadata: { ... }
+        #   mode: "update" or "replace"
         # }
         #
-        default_namespace = namespace
         user, error = self.authenticated_user()
         if user is None:
             return "Authentication required", 403
         db = self.App.connect()
         data = json.loads(request.body)
+        if not isinstance(data, dict):
+            return 400, "Unsupported request data format"
+        mode = data["mode"]
+        if mode not in ("update", "replace"):
+            return 400, "Invalid mode"
 
-        if isinstance(data, dict):
-            return self.update_meta_bulk(db, user, data, mode, default_namespace)
-        else:
-            return "Not implemented", 400
-        
-        file_list = data or []
-        if not file_list:
-                return "Empty file list", 400
-        files = []
-        
-        errors = []
-        
-        for file_item in file_list:
-            fid, spec = None, None
-            if "fid" in file_item:
-                fid = file_item.get("fid")
-                f = DBFile.get(db, fid=fid)
+        by_fid = []
+        by_namespace_name = []
+        for f in data["files"]:
+            spec = ObjectSpec.from_dict(f)
+            if spec.FID:
+                by_fid.append(spec.FID)
             else:
-                did = file_item.get("did")
-                if did:
-                    namespace, name = parse_name(did, None)
-                else:
-                    namespace, name = file_item.get("namespace", default_namespace), file_item.get("name")
-                if namespace is None or name is None:
-                    return "Namespace or name unspecified", 400
-                f = DBFile.get(db, namespace=namespace, name=name)
-            if f is None:
-                return "File %s not found" % (fid or spec,), 404
-            namespace = f.Namespace
-            try:
-                if not self._namespace_authorized(db, namespace, user):
-                    return f"Permission to update files in namespace {namespace} denied", 403
-            except KeyError:
-                return f"Namespace {namespace} does not exist", 404
-            
-            if "metadata" in file_item:
-                if mode == "update":
-                    f.Metadata.update(file_item["metadata"])
-                else:
-                    f.Metadata = file_item["metadata"]
-            
-            if "checksums" in file_item:
-                if mode == "update":
-                    f.Checksums.update(file_item["checksums"])
-                else:
-                    f.Checksums = file_item["checksums"]
-                
-            files.append((f, file_item.get("parents")))
-
-        for f, parents in files:
-            if parents is not None:
-                f.set_parents(parents, do_commit=False)
-                
-        files = [f for f, _ in files]
-                
-        DBFile.update_many(db, files)
-        
-        out = [
-                    dict(
-                        name="%s:%s" % (f.Namespace, f.Name), 
-                        fid=f.FID,
-                        metadata=f.Metadata,
-                        parents=[p.FID for p in f.parents()]
-                    )
-                    for f in files
-        ]
-        return json.dumps(out), "text/json"
+                by_namespace_name.append((spec.Namespace, spec.Name))
+        return self.__update_meta_bulk(db, user, data["metadata"], data["mode"], ids=by_fid, names=by_namespace_name)
         
     def file(self, request, relpath, namespace=None, name=None, fid=None, with_metadata="yes", with_provenance="yes", 
             with_datasets="no", **args):
@@ -834,7 +810,8 @@ class DataHandler(MetaCatHandler):
 
     def query(self, request, relpath, query=None, namespace=None, 
                     with_meta="no", with_provenance="no", debug="no",
-                    add_to=None, save_as=None, expiration=None, **args):
+                    add_to=None, save_as=None,
+                    **args):
         with_meta = with_meta == "yes"
         with_provenance = with_provenance == "yes"
         namespace = namespace or self.App.DefaultNamespace
@@ -886,11 +863,14 @@ class DataHandler(MetaCatHandler):
         if not query_text:
             return "[]", "text/json"
             
-        query = MQLQuery.parse(query_text)
-        query_type = query.Type
-        results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance, default_namespace=namespace or None,
-            debug = debug == "yes"
-        )
+        try:
+            query = MQLQuery.parse(query_text)
+            query_type = query.Type
+            results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance, default_namespace=namespace or None,
+                debug = debug == "yes"
+            )
+        except (AssertionError, ValueError, MQLError) as e:
+            return json.dumps({"error": {"value":e.Message, "type": e.__class__.__name__}}), "text/json"
 
         if not results:
             return "[]", "text/json"
@@ -900,7 +880,7 @@ class DataHandler(MetaCatHandler):
             if save_as:
                 results = list(results)
                 ds = DBDataset(db, ds_namespace, ds_name)
-                ds.save()
+                ds.create()
                 ds.add_files(results)            
             
             if add_to:
@@ -918,7 +898,6 @@ class DataHandler(MetaCatHandler):
                         "metadata": d.Metadata if with_meta else {}
                     } for d in results 
             )
-            
         return self.json_chunks(data), "text/json"
         
     def named_queries(self, request, relpath, namespace=None, **args):

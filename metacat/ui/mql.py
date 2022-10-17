@@ -1,6 +1,6 @@
 import sys, traceback, yaml, os, pprint
 import psycopg2
-from metacat.mql import parse_query
+from metacat.mql import MQLQuery
 from getopt import getopt
 
 Usage = """
@@ -68,7 +68,7 @@ debug = "-d" in opts
 if cmd == "parse":
     qtext = " ".join(args)
     print("Query text:'%s'" % (qtext,))
-    q = parse_query(qtext, debug)
+    q = MQLQuery.parse(qtext, debug=debug)
     print("Converted:---------------")
     print(q.Tree.pretty("    "))
     if "-o" in opts:
@@ -96,7 +96,7 @@ elif cmd == "run":
     qtext = " ".join(args)
     config = yaml.load(open(config, "r").read(), Loader=yaml.SafeLoader)["database"]
     print("Query text:'%s'" % (qtext,))
-    q = parse_query(qtext, debug=debug)
+    q = MQLQuery.parse(qtext, debug=debug)
     #print("connecting to db...")
     db = connect(config)
     #print("connected to db")

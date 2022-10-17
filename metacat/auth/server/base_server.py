@@ -16,12 +16,12 @@ class BaseApp(WPApp):
         
         db_config = cfg["database"]
         connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % db_config
-        self.DB = ConnectionPool(postgres=connstr, max_idle_connections=3)
+        self.DB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=5)
         self.DBSchema = db_config.get("schema")
 
         if "user_database" in cfg:
             connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % cfg["user_database"]
-            self.UserDB = ConnectionPool(postgres=connstr, max_idle_connections=3)
+            self.UserDB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=5)
             self.UserDBSchema = cfg["user_database"].get("schema")
         else:
             self.UserDB = self.DB
@@ -187,5 +187,5 @@ class BaseHandler(WPHandler):
         return {k: unquote_plus(args.get(k,"")) for k in ("error", "message")}
         
     def jinja_globals(self):
-        return {"GLOBAL_User":self.authenticated_user()[0]}
+        return {"G_User":self.authenticated_user()[0]}
 

@@ -20,7 +20,8 @@ Usage:
 """
 
 class ListCommand(CLICommand):
-    
+
+    GNUStyle = True
     Opts = "dvu:r: verbose user: role: directly"
     Usage = """[options] [<pattern>]
         <pattern> is a UNIX shell style pattern (*?[]), optional
@@ -51,6 +52,7 @@ class ListCommand(CLICommand):
                 
 class ShowCommand(CLICommand):
     
+    GNUStyle = True
     Opts = "j json"
     MinArgs = 1
     Usage = """[-j|--json] <namespace>
@@ -66,6 +68,7 @@ class ShowCommand(CLICommand):
 
 class CreateCommand(CLICommand):
 
+    GNUStyle = True
     Opts = "oj json owner"
     MinArgs = 1
     Usage = """[options] <namespace>

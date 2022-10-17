@@ -2,7 +2,7 @@ import sys, getopt, os, json, pprint
 from urllib.request import urlopen, Request
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
-from metacat.webapi import MetaCatClient
+from metacat.webapi import MetaCatClient, MCServerError, MCWebAPIError
 from metacat.ui.cli import CLICommand, InvalidArguments, InvalidOptions
 
 
@@ -28,7 +28,8 @@ Usage: --
 """
 
 class QueryCommand(CLICommand):
-    
+
+    GNUStyle = False    
     Opts = (
         "jism:N:pq:S:A:lP", 
         ["line", "json", "ids", "summary", "metadata=", "namespace=", "pretty",
@@ -75,9 +76,13 @@ class QueryCommand(CLICommand):
         
         #print("with_meta=", with_meta)
         
-        results = client.query(query_text, namespace=namespace, with_metadata = with_meta, 
-                save_as=save_as, add_to=add_to,
-                with_provenance=with_provenance)
+        try:    
+            results = client.query(query_text, namespace=namespace, with_metadata = with_meta, 
+                    save_as=save_as, add_to=add_to,
+                    with_provenance=with_provenance)
+        except (MCServerError, MCWebAPIError) as e:
+            print(e, file=sys.stderr)
+            sys.exit(1)
 
         if "--json" in opts or "-j" in opts:
             print(json.dumps(results, sort_keys=True, indent=4, separators=(',', ': ')))
@@ -90,7 +95,7 @@ class QueryCommand(CLICommand):
 
         in_line = "-l" in opts or "--line" in opts
 
-        #print("response data:", out)
+        #print("response results:", results)
     
         if "-s" in opts or "--summary" in opts and not with_meta:
             print("%d files" % (len(results),))

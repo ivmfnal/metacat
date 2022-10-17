@@ -78,15 +78,30 @@ class DBParamCategory(DBObject):
         defs = json.dumps(self.Definitions)
         columns = self.columns()
         c.execute(f"""
-            insert into parameter_categories({columns}) 
-                values(%(path)s, %(owner_user)s, %(owner_role)s, %(description)s, %(restricted)s, %(defs)s, %(creator)s, now())
-                on conflict(path) 
-                    do update 
-                        set owner_user=%(owner_user)s, owner_role=%(owner_role)s, restricted=%(restricted)s, 
-                        definitions=%(defs)s, description=%(description)s, creator=%(creator)s
+            update parameter_categories
+                set owner_user=%(owner_user)s, owner_role=%(owner_role)s, restricted=%(restricted)s, 
+                    definitions=%(defs)s, description=%(description)s
+                where path = %(path)s
             """,
             dict(path=self.Path, owner_user=self.OwnerUser, owner_role=self.OwnerRole, restricted=self.Restricted, defs=defs,
                     description=self.Description, creator=self.Creator))
+        if do_commit:
+            c.execute("commit")
+        return self
+
+    def create(self, do_commit=True):
+        c = self.DB.cursor()
+        defs = json.dumps(self.Definitions)
+        columns = self.columns(exclude="created_timestamp")
+        c.execute(f"""
+            insert into parameter_categories({columns}) 
+                values(%(path)s, %(owner_user)s, %(owner_role)s, %(description)s, %(restricted)s, %(defs)s, %(creator)s)
+                returning created_timestamp
+            """,
+            dict(path=self.Path, owner_user=self.OwnerUser, owner_role=self.OwnerRole, restricted=self.Restricted, defs=defs,
+                    description=self.Description, creator=self.Creator)
+        )
+        self.CreatedTimestamp = c.fetchone()[0]
         if do_commit:
             c.execute("commit")
         return self

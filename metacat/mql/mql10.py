@@ -4,7 +4,7 @@ from .sql_converter import SQLConverter
 from .meta_evaluator import MetaEvaluator
 import json, time
 
-from lark import Lark
+from lark import Lark, LarkError
 from lark import Tree, Token
 import pprint
 
@@ -13,13 +13,25 @@ CMP_OPS = [">" , "<" , ">=" , "<=" , "==" , "=" , "!=", "~~", "~~*", "!~~", "!~~
 from .grammar import MQL_Grammar
 _Parser = Lark(MQL_Grammar, start="query")
 
-class SyntaxError(Exception):
-    
+class MQLError(Exception):
+
     def __init__(self, message):
-        self.Message = messge
-        
+        self.Message = message
+
+class MQLSyntaxError(MQLError):
+    
     def __str__(self):
-        return f"MQL Syntax Error: {self.Message}"
+        return f"MQL syntax Error: {self.Message}"
+        
+class MQLCompilationError(MQLError):
+    
+    def __str__(self):
+        return f"MQL compilation Error: {self.Message}"
+        
+class MQLExecutionError(MQLError):
+    
+    def __str__(self):
+        return f"MQL execution Error: {self.Message}"
         
 class _MetaRegularizer(Ascender):
     # converts the meta expression into DNF form:
@@ -259,29 +271,24 @@ class FileQuery(object):
         return self.Optimized
 
     def run(self, db, filters={}, skip=0, limit=None, with_meta=True, with_provenance=True, default_namespace=None, debug=False):
-        #print("Query.run: DefaultNamespace:", self.DefaultNamespace)
+        try:
+            self.assemble(db, default_namespace = default_namespace)
+            optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
         
-        #print("assemble()...")
-        self.assemble(db, default_namespace = default_namespace)
-        #print("Query.run: assemled:", self.Assembled.pretty())
-        
-        #print("optimize()...")
-        optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
-        #print("Query.run: optimized: ----\n", optimized.pretty())
-        
-        optimized = _QueryOptionsApplier().walk(optimized, 
-            dict(
-                with_provenance = with_provenance,
-                with_meta = with_meta
-        ))
-        if debug:
-            print("after _QueryOptionsApplier:", optimized.pretty())
-        #print("Limit %s applied: ----\n" % (limit,), optimized.pretty())
-        
-        #out = _FileEvaluator(db, filters, with_meta, None).walk(optimized)
-        #print ("run: out:", out)
-        #print("FileQuery: with_meta:", with_meta)
-        out = SQLConverter(db, filters, debug=debug).convert(optimized)
+            optimized = _QueryOptionsApplier().walk(optimized, 
+                dict(
+                    with_provenance = with_provenance,
+                    with_meta = with_meta
+                ))
+            if debug:
+                print("after _QueryOptionsApplier:", optimized.pretty())
+        except Exception as e:
+            raise MQLCompilationError(str(e))
+            
+        try:
+            out = SQLConverter(db, filters, debug=debug).convert(optimized)
+        except Exception as e:
+            raise MQLExecutionError(str(e))
         
         if debug:
             print("Query:\n%s" % (optimized.pretty(),))
@@ -398,9 +405,11 @@ class QueryConverter(Converter):
 
     def string_constant(self, args):
         v = args[0]
+        assert v.type in ("STRING", "UNQUOTED_STRING")
         s = v.value
-        if s[0] in ('"', "'"):
-            s = s[1:-1]
+        if v.type == "STRING":
+            if s[0] in ('"', "'"):
+                s = s[1:-1]
         if '"' in s or "'" in s:        # sanitize
             raise ValueError("Unsafe string constant containing double or single quote: %s" % (repr(s),))
         return Node("string", value=s)
@@ -1004,14 +1013,17 @@ class _DatasetEvaluator(Ascender):
         #print("_DatasetEvaluator.datasets_selector: out:", out)
         return out
         
-def parse_query(text, debug=False):
+def _____parse_query(text, debug=False):
     # remove comments
     out = []
     for l in text.split("\n"):
         l = l.split('#', 1)[0]
         out.append(l)
     text = '\n'.join(out)
-    parsed = _Parser.parse(text)
+    try:
+        parsed = _Parser.parse(text)
+    except LarkError as e:
+        raise MQLSyntaxError(str(e))
     if debug:
         print("--- parsed ---\n", LarkToNodes()(parsed).pretty())
     converted = QueryConverter()(parsed)
@@ -1022,16 +1034,22 @@ def parse_query(text, debug=False):
 class MQLQuery(object):
     
     @staticmethod
-    def parse(text):
+    def parse(text, debug=False):
         out = []
         for l in text.split("\n"):
             l = l.split('#', 1)[0]
             out.append(l)
         text = '\n'.join(out)
     
-        parsed = _Parser.parse(text)
+        try:
+            parsed = _Parser.parse(text)
+            if debug:
+                print("parsed:\n", parsed.pretty())
+            converted = QueryConverter().convert(parsed)
+        except LarkError as e:
+            raise MQLSyntaxError(str(e))
         #print(parsed)
-        return QueryConverter().convert(parsed)
+        return converted
         
     @staticmethod
     def from_db(db, namespace, name):
@@ -1059,7 +1077,7 @@ if __name__ == "__main__":
             cmd, rest = q.split(None, 1)
             qtext = test.split(';', 1)[0]
             print (f"--- query ---\n{qtext}\n-------------")
-            try:    q = parse_query(qtext)
+            try:    q = MQLQuery.parse(qtext)
             except Exception as e:
                 traceback.print_exc()
             else:

@@ -1,5 +1,5 @@
 import requests, json, fnmatch, sys, os, random, time
-from metacat.util import to_str, to_bytes
+from metacat.util import to_str, to_bytes, ObjectSpec
 from metacat.auth import SignedToken, TokenLib, AuthenticationError
 from urllib.parse import quote_plus, unquote_plus
 from metacat.auth import TokenAuthClientMixin
@@ -27,7 +27,8 @@ class ServerError(Exception):
         self.Body = to_str(body)
         
     def __str__(self):
-        msg = f"MetaCatServer error:\n  URL: {self.URL}\n  HTTP status code: {self.StatusCode}\n  Message: {self.Message}"
+        #msg = f"MetaCatServer error:\n  URL: {self.URL}\n  HTTP status code: {self.StatusCode}\n  {self.Message}"
+        msg = self.Message
         if self.Body:
             msg += "\nMessage from the server:\n"+self.Body+"\n"
         return msg
@@ -74,37 +75,43 @@ class HTTPClient(object):
         self.ServerURL = server_url
         self.Token = token
         self.Timeout = timeout or self.DefaultTimeout
-        self.LastStatusCode = None
-        
+        self.LastResponse = self.LastURL = self.LastStatusCode = None
+
     def retry_request(self, method, url, timeout=None, **args):
         """
         Implements the functionality to retry on 503 response with random exponentially growing delay
+        Use timemout = 0 to try the request exactly once
+        Returns the response with status=503 on timeout
         """
         if timeout is None:
             timeout = self.DefaultTimeout
         tend = time.time() + timeout
         retry_interval = self.InitialRetry
         response = None
-        while time.time() < tend:
+        done = False
+        while not done:
             if method == "get":
                 response = requests.get(url, timeout=self.Timeout, **args)
             else:
                 response = requests.post(url, timeout=self.Timeout, **args)
-            #print("retry_request: response:", response)
             if response.status_code != 503:
                 break
             sleep_time = min(random.random() * retry_interval, tend-time.time())
             retry_interval *= self.RetryExponent
-            if sleep_time > 0:
+            if sleep_time >= 0:
                 time.sleep(sleep_time)
+            else:
+                break       # time out
         return response
 
-    def get_text(self, uri_suffix):
-        url = "%s/%s" % (self.ServerURL, uri_suffix)
-        headers = {}
+    def send_request(self, method, uri_suffix, headers=None, timeout=None, **args):
+        self.LastURL = url = "%s/%s" % (self.ServerURL, uri_suffix)
+        if headers:
+            headers = headers.copy()
         if self.Token is not None:
+            headers = headers or {}
             headers["X-Authentication-Token"] = self.Token.encode()
-        response = self.retry_request("get", url, headers=headers)
+        self.LastResponse = response = self.retry_request(method, url, headers=headers, **args)
         #print(response, response.text)
         self.LastStatusCode = response.status_code
         if response.status_code == INVALID_METADATA_ERROR_CODE:
@@ -113,69 +120,32 @@ class HTTPClient(object):
             raise NotFoundError(url, response.status_code, response.text)
         elif response.status_code != 200:
             raise WebAPIError(url, response.status_code, response.text)
-        return response.text
+        return response
 
-    def get_json(self, uri_suffix):
-        text = self.get_text(uri_suffix)
-        return json.loads(text)
-        
-    def get_json_stream(self, uri_suffix):
-        url = "%s/%s" % (self.ServerURL, uri_suffix)
-        headers = {"Accept": "application/json-seq"}
-        if self.Token is not None:
-            headers["X-Authentication-Token"] = self.Token.encode()
-
-        with self.retry_request("get", url, headers=headers, stream=True) as response:
-            self.LastStatusCode = response.status_code
-            if response.status_code == INVALID_METADATA_ERROR_CODE:
-                raise InvalidMetadataError(url, response.status_code, response.text)
-            if response.status_code == 404:
-                raise NotFoundError(url, response.status_code, response.text)
-            elif response.status_code // 100 != 2:
-                raise WebAPIError(url, response.status_code, response.text)
-            
-            if response.headers.get("Content-Type") != "application/json-seq":
-                raise WebAPIError(url, 200, "Expected content type application/json-seq. Got %s instead." % (response.headers.get("Content-Type"),))
-
-            for line in response.iter_lines():
-                if line:    line = line.strip()
-                while line.startswith(b'\x1E'):
-                    line = line[1:]
-                if line:
-                    #print(f"stream line:[{line}]")
-                    obj = json.loads(line)
-                    yield obj
+    def get_text(self, uri_suffix):
+        return self.send_request("get", uri_suffix).text
 
     def post_text(self, uri_suffix, data):
-        #print("post_json: data:", type(data), data)
-        if isinstance(data, (dict, list)):
-            data = json.dumps(data)
-        else:
-            data = to_bytes(data)
-        #print("post_json: data:", type(data), data)
-            
-        url = "%s/%s" % (self.ServerURL, uri_suffix)
-        
-        headers = {}
-        if self.Token is not None:
-            headers["X-Authentication-Token"] = self.Token.encode()
-        #print("HTTPClient.post_json: url:", url)
-        #print("HTTPClient.post_json: data:", data)
-        
-        response = self.retry_request("post", url, data = data, headers = headers)
-        self.LastStatusCode = response.status_code
-        #print("response.text:", response.text)
-        if response.status_code == INVALID_METADATA_ERROR_CODE:
-            #print("raising InvalidMetadataError")
-            raise InvalidMetadataError(url, response.status_code, response.text)
-        if response.status_code // 100 != 2:
-            raise WebAPIError(url, response.status_code, response.text)
-        return response.text
-        
+        return self.send_request("post", uri_suffix, data=data).text
+
+    def unpack_json(self, json_text):
+        results = json.loads(json_text)
+        if isinstance(results, dict):
+            if "results" in results:
+                results = results["results"]
+            elif "error" in results:
+                message =  "Server side error: " + results["error"]["type"] + ": "
+                message += results["error"]["value"]
+                raise ServerError(self.LastURL, self.LastStatusCode, message)
+        return results
+                
+    def get_json(self, uri_suffix):
+        return self.unpack_json(self.send_request("get", uri_suffix).text)
+
     def post_json(self, uri_suffix, data):
-        text = self.post_text(uri_suffix, data)
-        return json.loads(text)
-        
+        if not isinstance(data, (str, bytes)):
+            data = json.dumps(data)
+        return self.unpack_json(self.send_request("post", uri_suffix, data=data).text)
 
 class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     
@@ -224,8 +194,18 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         HTTPClient.__init__(self, server_url, token, timeout)
         self.AuthURL = auth_server_url or server_url + "/auth"
         self.MaxConcurrent = max_concurrent_queries
-        self.QueryQueue = None
-        
+        self.AsyncQueue = None
+
+    @property
+    def async_queue(self):
+        if self.AsyncQueue is None:
+            try:    
+                from pythreader import TaskQueue
+            except ModuleNotFoundError:
+                raise ModuleNotFoundError("pythreader module required for asynchronous queries. Use: pip install 'pythreader>=2.7.0'")
+            self.AsyncQueue = TaskQueue(self.MaxConcurrent)
+        return self.AsyncQueue
+
     def resfresh_token(self):
         if self.TokenFile:
              token = open(self.TokenFile, "rb").read()
@@ -240,33 +220,71 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         """
         return self.get_text("data/version")
 
-    def list_datasets(self, namespace_pattern=None, name_pattern=None, with_file_counts=False):
+    def list_datasets(self, namespace_pattern=None, name_pattern=None, with_counts=False):
         """Gets the list of datasets with namespace/name matching the templates. The templates are
         Python ``fnmatch`` module style templates where ``'*'`` matches any substring and ``'?'`` matches a single character.
-        
+
         Parameters
         ----------
         namespace_pattern : str
         name_pattern : str
         with_file_counts : boolean
             controls whether the results should include file counts or dataset names only
-        
+
         Yields
         ------
         generator
             yields dictionaries like {"namespace":..., "name":..., "file_count":...}
         """        
-        url = "data/datasets?with_file_counts=%s" % ("yes" if with_file_counts else "no")
+        #url = "data/datasets?with_file_counts=%s" % ("yes" if with_file_counts else "no")
+        url = "data/datasets?with_counts=no"
         lst = self.get_json(url)
+        promises = []        # [(dataset_dict, promise)]
         for item in lst:
             namespace, name = item["namespace"], item["name"]
             if namespace_pattern is not None and not fnmatch.fnmatch(namespace, namespace_pattern):
                 continue
             if name_pattern is not None and not fnmatch.fnmatch(name, name_pattern):
                 continue
+            if not with_counts:
+                yield item
+            else:
+                # fetch counts asynchronously
+                did = namespace + ":" + name
+                promises.append(self.async_queue.add(self.get_dataset_counts, did, promise_data = item))
+
+        for promise in promises:
+            counts = promise.wait()
+            #print("promise: counts:", counts)
+            item = promise.Data
+            item.update(counts)
             yield item
-    
-    def get_dataset(self, did, namespace=None, name=None):
+
+    def get_dataset_counts(self, did=None, namespace=None, name=None):
+        """Gets single dataset files, subsets, supersets, etc. counts
+        
+        Parameters
+        ----------
+        did : str - "namespace:name"
+        namespace : str
+        name : str
+        
+        Returns
+        -------
+        dict
+            dataset counts or None if the dataset was not found
+        """        
+
+        spec = ObjectSpec(did, namespace=namespace, name=name).did()
+        try:
+            out = self.get_json(f"data/dataset_counts/{spec}")
+            #print("get_dataset_counts", did, " out=", out)
+            return out
+        except NotFoundError:
+            print("get_dataset_counts: None")
+            return None
+
+    def get_dataset(self, did=None, namespace=None, name=None):
         """Gets single dataset
         
         Parameters
@@ -280,9 +298,9 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         dict
             dataset attributes or None if the dataset was not found
         """        
-        
-        if namespace is not None:
-            spec = namespace + ':' + name
+
+        spec = ObjectSpec(did, namespace=namespace, name=name).did()
+
         try:
             return self.get_json(f"data/dataset?dataset={spec}")
         except NotFoundError:
@@ -312,28 +330,34 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             return None
         
         
-    def create_dataset(self, spec, frozen=False, monotonic=False, creator=None, metadata=None, metadata_requirements=None, description=""):
+    def create_dataset(self, spec, frozen=False, monotonic=False, metadata=None, metadata_requirements=None, 
+            files_query=None, subsets_query=None,
+            description=""):
+
         """Creates new dataset. Requires client authentication.
-        
+
         Parameters
         ----------
         spec : str
             "namespace:name"
         frozen : bool
         monotonic : bool
-        creator : str
-            Dataset creator. Ignored if the user is not an admin
         metadata : dict
             Dataset metadata
         metadata_requirements : dict
             Metadata requirements for files in the dataset
+        file_query : str
+            Run MQL file query and add resulting files to the new dataset
+        dataset_query : str
+            Run MQL dataset query and add resulting datasets to the new dataset as subsets
         description : str
-        
+
         Returns
         -------
         dict
             created dataset attributes
-        """   
+        """
+
         namespace, name = spec.split(":",1)     
         params = {
             "namespace":    namespace,
@@ -341,9 +365,10 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             "frozen":       frozen,
             "monotonic":    monotonic,
             "metadata":     metadata or {},
-            "metadata_requirements":    metadata_requirements or {},
-            "creator":      creator,
-            "description":  description or ""
+            "metadata_requirements":    metadata_requirements or None,
+            "description":  description or "",
+            "files_query":  files_query or None,
+            "subsets_query":  subsets_query or None
         }
         url = f"data/create_dataset"
         return self.post_json(url, params)
@@ -361,13 +386,15 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         url = f"data/add_child_dataset?parent={parent_spec}&child={child_spec}"
         return self.get_text(url)
         
-    def add_files(self, dataset, file_list, namespace=None):
+    def add_files(self, dataset, file_list=None, namespace=None, query=None):
         """Add existing files to an existing dataset. Requires client authentication.
         
         Parameters
         ----------
         dataset : str
             "namespace:name" or "name", if namespace argument is given
+        query : str
+            MQL query to run and add files matching the query
         file_list : list
             List of dictionaries, one dictionary per file. Each dictionary must contain either a file id
         
@@ -395,7 +422,11 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         -------
         list
             list of dictionaries, one dictionary per file with file ids: { "fid": "..." }
-        """        
+        
+        Notes
+        -----
+        Either ``file_list`` or ``query`` must be specified, but not both
+        """
             
         default_namespace = namespace
         if ':' not in dataset:
@@ -405,24 +436,25 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         url = f"data/add_files?dataset={dataset}"
         
-        data = []
-        for f in file_list:
-            if "fid" in f:
-                f = {"fid":f["fid"]}
-            elif "did" in f:
-                namespace, name = parse_name(f["did"], default_namespace)
-                if namespace is None:
-                    raise ValueError("Namespace not specified for file with did=" + f["did"])
-                f = {"namespace":namespace, "name":name}
-            elif "name" in f:
-                namespace = f.get("namespace") or default_namespace
-                if not namespace:
-                    raise ValueError("Namespace not specified for file with name=" + f["name"])
-                f = {"namespace":namespace, "name":f["name"]}
-            else:
-                raise ValueError("Infalid file specification: %s. Must contain either did or namespace/name or fid" % (f,))
-            data.append(f)
-        out = self.post_json(url, data)
+        if (file_list is None) == (query is None):
+            raise ValueError("Either file_list or query must be specified, but not both")
+        
+        params = {
+            "namespace": namespace,
+        }
+        if file_list:
+            lst = []
+            for f in file_list:
+                spec = ObjectSpec.from_dict(f, default_namespace)
+                spec.validate()
+                lst.append(spec.as_dict())
+            params["file_list"] = lst
+        elif query:
+            params["query"] = query
+        else:
+            raise ValueError("Either file_list or query must be specified, but not both")
+            
+        out = self.post_json(url, params)
         return out
 
     def declare_file(self, did=None, namespace=None, name=None, auto_name=None,
@@ -608,13 +640,15 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         out = self.post_json(url, lst)
         return out
 
-    def update_file_meta(self, metadata, names=None, fids=None, namespace=None, dids=None, mode="update"):
+    def update_file_meta(self, metadata, files=None, names=None, fids=None, namespace=None, dids=None, mode="update"):
         """Updates metadata for existing files. Requires client authentication.
         
         Parameters
         ----------
-        metadata : dict or list
+        metadata : dict
             see Notes
+        files : list of dicts
+            Each dict specifies a file. See Notes
         names : list of strings
             List of file names. Requires namespace to be specified
         dids : list of strings
@@ -622,6 +656,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         fids : list of strings
             List of file ids. The list of files can be specified with ``fids`` or with ``names`` argument, but not
             both.
+        namespace : string
+            Default namespace
         mode : str
             Either ``"update"`` (default) or ``"replace"``. If mode is ``"update"``, existing metadata will be updated with
             values in ``metadata``. If ``"replace"``, then new values will replace existing metadata. Also, see notes below.
@@ -634,70 +670,55 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         
         Notes
         -----
-        This method can be be used in 2 different ways:
-            * to apply the same metadata change to a list of files
-            * to update a set of files individually
+        This method can be be used to apply common metadata changes to a list of files. This method **can not** be used to update
+        file provenance information.
         
-        To apply *common changes* to multiple files, use a dictionary as the value for ``metadata`` argument and
-        specify the list of files to be affected either with ``fids`` or with ``names`` argument.
+        The``metadata`` argument is used to specify the common changes to the metadata to apply to multiple files.
         The ``metadata`` dictionary will be used to either update existing metadata of listed files (if ``mode="update"``) or
         replace it (if ``mode="replace"``).
         
-        To make changes on *file-by-file basis*, use a list of dictionaries for ``metadata`` argument. In this
-        case, ``names`` and ``fids`` arguments of the method are ignored. The ``metadata`` list should look like this:
+        Files to update have to be specified in one of the following ways:
         
-        .. code-block:: python
-    
-            [
-                {       
-                    "did": "namespace:filename",       # namespace can be specified for each file explicitly,
-                    "name": "filename",                 # or implicitly using the namespace=... argument
-                    "fid":  "...",                      # file id, optional. 
+            - files = [list of dicts] - each dict must be in one of the following formats:
         
-                                                        # Each dictionary in the list
-                                                        #   must have either ``"name"`` element or ``"fid"``
-                    
-                    "parents":  ["fid",...],            # list of ids for the file parent files, optional
-                    "metadata": { ... },                # new metadata values, optional,
-                                                        #   will be used to either update or replace existing file metadata
-                    "checksums": { ... }                # optional dictionary with checksums, will update or replace existing
-                                                        #   checksums dictionary
-                }, ...
-            ]
+                - {"fid":"<file id>"} 
+                - {"namespace":"<file namespace>", "name":"<file name>"} - namespace is optional. Default: the value of the "namespace" method argument
+                - {"did":"<file namespace>:<file name>"} 
         
-        In this case, you can also update file parentage and checksums dictionary.
+            - dids = [list of file DIDs]
+            - names = [list of file names] - "namespace" argument method must be used to specify the common namespace
+            - fids = [list of file ids]
+        """
         
-        """        
-        if isinstance(metadata, list):
-            if names is not None or dids is not None or fids is not None:
-                raise ValueError("Explicit metadata updates can not be specified together with names, dids or fids")
-        elif names is not None:
-            if namespace is None:
-                raise ValueError("List of file names requires the namespace to be specified")
-            if fids is not None or dids is not None:
-                raise ValueError("List of file names can not be specified together with list if FIDs or list of DIDs")
-        elif dids is not None:
-            if names is not None or fids is not None:
-                raise ValueError("List of DIDs can not be specified together with list if FIDs or list of file names")
-        elif fids is not None:
-            if names is not None or dids is not None:
-                raise ValueError("List of file IDs can not be specified together with list if DIDs or list of file names")
+        if names and not namespace:
+            raise ValueError("Namespace must be specified with names argument")
 
-        url = f"data/update_file_meta?mode={mode}"
-        if namespace:
-            url += f"&namespace={namespace}"
-        data = {
-            "metadata":metadata
-        }
-        if dids:
-            data["dids"] = dids
-        if fids:
-            data["fids"] = fids
-        if names:
-            data["names"] = names
-        out = self.post_json(url, data)
+        def combined():
+            for name in (names or []):
+                yield ObjectSpec(namespace, name).to_dict()
+            for did in (dids or []):
+                spec = ObjectSpec(did)
+                spec.validate()             # will raise ValueError
+                yield spec.to_dict()
+            for fid in (fids or []):
+                yield ObjectSpec(fid=fid).to_dict()
+            for item in (files or []):
+                spec = ObjectSpec.from_dict(item)
+                spec.validate()             # will raise ValueError
+                yield spec.to_dict()
+
+        url = f"data/update_file_meta"
+        out = []
+        for chunk in chunked(combined(), 1000):
+            data = {
+                "metadata":metadata,
+                "files":chunk,
+                "mode":mode
+            }
+            out.extend(self.post_json(url, data))
+
         return out
-        
+
     def update_dataset(self, dataset, metadata=None, mode="update", frozen=None, monotonic=None, description=None):   
         """Update dataset. Requires client authentication.
         
@@ -885,7 +906,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             url += f"&add_to={add_to}"
         results = self.post_json(url, query)
         return results
-        
+
     def async_query(self, query, data=None, **args):
         """Run the query asynchronously. Requires client authentication if save_as or add_to are used.
         
@@ -907,20 +928,13 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             See notes below for more on how to use this method.
         """
         
-        if self.QueryQueue is None:
-            try:    
-                from pythreader import TaskQueue
-            except ModuleNotFoundError:
-                raise ModuleNotFoundError("pythreader module required for asynchronous queries. Use: pip install 'pythreader>=2.7.0'")
-            self.QueryQueue = TaskQueue(self.MaxConcurrent)
-            
-        return self.QueryQueue.add_lambda(self.query, query, promise_data=data, **args)
+        return self.async_queue.add_lambda(self.query, query, promise_data=data, **args)
 
     def wait_queries(self):
-        """Wait for all issued asynchronous queries to complete
         """
-        if self.QueryQueue is not None:
-            self.QueryQueue.waitUntilEmpty()
+        Wait for all issued asynchronous queries to complete
+        """
+        self.async_queue.waitUntilEmpty()
     
     def create_namespace(self, name, owner_role=None, description=None):
         """Creates new namespace. Requires client authentication.

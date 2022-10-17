@@ -5,7 +5,7 @@ from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNam
 from wsdbtools import ConnectionPool
 from urllib.parse import quote_plus, unquote_plus, unquote
 from metacat.util import to_str, to_bytes
-from metacat.mql import MQLQuery
+from metacat.mql import MQLQuery, MQLError
 from metacat import Version
 from common_handler import MetaCatHandler
 
@@ -148,8 +148,7 @@ class GUICategoryHandler(MetaCatHandler):
             owner_user=owner_user,
             creator = me.Username, description=request.POST["description"],
             definitions = definitions)
-
-        cat.save()
+        cat.create()
         self.redirect(f"./show?path={path}")
         
     def save(self, request, relpath):
@@ -208,9 +207,6 @@ class GUIHandler(MetaCatHandler):
     def __init__(self, request, app):
         MetaCatHandler.__init__(self, request, app)
         self.categories = GUICategoryHandler(request, app)
-        
-    def jinja_globals(self):
-        return {"GLOBAL_User":self.authenticated_user()[0]}
         
     def index(self, request, relpath, error=None, message=None, **args):
         url = "./datasets"
@@ -330,7 +326,7 @@ class GUIHandler(MetaCatHandler):
         runtime = None
         meta_stats = None
         
-        view_meta_as =  request.POST.get("view_meta_as","table")
+        view_meta_as = request.POST.get("view_meta_as","table")
         
         save_as_dataset = "save_as_dataset" in request.POST
         
@@ -358,10 +354,15 @@ class GUIHandler(MetaCatHandler):
                 parsed = MQLQuery.parse(query_text)
                 query_type = parsed.Type
                 #print("Server.query: with_meta:", with_meta)
-                results = parsed.run(db, filters=self.App.filters(), 
+                try:
+                    results = parsed.run(db, filters=self.App.filters(), 
                         default_namespace=namespace or None,
                         limit=1000 if not save_as_dataset else None, 
                         with_meta=with_meta)
+                except MQLError as e:
+                    error = str(e)
+                    results = []
+                    url_query = None
             else:
                 results = None
                 url_query = None
@@ -456,9 +457,11 @@ class GUIHandler(MetaCatHandler):
         return resp
         
     def named_queries(self, request, relpath, namespace=None, **args):
+        me, auth_error = self.authenticated_user()
         db = self.App.connect()
         queries = list(DBNamedQuery.list(db, namespace))
-        return self.render_to_response("named_queries.html", namespace=namespace, queries = queries, **self.messages(args))
+        return self.render_to_response("named_queries.html", namespace=namespace, queries = queries, logged_in = me is not None,
+                **self.messages(args))
             
     def named_query(self, request, relpath, name=None, edit="no", **args):
         namespace, name = parse_name(name, None)
@@ -470,23 +473,37 @@ class GUIHandler(MetaCatHandler):
         me, auth_error = self.authenticated_user()
         if me is None:   
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/create_named_query")
-        
-        
         return self.render_to_response("named_query.html", namespaces=me.namespaces(), create=True)
 
     def save_named_query(self, request, relpath, **args):
+        user, auth_error = self.authenticated_user()
+        if not user:
+            self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/named_queries")
+
+        admin = user.is_admin()
         name = request.POST["name"]
         namespace = request.POST["namespace"]
-        source = request.POST["source"]
+        db = self.App.connect()
+        if not admin:
+            ns = DBNamespace.get(db, namespace)
+            if not ns.owned_by_user(user):
+                self.redirect(f"./named_queries?error=%s" % (quote_plus(f"No permission to modify namespace {namespace}"),))
+
         create = request.POST["create"] == "yes"
         query_text = request.POST["text"]
 
         query = MQLQuery.parse(query_text)
         if query.Type != "file":
-            self.redirect("./named_queries?error=%s" % (quote_plus("only file queries can be saved"),))
+            self.redirect("./named_queries?error=%s" % (quote_plus("Only file queries can be saved"),))
         
-        db = self.App.connect()
-        query = DBNamedQuery(db, name=name, namespace=namespace, source=query_text).save()
+        if create:
+            query = DBNamedQuery(db, name=name, namespace=namespace, source=query_text)
+            query.Creator = user.Username
+            query.create()
+        else:
+            query = DBNamedQuery.get(db, namespace, name)
+            query.Source = query_text
+            query.save()
         
         return self.render_to_response("named_query.html", query=query, edit = True)
         
@@ -511,6 +528,8 @@ class GUIHandler(MetaCatHandler):
                 index = index)
         
     def user(self, request, relpath, username=None, error="", message="", **args):
+        username = username or relpath
+        #print("GUI.user(): username:", username)
         db = self.App.connect()
         user = DBUser.get(db, username)
         me, auth_error = self.authenticated_user()
@@ -632,10 +651,12 @@ class GUIHandler(MetaCatHandler):
         else:
             me, auth_error = self.authenticated_user()
             namespaces = DBNamespace.list(db, owned_by_user=me)
+        namespaces = sorted(namespaces, key=lambda ns: ns.Name)
         return self.render_to_response("namespaces.html", namespaces=namespaces, showing_all=all, **self.messages(args))
         
     def namespace(self, request, relpath, name=None, **args):
         db = self.App.connect()
+        name = name or relpath
         ns = DBNamespace.get(db, name)
         roles = []
         edit = False
@@ -645,9 +666,10 @@ class GUIHandler(MetaCatHandler):
             admin = me.is_admin()
             edit = admin or ns.owned_by_user(me)
             roles = DBRole.list(db) if admin else [DBRole.get(db, r) for r in me.roles]
+            users = DBUser.list(db) if admin else [me]
         datasets = DBDataset.list(db, namespace=name) if ns is not None else None
         #print("namespace: roles", roles)
-        return self.render_to_response("namespace.html", user=me, namespace=ns, edit=edit, create=False, roles=roles, admin=admin, 
+        return self.render_to_response("namespace.html", user=me, namespace=ns, edit=edit, create=False, roles=roles, users=users, admin=admin, 
             datasets = datasets,
             **self.messages(args))
         
@@ -658,7 +680,8 @@ class GUIHandler(MetaCatHandler):
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/create_namespace")
         admin = me.is_admin()
         roles = DBRole.list(db) if admin else [DBRole.get(db, r) for r in me.roles]
-        return self.render_to_response("namespace.html", user=me, roles=roles, create=True, edit=False, error=unquote_plus(error))
+        users = DBUser.list(db) if admin else [me]
+        return self.render_to_response("namespace.html", user=me, roles=roles, users=users, create=True, edit=False, error=unquote_plus(error))
         
     def save_namespace(self, request, relpath, **args):
         db = self.App.connect()
@@ -677,10 +700,13 @@ class GUIHandler(MetaCatHandler):
         elif ns is not None and create:
             self.redirect("./namespace?name=%s&error=%s" % (name, quote_plus("Namespace already exists")))            
 
-        owner_role = owner_user = None
-        owner = request.POST.get("owner", "")
-        if owner.startswith("u:"):  owner_user = owner[2:]
-        elif owner.startswith("r:"):  owner_role = owner[2:]
+        owner_user = owner_role = None
+        ownership = request.POST["ownership"]
+        if ownership == "user":
+            owner_user = request.POST["owner_user"]
+        else:
+            owner_role = request.POST["owner_role"]
+        assert (owner_user is None) != (owner_role is None)
 
         if ns is None:
             # create new
@@ -688,29 +714,32 @@ class GUIHandler(MetaCatHandler):
                 if owner_user and owner_user != me.Username or \
                     owner_role and not owner_role in me.roles:
                         self.redirect("./namespaces?error=%s" % (quote_plus("Not authorized"),))                    
-            assert (owner_user is None) != (owner_role is None)
-            ns = DBNamespace(db, name, owner_role=owner_role, owner_user=owner_user, description=description)
+            ns = DBNamespace(db, name, owner_role=owner_role, owner_user=owner_user, description=description).create()
         else:
             if not admin and not ns.owned_by_user(me):
                 self.redirect("./namespaces?error=%s" % (quote_plus("Not authorized"),))
             ns.Description = description
             if admin:
-                assert (owner_user is None) != (owner_role is None)
                 ns.OwnerUser = owner_user
                 ns.OwnerRole = owner_role
-        ns.save()
+            ns.save()
         self.redirect("./namespaces")
         
     def datasets(self, request, relpath, **args):
         user, auth_error = self.authenticated_user()
         admin = user is not None and user.is_admin()
         db = self.App.connect()
-        datasets = DBDataset.list(db)
-        datasets = sorted(list(datasets), key=lambda x: (x.Namespace, x.Name))
+        datasets = list(DBDataset.list(db))
+        datasets = sorted(datasets, key=lambda x: (x.Namespace, x.Name))
+        namespaces = set(ds.Namespace for ds in datasets)
+        namespaces = {ns.Name:ns for ns in DBNamespace.get_many(db, namespaces)}
         for ds in datasets:
+            ns = namespaces[ds.Namespace]
+            ds.GUI_OwnerUser = ns.OwnerUser
+            ds.GUI_OwnerRole = ns.OwnerRole
             ds.GUI_Authorized = user is not None and (admin or self._namespace_authorized(db, ds.Namespace, user))
-            ds.GUI_Children = sorted(ds.children(), key=lambda x: (x.Namespace, x.Name))
-            ds.GUI_Parents = sorted(ds.parents(), key=lambda x: (x.Namespace, x.Name))
+            #ds.GUI_Children = sorted(ds.children(), key=lambda x: (x.Namespace, x.Name))
+            #ds.GUI_Parents = sorted(ds.parents(), key=lambda x: (x.Namespace, x.Name))
         return self.render_to_response("datasets.html", datasets=datasets, logged_in=user is not None, **self.messages(args))
 
     def dataset_files(self, request, relpath, dataset=None, with_meta="no"):
@@ -720,7 +749,7 @@ class GUIHandler(MetaCatHandler):
         dataset = DBDataset.get(db, namespace, name)
         files = sorted(list(dataset.list(with_metadata=with_meta)), key=lambda x: (x.Namespace, x.Name))
         return self.render_to_response("dataset_files.html", files=files, dataset=dataset, with_meta=with_meta)
-        
+
     def create_dataset(self, request, relpath, **args):
         user, auth_error = self.authenticated_user()
         if not user:
@@ -921,6 +950,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("roles.html", roles=roles, edit=admin, create=admin, **self.messages(args))
         
     def role(self, request, relpath, name=None, **args):
+        name = name or relpath
         me, auth_error = self.authenticated_user()
         if me is None:
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/roles")
