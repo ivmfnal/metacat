@@ -111,9 +111,7 @@ echo
 echo --- building foreign keys ...
 ./build_foreign_keys.sh
 
-
 echo
 echo --- saving authenticators
 ./save_authenticators.sh
-
 

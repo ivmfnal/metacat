@@ -31,7 +31,6 @@ create index dataset_specs on datasets((namespace || ':' || name));
 
 insert into datasets(namespace, name, creator, description)
 	values('dune','all','admin','All files imported during conversion from SAM');
-    
 
 create table datasets_parent_child
 (
