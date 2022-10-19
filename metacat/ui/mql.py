@@ -101,7 +101,7 @@ elif cmd == "run":
     db = connect(config)
     #print("connected to db")
     results = q.run(db, debug=True, filters=filters, with_meta=True, with_provenance=False)
-    print("Query results:")
+    print("Query results:", results)
     for r in results:
         pprint.pprint(r.to_jsonable())
 else:

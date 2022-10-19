@@ -174,14 +174,14 @@ class DBFileSet(object):
         elif basic_file_query.Limit is not None:
             limit = min(limit, basic_file_query.Limit)
             
-        dataset_selector = basic_file_query.DatasetSelector
+        bdq = basic_file_query.DatasetSelector
         datasets = None
-        if dataset_selector is not None:
-            datasets = list(basic_file_query.DatasetSelector.datasets(db))
+        if bdq is not None:
+            datasets = list(bdq.datasets(db))
             if not datasets:
                 return DBFileSet(db)      # empty File Set
 
-        if dataset_selector is None:
+        if bdq is None:
             return DBFileSet.all_files(db, dnf, with_metadata, limit)
             
         elif len(datasets) == 1:
@@ -1406,16 +1406,45 @@ class DBDataset(DBObject):
         return DBDataset.get_many(db, [spec.split(":",1) for spec in specs])    
 
     @staticmethod    
-    def apply_dataset_selector(db, dataset_selector, limit):
+    def _______expand_dataset_selector(db, dataset_selector, limit):
         patterns = dataset_selector.Patterns
         with_children = dataset_selector.WithChildren
         recursively = dataset_selector.Recursively
         datasets = DBDataset.list_datasets(db, patterns, with_children, recursively)
         return limited(dataset_selector.filter_by_having(datasets), limit)
-        
-    @staticmethod
-    def dataset_selector_sql(namespace, name, pattern, with_children, recursively, meta_filter):
 
+    @staticmethod
+    def datasets_for_bdf(db, bdf, limit=None):
+        print("datasets_for_bdf: bdf:", bdf)
+        if not (bdf.Namespace and bdf.Name):
+            name_or_pattern = bdf.Name
+            raise ValueError(f"Dataset specification error: {selector.Namespace}:{name_or_pattern}")
+        if bdf.is_explicit():
+            ds = DBDataset.get(db, bdf.Namespace, bdf.Name)
+            if ds is None:
+                out = []
+            else:
+                out = [ds]
+        else:
+            sql = DBDataset.dataset_selector_sql(bdf.Namespace, bdf.Name, bdf.Pattern, bdf.WithChildren,
+                    bdf.Recursively, bdf.Where)
+            print("   sql:", sql)
+            c = db.cursor()
+            c.execute(sql)
+            out = limited((DBDataset.from_tuple(db, tup) for tup in fetch_generator(c)), limit)
+        return out
+
+    @staticmethod
+    def datasets_for_bdfs(db, bdf_list):
+        seen = set()        # (namespace, name), ...
+        for bdf in bdf_list:
+            for ds in DBDataset.datasets_for_bdf(db, bdf):
+                if not (ds.Namespace, ds.Name) in seen:
+                    yield ds
+                    seen.add((ds.Namespace, ds.Name))
+
+    @staticmethod
+    def dataset_selector_sql(namespace, name, pattern, with_children, recursively, where):
             pc = alias("pc")
             pc1 = alias("pc1")
             d = alias("d")
@@ -1425,6 +1454,8 @@ class DBDataset(DBObject):
 
             columns = DBDataset.columns(as_text=False)
 
+            meta_filter_dnf = MetaExpressionDNF(where) if where is not None else None
+
             name_cmp = f"{ds}.name = '{name}'" if not pattern else f"{ds}.name like '{name}'"
         
             if not with_children:
@@ -1432,8 +1463,8 @@ class DBDataset(DBObject):
                 columns = ",".join([f"{ds}.{c}" for c in columns])
                 #print("columns:", columns)
                 sql = f"select {columns} from datasets {ds} where {ds}.namespace = '{namespace}' and {name_cmp}"
-                if meta_filter is not None:
-                    sql += " and " + meta_filter.sql(ds)
+                if meta_filter_dnf is not None:
+                    sql += " and " + meta_filter_dnf.sql(ds)
             else:
                 columns = ",".join(f"{d}.{c}" for c in columns)
                 top_sql = f"""select {ds}.namespace, {ds}.name, array[{ds}.namespace || ':' || {ds}.name], false
@@ -1470,7 +1501,7 @@ class DBDataset(DBObject):
                                         where {pc1}.parent_namespace = {s}.namespace and {pc1}.parent_name = {s}.name and not {s}.loop
                                 ) -- 1
                     """
-                meta_condition = "and " + meta_filter.sql(d) if meta_filter is not None else ""
+                meta_condition = "and " + meta_filter_dnf.sql(d) if meta_filter_dnf is not None else ""
                 sql = f"""
                     {selected_sql}
                     select distinct {columns} 
@@ -1479,36 +1510,9 @@ class DBDataset(DBObject):
                             {d}.name = {s}.name
                             {meta_condition}
                 """
-            debug("sql_for_selector(", namespace, name, pattern, with_children, recursively, meta_filter, ")\n", sql)
+            debug("dataset_selector_sql(", namespace, name, pattern, with_children, recursively, meta_filter_dnf, ")\n", sql)
             return sql
 
-    @staticmethod
-    def datasets_for_selector(db, selector):
-        #print("datasets_for_selector: selector:", selector)
-        if not (selector.Namespace and (selector.Name or selector.Pattern)):
-            name_or_pattern = selector.Name or selector.Pattern
-            raise ValueError(f"Dataset specification error: {selector.Namespace}:{name_or_pattern}")
-        if selector.is_explicit():
-            ds = DBDataset.get(db, selector.Namespace, selector.Name)
-            if ds is None:
-                out = []
-            else:
-                out = [ds]
-        else:
-            sql = DBDataset.dataset_selector_sql(selector.Namespace, selector.Name, selector.Pattern, selector.WithChildren,
-                    selector.Recursively, selector.Having)
-            c = db.cursor()
-            c.execute(sql)
-            out = [DBDataset.from_tuple(db, tup) for tup in fetch_generator(c)]
-        return out
-        
-    @staticmethod
-    def datasets_for_selectors(db, selectors):
-        out = {}        # (namespace, name) -> Dataset, to filter out duplicates
-        for sel in selectors:
-            for ds in DBDataset.datasets_for_selector(db, sel):
-                out[(ds.Namespace, ds.Name)] = ds
-        return list(out.values())
         
     def validate_file_metadata(self, meta):
         """
