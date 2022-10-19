@@ -98,12 +98,12 @@ class BasicDatasetQuery(object):
         return not self.Pattern and not self.WithChildren
 
     def line(self):
-        return "BasicDatasetQuery(%s:name=%s pattern=%s %s%s%s)" % (
+        return "BasicDatasetQuery(%s:%s%s%s%s%s)" % (
                 self.Namespace, self.Name, 
                 " (pattern) " if self.Pattern else "",
                 " with children" if self.WithChildren else "",
                 " recursively" if self.Recursively else "",
-                " " + self.Where or "")
+                " " + (self.Where or ""))
 
     __str__ = line
     __repr__ = line
@@ -379,35 +379,6 @@ class QueryConverter(Converter):
     def constant_list(self, args):
         return [n["value"] for n in args]
         
-    def dataset_selector(self, args):
-        name_or_pattern = args[0]
-        assert name_or_pattern.T in ("dataset_pattern", "qualified_name")
-        name = name_or_pattern["name"]
-        pattern = name_or_pattern.T = "dataset_pattern"
-        where_exp = None
-        with_children = False
-        recursively = False
-        args_ = args[1:]
-        i = 0
-        while i < len(args_):
-            #print(i, a)
-            a = args_[i]
-            if a.value == "with":
-                pass
-            elif a.value == "children":
-                with_children = True
-            elif a.value == "recursively":
-                recursively = True
-            elif a.value == "where":
-                where_exp = args_[i+1]
-                i += 1
-            i += 1
-        selector = BasicDatasetQuery(namespace, name, pattern=pattern, with_children=with_children, recursively=recursively, where=where_exp)
-        return Node("dataset_selector", selector=selector)
-        
-    def dataset_selector_list(self, args):
-        return Node("dataset_selector_list", selectors=[ds["selector"] for ds in args])
-
     def qualified_name(self, args):
         assert len(args) in (1,2)
         if len(args) == 1:
@@ -673,9 +644,39 @@ class QueryConverter(Converter):
         return self._apply_not(children[0])
         
     #
-    # Dataset queries
+    # Datasets
     #
     
+    def dataset_selector(self, args):
+        name_or_pattern = args[0]
+        assert name_or_pattern.T in ("dataset_pattern", "qualified_name")
+        name = name_or_pattern["name"]
+        namespace = name_or_pattern["namespace"]
+        pattern = name_or_pattern.T == "dataset_pattern"
+        where_exp = None
+        with_children = False
+        recursively = False
+        args_ = args[1:]
+        i = 0
+        while i < len(args_):
+            #print(i, a)
+            a = args_[i]
+            if a.value == "with":
+                pass
+            elif a.value == "children":
+                with_children = True
+            elif a.value == "recursively":
+                recursively = True
+            elif a.value == "where":
+                where_exp = args_[i+1]
+                i += 1
+            i += 1
+        selector = BasicDatasetQuery(namespace, name, pattern=pattern, with_children=with_children, recursively=recursively, where=where_exp)
+        return Node("dataset_selector", selector=selector)
+        
+    def dataset_selector_list(self, args):
+        return Node("dataset_selector_list", selectors=[ds["selector"] for ds in args])
+
     def dataset_add_where(self, children):
         assert len(children) == 2
         bdq, where = children
@@ -1066,7 +1067,7 @@ def parse_query(text, debug=False):
 class MQLQuery(object):
     
     @staticmethod
-    def parse(text):
+    def parse(text, debug=False):
         out = []
         for l in text.split("\n"):
             l = l.split('#', 1)[0]
@@ -1074,6 +1075,8 @@ class MQLQuery(object):
         text = '\n'.join(out)
     
         parsed = _Parser.parse(text)
+        if debug:
+            print("parsed:", parsed.pretty())
         return QueryConverter().convert(parsed)
         
     @staticmethod
