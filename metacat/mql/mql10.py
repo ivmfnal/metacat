@@ -84,32 +84,32 @@ def _make_DNF(exp, op=None, exp1=None):
 
     return _MetaRegularizer().walk(exp)
 
-class DatasetSelector(object):
+class BasicDatasetQuery(object):
 
-    def __init__(self, namespace, name, pattern, with_children, recursively, having):
+    def __init__(self, namespace, name, pattern=False, with_children=False, recursively=False, where=None):
         self.Namespace = namespace
         self.Name = name
         self.Pattern = pattern
         self.WithChildren = with_children
         self.Recursively = recursively
-        self.Having = having
+        self.Where = where
         
     def is_explicit(self):
         return not self.Pattern and not self.WithChildren
 
     def line(self):
-        return "DatasetSelector(%s:%s%s%s%s%s)" % (
+        return "BasicDatasetQuery(%s:name=%s pattern=%s %s%s%s)" % (
                 self.Namespace, self.Name, 
-                "[*]" if self.Pattern else "[]",
+                " (pattern) " if self.Pattern else "",
                 " with children" if self.WithChildren else "",
                 " recursively" if self.Recursively else "",
-                " " + self.Having if self.Having else "")
+                " " + self.Where or "")
 
     __str__ = line
     __repr__ = line
                 
-    def setHaving(self, having):
-        self.Having = having
+    def setWhere(self, where):
+        self.Where = where
         
     def datasets(self, db, limit=None):
         return DBDataset.apply_dataset_selector(db, self, limit)
@@ -120,18 +120,18 @@ class DatasetSelector(object):
         if default_namespace:
             self.Namespace = self.Namespace or default_namespace
                 
-    def filter_by_having(self, datasets):
-        if self.Having is None:
+    def filter_by_where(self, datasets):
+        if self.Where is None:
             yield from datasets
         evaluator = MetaEvaluator()
         for ds in datasets:
-            if evaluator(ds.Metadata, self.Having):
+            if evaluator(ds.Metadata, self.Where):
                 yield ds
                 
 class BasicFileQuery(object):
     
     def __init__(self, dataset_selectors, where=None):
-        assert all(isinstance(ds, DatasetSelector) for ds in dataset_selectors)
+        assert all(isinstance(ds, BasicDatasetQuery) for ds in dataset_selectors)
         self.DatasetSelectors = dataset_selectors
         self.Wheres = where
         self.Limit = None
@@ -382,10 +382,9 @@ class QueryConverter(Converter):
     def dataset_selector(self, args):
         name_or_pattern = args[0]
         assert name_or_pattern.T in ("dataset_pattern", "qualified_name")
-        pattern = name_or_pattern.T == "dataset_pattern"
         name = name_or_pattern["name"]
-        namespace = name_or_pattern["namespace"]
-        having_exp = None
+        pattern = name_or_pattern.T = "dataset_pattern"
+        where_exp = None
         with_children = False
         recursively = False
         args_ = args[1:]
@@ -399,11 +398,11 @@ class QueryConverter(Converter):
                 with_children = True
             elif a.value == "recursively":
                 recursively = True
-            elif a.value == "having":
-                having_exp = args_[i+1]
+            elif a.value == "where":
+                where_exp = args_[i+1]
                 i += 1
             i += 1
-        selector = DatasetSelector(namespace, name, pattern, with_children, recursively, having_exp)
+        selector = BasicDatasetQuery(namespace, name, pattern=pattern, with_children=with_children, recursively=recursively, where=where_exp)
         return Node("dataset_selector", selector=selector)
         
     def dataset_selector_list(self, args):
@@ -699,31 +698,11 @@ class QueryConverter(Converter):
     def simple_dataset_query(self, children):
         c = children[0]
         if c.T == "qualified_name":
-            q = BasicDatasetQuery(c["namespace"], name=c["name"])
+            q = BasicDatasetQuery(c["namespace"], c["name"])
         elif c.T == "dataset_pattern":
-            q = BasicDatasetQuery(c["namespace"], pattern=c["name"])
+            q = BasicDatasetQuery(c["namespace"], c["name"], pattern=True)
         else:
             raise ValueError(f"Unknown child type {c.T}")
-        
-        
-class BasicDatasetQuery(object):
-    
-    def __init__(self, namespace, name=None, pattern=None):
-        self.Namespace = namespace
-        self.Name = name
-        self.Pattern = pattern
-        self.WithChildren = False
-        self.Recursively = False
-        self.Where = None
-        
-    def addWhere(self, where):
-        assert isinstance(where, Node) and where.T == "meta_or"
-        if self.Wheres is None:
-            wheres = where
-        else:
-            wheres = Node("meta_and", self.Wheres, where)
-        self.Wheres = _make_DNF(wheres)
-        return self
 
 class _Assembler(Ascender):
 
@@ -772,7 +751,7 @@ class _WithParamsApplier(Descender):
     def dataset_selector(self, node, params):
         #print("_ParamsApplier.dataset_selector: applying params:", params)
         selector = meta
-        assert isinstance(selector, DatasetSelector)
+        assert isinstance(selector, BasicDatasetQuery)
         selector.apply_params(params)
         return node
         
@@ -1056,11 +1035,11 @@ class _DatasetEvaluator(Ascender):
         return dataset_selector
     
     def datasets_selector(self, node, *args, selector = None):
-        assert isinstance(selector, DatasetSelector)
+        assert isinstance(selector, BasicDatasetQuery)
         evaluator = MetaEvaluator()
         out = limited(
             (x for x in selector.datasets(self.DB, self.Limit)
-                if selector.Having is None or evaluator(x.Metadata, selector.Having)
+                if selector.Where is None or evaluator(x.Metadata, selector.Where)
             ), 
             self.Limit
         )
