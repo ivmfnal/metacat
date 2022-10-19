@@ -1,10 +1,6 @@
 import os
 from setuptools import setup
 
-# Utility function to read the README file.
-# Used for the long_description.  It's nice, because now 1) we have a top level
-# README file and 2) it's easier to type in the README file than to put a raw
-# string in below ...
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname), "r").read()
 
@@ -19,13 +15,12 @@ setup(
     version = get_version(),
     author = "Igor Mandrichenko",
     author_email = "ivm@fnal.gov",
-    description = ("General purpose metadata database"),
+    description = ("MetaCat is a general purpose metadata database. This package is the client side portion of the product."),
     license = "BSD 3-clause",
     keywords = "metadata, data management, database, web service",
     url = "https://github.com/ivmfnal/metacat",
-    packages=['metacat', 'metacat.mql', 'metacat.db', 'metacat.util', 'metacat.webapi', 'metacat.ui', 'metacat.filters'],
-    long_description=read('README.rst'),
-    install_requires=["pythreader >= 1.7", "pyjwt", "pyyaml", "lark"],
+    packages=['metacat', 'metacat.db', 'metacat.util', 'metacat.webapi', 'metacat.ui', 'metacat.auth', 'metacat.ui.cli'],
+    install_requires=["pyjwt", "requests", "pythreader>=2.8.0"],
     zip_safe = False,
     classifiers=[
     ],

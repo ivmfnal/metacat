@@ -6,7 +6,14 @@ Installation
 
 You will need Python 3.7 or newer.
 
-To install the client side components:
+Preferred way to install the client is using pip:
+
+  .. code-block:: shell
+
+    $ pip install metacat --user
+    $ pip3 install metacat --user
+
+Alternatively, it can be installed from github:
 
   .. code-block:: shell
 
@@ -26,6 +33,8 @@ If you use your own Python installation, e.g. Anaconda or Miniconda, then you ca
 
       $ python setup.py install
 
+It is also possible to install MetaCat client from a tarball from https://cdcvs.fnal.gov/redmine/projects/metacat/files
+
 
 General CLI command syntax
 --------------------------
@@ -43,14 +52,28 @@ General command looks like this:
     .. code-block:: shell
     
         $ export METACAT_SERVER_URL="http://server:port/path"
-        $ # optionally: export METACAT_AUTH_SERVER_URL="http://auth_server:port/auth_path"
-        $ metacat <command> [command options] [arguments ...]
+        $ export METACAT_AUTH_SERVER_URL="http://auth_server:port/auth_path"
+        $ metacat <command group> <command> [command options] [arguments ...]
         
-    
+
+Versions
+--------
+
+To quickly check the connectivity to the MetaCat server and see what software versions are used on the server
+and the client sides, use the ``version`` command:
+
+    .. code-block:: shell
+
+        $ metacat version
+        MetaCat Server URL:         https://metacat.fnal.gov:9443/dune_meta_demo/app
+        Authentication server URL:  https://metacat.fnal.gov:8143/auth/dune
+        Server version:             3.9.1
+        Client version:             3.9.1
+
 User Authentication
 -------------------
 
-Main purpose of authentication commands is to obtain an authentication token and store it in
+Main purpose of MetaCat authentication commands is to obtain an authentication token and store it in
 the MetaCat *token library* located at ~/.metacat_tokens. The library may contain multiple
 tokens, one per MetaCat server instance the user communicates with. The instances are identified
 by their URL.
@@ -110,12 +133,13 @@ Export token to a file or to stdout
     
     metacat auth token [-o <token file>]
 	
-Verify a token
+On successful authentication, the following command will show your username and the token expiration:
 
 .. code-block:: shell
     
-    metacat auth whoami [-t <token file>]
-	
+    $ metacat auth whoami [-t <token file>]
+    User:    jdoe
+    Expires: Fri Jul 20 12:35:10 2022
 
 
 Namespaces
@@ -123,11 +147,19 @@ Namespaces
 
 .. code-block:: shell
 
-    $ metacat namespace create my_namespace
-    $ metacat namespace create -o owner_role my_namespace
-    $ metacat namespace list "protodune*"
-    $ metacat namespace show protodune-sp
-    
+    $ metacat namespace create <namespace>                     # create namespace owned by me
+    $ metacat namespace create -o <owner_role> <namespace>     # create namespace owned by a role
+    $ metacat namespace show <namespace>
+
+To list existing namespaces:
+
+.. code-block:: shell
+
+    $ metacat namespace list [options] <pattern>
+        <pattern> is a UNIX shell style pattern (*?[])
+        -u|--user <username>        - list namespaces owned by the user
+        -d                          - exclude namespaces owned by the user via a role
+        -r|--role <role>            - list namespaces owned by the role
 
 Datasets
 --------
@@ -141,10 +173,14 @@ Creating a dataset
 .. code-block:: shell
 
     $ metacat dataset create [<options>] <namespace>:<name> [<description>]
-            -M|--monotonic
-            -F|--frozen
-            -m|--metadata '<JSON expression>'
-            -m|--metadata @<JSON file>
+      -M|--monotonic
+      -F|--frozen
+      -m|--metadata '<JSON expression>'
+      -m|--metadata @<JSON file>
+      -f|--file-query '<MQL file query>'          - run the query and add files to the dataset
+      -f|--file-query @<file_with_query>          - run the query and add files to the dataset
+      -r|--meta-requirements '<JSON expression>'  - add metadata requirements
+      -r|--meta-requirements @<JSON file>         - add metadata requirements
 
 A multi-word description does not have to be put in quotes. E.g., the following two commands are equivalent:
 
@@ -152,6 +188,78 @@ A multi-word description does not have to be put in quotes. E.g., the following 
 
     $ metacat dataset create scope:name Carefully selected files
     $ metacat dataset create scope:name "Carefully selected files"
+    
+``-f`` option can be used to create a dataset with files matching the MQL query. The query can be given inline or read from a file.
+
+``-r`` is used to create a dataset with specified metadata requirements. They are specified as a JSON dictionary (to be documented...)
+
+Adding files to dataset
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: shell
+
+    $ metacat dataset add-files [options] <dataset namespace>:<dataset name>
+  
+      list files by DIDs or namespace/names
+      -N|--namespace <default namespace>           - default namespace for files
+      -d|--names <file namespace>:<file name>[,...]
+      -d|--names -            - read the list from stdin
+      -d|--names @<file>      - read the list from file
+  
+      list files by file id
+      -i|--ids <file id>[,...]
+      -i|--ids -              - read the list from stdin
+      -i|--ids @<file>        - read the list from file
+  
+      read file list from JSON file
+      -j|--json <json file>
+      -j|--json -             - read JSON file list from stdin
+      -s|--sample             - print JOSN file list sample
+  
+      add files matching a query
+      -q|--query "<MQL query>"
+      -q|--query @<file>      - read query from the file
+
+There are several ways to specify the list of files to be added to the dataset:
+
+``-d`` option is used to specify s list of file DIDs ("namespace:name"). ``-i`` option specifies a list of file ids. 
+
+``-j`` option can be used to specify the list of files as a JSON document. The JSON document must contain a list of dictionaries. E.g.:
+
+
+.. code-block:: json
+
+    [
+        {   
+            "did":"my_scope:file.data"
+        },
+        {   
+            "namespace":"my_scope",
+            "name":"file.data"
+        },
+        {
+            "fid":"abcd1234"
+        }
+    ]
+
+Each dictionary represents a single file to add. The dictionary must contain one of the following keys and corresponding values:
+
+  - "did" - file DID
+  - "namespace" and "name"
+  - "fid" - file id
+
+To add files which match an MQL query, use ``-q`` option.
+
+An alternative way to add files matching a query is to pipe the outout of ``query`` command into ``dataset add``:
+
+.. code-block:: shell
+
+    $ metacat query -i files from scope:dataset1 | metacat dataset add-files -i - scope:dataset2
+
+Using ``-q`` can be faster because piping involves sending the file list to the client and back to the server, 
+whereas ``-q`` only sends the list of file ids to the client one way.
+
+Note that it is not an error to attempt to add a file if it is already included in the dataset.
 
 Listing existing datasets
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -185,52 +293,78 @@ Updating a dataset metadata and flags
             -r|--replace            - replace metadata, otherwise update
             -m|--metadata @<JSON file with metadata> 
             -m|--metadata '<JSON expression>' 
+            
+Listing files in the dataset
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. code-block:: shell
+
+    $ metacat dataset files [<options>] <dataset namespace>:<dataset name>
+            -m|--with-metadata      - include file metadata
+            -j                      - as JSON
 
 Adding/removing subsets to/from a dataset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: shell
 
-    $ metacat dataset add <parent dataset namespace>:<parent name> <child dataset namespace>:<child name> [<child dataset namespace>:<child name> ...]
-    $ metacat dataset remove <parent namespace>:<parent name> <child namespace>:<child name> 
+    $ metacat dataset add-subset <parent dataset namespace>:<parent name> <child dataset namespace>:<child name> [<child dataset namespace>:<child name> ...]
 
 When adding a dataset to another dataset, MetaCat checks whether the operation will create a circle in the ancestor/descendent relationship and refuses
 to do so.
 
-
-Declaring new Files
+Declaring new files
 -------------------
 
-Create JSON file with metadata::
+Declare single file
+~~~~~~~~~~~~~~~~~~~
+
+Create JSON file with file metadata, e.g.:
+
+.. code-block:: json
+
+    {
+        "math.pi": 3.14,
+        "processing.status": "done",
+        "processing.version": "1.3.5"
+    }
+
+then decalre the file:
+
+.. code-block:: shell
+
+      $ metacat declare [options]    [<file namespace>:]<filename>          [<dataset namespace>:]<dataset>
+      $ metacat declare [options] -a [<file namespace>:]<auto-name pattern> [<dataset namespace>:]<dataset>
+          -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
+          -j|--json                           - print results as JSON
+          -s|--size <size>                    - file size
+          -c|--checksums <type>:<value>[,...] - checksums
+          -N|--namespace <default namespace>
+          -p|--parents   <parent>,...         - parents can be specified as file ids or DIDs
+          -m|--metadata  <JSON metadata file> - if unspecified, file will be declared with empty metadata
+          -a|--auto-name                      - generate file name automatically
+
+Declare multiple files
+~~~~~~~~~~~~~~~~~~~~~~
+
+When declaring multiple files, the command accepts JSON file path. The JSON file provides information about the files to be declared. The JSON structure in the file
+must be a list of dictionaries, one dictionary per file to be declared. Each dictionary has the following items:
+
+.. code-block:: json
 
     [
         {   
             "namespace":"namespace",    # optional - use -N to specify default
             "name":"name",              # optional
             "auto_name":pattern,        # optional
-            "fid":"...",                # optional - new will be generated if missing, will fail if specified and already exists
+            "fid":"...",                # optional - if missing, new will be generated. If specified, must be unique
             "metadata": { ... },        # optional
-            "parents":  [ "fid1", "fid2", ... ]     # optional, must be file ids         
-            "size":   1234              # required
+            "parents":  [ ... ]         # optional, list of dictionaries, one dictionary per parent
+            "size":   1234              # required - size of the file in bytes
         },
         ...
     ]
-
-You can get a sample of the JSON file:
-
-.. code-block:: shell
     
-    metacat file declare --sample
-        
-Declare files:
-
-.. code-block:: shell
-
-    declare [-N|--namespace <default namespace>] -j|--json <json file> [<dataset namespace>:]<dataset>
-        
-When declaring multiple files, the command accepts JSON file path. The JSON file provides information about the files being declared. The JSON structure in the file
-must be a list of dictionaries, one dictionary per file to be declared. Each dictionary has the following items:
 
 ``fid`` : optional
     File ID for the new file. Must be unique for the MetaCat instance. 
@@ -243,17 +377,18 @@ must be a list of dictionaries, one dictionary per file to be declared. Each dic
     File name. The file name must be unique within the namespace. If unspecified, the name will be auto-generated or the file ID will be used as the name.
     
 ``auto_name`` : optional
-    Pattern to be used to generate new file name. The pattern is specified in terms of Python print-style format string. The following mapping keys will be pre-defined:
+    Pattern to be used to generate new file name. The pattern is may include constant parts and parts to be replaced by the MetaCat in
+    the following order:
     
-    * ``%(uuid)s`` - hexadecimal representation of a random UUID (32 hex digits)
-    * ``%(uuid8)s`` - 4-bytes (8 hex digits) of a random UUID 
-    * ``%(uuid16)s`` - 8-bytes (16 hex digits) of a random UUID 
-    * ``%(clock)d`` - UNIX timestamp in milliseconds as integer ( int(time*1000) )
-    * ``%(clock3)d`` - milliseconds portion of UNIX timestamp as integer
-    * ``%(clock6)d`` - lowest 6 digits of UNIX timestamp in milliseconds as integer
-    * ``%(clock9)d`` - lowest 9 digits of UNIX timestamp in milliseconds as integer
+    * $clock3   - lower 3 digits of UNIX timestamp in milliseconds as integer (milliseconds portion of the timestamp)
+    * $clock6   - lower 6 digits of UNIX timestamp in milliseconds as integer
+    * $clock    - entire UNIX UNIX timestamp in milliseconds as integer
+    * $uuid8    - 8 hex digits of a random UUID 
+    * $uuid16   - 16 hex digits of a random UUID 
+    * $uuid     - 32 hex digits of a random UUID
+    * $fid      - file ID
 
-    For example, the pattern ``file_%(uuid8)s_%(clock6)d.dat`` may generate file name ``file_13d79a37_601828.dat``
+    For example, the pattern ``file_$uuid8_$clock6.dat`` may generate file name ``file_13d79a37_601828.dat``.
 
     If neither ``name`` nor ``auto_name`` are provided, then ``file ID`` will be used as the file name.
 
@@ -264,53 +399,45 @@ must be a list of dictionaries, one dictionary per file to be declared. Each dic
     File metadata as dictionary
     
 ``parents`` : optional
-    List of parent files IDs
-    
-When declaring a file or multiple files, they must be added to a dataset.
+    List of dictionaries, one dictionary per parent file, in one of 3 formats:
+        - { "did": "<namespace>:<name>" }
+        - { "namespace":"...", "name":"..." }
+        - { "fid": "<file id>" }
+    Individual parent dictionaries do not have to be in the same format.
+    Specifing parents with list of string file ids instead of dictionaries **is deprecated**.
 
-Adding files to dataset
------------------------
+You can get a sample of the JSON file:
 
 .. code-block:: shell
     
-    metacat add -n <namespace>:<name>[,...] <dataset namespace>:<dataset name>
-    metacat add -n @<file with names> <dataset namespace>:<dataset name>
-    metacat add -n - <dataset namespace>:<dataset name>             # read file namesspace:name's from stdin 
-
-    metacat add -i <file id>[,...] <dataset namespace>:<dataset name>
-    metacat add -i @<file with ids> <dataset namespace>:<dataset name>
-    metacat add -i - <dataset namespace>:<dataset name>             # read file ids from stdin 
-
-    metacat add -j <JSON file> <dataset namespace>:<dataset name>
+    $ metacat file declare-sample
         
-JSON file structure::
-    
-    [
-        {   
-            "name":"namespace:name"
-        },
-        {
-            "fid":"..."
-        },
-        ...
-    ]
-
-Get a sample of the JSON file:
-
-.. code-block:: shell
-    
-    metacat file add --sample
-
-**Example:** add files from dataset A but not in dataset B to dataset C:
+Once you have the JSON file with files description, you can delare them:
 
 .. code-block:: shell
 
-    $ metacat query -i -N test "files from A - files from B" > file_ids.txt
-    $ metacat file add -i @file_ids.txt test:C
+    $ metacat file declare-many [options] <file list JSON file> [<dataset namespace>:]<dataset name>
+    Declare multiple files:
+          -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
+          -j|--json                           - print results as JSON
+          -N|--namespace <default namespace>
+
+Listing datasets the file is in
+-------------------------------
+
+This command will print namespace/name for all the datasets the file is in. Currently, not recursively.
+
+.. code-block:: shell
+
+    $ metacat file datasets [-j|-p] -i <file id>
+    $ metacat file datasets [-j|-p] <namespace>:<name>
+      -p pretty-print the list of datasets
+      -j print the dataset list as JSON
+      otherwise print <namespace>:<name> for each dataset
+
 
 File Metadata
 -------------
-
         
 Updating
 ~~~~~~~~
@@ -343,10 +470,20 @@ Update metadata:
 Retrieving
 ~~~~~~~~~~
 
+Retrieving single file metadata
+
 .. code-block:: shell
 
-    metacat file show <namespace>:<name>            # - by namespace/name
-    metacat file show -i <fid>                      # - by file id
+        metacat file show [options] (-i <file id>|<namespace>:<name>)
+          -m|--meta-only            - print file metadata only
+          -n|--name-only            - print file namespace, name only
+          -d|--id-only              - print file id only
+
+          -j|--json                 - as JSON
+          -p|--pretty               - pretty-print information
+
+          -l|--lineage|--provenance (p|c)        - parents or children instead of the file itself
+          -I|--ids                               - for parents and children, print file ids instead of namespace/names
 
 Query
 -----

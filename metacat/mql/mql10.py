@@ -1,10 +1,10 @@
 from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet, limited
-from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter
+from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter, LarkToNodes
 from .sql_converter import SQLConverter
 from .meta_evaluator import MetaEvaluator
 import json, time
 
-from lark import Lark
+from lark import Lark, LarkError
 from lark import Tree, Token
 import pprint
 
@@ -13,13 +13,25 @@ CMP_OPS = [">" , "<" , ">=" , "<=" , "==" , "=" , "!=", "~~", "~~*", "!~~", "!~~
 from .grammar import MQL_Grammar
 _Parser = Lark(MQL_Grammar, start="query")
 
-class SyntaxError(Exception):
-    
+class MQLError(Exception):
+
     def __init__(self, message):
-        self.Message = messge
-        
+        self.Message = message
+
+class MQLSyntaxError(MQLError):
+    
     def __str__(self):
-        return f"MQL Syntax Error: {self.Message}"
+        return f"MQL syntax Error: {self.Message}"
+        
+class MQLCompilationError(MQLError):
+    
+    def __str__(self):
+        return f"MQL compilation Error: {self.Message}"
+        
+class MQLExecutionError(MQLError):
+    
+    def __str__(self):
+        return f"MQL execution Error: {self.Message}"
         
 class _MetaRegularizer(Ascender):
     # converts the meta expression into DNF form:
@@ -131,7 +143,9 @@ class BasicDatasetQuery(object):
 class BasicFileQuery(object):
     
     def __init__(self, dataset_selectors, where=None):
-        assert all(isinstance(ds, BasicDatasetQuery) for ds in dataset_selectors)
+        assert dataset_selectors is None or isinstance(dataset_selectors, list)
+        if isinstance(dataset_selectors, list):
+            assert all(isinstance(ds, BasicDatasetQuery) for ds in dataset_selectors)
         self.DatasetSelectors = dataset_selectors
         self.Wheres = where
         self.Limit = None
@@ -183,8 +197,9 @@ class BasicFileQuery(object):
 
     def apply_params(self, params):
         default_namespace = params.get("namespace")
-        for ds in self.DatasetSelectors:
-            ds.apply_params(params)
+        if self.DatasetSelectors:
+            for ds in self.DatasetSelectors:
+                ds.apply_params(params)
         
 class DatasetQuery(object):
     
@@ -256,29 +271,24 @@ class FileQuery(object):
         return self.Optimized
 
     def run(self, db, filters={}, skip=0, limit=None, with_meta=True, with_provenance=True, default_namespace=None, debug=False):
-        #print("Query.run: DefaultNamespace:", self.DefaultNamespace)
+        try:
+            self.assemble(db, default_namespace = default_namespace)
+            optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
         
-        #print("assemble()...")
-        self.assemble(db, default_namespace = default_namespace)
-        #print("Query.run: assemled:", self.Assembled.pretty())
-        
-        #print("optimize()...")
-        optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
-        #print("Query.run: optimized: ----\n", optimized.pretty())
-        
-        optimized = _QueryOptionsApplier().walk(optimized, 
-            dict(
-                with_provenance = with_provenance,
-                with_meta = with_meta
-        ))
-        if debug:
-            print("after _QueryOptionsApplier:", optimized.pretty())
-        #print("Limit %s applied: ----\n" % (limit,), optimized.pretty())
-        
-        #out = _FileEvaluator(db, filters, with_meta, None).walk(optimized)
-        #print ("run: out:", out)
-        #print("FileQuery: with_meta:", with_meta)
-        out = SQLConverter(db, filters, debug=debug).convert(optimized)
+            optimized = _QueryOptionsApplier().walk(optimized, 
+                dict(
+                    with_provenance = with_provenance,
+                    with_meta = with_meta
+                ))
+            if debug:
+                print("after _QueryOptionsApplier:", optimized.pretty())
+        except Exception as e:
+            raise MQLCompilationError(str(e))
+            
+        try:
+            out = SQLConverter(db, filters, debug=debug).convert(optimized)
+        except Exception as e:
+            raise MQLExecutionError(str(e))
         
         if debug:
             print("Query:\n%s" % (optimized.pretty(),))
@@ -313,6 +323,9 @@ class QueryConverter(Converter):
         
     def __default__(self, typ, children, meta):
         return Node(typ, children, _meta=meta)
+        
+    def file_query_term(self, args):
+        return args[0]
 
     def merge_meta(self, m1, m2):
         if m1 is None or m2 is None:
@@ -347,15 +360,36 @@ class QueryConverter(Converter):
     def meta_filter(self, args):
         q, meta_exp = args
         return Node("meta_filter", query=q, meta_exp=_make_DNF(meta_exp))
-                
-    def basic_file_query(self, args):
-        assert len(args) == 1, str(args)
-        assert args[0].T == "dataset_selector_list"
-        return Node("basic_file_query", query=BasicFileQuery(args[0]["selectors"]))
-        
-    def file_list(self, args):
-        return Node("file_list", specs=[a.value[1:-1] for a in args], with_meta=False, with_provenance=False, limit=None)
 
+    def basic_file_query(self, args):
+        if args:
+            assert len(args) == 1, "Expected 0 or 1 dataset selector list. Got: "+str(args)
+            assert args[0].T == "dataset_selector_list"
+            return Node("basic_file_query", query=BasicFileQuery(args[0]["selectors"]))
+        else:
+            return Node("basic_file_query", query=BasicFileQuery(None))
+            
+    def name_list(self, args):
+        return [a.value for a in args]
+
+    def file_list(self, args):
+        spec_type = args[0].value
+        assert spec_type in ("files", "fids", "file", "fid")
+        if spec_type.endswith('s'):
+            spec_type = spec_type[:-1]
+        if spec_type == "file":
+            namespace = None
+            specs = []
+            for qname in args[-1].C:
+                assert qname.T == "qualified_name"
+                namespace = qname.get("namespace") or namespace
+                specs.append(dict(namespace=namespace, name=qname["name"]))
+        else:       # "fids"
+            #print(args[-1], args[-1].C)
+            specs = [fid.value for fid in args[-1].C]
+        return Node("file_list", specs=specs, spec_type=spec_type,
+                 with_meta=False, with_provenance=False, limit=None)
+                 
     def int_constant(self, args):
         v = args[0]
         return Node("int", value=int(v.value))
@@ -368,17 +402,52 @@ class QueryConverter(Converter):
         v = args[0]
         #print("bool_constant:", args, args[0].value)
         return Node("bool", value=v.value.lower() == "true")
-        
+
     def string_constant(self, args):
         v = args[0]
+        assert v.type in ("STRING", "UNQUOTED_STRING")
         s = v.value
-        if s[0] in ('"', "'"):
-            s = s[1:-1]
+        if v.type == "STRING":
+            if s[0] in ('"', "'"):
+                s = s[1:-1]
+        if '"' in s or "'" in s:        # sanitize
+            raise ValueError("Unsafe string constant containing double or single quote: %s" % (repr(s),))
         return Node("string", value=s)
-        
+
     def constant_list(self, args):
         return [n["value"] for n in args]
+
+    def dataset_selector(self, args):
+        name_or_pattern = args[0]
+        assert name_or_pattern.T in ("dataset_pattern", "qualified_name")
+        pattern = name_or_pattern.T == "dataset_pattern"
+        name = name_or_pattern["name"]
+        namespace = name_or_pattern["namespace"]
+        having_exp = None
+        with_children = False
+        recursively = False
+        args_ = args[1:]
+        i = 0
+        while i < len(args_):
+            #print(i, a)
+            a = args_[i]
+            if a.value == "with":
+                pass
+            elif a.value == "children":
+                with_children = True
+            elif a.value == "recursively":
+                recursively = True
+            elif a.value == "having":
+                having_exp = args_[i+1]
+                i += 1
+            i += 1
+        selector = DatasetSelector(namespace, name, pattern, with_children, recursively, having_exp)
+        return Node("dataset_selector", selector=selector)
         
+    def dataset_selector_list(self, args):
+        return Node("dataset_selector_list", selectors=[ds["selector"] for ds in args])
+
+>>>>>>> main
     def qualified_name(self, args):
         assert len(args) in (1,2)
         if len(args) == 1:
@@ -532,6 +601,9 @@ class QueryConverter(Converter):
             inx = int(inx.value)
         return Node("array_subscript", name=name.value, index=inx)
 
+    def json_path(self, args):
+        node = Node("json_path", [args[0]], neg=False)
+
     def cmp_op(self, args):
         node = Node("cmp_op", [args[0], args[2]], op=args[1].value, neg=False)
         return self._convert_array_all(node)
@@ -614,10 +686,10 @@ class QueryConverter(Converter):
             return Node("meta_and", [self._apply_not(c) for c in node.C])
         elif node.T == "meta_not":
             return node.C[0]
-        elif node.T in ("cmp_op", "in_set", "in_range"):
+        elif node.T in ("cmp_op", "in_set", "in_range", "json_path"):   # why cmp_op is here ??? 
             node["neg"] = not node["neg"]
             return node
-        elif node.T == "cmp_op":
+        elif node.T == "cmp_op":                                        # why cmp_op is not here ???
             new_op = {
                 "~":   "!~",
                 "!~":  "~",
@@ -733,15 +805,11 @@ class _WithParamsApplier(Descender):
     
     def file_list(self, node, params):
         namespace = params.get("namespace")
-        if not namespace:
-            return node
-        new_specs = []
-        for s in node["specs"]:
-            parts = s.split(":",1)
-            if len(parts) == 2 and not parts[0]:
-                s = namespace + ":" + parts[1]
-            new_specs.append(s)
-        node["specs"] = new_specs
+        if namespace and node["spec_type"] == "file":
+            for spec in node["specs"]:
+                if not spec.get("namespace"):
+                    spec["namespace"] = namespace
+        return node
 
     def basic_file_query(self, node, params):
         bfq = node["query"]
@@ -838,8 +906,8 @@ class _SkipLimitApplier(Descender):
 
     def file_list(self, node, skip_limit):
         skip, limit = skip_limit
-        node["limit"] = limit
-        node["skip"] = skip
+        node["limit"] = node.get("limit") or limit
+        node["skip"] = node.get("skip") or skip
         return node
     
     def empty(self, node, skip_limit):
@@ -882,45 +950,6 @@ class _RemoveEmpty(Ascender):
     def skip_limit(self, node, child, skip=0, limit=None):
         if child.T == "empty":
             return child
-        else:
-            return node
-            
-class _____QueryLimitApplier(Descender):
-    
-    def limit(self, node, limit):
-        #print("_LimitPusher.limit: node:", node)
-        assert len(node.C) == 1
-        node_limit = node["limit"]
-        limit = node_limit if limit is None else min(limit,node_limit)
-        return self.walk(node.C[0], limit)
-        
-    def union(self, node, limit):
-        if limit is not None:
-            return Node("limit", 
-                [Node("union", 
-                    [self.walk(c, limit) for c in node.C]
-                    )
-                ], limit=limit)
-        else:
-            return node
-
-    def basic_file_query(self, node, limit):
-        #print("LimitApplier: applying limit", limit)
-        node["query"].addLimit(limit)
-        return node
-        
-    def filter(self, node, limit):
-        node["limit"] = limit
-        return Node("limit", [node], limit=limit)
-
-    def file_list(self, node, limit):
-        node["limit"] = limit
-        return node
-        
-    def _default(self, node, limit):
-        #print("_LimitApplier._default: node:", node.pretty())
-        if limit is not None:
-            return Node("limit", [node], limit=limit)
         else:
             return node
             
@@ -1047,16 +1076,17 @@ class _DatasetEvaluator(Ascender):
         #print("_DatasetEvaluator.datasets_selector: out:", out)
         return out
         
-def parse_query(text, debug=False):
+def _____parse_query(text, debug=False):
     # remove comments
     out = []
     for l in text.split("\n"):
         l = l.split('#', 1)[0]
         out.append(l)
     text = '\n'.join(out)
-    
-    parsed = _Parser.parse(text)
-
+    try:
+        parsed = _Parser.parse(text)
+    except LarkError as e:
+        raise MQLSyntaxError(str(e))
     if debug:
         print("--- parsed ---\n", LarkToNodes()(parsed).pretty())
     converted = QueryConverter()(parsed)
@@ -1074,10 +1104,15 @@ class MQLQuery(object):
             out.append(l)
         text = '\n'.join(out)
     
-        parsed = _Parser.parse(text)
-        if debug:
-            print("parsed:", parsed.pretty())
-        return QueryConverter().convert(parsed)
+        try:
+            parsed = _Parser.parse(text)
+            if debug:
+                print("parsed:\n", parsed.pretty())
+            converted = QueryConverter().convert(parsed)
+        except LarkError as e:
+            raise MQLSyntaxError(str(e))
+        #print(parsed)
+        return converted
         
     @staticmethod
     def from_db(db, namespace, name):
@@ -1105,7 +1140,7 @@ if __name__ == "__main__":
             cmd, rest = q.split(None, 1)
             qtext = test.split(';', 1)[0]
             print (f"--- query ---\n{qtext}\n-------------")
-            try:    q = parse_query(qtext)
+            try:    q = MQLQuery.parse(qtext)
             except Exception as e:
                 traceback.print_exc()
             else:

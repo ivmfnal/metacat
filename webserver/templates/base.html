@@ -1,3 +1,5 @@
+{% set G_StaticRoot = GLOBAL_AppTopPath + "/static" %}
+
 <html>
 
 <head>
@@ -92,7 +94,7 @@
             text-align: right;
         }
 
-	.form th {
+	.tabular th, .form th {
 		font-weight: bold;
 		text-align:  right;
         color: #46A;
@@ -149,18 +151,22 @@
         }
         
     p.message {
-        color: #117711;
-        border-left: solid 5px #117711;
-        padding: 0px 5px;
+		background-color: #DDD;
+		color: black;
+        padding: 15px 15px;
+		white-space: pre;
     }
     
     .error {
-        color: #A11;
+        c-olor: #A11;
     }
 
     p.error {
-        border-left: solid 5px #A11;
-        padding: 0px 5px;
+		background-color: #FDD;
+		color: black;
+        b-order-left: solid 5px #A11;
+        padding: 15px 15px;
+		white-space: pre;
     }
         
     a.button {
@@ -173,9 +179,9 @@
         color: #888;
     }
     
-    .filename {
-        font-family:  source_code, monospace;
-        font-size: 12px;
+    .file_metadata td.fid, .file_metadata td.filename, .filename {
+        f-ont-family:  source_code, monospace;
+        f-ont-size: 12px;
     }
     
     .file_metadata td.attr_name, .file_metadata td.meta_whole {
@@ -183,13 +189,8 @@
     }
     
     .file_metadata td.attr_name, .file_metadata td.attr_value, .file_metadata td.attr_count, pre.metadata {
-        font-family:  source_code, monospace;
-        font-size: 12px;
-    }
-    
-    .file_metadata td.fid, .file_metadata td.filename {
-        font-family:  source_code, monospace;
-        font-size: 12px;
+        f-ont-family:  source_code, monospace;
+        f-ont-size: 12px;
     }
     
     .file_metadata a:link, .file_metadata a:visited {
@@ -220,7 +221,7 @@
     
     {% block html_head %}{% endblock %}
 	
-	<title>{% block page_title %}{{GLOBAL_SiteTitle}}{% endblock %}</title>
+	<title>{% block page_title %}{{G_SiteTitle}}{% endblock %}</title>
 </head>
 
 <body>
@@ -228,12 +229,10 @@
 <!--  Globals 
     APP_URL: "{{APP_URL}}"
     MY_PATH: "{{MY_PATH}}"
-    GLOBAL_AppTopPath: "{{GLOBAL_AppTopPath}}"
-    GLOBAL_AppDirPath: "{{GLOBAL_AppDirPath}}"
-    GLOBAL_ImagesPath: "{{GLOBAL_ImagesPath}}"
-    GLOBAL_AppVersion: "{{GLOBAL_AppVersion}}"
-    GLOBAL_AppObject:  "{{GLOBAL_AppObject}}"
-    GLOBAL_User:  "{{GLOBAL_User}}"
+    GLOBAL_AppRootPath: "{{GLOBAL_AppRootPath}}"
+    G_StaticRoot: "{{G_StaticRoot}}"
+    G_AppVersion: "{{G_AppVersion}}"
+    G_User:  "{{G_User}}"
 -->
     
 <div id="banner">
@@ -243,25 +242,26 @@
 				<img src="{{GLOBAL_AppTopPath}}/static/images/logo.png" heights=100 width=100>
 			</td>
 			<td style="vertical-align: middle; padding: 0px 20px; width:100%">
-				<h1>{{GLOBAL_SiteTitle}}</h1>
+				<h1>{{G_SiteTitle}}</h1>
 			    <div id="main_menu">
 					<table class="placement link_menu" width="100%">
 					<tr>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/users">users</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/roles">roles</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/namespaces">namepaces</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/datasets">datasets</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/categories/index">categories</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/query">query</a></td>
-					    <td><a href="{{GLOBAL_AppTopPath}}/gui/named_queries">named queries</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/users">users</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/roles">roles</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/namespaces">namepaces</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/datasets">datasets</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/find_file">find file</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/categories/index">categories</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/query">query</a></td>
+					    <td><a href="{{GLOBAL_AppRootPath}}/gui/named_queries">named queries</a></td>
 					    <td width="100%" align="right">
-							<a href="{{GLOBAL_AppTopPath}}/static/docs/html/index.html" target="_new">docs</a>
+							<a href="https://metacat.readthedocs.io" target="_new">docs</a>
 						</td>
 						<td>
-			                        {% if GLOBAL_User %}
-			                            <span style="color:#AAA">logged in as {{GLOBAL_User.Name or ""}}&nbsp;<a href="./user?username={{GLOBAL_User.Username}}">{{GLOBAL_User.Username}}</a>&nbsp;</span><a href="{{GLOBAL_AppTopPath}}/auth/logout?redirect={{GLOBAL_AppTopPath}}/gui/index">log out</a>
+			                        {% if G_User %}
+			                            <span style="color:#AAA">logged in as {{G_User.Name or ""}}&nbsp;<a href="./user?username={{G_User.Username}}">{{G_User.Username}}</a>&nbsp;</span><a href="{{GLOBAL_AppRootPath}}/auth/logout?redirect={{GLOBAL_AppRootPath}}/gui/index">log out</a>
 			                        {% else %}
-			                            <a href="{{GLOBAL_AppTopPath}}/auth/login?redirect={{GLOBAL_AppTopPath}}/gui/index">log in</a>
+			                            <a href="{{GLOBAL_AppRootPath}}/auth/login?redirect={{GLOBAL_AppRootPath}}/gui/index">log in</a>
 			                        {% endif %}
 						</td>
 					</tr>
@@ -274,32 +274,6 @@
 
 <div id="body">
 
-	{#
-    <div id="main_menu">
-	<table class="placement link_menu">
-		<tr>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/users">users</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/roles">roles</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/namespaces">namepaces</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/datasets">datasets</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/categories/index">categories</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/query">query</a></td>
-		    <td><a href="{{GLOBAL_AppTopPath}}/gui/named_queries">named queries</a></td>
-		    <td width="100%" align="right">
-				<a href="{{GLOBAL_AppTopPath}}/static/docs/html/index.html" target="_new">docs</a>
-			</td>
-			<td>
-                        {% if GLOBAL_User %}
-                            <span style="color:#AAA">logged in as {{GLOBAL_User.Name or ""}}&nbsp;<a href="./user?username={{GLOBAL_User.Username}}">{{GLOBAL_User.Username}}</a>&nbsp;</span><a href="{{GLOBAL_AppTopPath}}/auth/logout?redirect={{GLOBAL_AppTopPath}}/gui/index">log out</a>
-                        {% else %}
-                            <a href="{{GLOBAL_AppTopPath}}/auth/login?redirect={{GLOBAL_AppTopPath}}/gui/index">log in</a>
-                        {% endif %}
-			</td>
-		</tr>
-	</table>
-    </div>
-	#}
-    
     <div id="headline" style="clear:both">
 	<h2>{% block headline %}{% endblock %}</h2>
     </div>
@@ -312,7 +286,7 @@
     <div id=content style="clear:both">{% block content %}{% endblock %}</div>
 </div>	<!-- body -->
 
-<div id="version">Version: {{GLOBAL_AppVersion}}</div>
+<div id="version">Version: {{G_Version}}</div>
 </body>
 
 </html>

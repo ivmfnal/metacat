@@ -2,6 +2,7 @@ import sys, getopt, os, json, fnmatch, pprint
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
 from metacat.webapi import MetaCatClient
+from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
 
 Usage = """
 Usage: 
@@ -18,56 +19,74 @@ Usage:
         show <name>
 """
 
-def do_list(client, args):
-    opts, args = getopt.getopt(args, "v", ["--verbose"])
+class ListCommand(CLICommand):
+
+    GNUStyle = True
+    Opts = "dvu:r: verbose user: role: directly"
+    Usage = """[options] [<pattern>]
+        <pattern> is a UNIX shell style pattern (*?[]), optional
+        -u|--user <username>        - list namespaces owned by the user
+        -d                          - exclude namespaces owned by the user via a role
+        -r|--role <role>            - list namespaces owned by the role
+    """
+
+    def __call__(self, command, client, opts, args):
+        pattern = None if not args else args[0]
     
-    pattern = None if not args else args[0]
-    
-    opts = dict(opts)
-    verbose = "-v" in opts or "--verbose" in opts
-    output = client.list_namespaces(pattern)
-    for item in output:
-        name = item["name"]
-        owner = ""
-        owner_user = item.get("owner_user")
-        if owner_user:
-            owner="u:"+owner_user
-        else:
+        opts = dict(opts)
+        verbose = "-v" in opts or "--verbose" in opts
+        match_owner_user = opts.get("-u", opts.get("--user"))
+        match_owner_role = opts.get("-r", opts.get("--role"))
+        if match_owner_user and match_owner_role:
+            raise InvalidOptions("Owner user and owner role can not be used together")
+        output = client.list_namespaces(pattern=pattern, owner_user=match_owner_user, owner_role=match_owner_role, directly="-d" in opts)
+        for item in output:
+            name = item["name"]
+            owner_user = item.get("owner_user")
             owner_role = item.get("owner_role")
-            if owner_role:
+            if owner_user:
+                owner = "u:"+owner_user
+            else:
                 owner = "r:"+owner_role
-        print("%-30s\t%-20s\t%s" % (name, owner, item.get("descrition") or ""))
+            print("%-30s\t%-20s\t%s" % (name, owner, item.get("descrition") or ""))
                 
+class ShowCommand(CLICommand):
     
-def do_show(client, args):
-    pprint.pprint(client.get_namespace(args[0]))
+    GNUStyle = True
+    Opts = "j json"
+    MinArgs = 1
+    Usage = """[-j|--json] <namespace>
+        -j|--json           - print as JSON
+    """
     
-def do_create(client, args):
-    opts, args = getopt.getopt(args, "o:", ["--owner="])
-    opts = dict(opts)
+    def __call__(self, command, client, opts, args):
+        data = client.get_namespace(args[0])
+        if "-j" in opts or "--json" in opts:
+            print(json.dumps(data, indent=4, sort_keys=True))
+        else:
+            pprint.pprint(data)
+
+class CreateCommand(CLICommand):
+
+    GNUStyle = True
+    Opts = "oj json owner"
+    MinArgs = 1
+    Usage = """[options] <namespace>
+        -o <owner>|--owner <owner>              - namespace owner
+        -j|--json                               - print as JSON 
+    """
     
-    name = args[0]
+    def __call__(self, command, client, opts, args):
+        name = args[0]
+        data = client.create_namespace(name, owner_role=opts.get("-o", opts.get("--owner")))
+        if "-j" in opts or "--json" in opts:
+            print(json.dumps(data, indent=4, sort_keys=True))
+        else:
+            pprint.pprint(data)
     
-    output = client.create_namespace(name, owner_role=opts.get("-o", opts.get("--owner")))
-    print(output)
-    
-def do_namespace(server_url, args):
-    if not args:
-        print(Usage)
-        sys.exit(2)
-        
-    command = args[0]
-    client = MetaCatClient(server_url)
-    try:
-        method = {
-            "list":     do_list,
-            "create":   do_create,
-            "show":     do_show
-        }[command]
-    except KeyError:
-        print("Unknown subcommand:", command)
-        sys.exit(2)
-    return method(client, args[1:])
-    
-    
+NamespaceCLI = CLI(
+    "create",   CreateCommand(),
+    "list",     ListCommand(),
+    "show",     ShowCommand()
+)
  

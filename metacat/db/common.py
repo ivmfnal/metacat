@@ -20,30 +20,34 @@ class AlreadyExistsError(Exception):
 class DatasetCircularDependencyDetected(Exception):
     pass
 
+
 class NotFoundError(Exception):
     def __init__(self, msg):
         self.Message = msg
 
     def __str__(self):
         return "Not found error: %s" % (self.Message,)
-        
-def parse_name(name, default_namespace):
-    words = name.split(":", 1)
-    if len(words) < 2 or not words[0]:
+
+
+def parse_name(name, default_namespace=None):
+    words = (name or "").split(":", 1)
+    if not words or not words[0]:
         assert not not default_namespace, "Null default namespace"
         ns = default_namespace
         name = words[-1]
     else:
+        assert len(words) == 2, "Invalid namespace:name specification:" + name
         ns, name = words
     return ns, name
-                
+
 
 def fetch_generator(c):
     while True:
         tup = c.fetchone()
         if tup is None: break
         yield tup
-        
+
+
 def first_not_empty(lst):
     val = None
     for v in lst:
@@ -76,16 +80,6 @@ def skipped(iterable, n):
         else:
             yield f
             
-def chunked(iterable, n):
-    lst = []
-    for item in iterable:
-        if len(lst) >= n:
-            yield lst
-            lst = []
-        lst.append(item)
-    if lst:
-        yield lst
-            
 class MetaValidationError(Exception):
     
     def __init__(self, message, errors):
@@ -101,7 +95,10 @@ class MetaValidationError(Exception):
         )
         
 class DBObject(object):
-    
+
+    PK = None
+    Table = None
+
     @classmethod
     def columns(cls, table_name=None, as_text=True, exclude=[]):
         if isinstance(exclude, str):
@@ -113,6 +110,21 @@ class DBObject(object):
             return ",".join(clist)
         else:
             return clist
+
+    @classmethod
+    def get(cls, db, *pkvalues):
+        assert len(pkvalues) == len(cls.PK)
+        wheres = " and ".join([f"{pkc} = '{pkv}'" for pkc, pkv in zip(cls.PK, pkvalues)])
+        columns = cls.columns()
+        sql = f"""
+            select {columns}
+                from {cls.Table}
+                where {wheres}
+        """
+        c = db.cursor()
+        c.execute(sql)
+        tup = c.fetchone()
+        return None if tup is None else cls.from_tuple(db, tup)
 
 def make_list_if_short(iterable, limit):
     # convert iterable to list if it is short. otherwise return another iterable with the same elements

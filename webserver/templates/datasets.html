@@ -8,36 +8,44 @@
 <a href="./create_dataset">create</a>
 </p>
 
+<!-- {{authenticated}} -->
+
 <table class="data">
 	<tr>
-		<th>Dataset</th>
-		<th>Frozen</th>
-		<th>Monotonic</th>
+        <th>Namespace</th>
+		<th>Name</th>
+        {% if logged_in %}<th>Creator</th>{% endif %}
+        <th>Created</th>
+        {% if logged_in %}<th>Owner</th>{% endif %}
+		<th>Flags</th>
 		<th>Files</th>
         <th>Children</th>
         <th>Subsets</th>
         <th>Parents</th>
-        <th>Ancestors</th>
+        <th>Supersets</th>
         {% if logged_in %}<th>Delete</th>{% endif %}
 	</tr>
 	{% for ds in datasets %}
+        {% set did=ds.Namespace + ':' + ds.Name %}
 		<tr>
-            <td><a href="./dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">{{ds.Namespace}}:{{ds.Name}}</a></td>
-            <td>{{'frozen' if ds.Frozen}}</td>
-            <td>{{'monotonic' if ds.Monotonic}}</td>
-            <td id="count:{{ds.Namespace}}:{{ds.Name}}" class="right"></td>
-            <td>
-                {% for child in ds.GUI_Children %}
-                    <a href="./dataset?namespace={{child.Namespace}}&name={{child.Name}}">{{child.Namespace}}:{{child.Name}}</a><br/>
-                {% endfor %}
-            </td>
-            <td>{{ds.subset_count()}}</td>
-            <td>
-                {% for parent in ds.GUI_Parents %}
-                    <a href="./dataset?namespace={{parent.Namespace}}&name={{parent.Name}}">{{parent.Namespace}}:{{parent.Name}}</a><br/>
-                {% endfor %}
-            </td>
-            <td>{{ds.ancestor_count()}}</td>
+            <td><a href="./namespace/{{ds.Namespace}}">{{ds.Namespace}}</a></td>
+            <td><a href="./dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">{{ds.Name}}</a></td>
+            {% if logged_in %}
+                <td>{% if ds.Creator %}<a href="./user?username={{ds.Creator}}">{{ds.Creator}}</a>{% endif %}</td>
+            {% endif %}
+            <td>{% if ds.CreatedTimestamp %}{{ds.CreatedTimestamp|as_dt_local}}{% endif %}</td>
+            {% if logged_in %}
+                <td>{% if ds.GUI_OwnerUser %}user <a href="./user?username={{ds.GUI_OwnerUser}}">{{ds.GUI_OwnerUser}}</a>
+                    {% else %}role <a href="./role/{{ds.GUI_OwnerRole}}">{{ds.GUI_OwnerRole}}</a>
+                    {% endif %}
+                </td>
+            {% endif %}
+            <td>{{'frozen' if ds.Frozen}} {{'monotonic' if ds.Monotonic}}</td>
+            <td id="{{did}}_file_count" class="right"></td>
+            <td id="{{did}}_child_count" class="right"></td>
+            <td id="{{did}}_subset_count" class="right"></td>
+            <td id="{{did}}_parent_count" class="right"></td>
+            <td id="{{did}}_superset_count" class="right"></td>
             {% if logged_in %}
                 <td>
                     {% if not ds.GUI_Authorized %}
@@ -51,10 +59,16 @@
             {% endif %}
 
             <script>
-		        var out = document.getElementById("count:{{ds.Namespace}}:{{ds.Name}}");
-		        out.data_received = function(data, param) { this.innerHTML = "" + data.file_count; };
-                HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_count/{{ds.Namespace}}:{{ds.Name}}", 
-			        out, null, "json");
+                var out = {};
+		        out.data_received = function(data, ds) {
+                    document.getElementById(ds + "_file_count").innerHTML = "" + data.file_count;
+                    document.getElementById(ds + "_parent_count").innerHTML = "" + data.parent_count;
+                    document.getElementById(ds + "_child_count").innerHTML = "" + data.child_count;
+                    document.getElementById(ds + "_subset_count").innerHTML = "" + data.subset_count;
+                    document.getElementById(ds + "_superset_count").innerHTML = "" + data.superset_count;
+                };
+                HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_counts/{{ds.Namespace}}:{{ds.Name}}", 
+			        out, "{{did}}", "json");
             </script>
 
         </tr>

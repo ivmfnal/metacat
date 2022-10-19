@@ -2,11 +2,15 @@ from lark import Lark
 from lark import Transformer, Tree, Token
 import pprint
 
+class SyntaxTreeConversionError(Exception):
+    pass
+
 class Token(object):
     
     JSON_CLASS = "token"
 
     def __init__(self, typ, value):
+        # print("Token created:", typ, value)
         self.T = typ
         self.V = value
 
@@ -17,7 +21,7 @@ class Token(object):
         #print("pretty---")
         return self._pretty()
         
-    def _pretty(self, indent=""):
+    def _pretty(self, indent="", headline_indent=None):
         return ['%s%s "%s"' % (indent, self.T, self.V)]
 
     def jsonable(self):
@@ -90,17 +94,18 @@ class Node(object):
                 key_len = len(key)
                 shift = " "*key_len
                 #print("calling _pretty for %s" % (v,))
-                out += v._pretty(indent = indent + "| " + shift, headline_indent = indent + "| " + key)
+                out += v._pretty(indent = indent + "  " + shift, headline_indent = indent + key)
             else:
-                out.append(indent + f"| {key}{repr(v)}")
+                out.append(indent + f"{key}{repr(v)}")
         
         nc = len(self.C)
         for i, c in enumerate(self.C):
             extra = ". "
             if isinstance(c, (Token, Node)) or hasattr(c, "_pretty"):
-                out += c._pretty(indent+extra)
+                child = c._pretty("  ", "+-")
+                out.extend([indent + line for line in child])
             else:
-                out.append("%s%s" % (indent + ". ", repr(c)))
+                out.append("%s%s" % (indent + "+-", repr(c)))
         return out
         
     def pretty(self, indent=""):
@@ -167,12 +172,15 @@ class Visitor(object):	# deprecated
         if not isinstance(node, Node):
             return
         node_type, children = node.T, node.C
-        
-        if hasattr(self, node_type):
-            method = getattr(self, node_type)
-            visit_children = method(node, context)
-        else:
-            visit_children = self._default(node, context)
+
+        try:
+            if hasattr(self, node_type):
+                method = getattr(self, node_type)
+                visit_children = method(node, context)
+            else:
+                visit_children = self._default(node, context)
+        except Exception as e:
+            raise SyntaxTreeConversionError(f"Error while processing node {node_type} with children {children}") from e
 
         if visit_children:
             for c in children:
@@ -237,15 +245,15 @@ class Descender(Traveler):
 
             node_type = node.T
         
-            if hasattr(self, node_type):
-                method = getattr(self, node_type)
-                new_node = method(node, context)
-            else:
-                new_node = self._default(node, context)
-
-            if new_node is None:
-                new_node = node
-
+            try:
+                if hasattr(self, node_type):
+                    method = getattr(self, node_type)
+                    new_node = method(node, context)
+                else:
+                    new_node = self._default(node, context)
+            except Exception as e:
+                raise SyntaxTreeConversionError(f"Error while processing node {node_type}") from e
+            
             return new_node
 
         finally:
@@ -295,11 +303,12 @@ class Ascender(Traveler):
                     name:(self.walk(c, debug) if isinstance(c, Node) else c) 
                     for name, c in node.D.items()
                 }
-                node.C = children = [self._walk(c, debug) for c in children]
+                children = [self._walk(c, debug) for c in children]
+                node = node.clone(children)
                 out = method(node, *children, **named_children)
                 if debug:
                     me = self.__class__.__name__
-                    print(f"{me}: method {node_type} returned:", out.pretty("      "))
+                    print(f"{me}: method {node_type} returned:", out.pretty("      ") if isinstance(out, Node) else out)
         finally:
             self.WalkLevel -= 1
         return out
@@ -323,10 +332,11 @@ class LarkToNodes(Converter):
     #
     
     def __default__(self, data, children, meta):
-        #print("PostParser.__default(", data, children, meta, ")")
+        #print("LarkToNodes.__default(", data, children, meta, ")")
         return Node(data, children, meta=meta)
         
     def __default_token__(self, token):
+        #print("LarkToNodes.__default_token__: token:", token)
         return Token(token.type, token.value)
 
         

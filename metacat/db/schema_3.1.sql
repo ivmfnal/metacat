@@ -53,10 +53,12 @@ create table files
     namespace   text 	references namespaces(name),
     name        text,
     metadata    jsonb   default '{}',
-    creator text references users(username),
+    creator     text references users(username),
     size        bigint,
     checksums   jsonb   default '{}',
-    created_timestamp   timestamp with time zone    default now()
+    created_timestamp   timestamp with time zone    default now(),
+    updated_by  text references users(username),
+    updated_timestamp   timestamp with time zone    default now()
 );
 
 create unique index file_names_unique on files(namespace, name);
@@ -118,7 +120,7 @@ create table datasets_parent_child
     child_namespace     text,
     child_name          text,
     foreign key (parent_namespace, parent_name) references datasets(namespace, name),
-    foreign key (child_namespace, child_name) references datasets(namespace, name),
+    foreign key (child_namespace, child_name) references datasets(namespace, name) on delete cascade,
     primary key (parent_namespace, parent_name, child_namespace, child_name)
 );
 

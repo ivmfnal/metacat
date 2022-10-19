@@ -1,9 +1,8 @@
 IN_DB_PSQL="psql -h sampgsdb03.fnal.gov -p 5435 -U samread -d sam_dune_prd"
-#IN_DB_PSQL="psql -h sampgsdb03.fnal.gov -p 5435 -U ivm -d sam_dune_prd"
-OUT_DB_PSQL="psql -h ifdb02.fnal.gov -d metadata"
-DUNE_DB_PSQL="psql -h ifdb02.fnal.gov -d dune_metadata"
+OUT_DB_PSQL="psql -h ifdbprod.fnal.gov -p 5463 -d dune_metadata_prd"
 
 core_category="core"
+origin_category="origin"
 default_namespace="default"
 
 function create_meta_table () {

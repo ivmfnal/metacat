@@ -1,0 +1,26 @@
+path :    "$"                                     -> root
+    | "@"                                         -> current
+    | path "." word                               -> step
+    | path "." word "()"                          -> method
+    | path "?" "(" expression ")"                 -> filter
+    | path "[" index "]"                          -> subscript
+
+?expression : or_expression
+
+?or_expressions : and_expression
+    | or_expression "||" and_expression
+    
+?and_expression : term_expression
+    | and_expression "&&" term_expression
+
+?term_expression : cmp_expression
+    | "(" or_expression ")"
+    | and_expression "&&" term_expression
+
+cmp_expression : path CMPOP value
+
+CMPOP:  "<" "="? | "!"? "=" "="? | "<" ">" | "!"? "~" "*"? | ">" "="? | "like_regex"
+
+WORD: LETTER ("_"|LETTER|DIGIT)*
+BOOL: "true"i | "false"i
+

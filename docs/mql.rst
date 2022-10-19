@@ -33,29 +33,38 @@ You can also specify multiple datasets in the same query:
         files from MyScope:MC1, MyScope:MC2, AnotherScope:MC
 
 Also, you can use wildcards in the dataset name (but not in the scope name). If the dataset name is in quotes,
-it is interpreted as an SQL wildcard.
+it is interpreted as an SQL style wildcard.
 
 .. code-block:: sql
 
         files from MyScope:"MC%", AnotherScope:MC
 
-Note that you have to use database wildcard notation where '%' matches any string, including empty string, and '_' matches any single
+By SQL wildcard standard, '%' matches any string, including empty string, and '_' matches any single
 character.
 
-If you want to select all files from all known datasets, you can do this:
+If you want to select all files in the database, regardless the dataset, you can do this:
 
 .. code-block:: sql
 
-        files from "%"
-                where run=1234
+    files where data_type="mc"
 
-The "from <dataset>" part is optional. If you want to select files from all datasets and even files not included
-into any dataset, you can omit the "from ..." portion:
+but this can take long time because it will scan the entire MetaCat database.
+
+To select files by their namespaces and names:
 
 .. code-block:: sql
 
-        files where data_type="mc"
+    files my_namespace:file_name.data, file1.data, file2.data, 
+                anoher_namespace:file3.data
 
+
+or by their file ids:
+
+.. code-block:: sql
+
+    fids 1234, 12354, 12363
+
+This type of queries can be used to get metadata for known files.
 
 
 Metadata Filtering
@@ -77,7 +86,54 @@ This will return all the files in the dataset, which have a floating point metad
                         and run = 123 
                         and ( type="MC" or type="Data" )
                         
-Generally, all white space is ignored in MQL.
+White space is ignored in MQL.
+
+String constants containing only letters, digits and symbols ``:%$@_^.-`` can be entered without
+enclosing them into quotes. Unquoted literals which can be interpreted as numeric or boolean constants
+will be interpreted as such. If you need to represent a string, which looks like a decimal representation of
+a number, you will have to put it in quotes, e.g.:
+
+.. code-block:: sql
+
+	files from scope:dataset where software.version = 1.2      # will be comparing to floating point 1.2
+	files from scope:dataset where software.version = "1.2"    # will be comparing to string "1.2"
+
+
+File Provenance
+---------------
+MetaCat supports the parent/child relationship between files. A file can have 0 or more child files and 0 or more parent files.
+To get list of parents or children of all files matching certain criteria, use ``parents`` and ``children`` keywords:
+
+.. code-block:: sql
+
+        parents (
+            files from MyScope:MyDataset
+                where x > 0.5 and x < 1.5 
+                        and run = 123 
+                        and ( type="MC" or type="Data" )
+        )
+
+        children (
+            files from MyScope:MyDataset
+                where x > 0.5 and x < 1.5 
+                        and run = 123 
+                        and ( type="MC" or type="Data" )
+        )
+
+You can use MQL to get parents or children of a single 
+
+
+If you want to get a list of files without any children, you can use this trick with file set subtraction:
+
+.. code-block:: sql
+
+        parents (
+            children (
+                files from MyScope:MyDataset
+            )
+        ) - files from MyScope:MyDataset
+
+
                 
 Combining Queries
 -----------------
@@ -146,6 +202,11 @@ The following two queries are equivalent:
                         files from s:B,
                         files from s:C
                 }
+        ]
+        
+        [
+            files my_scope:file1.data, file2.data,
+            fids 12345, 123476
         ]
 
         
@@ -451,17 +512,17 @@ Similarly, the following expressions are not equivalent:
     * ``(bits[all] == 0 or bits[all] == 1)`` - is false for the metadata above
     * ``bits[all] in (0,1)`` - is true
     
-Limiting Query Results
-~~~~~~~~~~~~~~~~~~~~~~
+Limiting and Skipping Query Results
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you want to see only a portion of the resulting file set, add "limit <n>" to your query:
+If you want to see only a portion of the resulting file set, add ``limit <n>`` to your query:
 
 .. code-block:: sql
 
     files from dune:all where 
         DUNE_data.detector_config.list present 
         limit 100
-    
+
 Limit clause can be added to results of any query:
         
 .. code-block:: sql
@@ -488,7 +549,21 @@ Another way of limiting query results is to use built-in "sample" query:
         
 The "sample" filter returns the given fraction of the input query results. In this case, the results will be limited to 1000 (=10000*0.1) files.
 
+To skip some files from the beginning of the file set, use ``skip <n>``
 
+.. code-block:: sql
+
+    files from dune:all where 
+        DUNE_data.detector_config.list present 
+        skip 100 
+        limit 100
+ 
+``limit`` and ``skip`` are applied independently in the order as they are written. For example, if there is a query ``files from test:test_dataset``
+returns files f1, f2, f3, ... f10, then query ``files from test:test_dataset skip 2 limit 2`` will return files f3, f4. 
+Query ``files from test:test_dataset limit 5 skip 2`` will return f3, f4, f5.
+
+It is important to keep in mind that the same MQL query will always retrun the same results in the same order.
+Therefore, ``skip`` and ``limit`` can not actually be used to consistently split a file set into subsets.
 
 Dataset Queries
 ~~~~~~~~~~~~~~~

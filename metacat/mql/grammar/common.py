@@ -10,6 +10,14 @@ dataset_pattern:    (FNAME ":")? STRING
 
 qualified_name:     (FNAME ":")? FNAME
 
+qualified_name_list:   qualified_name ("," qualified_name)*
+
+?did:    FNAME ":" FNAME
+
+fid_list:  FID ("," FID)*
+
+//?did_list:  did ("," did)*
+
 param_def_list :  param_def ("," param_def)*
 
 param_def: CNAME "=" constant
@@ -31,6 +39,7 @@ meta_and:   term_meta ( "and" term_meta )*
     | constant "not" "in" ANAME                     -> constant_not_in_array
     | "(" meta_exp ")"                              
     | "!" term_meta                                 -> meta_not
+    | "exists" STRING                               -> json_path
 
 scalar:  ANAME
         | ANAME "[" "all" "]"                       -> array_all
@@ -46,6 +55,7 @@ constant : SIGNED_FLOAT                             -> float_constant
     | STRING                                        -> string_constant
     | SIGNED_INT                                    -> int_constant
     | BOOL                                          -> bool_constant
+    | UNQUOTED_STRING                               -> string_constant
 
 index:  STRING
     | SIGNED_INT
@@ -53,7 +63,9 @@ index:  STRING
 ANAME: "." WORD
     | WORD ("." WORD)*
 
-FNAME: LETTER ("_"|"-"|"."|LETTER|DIGIT)*
+FNAME: LETTER ("_"|"-"|"."|LETTER|DIGIT|"/")*
+
+FID: ("_"|"-"|"."|LETTER|DIGIT|"/")+
 
 WORD: LETTER ("_"|LETTER|DIGIT)*
 
@@ -61,7 +73,9 @@ CMPOP:  "<" "="? | "!"? "=" "="? | "!"? "~" "*"? | ">" "="? | "like"            
 
 BOOL: "true"i | "false"i
 
+
 STRING : /("(?!"").*?(?<!\\\\)(\\\\\\\\)*?"|'(?!'').*?(?<!\\\\)(\\\\\\\\)*?')/i
+UNQUOTED_STRING : /[a-z0-9:%$@_^.-]+/i
 
 %import common.CNAME
 %import common.SIGNED_INT

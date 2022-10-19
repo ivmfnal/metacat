@@ -68,7 +68,9 @@ class SQLConverter(Ascender):
         return file_set
         
     def node_to_file_set(self, node):
+        self.debug("node_to_file_set: node:", node)
         if node.T == "sql":
+            self.debug("   sql:", node["sql"])
             file_set = DBFileSet.from_sql(self.DB, node["sql"])
         elif node.T == "empty":
             file_set = DBFileSet(self.DB)
@@ -110,18 +112,22 @@ class SQLConverter(Ascender):
                 out = (f for f in self.node_to_file_set(query)
                         if evaluator(f.metadata(), meta_exp)
                 )
-                return Node("file_set", file_set = DBFileSet(self.DB, out))
+                return Node("file_set", file_set=DBFileSet(self.DB, out))
         else:
             return query
 
     def basic_file_query(self, node, *args, query=None):
         sql = DBFileSet.sql_for_basic_query(self.DB, query)
+        if not sql:
+            # e.g.: no datasets found
+            self.debug("empty sql")
+            return Node("file_set", file_set=DBFileSet(self.DB))            # empty file set
         self.debug("basic_file_query: sql: --------\n", sql, "\n--------")
         return Node("sql", sql=sql)
         
-    def file_list(self, node, specs=None, with_meta=False, with_provenance=False):
-        return Node("sql", sql=DBFileSet.sql_for_file_list(specs, with_meta, with_provenance))
-    
+    def file_list(self, node, specs=None, spec_type=None, with_meta=False, with_provenance=False, limit=None, skip=0):
+        return Node("sql", sql=DBFileSet.sql_for_file_list(spec_type, specs, with_meta, with_provenance, limit, skip))
+
     def union(self, node, *args):
         #print("Evaluator.union: args:", args)
         assert all(n.T in ("sql","file_set","empty") for n in args)
@@ -263,7 +269,7 @@ class SQLConverter(Ascender):
             return arg
         if arg.T == "empty":
             return arg
-        assert arg.T in ("file_set", "sql")
+        assert arg.T in ("file_set", "sql", "file_list")
         if arg.T == "sql":
             sql = arg["sql"]
             tmp = alias()
