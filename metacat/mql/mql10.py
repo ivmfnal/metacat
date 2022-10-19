@@ -672,6 +672,58 @@ class QueryConverter(Converter):
     def meta_not(self, children):
         assert len(children) == 1
         return self._apply_not(children[0])
+        
+    #
+    # Dataset queries
+    #
+    
+    def dataset_add_where(self, children):
+        assert len(children) == 2
+        bdq, where = children
+        assert bdq.T == "basic_dataset_query"
+        q = bdq["query"]
+        q.addWhere(children[1])
+        return bdq
+    
+    def dataset_add_subsets(self, children):
+        assert len(children) == 2
+        bdq, subsets = children
+        q = bdq["query"]
+        q.WithChildren = True
+        q.Recursively = subsets["recursive"]
+        return bdq
+
+    def dataset_provenance_op(self, children):
+        return Node("subsets", recursive=any(c.value == "recursively" for c in children))
+        
+    def simple_dataset_query(self, children):
+        c = children[0]
+        if c.T == "qualified_name":
+            q = BasicDatasetQuery(c["namespace"], name=c["name"])
+        elif c.T == "dataset_pattern":
+            q = BasicDatasetQuery(c["namespace"], pattern=c["name"])
+        else:
+            raise ValueError(f"Unknown child type {c.T}")
+        
+        
+class BasicDatasetQuery(object):
+    
+    def __init__(self, namespace, name=None, pattern=None):
+        self.Namespace = namespace
+        self.Name = name
+        self.Pattern = pattern
+        self.WithChildren = False
+        self.Recursively = False
+        self.Where = None
+        
+    def addWhere(self, where):
+        assert isinstance(where, Node) and where.T == "meta_or"
+        if self.Wheres is None:
+            wheres = where
+        else:
+            wheres = Node("meta_and", self.Wheres, where)
+        self.Wheres = _make_DNF(wheres)
+        return self
 
 class _Assembler(Ascender):
 
