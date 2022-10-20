@@ -368,7 +368,7 @@ class QueryConverter(Converter):
             print(args[0].pretty())
             assert len(args) == 1, "Expected 0 or 1 dataset selector list. Got: "+str(args)
             assert args[0].T == "dataset_query_list"
-            return Node("basic_file_query", query=BasicFileQuery(args[0]["queries"]))
+            return Node("basic_file_query", query=BasicFileQuery([a["query"] for a in args[0].C]))
         else:
             return Node("basic_file_query", query=BasicFileQuery(None))
 
