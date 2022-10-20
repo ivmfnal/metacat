@@ -14,4 +14,5 @@ MetaCat Documentation
    ui
    webapi
    mql
+   mql_syntax
    regexp
