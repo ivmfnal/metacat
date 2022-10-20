@@ -114,7 +114,7 @@ class BasicDatasetQuery(object):
     def line(self):
         return "BasicDatasetQuery(%s:%s%s%s%s%s)" % (
                 self.Namespace, self.Name, 
-                " (pattern) " if self.Pattern else "",
+                " (pattern) " if self.Pattern and not self.RegExp else (" (pattern re) " if self.Pattern and self.RegExp else ""),
                 " with children" if self.WithChildren else "",
                 " recursively" if self.Recursively else "",
                 " " + (self.Where.pretty() if self.Where is not None else ""))
@@ -692,6 +692,28 @@ class QueryConverter(Converter):
             name = name[1:-1]
         name = name.replace('*', '%')
         name = name.replace('?', '_')
+        out = Node("did_pattern", namespace=namespace, name=name)
+        return out
+
+    def regexp_pattern(self, args):
+        assert len(args) in (1,2)
+        namespace = None
+        if len(args) == 1:
+            name = args[0].value
+        else:
+            namespace, name = args[0].value, args[1].value
+        name = name[1:-1]           # remove enclosing quotes
+        out = Node("did_pattern", namespace=namespace, name=name)
+        return out
+
+    def sql_pattern(self, args):
+        assert len(args) in (1,2)
+        namespace = None
+        if len(args) == 1:
+            name = args[0].value
+        else:
+            namespace, name = args[0].value, args[1].value
+        name = name.replace("*", "%").replace("?", "_")
         out = Node("did_pattern", namespace=namespace, name=name)
         return out
 

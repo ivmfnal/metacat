@@ -39,7 +39,7 @@ Dataset queries
                 
         <dataset name selector>:
                 <namespace>:<name>
-                | matching <namespace>:<name pattern SQL style>
+                | matching <namespace>:<name pattern SQL style>                         # % - match any substring, _ - match any single character
                 | matching regexp <namespace>:"<name pattern regexp style>"
                 
 Metadata expressions

@@ -218,6 +218,9 @@ class DBFileSet(object):
         file_meta_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f) or "true"
 
         datasets = None if basic_file_query.DatasetSelectors is None else DBDataset.datasets_for_bdqs(db, basic_file_query.DatasetSelectors)
+        datasets = list(datasets)
+        debug("sql_for_basic_query: datasets:", datasets)
+        
         attrs = DBFile.attr_columns(f)
         if datasets is None:
             # no dataset selection
@@ -1422,6 +1425,7 @@ class DBDataset(DBObject):
             name_or_pattern = bdq.Name
             raise ValueError(f"Dataset specification error: {selector.Namespace}:{name_or_pattern}")
         if bdq.is_explicit():
+            debug("datasets_for_bdq: bdq is explicit")
             ds = DBDataset.get(db, bdq.Namespace, bdq.Name)
             if ds is None:
                 out = []
@@ -1429,7 +1433,7 @@ class DBDataset(DBObject):
                 out = [ds]
         else:
             sql = DBDataset.sql_for_basic_dataset_query(bdq)
-            #print("   sql:", sql)
+            debug("datasets_for_bdq: sql: " + sql)
             c = db.cursor()
             c.execute(sql)
             out = limited((DBDataset.from_tuple(db, tup) for tup in fetch_generator(c)), limit)
@@ -1438,6 +1442,7 @@ class DBDataset(DBObject):
     @staticmethod
     def datasets_for_bdqs(db, bdq_list):
         for bdq in bdq_list:
+            debug("datasets_for_bdqs: bdq:", bdq)
             for ds in DBDataset.datasets_for_bdq(db, bdq):
                 yield ds
 
@@ -1520,7 +1525,7 @@ class DBDataset(DBObject):
                             {d}.name = {s}.name
                             {meta_condition}
                 """
-            debug("dataset_selector_sql(", namespace, name, pattern, with_children, recursively, meta_filter_dnf, ")\n", sql)
+            debug(f"sql_for_basic_dataset_query({bdq}): sql:\n", sql)
             return sql
 
         
