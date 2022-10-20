@@ -271,7 +271,7 @@ Listing existing datasets
             -c|--file-counts    - include file counts if detailed output
             
 
-Namespace and name patterns are UNIX ls style patterns (recognizing *?[]). Examples:
+Namespace and name patterns are UNIX ls style patterns (recognizing \*?[]). Examples:
 
 .. code-block:: shell
 
@@ -400,9 +400,11 @@ must be a list of dictionaries, one dictionary per file to be declared. Each dic
     
 ``parents`` : optional
     List of dictionaries, one dictionary per parent file, in one of 3 formats:
+
         - { "did": "<namespace>:<name>" }
         - { "namespace":"...", "name":"..." }
         - { "fid": "<file id>" }
+
     Individual parent dictionaries do not have to be in the same format.
     Specifing parents with list of string file ids instead of dictionaries **is deprecated**.
 

@@ -572,39 +572,40 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         
         Notes
         -----
+        Each file to be declared must be represented with a dictionary. The dictionary must contain one of:
         
-            Each file to be declared must be represented with a dictionary. The dictionary must contain elements:
-                one of:
-                    "did" - string in the format "<namespace>:<name>"
-                    "name" - file name and optionaly "namespace". If namespace is not present, the ``namespace`` argument will be used
-                             as the default namespace
-                    "auto_name" - pattern to auto-generate file name
-        
-            .. code-block:: python
-        
-                { 
-                    "namespace": "namespace",           # optional, namespace can be specified for each file explicitly or implicitly using the namespace=... argument
-                    "name": "filename",                 # optional,
-                    "did": "namespace:filename",        # optional, convenience for Rucio users
-                                                        # either "did" or "name", "namespace" must be present
-                    "size": ...,                        # required, integer number of bytes
-                    "metadata": {...},                  # optional, file metadata, a dictionary with arbitrary JSON'able contents
-                    "fid":  "...",                      # optional, file id. Will be auto-generated if unspecified.
-                                                        # if specified, must be unique
-                    "parents": [...],                   # optional, list of dicts, one dict per parent. See below.
-                    "checksums": {                      # optional, checksums dictionary
-                        "method": "value",...
-                    },
-                    "auto_name": "..."                  # optional, pattern to auto-generate file name if name is not specified or null
-                },...
-        
-            Parents are specified with dictionaries, one dictionary per file. Each dictionary specifies the parent file in one of three ways:
+        "did" - string in the format "<namespace>:<name>"
 
-                - "did": "<namespace>:<name>"
-                - "namespace":"...", "name":"..."
-                - "fid": "<file id>"
-        
-            DEPRECATED: if the parent is specified with a string instead of a dictionary, it is interpreferd as the parent file id.
+        "name" - file name and optionaly "namespace". If namespace is not present, the ``namespace`` argument will be used
+                 as the default namespace
+
+        "auto_name" - pattern to auto-generate file name
+    
+        .. code-block:: python
+    
+            { 
+                "namespace": "namespace",           # optional, namespace can be specified for each file explicitly or implicitly using the namespace=... argument
+                "name": "filename",                 # optional,
+                "did": "namespace:filename",        # optional, convenience for Rucio users
+                                                    # either "did" or "name", "namespace" must be present
+                "size": ...,                        # required, integer number of bytes
+                "metadata": {...},                  # optional, file metadata, a dictionary with arbitrary JSON'able contents
+                "fid":  "...",                      # optional, file id. Will be auto-generated if unspecified.
+                                                    # if specified, must be unique
+                "parents": [...],                   # optional, list of dicts, one dict per parent. See below.
+                "checksums": {                      # optional, checksums dictionary
+                    "method": "value",...
+                },
+                "auto_name": "..."                  # optional, pattern to auto-generate file name if name is not specified or null
+            },...
+    
+        Parents are specified with dictionaries, one dictionary per file. Each dictionary specifies the parent file in one of three ways:
+
+            - "did": "<namespace>:<name>"
+            - "namespace":"...", "name":"..."
+            - "fid": "<file id>"
+    
+        DEPRECATED: if the parent is specified with a string instead of a dictionary, it is interpreferd as the parent file id.
         """        
         
         default_namespace = namespace
