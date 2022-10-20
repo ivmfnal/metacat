@@ -19,7 +19,7 @@ top_file_query          :    file_query
     |   file_query "skip" SIGNED_INT                     -> skip              
     |   "(" file_query ")"           
 
-file_query_term: "files" ("from" dataset_query_list)?                               -> basic_file_query
+file_query_term: "files" ("from" ("dataset"|"datasets")? dataset_query_list)?                               -> basic_file_query
     |   "files" "from" "(" dataset_query ")"                                        -> basic_file_query
     |   "filter" FNAME "(" filter_params ? ")" "(" file_query_list ")"              -> filter
     |   "query" qualified_name                                                      -> named_query

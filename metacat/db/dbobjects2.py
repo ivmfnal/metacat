@@ -1417,7 +1417,7 @@ class DBDataset(DBObject):
 
     @staticmethod
     def datasets_for_bdq(db, bdq, limit=None):
-        print("datasets_for_bdq: bdq:", bdq)
+        #print("datasets_for_bdq: bdq:", bdq)
         if not (bdq.Namespace and bdq.Name):
             name_or_pattern = bdq.Name
             raise ValueError(f"Dataset specification error: {selector.Namespace}:{name_or_pattern}")
@@ -1429,7 +1429,7 @@ class DBDataset(DBObject):
                 out = [ds]
         else:
             sql = DBDataset.sql_for_basic_dataset_query(bdq)
-            print("   sql:", sql)
+            #print("   sql:", sql)
             c = db.cursor()
             c.execute(sql)
             out = limited((DBDataset.from_tuple(db, tup) for tup in fetch_generator(c)), limit)

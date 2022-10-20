@@ -365,7 +365,7 @@ class QueryConverter(Converter):
 
     def basic_file_query(self, args):
         if args:
-            print(args[0].pretty())
+            #print(args[0].pretty())
             assert len(args) == 1, "Expected 0 or 1 dataset selector list. Got: "+str(args)
             assert args[0].T == "dataset_query_list"
             return Node("basic_file_query", query=BasicFileQuery([a["query"] for a in args[0].C]))
@@ -723,16 +723,6 @@ class QueryConverter(Converter):
 
     def dataset_provenance_op(self, children):
         return Node("subsets", recursive=any(c.value == "recursively" for c in children))
-        
-    def _______simple_dataset_query(self, children):
-        c = children[0]
-        if c.T == "qualified_name":
-            q = BasicDatasetQuery(c["namespace"], c["name"])
-        elif c.T == "dataset_pattern":
-            q = BasicDatasetQuery(c["namespace"], c["name"], pattern=True)
-        else:
-            raise ValueError(f"Unknown child type {c.T}")
-        return Node("basic_dataset_query", query=q)
         
 class _Assembler(Ascender):
 
