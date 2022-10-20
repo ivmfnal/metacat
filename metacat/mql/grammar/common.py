@@ -6,8 +6,6 @@ query:  ("with" param_def_list)? params_applied_query
     | top_dataset_query                            
 
 
-dataset_pattern:    (FNAME ":")? STRING
-
 qualified_name:     (FNAME ":")? FNAME
 
 qualified_name_list:   qualified_name ("," qualified_name)*
@@ -75,7 +73,7 @@ BOOL: "true"i | "false"i
 
 
 STRING : /("(?!"").*?(?<!\\\\)(\\\\\\\\)*?"|'(?!'').*?(?<!\\\\)(\\\\\\\\)*?')/i
-UNQUOTED_STRING : /[a-z0-9:%$@_^.-]+/i
+UNQUOTED_STRING : /[a-z0-9:%$@_^.%*?-]+/i
 
 %import common.CNAME
 %import common.SIGNED_INT

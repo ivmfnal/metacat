@@ -1,5 +1,5 @@
 import uuid, json, hashlib, re, time, io, traceback, base64
-from metacat.util import to_bytes, to_str, epoch, chunked
+from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty
 from metacat.auth import BaseDBUser
 from psycopg2 import IntegrityError
 
@@ -13,8 +13,10 @@ from .common import (
     DBObject, _DBManyToMany,
     AlreadyExistsError, DatasetCircularDependencyDetected, NotFoundError, MetaValidationError,
     parse_name, fetch_generator, alias, 
-    first_not_empty, limited, strided, skipped, insert_bulk
+    insert_bulk
 )
+
+
 
 class DBFileSet(object):
     
@@ -215,7 +217,7 @@ class DBFileSet(object):
 
         file_meta_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f) or "true"
 
-        datasets = None if basic_file_query.DatasetSelectors is None else DBDataset.datasets_for_selectors(db, basic_file_query.DatasetSelectors)
+        datasets = None if basic_file_query.DatasetSelectors is None else DBDataset.datasets_for_bdqs(db, basic_file_query.DatasetSelectors)
         attrs = DBFile.attr_columns(f)
         if datasets is None:
             # no dataset selection
@@ -1414,20 +1416,19 @@ class DBDataset(DBObject):
         return limited(dataset_selector.filter_by_having(datasets), limit)
 
     @staticmethod
-    def datasets_for_bdf(db, bdf, limit=None):
-        print("datasets_for_bdf: bdf:", bdf)
-        if not (bdf.Namespace and bdf.Name):
-            name_or_pattern = bdf.Name
+    def datasets_for_bdq(db, bdq, limit=None):
+        print("datasets_for_bdq: bdq:", bdq)
+        if not (bdq.Namespace and bdq.Name):
+            name_or_pattern = bdq.Name
             raise ValueError(f"Dataset specification error: {selector.Namespace}:{name_or_pattern}")
-        if bdf.is_explicit():
-            ds = DBDataset.get(db, bdf.Namespace, bdf.Name)
+        if bdq.is_explicit():
+            ds = DBDataset.get(db, bdq.Namespace, bdq.Name)
             if ds is None:
                 out = []
             else:
                 out = [ds]
         else:
-            sql = DBDataset.dataset_selector_sql(bdf.Namespace, bdf.Name, bdf.Pattern, bdf.WithChildren,
-                    bdf.Recursively, bdf.Where)
+            sql = DBDataset.sql_for_basic_dataset_query(bdq)
             print("   sql:", sql)
             c = db.cursor()
             c.execute(sql)
@@ -1435,16 +1436,21 @@ class DBDataset(DBObject):
         return out
 
     @staticmethod
-    def datasets_for_bdfs(db, bdf_list):
-        seen = set()        # (namespace, name), ...
-        for bdf in bdf_list:
-            for ds in DBDataset.datasets_for_bdf(db, bdf):
-                if not (ds.Namespace, ds.Name) in seen:
-                    yield ds
-                    seen.add((ds.Namespace, ds.Name))
+    def datasets_for_bdqs(db, bdq_list):
+        for bdq in bdq_list:
+            for ds in DBDataset.datasets_for_bdq(db, bdq):
+                yield ds
 
     @staticmethod
-    def dataset_selector_sql(namespace, name, pattern, with_children, recursively, where):
+    def sql_for_basic_dataset_query(bdq):
+            namespace = bdq.Namespace
+            name = bdq.Name
+            pattern = bdq.Pattern
+            regexp = bdq.RegExp
+            with_children = bdq.WithChildren
+            recursively = bdq.Recursively
+            where = bdq.Where
+
             pc = alias("pc")
             pc1 = alias("pc1")
             d = alias("d")
@@ -1456,8 +1462,12 @@ class DBDataset(DBObject):
 
             meta_filter_dnf = MetaExpressionDNF(where) if where is not None else None
 
-            name_cmp = f"{ds}.name = '{name}'" if not pattern else f"{ds}.name like '{name}'"
-        
+            name_cmp_op = "=" if not pattern else (
+                "~" if regexp else "like"
+            )
+
+            name_cmp = f"{ds}.name {name_cmp_op} '{name}'"
+
             if not with_children:
                 #print([f"{ds}.{c}" for c in columns])
                 columns = ",".join([f"{ds}.{c}" for c in columns])

@@ -2,20 +2,31 @@ DatasetQuery = """
 
 top_dataset_query       :    dataset_query
 
-?dataset_query   :   "datasets" basic_dataset_query_list
+?dataset_query   :   "datasets" dataset_query_list
 
-basic_dataset_query_list: basic_dataset_query ("," basic_dataset_query)*
+dataset_query_list: basic_dataset_query ("," basic_dataset_query)*            -> dataset_query_list
 
 ?basic_dataset_query:    dataset_query_with_subsets
-    | dataset_query_with_subsets "where" meta_exp                   -> dataset_add_where
+    | dataset_query_with_subsets "having" meta_exp                   -> dataset_add_where
     
-?dataset_query_with_subsets : dataset_selector
-    | dataset_selector dataset_provenance_op                        -> dataset_add_subsets
+?dataset_query_with_subsets : dataset_spec
+    | dataset_spec dataset_provenance_op                            -> add_subsets
 
 !dataset_provenance_op: "with" "children" "recursively"?
 
-simple_dataset_query: qualified_name
-    | dataset_pattern
+!dataset_spec: qualified_name
+    | "matching" unquoted_pattern
+    | "matching" "regexp" quoted_pattern
+
+unquoted_pattern:    (FNAME ":")? UNQUOTED_STRING                   -> did_pattern
+
+quoted_pattern:    (FNAME ":")? STRING                              -> did_pattern
+
+dataset_spec_list : dataset_spec ("," dataset_spec)*
+
+?simple_dataset_query : dataset_query_with_subsets
+
+simple_dataset_query_list : simple_dataset_query ("," simple_dataset_query)*        -> dataset_query_list
 
 """
 

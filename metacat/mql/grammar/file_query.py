@@ -19,7 +19,8 @@ top_file_query          :    file_query
     |   file_query "skip" SIGNED_INT                     -> skip              
     |   "(" file_query ")"           
 
-file_query_term: "files" ("from" dataset_selector_list)?                            -> basic_file_query
+file_query_term: "files" ("from" dataset_query_list)?                               -> basic_file_query
+    |   "files" "from" "(" dataset_query ")"                                        -> basic_file_query
     |   "filter" FNAME "(" filter_params ? ")" "(" file_query_list ")"              -> filter
     |   "query" qualified_name                                                      -> named_query
     |   file_list
@@ -32,10 +33,4 @@ filter_params : constant_list
 
 file_query_list: file_query ("," file_query)*     
 
-dataset_selector_list: dataset_selector ("," dataset_selector)*
-
-!dataset_selector:   dataset_pattern ("with" "children" "recursively"?)? ("having" meta_exp)?
-    |   qualified_name ("with" "children" "recursively"? ("having" meta_exp)?)?
 """
-
-

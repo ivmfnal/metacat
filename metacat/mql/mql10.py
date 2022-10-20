@@ -1,4 +1,5 @@
-from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet, limited
+from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet
+from metacat.util import limited, unique
 from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter, LarkToNodes
 from .sql_converter import SQLConverter
 from .meta_evaluator import MetaEvaluator
@@ -98,10 +99,11 @@ def _make_DNF(exp, op=None, exp1=None):
 
 class BasicDatasetQuery(object):
 
-    def __init__(self, namespace, name, pattern=False, with_children=False, recursively=False, where=None):
+    def __init__(self, namespace, name, pattern=False, regexp=False, with_children=False, recursively=False, where=None):
         self.Namespace = namespace
         self.Name = name
         self.Pattern = pattern
+        self.RegExp = regexp
         self.WithChildren = with_children
         self.Recursively = recursively
         self.Where = where
@@ -209,7 +211,7 @@ class DatasetQuery(object):
         self.Tree = tree
 
     def run(self, db, limit=None, with_meta=True, with_provenance=True, filters={}, default_namespace=None, debug=False):
-        return _DatasetEvaluator(db, with_meta, limit).walk(self.Tree)
+        return _DatasetEvaluator(db, with_meta, limit)(self.Tree)
         
 class FileQuery(object):
 
@@ -363,12 +365,13 @@ class QueryConverter(Converter):
 
     def basic_file_query(self, args):
         if args:
+            print(args[0].pretty())
             assert len(args) == 1, "Expected 0 or 1 dataset selector list. Got: "+str(args)
-            assert args[0].T == "dataset_selector_list"
-            return Node("basic_file_query", query=BasicFileQuery(args[0]["selectors"]))
+            assert args[0].T == "dataset_query_list"
+            return Node("basic_file_query", query=BasicFileQuery(args[0]["queries"]))
         else:
             return Node("basic_file_query", query=BasicFileQuery(None))
-            
+
     def name_list(self, args):
         return [a.value for a in args]
 
@@ -416,36 +419,6 @@ class QueryConverter(Converter):
 
     def constant_list(self, args):
         return [n["value"] for n in args]
-
-    def dataset_selector(self, args):
-        name_or_pattern = args[0]
-        assert name_or_pattern.T in ("dataset_pattern", "qualified_name")
-        pattern = name_or_pattern.T == "dataset_pattern"
-        name = name_or_pattern["name"]
-        namespace = name_or_pattern["namespace"]
-        having_exp = None
-        with_children = False
-        recursively = False
-        args_ = args[1:]
-        i = 0
-        while i < len(args_):
-            #print(i, a)
-            a = args_[i]
-            if a.value == "with":
-                pass
-            elif a.value == "children":
-                with_children = True
-            elif a.value == "recursively":
-                recursively = True
-            elif a.value == "having":
-                having_exp = args_[i+1]
-                i += 1
-            i += 1
-        selector = DatasetSelector(namespace, name, pattern, with_children, recursively, having_exp)
-        return Node("dataset_selector", selector=selector)
-        
-    def dataset_selector_list(self, args):
-        return Node("dataset_selector_list", selectors=[ds["selector"] for ds in args])
 
     def qualified_name(self, args):
         assert len(args) in (1,2)
@@ -704,7 +677,10 @@ class QueryConverter(Converter):
     # Datasets
     #
     
-    def dataset_pattern(self, args):
+    def ____dataset_selector_list(self, args):
+        return Node("dataset_selector_list", selectors=[ds["selector"] for ds in args])
+        
+    def did_pattern(self, args):
         assert len(args) in (1,2)
         namespace = None
         if len(args) == 1:
@@ -714,63 +690,41 @@ class QueryConverter(Converter):
         # unquote the string
         if name.startswith("'") or name.startswith('"'):
             name = name[1:-1]
-        #print("Converter.qualified_name: returning: %s" % (out.pretty(),))
-        out = Node("dataset_pattern", namespace=namespace, name=name)
+        name = name.replace('*', '%')
+        name = name.replace('?', '_')
+        out = Node("did_pattern", namespace=namespace, name=name)
         return out
-        
-    def dataset_selector(self, args):
-        name_or_pattern = args[0]
-        assert name_or_pattern.T in ("dataset_pattern", "qualified_name")
+
+    def dataset_spec(self, args):
+        name_or_pattern = args[-1]
+        pattern = "matching" in args
+        regexp = "regexp" in args
+        assert name_or_pattern.T in ("did_pattern", "qualified_name")
         name = name_or_pattern["name"]
         namespace = name_or_pattern["namespace"]
-        pattern = name_or_pattern.T == "dataset_pattern"
-        where_exp = None
-        with_children = False
-        recursively = False
-        args_ = args[1:]
-        i = 0
-        while i < len(args_):
-            #print(i, a)
-            a = args_[i]
-            if a.value == "with":
-                pass
-            elif a.value == "children":
-                with_children = True
-            elif a.value == "recursively":
-                recursively = True
-            elif a.value == "where":
-                where_exp = args_[i+1]
-                i += 1
-            i += 1
-        query = BasicDatasetQuery(namespace, name, pattern=pattern, with_children=with_children, recursively=recursively, where=where_exp)
+        query = BasicDatasetQuery(namespace, name, pattern=pattern, regexp=regexp)
         return Node("basic_dataset_query", query=query)
         
-    def dataset_selector_list(self, args):
-        print("dataset_selector_list: args:")
-        for ds in args:
-            print(ds)
-        return Node("dataset_selector_list", selectors=[ds["query"] for ds in args])
-
     def dataset_add_where(self, children):
         assert len(children) == 2
         bdq, where = children
         assert bdq.T == "basic_dataset_query", "Unknown node type: "+bdq.pretty()
         q = bdq["query"]
         q.setWhere(children[1])
-        return bdq
-    
-    def dataset_add_subsets(self, children):
+        return Node("basic_dataset_query", query=q)
+
+    def add_subsets(self, children):
         assert len(children) == 2
         bdq, subsets = children
         q = bdq["query"]
         q.WithChildren = True
         q.Recursively = subsets["recursive"]
-        return bdq
+        return Node("basic_dataset_query", query=q)
 
     def dataset_provenance_op(self, children):
         return Node("subsets", recursive=any(c.value == "recursively" for c in children))
         
-    def simple_dataset_query(self, children):
+    def _______simple_dataset_query(self, children):
         c = children[0]
         if c.T == "qualified_name":
             q = BasicDatasetQuery(c["namespace"], c["name"])
@@ -779,7 +733,7 @@ class QueryConverter(Converter):
         else:
             raise ValueError(f"Unknown child type {c.T}")
         return Node("basic_dataset_query", query=q)
-
+        
 class _Assembler(Ascender):
 
     def __init__(self, db, default_namespace):
@@ -820,11 +774,11 @@ class _WithParamsApplier(Descender):
         bfq.apply_params(params)
         return node
 
-    def dataset_selector(self, node, params):
+    def basic_dataset_query(self, node, params):
         #print("_ParamsApplier.dataset_selector: applying params:", params)
-        selector = meta
-        assert isinstance(selector, BasicDatasetQuery)
-        selector.apply_params(params)
+        bdq = node["query"]
+        assert isinstance(bdq, BasicDatasetQuery)
+        bdq.apply_params(params)
         return node
         
     def named_query(self, node, params):
@@ -1064,9 +1018,14 @@ class _DatasetEvaluator(Ascender):
         self.WithMeta = with_meta
         self.Limit = limit
 
-    def basic_dataset_query_list(self, node, *args):
-        return limited(DBDataset.datasets_for_bdfs(self.DB, [a["query"] for a in args]), self.Limit)
-        
+    def __call__(self, tree):
+        out = self.walk(tree)
+        return out
+
+    def dataset_query_list(self, node, *args):
+        queries = (a["query"] for a in args)
+        return limited(unique(DBDataset.datasets_for_bdqs(self.DB, queries), key=lambda ds: (ds.Namespace, ds.Name)), self.Limit)
+
 def _____parse_query(text, debug=False):
     # remove comments
     out = []

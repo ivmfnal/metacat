@@ -1,6 +1,7 @@
 from .trees import Ascender, Node
-from metacat.db import DBFileSet, alias, limited, MetaExpressionDNF, DBDataset
+from metacat.db import DBFileSet, alias, MetaExpressionDNF, DBDataset
 from .meta_evaluator import MetaEvaluator
+from metacat.util import limited
 
 class CollapseSkipLimit(Ascender):
     #
