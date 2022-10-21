@@ -269,7 +269,7 @@ class DBFileSet(object):
                             and {name_where}
                             and {specs_where}
                             and {file_meta_exp}
-                        -- order by {f}.id
+                        order by {f}.id
                         {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """
