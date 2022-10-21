@@ -59,6 +59,9 @@ def none_as_blank(x):
     else:
         return str(x)
 
+def angle_brackets(text):
+    return text.replace("<", "&lt;").replace(">", "&gt;")
+
 class App(BaseApp):
 
     Version = Version
@@ -71,17 +74,19 @@ class App(BaseApp):
         self.DefaultNamespace = "dune"
 
         from metacat.filters import standard_filters
-
-        self.Filters = {}
-        self.Filters.update(standard_filters)
-
+        self.StandardFilters = standard_filters
         try:
             from custom_filters import create_filters
             custom_filters = create_filters(self.Cfg.get("custom_filters", {}))
             #print("Custom filters imported:", ",".join(custom_filters.keys()))
-            self.Filters.update(custom_filters)
-        except:
-            pass
+        except Exception as e:
+            print("Can not import custom filters:", e)
+            custom_filters = {}
+        self.CustomFilters = custom_filters
+
+        self.Filters = {}
+        self.Filters.update(self.StandardFilters)
+        self.Filters.update(self.CustomFilters)
 
     def filters(self):
         return self.Filters
@@ -92,6 +97,7 @@ class App(BaseApp):
             filters={"as_dt_utc":as_dt_utc,
                 "as_dt_local":as_dt_local,
                 "none_as_blank":none_as_blank,
+                "angle_brackets":angle_brackets,
                 "json": as_json
             },
             tempdirs=[self.ScriptHome, self.ScriptHome + "/templates"],

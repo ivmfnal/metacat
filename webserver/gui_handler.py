@@ -300,6 +300,9 @@ class GUIHandler(MetaCatHandler):
             out.append((name, sorted(clist, key=lambda vc: (-vc[1], vc[0]))))
         return sorted(out)
         
+    def filters(self, request, relpath, **args):
+        return self.render_to_response("filters.html", standard=self.App.StandardFilters, custom=self.App.CustomFilters)
+
     def query(self, request, relpath, query=None, namespace=None, run="no", with_meta="yes", **args):
         
         db = self.App.connect()
@@ -355,7 +358,7 @@ class GUIHandler(MetaCatHandler):
                 query_type = parsed.Type
                 #print("Server.query: with_meta:", with_meta)
                 try:
-                    results = parsed.run(db, filters=self.App.filters(), 
+                    results = parsed.run(db, filters=self.App.filters(),
                         default_namespace=namespace or None,
                         limit=1000 if not save_as_dataset else None, 
                         with_meta=with_meta)

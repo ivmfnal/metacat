@@ -41,7 +41,7 @@ def implement_skip(filter):
 class MetaCatFilter(object):
 
     def __init__(self, config=None):
-        pass
+        self.Config = config
 
     def apply_selection(self, inp, skip, limit, stride=None):
         # stride is not used
@@ -70,6 +70,14 @@ class MetaCatFilter(object):
         yield from self.apply_selection(self.filter(inputs, *params, **kv), skip, limit)
 
 class Sample(MetaCatFilter):
+    """
+    Inputs: single file set
+    
+    Parameters:
+        fraction: floating point number from 0.0 to 1.0
+    
+    Output: Randomly picked subset of the input file set
+    """
     
     def filter(self, inputs, fraction, **ignore):
         file_set = inputs[0]
@@ -81,12 +89,30 @@ class Sample(MetaCatFilter):
                 yield f
 
 class Limit(MetaCatFilter):
+    """
+    Inputs: single file set
     
-    def filter(inputs, limit, **ignore):
+    Parameters:
+        limit: integer
+    
+    Output: First <limit> files from the input file set
+    """
+    
+    def filter(self, inputs, limit, **ignore):
         file_set = inputs[0]
         return limited(file_set, limit)
 
 class EveryNth(MetaCatFilter):
+    """
+    Inputs: single file set
+    
+    Parameters:
+        modulo: integer
+        remainder: integer, from 0 to <modulo>-1
+    
+    Output: Every <modulo>'th file from the input file set, starting from <remainder>. 
+        The output depends on the order of the files in the input set.
+    """
     
     def filter(self, inputs, modulo, remainder, **ignore):
         file_set = inputs[0]
@@ -97,6 +123,16 @@ class EveryNth(MetaCatFilter):
             i += 1
             
 class Hash(MetaCatFilter):
+    """
+    Inputs: single file set
+    
+    Parameters:
+        modulo: integer
+        remainder: integer, from 0 to <modulo>-1
+    
+    Output: Approximately every <modulo>'th file from the input file set. The filter calculates Adler32 on each file id and outputs the file
+        if the <adler32 hash> % <modulo> == <remainder>. The output does not depend on the order of files in the input set.
+    """
     
     def filter(self, inputs, modulo, remainder, **ignore):
         from zlib import adler32
@@ -107,6 +143,14 @@ class Hash(MetaCatFilter):
                 yield f
             
 class Mix(MetaCatFilter):
+    """
+    Inputs: multiple file sets
+    
+    Parameters:
+        *ratios - floating point numbers, do not have to be normalized
+    
+    Output: Mixes files from the input file sets proportionally to the ratios. Stops when one of the input file sets is exhausted.
+    """
     
     def filter(self, inputs, *ratios, **ignore):
         import types
@@ -119,9 +163,6 @@ class Mix(MetaCatFilter):
         while scores and not stop:
             scores = [(s+ratios[i], i, inp) for s, i, inp in scores]
             scores = sorted(scores, reverse=True, key=lambda x: (x[0], x[1]))
-            #print("sorted scores:")
-            #for s, i, _ in scores:
-            #    print(s,i)
             s0, i, it = scores[0]
             scores = [(s-s0, i, inp) for s, i, inp in scores]       # renormalize
             s0 = 0.0

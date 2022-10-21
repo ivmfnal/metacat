@@ -167,7 +167,7 @@ class DBFileSet(object):
         return DBFileSet.union([self, other])
         
     @staticmethod
-    def from_basic_query(db, basic_file_query, with_metadata, limit):
+    def _____from_basic_query(db, basic_file_query, with_metadata, limit):
         
         debug("from_basic_query: with_metadata:", with_metadata)
         
@@ -226,7 +226,7 @@ class DBFileSet(object):
             # no dataset selection
             sql = f"""
                 -- sql_for_basic_query {f}
-                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                    select distinct on ({f}.id) {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
                         where {file_meta_exp}
                         {limit} {offset}
@@ -264,7 +264,7 @@ class DBFileSet(object):
         
             sql = f"""
                 -- sql_for_basic_query {f}
-                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                    select distinct on ({f}.id) {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
                             inner join files_datasets {fd} on {fd}.file_id = {f}.id
                         where
@@ -272,6 +272,7 @@ class DBFileSet(object):
                             and {name_where}
                             and {specs_where}
                             and {file_meta_exp}
+                        order by {f}.id
                         {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """
