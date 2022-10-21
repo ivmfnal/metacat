@@ -1,4 +1,6 @@
 from metacat.db import DBFileSet
+import random
+from metacat.util import strided, limited, skipped
 
 #
 # Common filters
@@ -43,31 +45,20 @@ class MetaCatFilter(object):
     def __init__(self, config=None):
         self.Config = config
 
-    def apply_selection(self, inp, skip, limit, stride=None):
-        # stride is not used
-        stride_n = stride_i = None
-        if stride is not None:
-            stride_n, stride_i = stride
-        i = 0
-        for f in inp:
-            if skip is not None and skip > 0:
-                skip -= 1
-            else:
-                if limit == 0:  break
-                if stride_n is not None:
-                    if i % stride_n == stride_i:
-                        yield f
-                    i += 1
-                else:
-                    yield f
-                if limit is not None:
-                    limit -= 1
-    
-    def run(self, inputs, params, kv, limit=None, skip=None):
+    def run(self, inputs, params, kv, limit=None, skip=None, stride=None):
         #
         # selection application order: skip -> limit -> stride
         #
-        yield from self.apply_selection(self.filter(inputs, *params, **kv), skip, limit)
+        return strided(
+            limited(
+                skipped(
+                    self.filter(inputs, *params, **kv), 
+                    skip
+                ),
+                limit
+            ),
+            stride
+        )
 
 class Sample(MetaCatFilter):
     """
@@ -141,6 +132,32 @@ class Hash(MetaCatFilter):
             r = adler32(f.FID.encode("utf-8")) % modulo
             if r == remainder:
                 yield f
+                
+class Randomize(MetaCatFilter):
+    
+    """
+    Inputs: single file set
+    
+    Keyword arguments:
+        seed: integer, random number generator seed. If missing, seed is will be random.
+        window: integer, randomization window - the wider the window, the more random the output will be. The distance from original index of the
+            file to its randomaized index will be around the window. Default=1000.
+    
+    Output: Returns the same files as in the input set, but in randomized order.
+    """
+    
+    def filter(self, inputs, seed=None, window=1000):
+        rng = random.Random(seed)
+        saved = [None] * window
+        for f in inputs[0]:
+            i = rng.randint(0, window-1)
+            s = saved[i]
+            if s is not None:
+                yield s
+            saved[i] = f
+        for f in saved:
+            if f is not None:
+                yield f
             
 class Mix(MetaCatFilter):
     """
@@ -189,6 +206,7 @@ standard_filters = {
     "limit":        Limit(),
     "every_nth":    EveryNth(),
     "mix":          Mix(),
-    "hash":         Hash()
+    "hash":         Hash(),
+    "randomize":    Randomize()
 }
             

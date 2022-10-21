@@ -30,6 +30,10 @@ def first_not_empty(lst):
         return val
         
 def limited(iterable, n):
+    if n is None:
+        yield from iterable
+    if isinstance(iterable, (list, tuple)):
+        yield from iterable[:n]
     for f in iterable:
         if n is None:
             yield f
@@ -41,11 +45,17 @@ def limited(iterable, n):
             n -= 1
             
 def strided(iterable, n, i=0):
+    if n is None:
+        yield from iterable
     for j, f in enumerate(iterable):
         if j%n == i:
             yield f
             
 def skipped(iterable, n):
+    if n is None:
+        yield from iterable
+    if isinstance(iterable, (list, tuple)):
+        yield from iterable[n:]
     for f in iterable:
         if n > 0:
             n -= 1

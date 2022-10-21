@@ -230,7 +230,7 @@
 
     <h3>Files</h3>
     <table class="file_metadata">
-        {% for f in files|sort(attribute="Name") %}
+        {% for f in files %}
             <tr>
                 <td colspan=2 class="filename"><a href="./show_file?fid={{f.FID}}">{{f.Namespace}}:{{f.Name}}</a> ({{f.FID}})</td>
             </tr>

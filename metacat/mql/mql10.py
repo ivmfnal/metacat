@@ -295,7 +295,6 @@ class FileQuery(object):
         if debug:
             print("Query:\n%s" % (optimized.pretty(),))
             #print("SQL:\n%s" % (out.SQL,))
-
         return out
 
 class QueryConverter(Converter):
@@ -868,8 +867,8 @@ class _SkipLimitApplier(Descender):
 
     def filter(self, node, skip_limit):
         skip, limit = skip_limit
-        node["limit"] = limit
-        node["skip"] = skip
+        node["limit"] = limit if node.get("limit") is None else node["limit"]
+        node["skip"] = skip if not node.get("skip") else node["skip"]
         node.C = [self.walk(c) for c in node.C]
         return node
 

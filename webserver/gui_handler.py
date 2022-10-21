@@ -369,12 +369,14 @@ class GUIHandler(MetaCatHandler):
             else:
                 results = None
                 url_query = None
+
             results = None if results is None else list(results)
             if query_type=="dataset":
                 datasets = results
             else:
                 files = results
-                
+            
+            #print("files:", type(files), files)
             meta_stats = None if (not with_meta or parsed.Type=="dataset") else self._meta_stats(files)
             #print("meta_stats:", meta_stats, "    with_meta:", with_meta, request.POST.get("with_meta"))
                 
@@ -424,13 +426,8 @@ class GUIHandler(MetaCatHandler):
                             
         attr_names = set()
         if files is not None:
-            lst = []
-            for f in files:
-                lst.append(f)
-                if len(lst) >= 1000:
-                    #if len(lst) % 100 == 0: print("lst:", len(lst))
-                    break
-            files = lst
+            files = files[:1000]
+            #print("GUI server.query(): files[:10]:", files[:10])
             if with_meta:
                 for f in files:
                     if f.Metadata:

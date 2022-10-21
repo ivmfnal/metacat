@@ -40,7 +40,7 @@ class SQLConverter(Ascender):
     def __init__(self, db, filters, debug=False):
         self.DB = db
         self.Filters = filters
-        self.Debug = debug
+        self.Debug = False
         
     def columns(self, t, with_meta=True, with_provenance=True):
         meta = f"{t}.metadata" if with_meta else "null as metadata"
@@ -78,6 +78,7 @@ class SQLConverter(Ascender):
         else:
             #print(node)
             file_set = node["file_set"]
+        self.debug("Returning:", type(file_set), type(file_set.Files))
         return file_set
 
     #
