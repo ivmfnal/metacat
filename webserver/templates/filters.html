@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block headline %}External Data Filters{% endblock %}
+
+{% block content %}
+
+<table class=form>
+	<tr>
+        <td colspan=3><h3>Standard filters</h3></td>
+    </tr>
+    {% for key, filter in standard.items()|sort %}
+        <tr>
+            <th>{{key}}</th>
+            <td colspan=2><pre>{{filter.__doc__|angle_brackets}}</pre></td>
+        </tr>
+    {% endfor %}
+	<tr>
+        <td colspan=3><h3>Custom filters</h3></td>
+    </tr>
+    {% for key, filter in custom.items()|sort %}
+        <tr>
+            <th>{{key}}</th>
+            <td colspan=2><pre>{{filter.__doc__|angle_brackets}}</pre>
+            </td>
+        </tr>
+        {% if not filter.Config is none %}
+            <tr>
+                <td></td>
+                <th>current configuration:</th>
+                <td>
+                    <pre>
+{{filter.Config|pprint}}
+</pre>
+                </td>
+            </tr>
+        {% endif %}
+    {% endfor %}
+</table>
+
+{% endblock %}
+	

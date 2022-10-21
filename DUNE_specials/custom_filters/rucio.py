@@ -2,8 +2,19 @@ import os
 from metacat.filters import MetaCatFilter
 
 class RucioReplicas(MetaCatFilter):
+    """
+    Inputs: single file set
+    
+    Parameters: none
+    
+    Output: The same file set with added file attribute rucio.rse = [<rse name>, ...] - list of RSEs where replicas of the file can be found
+    
+    Configuration:
+        rucio_config:   path to Rucio client configuration file. If unspecified, standard Rucio config file lookup procedure will be used.
+    """
 
     def __init__(self, config):
+        MetaCatFilter.__init__(self, config)
         self.RucioConfig = config.get("rucio_config")
 
     def filter(self, inputs, *params, **ignore):
