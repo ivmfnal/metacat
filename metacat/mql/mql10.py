@@ -2,6 +2,7 @@ from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet
 from metacat.util import limited, unique
 from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter, LarkToNodes
 from .sql_converter import SQLConverter
+from .query_executor import QueryExecutor
 from .meta_evaluator import MetaEvaluator
 import json, time
 
@@ -233,7 +234,7 @@ class FileQuery(object):
 
     def __init__(self, tree):
         self.Tree = tree
-        self.Assembled = self.Optimized = None
+        self.Assembled = self.Optimized = self.Compiled = None
         
     def __str__(self):
         return "FileQuery(\n%s\n)" % (self.Tree.pretty("  "),)
@@ -286,7 +287,7 @@ class FileQuery(object):
             self.Optimized = optimized
         return self.Optimized
 
-    def run(self, db, filters={}, skip=0, limit=None, with_meta=True, with_provenance=True, default_namespace=None, debug=False):
+    def compile(self, skip=0, limit=None, with_meta=True, with_provenance=True, default_namespace=None, debug=False):
         try:
             self.assemble(db, default_namespace = default_namespace)
             optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
@@ -302,14 +303,25 @@ class FileQuery(object):
             raise MQLCompilationError(str(e))
             
         try:
-            out = SQLConverter(db, filters, debug=debug).convert(optimized)
+            self.Compiled = compiled = SQLConverter(db, filters, debug=debug)(optimized)
+        except Exception as e:
+            raise MQLCompilationError(str(e))
+        
+        if debug:
+            print("\nCompiled:", compiled.pretty())
+
+        return compiled
+
+    def run(self, db, filters={}, skip=0, limit=None, with_meta=True, with_provenance=True, default_namespace=None, debug=False):
+        compiled = self.Compiled or self.compile(skip=skip, limit=limit, 
+                    with_meta=with_meta, with_provenance=with_provenance, 
+                    default_namespace=default_namespace, debug=debug)
+        try:
+            result = QueryExecutor(db, filters, debug=debug)(compiled)
         except Exception as e:
             raise MQLExecutionError(str(e))
         
-        if debug:
-            print("Query:\n%s" % (optimized.pretty(),))
-            #print("SQL:\n%s" % (out.SQL,))
-        return out
+        return result
 
 class QueryConverter(Converter):
     

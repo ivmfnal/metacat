@@ -3,38 +3,6 @@ from metacat.db import DBFileSet, alias, MetaExpressionDNF, DBDataset
 from .meta_evaluator import MetaEvaluator
 from metacat.util import limited
 
-class CollapseSkipLimit(Ascender):
-    #
-    # converts Nodes of type "skip" and "limit" and sequences limit(skip) into "skip_limit" nodes
-    # also detects empty sets
-    #
-    
-    def combine_limits(self, l1, l2):
-        if l1 is None:  return l2
-        if l2 is None:  return l1
-        return min(l1, l2)
-    
-    def skip(self, node, child, skip=0):
-        if child.T == "skip_limit":
-            child_skip = child.get("skip", 0)
-            child_limit = child.get("limit")
-            if child_limit:
-                child_limit -= skip
-                if child_limit <= 0:
-                    return Node("empty")
-            child_skip += skip
-            return Node("skip_limit", [child], skip=child_skip, limit=child_limit)
-        else:
-            return Node("skip_limit", [child], skip=skip, limit=None)
-
-    def limit(self, node, child, limit=None):
-        if limit == 0:
-            return Node("empty")
-        if child.T == "skip_limit":
-            return Node("skip_limit", [child.C[0]], skip=child["skip"], limit=self.combine_limits(limit, child["limit"]))
-        else:
-            return Node("skip_limit", [child], skip=0, limit=limit)
-
 class SQLConverter(Ascender):
     
     def __init__(self, db, filters, debug=False):
@@ -57,30 +25,12 @@ class SQLConverter(Ascender):
             parts = ["SQLConverter:"]+list(params)
             print(*parts, **args)
             
-    def convert(self, tree):
-        self.debug("SQL converter: input tree:----------\n", tree.pretty(), "\n-------------")
-        tree = CollapseSkipLimit().walk(tree, self.Debug)
-        self.debug("SQL converter: after CollapseSkipLimit:----------\n", tree.pretty(), "\n-------------")        
+    def __call__(self, tree):
+        self.debug("\nSQL converter: input tree:----------\n", tree.pretty(), "\n-------------")
         result = self.walk(tree)
-        if result.T == "sql":
-            self.debug("SQL converter: sql:---------\n", result["sql"], "\n-------------")
-        file_set = self.node_to_file_set(result)
-        self.debug("convert(): returning file set")
-        return file_set
+        self.debug("\nSQL converter: output tree:----------\n", result.pretty(), "\n-------------")
+        return result
         
-    def node_to_file_set(self, node):
-        self.debug("node_to_file_set: node:", node)
-        if node.T == "sql":
-            self.debug("   sql:", node["sql"])
-            file_set = DBFileSet.from_sql(self.DB, node["sql"])
-        elif node.T == "empty":
-            file_set = DBFileSet(self.DB)
-        else:
-            #print(node)
-            file_set = node["file_set"]
-        self.debug("Returning:", type(file_set), type(file_set.Files))
-        return file_set
-
     #
     # Tree node methods
     #
