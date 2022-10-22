@@ -139,7 +139,7 @@ class Randomize(MetaCatFilter):
     Inputs: single file set
     
     Keyword arguments:
-        seed: integer, random number generator seed. If missing, seed is will be random.
+        seed: integer, random number generator seed. If missing, seed will be random.
         window: integer, randomization window - the wider the window, the more random the output will be. The distance from original index of the
             file to its randomaized index will be around the window. Default=1000.
     

@@ -90,7 +90,7 @@ class SQLConverter(Ascender):
         
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
         #print("meta_filter: args:", args)
-        assert query.T in ("sql","file_set")        
+        assert query.T in ("sql", "file_set")        
         if meta_exp is not None:
             if query.T == "sql":
                 t = alias("t")

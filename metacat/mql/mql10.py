@@ -161,14 +161,28 @@ class BasicFileQuery(object):
             "+" if self.WithMeta else "-",
             "+" if self.WithProvenance else "-",
             )
+
+    __repr__ = __str__
         
-    def _pretty(self, indent="", headline_indent=None):
+    def _pretty(self, indent="", headline_indent=""):
         #print(f"BasicFileQuery._pretty(indent='{indent}', headline_indent='{headline_indent}')")
-        if headline_indent is None: headline_indent = indent
-        lines = ["%s%s" % (headline_indent, self)]
+        head = str(self)
+        lines = []
         if self.Wheres is not None:
-            lines += self.Wheres._pretty(indent + "| ", headline_indent = indent + "| where=")
-        return lines
+            where_head, where_lines = self.Wheres._pretty(indent + "|   ")
+            lines.append(indent + "where = " + where_head)
+            lines += where_lines
+        return head, lines
+
+    def _pretty(self, indent="", headline_indent=""):
+        #print(f"BasicFileQuery._pretty(indent='{indent}', headline_indent='{headline_indent}')")
+        head = str(self)
+        lines = []
+        if self.Wheres is not None:
+            where_head, where_lines = self.Wheres._pretty(indent + "|   ")
+            lines.append(indent + "where = " + where_head)
+            lines += where_lines
+        return head, lines
 
     def pretty(self, indent=""):
         #print("pretty---")

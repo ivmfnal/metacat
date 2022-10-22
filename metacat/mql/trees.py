@@ -22,7 +22,7 @@ class Token(object):
         return self._pretty()
         
     def _pretty(self, indent="", headline_indent=None):
-        return ['%s%s "%s"' % (indent, self.T, self.V)]
+        return 'token %s "%s"' % (self.T, self.V), []
 
     def jsonable(self):
         return dict(T=self.T, V=self.V)
@@ -107,10 +107,44 @@ class Node(object):
             else:
                 out.append("%s%s" % (indent + "+-", repr(c)))
         return out
-        
+
+    def _pretty(self, indent=""):
+
+        out = []
+
+
+        items = list(self.D.items())
+        for i, (k, v) in enumerate(items):
+            key = f"{k} = "
+            if isinstance(v, (Node, Token)):
+                key_len = len(key)
+                prefix = ". " if i < len(items) - 1 else "  "
+                head, lines = v._pretty(indent + prefix + " "*key_len)
+                out.append(indent + "- " + key + head)
+                out += lines
+            else:
+                out.append(indent + "- " + key + repr(v))
+
+        nc = len(self.C)
+        for i, c in enumerate(self.C):
+            child_indent = indent + (' ' if i == nc-1 else '|') + "  "
+            if isinstance(c, (Node, Token)):
+                head, lines = c._pretty(child_indent)
+                out.append(indent + "+- " + head)
+                out.extend(lines)
+            else:
+                out.append(indent + "+- " + repr(c))
+
+        head = self.T
+        if self.M is not None:
+            head += f" m:{self.M}"
+
+        return head, out
+
     def pretty(self, indent=""):
         #print("pretty---")
-        return "\n".join(self._pretty(indent))
+        head, lines = self._pretty(indent)
+        return indent + head + "\n" + "\n".join(lines)
         
     def jsonable(self):
         d = dict(T=self.T, M=self.M, C=[c.jsonable() if isinstance(c, Node) else c

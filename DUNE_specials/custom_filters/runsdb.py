@@ -34,6 +34,7 @@ class RunsDB(MetaCatFilter):
     
     def filter(self, inputs, *params, daqinterface_commit=None, mode=None, **ignore):
         db = self.ConnPool.connect()
+        print("db connected")
         cursor = db.cursor()
 
         assert len(inputs) == 1
@@ -49,7 +50,7 @@ class RunsDB(MetaCatFilter):
         for chunk in inputs[0].chunked():
             by_run = {}
             for f in chunk:
-                #print(f.Namespace, f.Name)
+                print(f.Namespace, f.Name, f.Metadata)
                 if "core.runs" in f.Metadata:
                     for runnum in f.Metadata["core.runs"]:
                         by_run.setdefault(runnum,[]).append(f)
