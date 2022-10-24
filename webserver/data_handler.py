@@ -1,4 +1,5 @@
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
+from webpie.http_errors import HTTPBadRequest, HTTPNotFound, HTTPForbidden
 import psycopg2, json, time, secrets, traceback, hashlib, pprint, uuid, random
 from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, \
     DBParamCategory, parse_name, AlreadyExistsError, IntegrityError, MetaValidationError
@@ -7,7 +8,6 @@ from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_str, to_bytes, ObjectSpec
 from metacat.mql import MQLQuery, MQLSyntaxError, MQLExecutionError, MQLCompilationError, MQLError
 from metacat import Version
-from webpie import sanitize
 
 from common_handler import MetaCatHandler
 
@@ -86,7 +86,7 @@ class DataHandler(MetaCatHandler):
     def simulate_503(self, request, relpath, prob=0.5, **args):
         prob = float(prob)
         if prob > random.random():
-            return 503, "try again later"
+            return 503, "try later"
         else:
             return "OK"
 
@@ -95,6 +95,8 @@ class DataHandler(MetaCatHandler):
         db = self.App.connect()
         if request.body:
             names = json.loads(request.body)
+            for name in names:
+                self.sanitize(namespace=name)
             lst = DBNamespace.get_many(db, names)
         else:
             lst = sorted(DBNamespace.list(db, owned_by_user=owner_user, owned_by_role=owner_role, directly=directly), 
@@ -108,8 +110,7 @@ class DataHandler(MetaCatHandler):
         if ns is None:
             return "Not found", 404
         return json.dumps(ns.to_jsonable()), "text/json"
-
-    @sanitize(exclude="description")
+        
     def create_namespace(self, request, relpath, name=None, owner_role=None, description=None, **args):
         db = self.App.connect()
         user, error = self.authenticated_user()
@@ -150,7 +151,7 @@ class DataHandler(MetaCatHandler):
         
     def datasets(self, request, relpath, with_file_counts="no", **args):
         with_file_counts = with_file_counts == "yes"
-        print("data_server.datasets: with_file_counts:", with_file_counts)
+        #print("data_server.datasets: with_file_counts:", with_file_counts)
         db = self.App.connect()
         datasets = DBDataset.list(db)
         out = []
@@ -207,7 +208,6 @@ class DataHandler(MetaCatHandler):
             "Access-Control-Allow-Origin":"*"
         } 
 
-    @sanitize(exclude="description")
     def create_dataset(self, request, relpath):
         db = self.App.connect()
         user, error = self.authenticated_user()
@@ -218,6 +218,7 @@ class DataHandler(MetaCatHandler):
         params = json.loads(request.body)
         namespace = params["namespace"]
         name = params["name"]
+        self.sanitize(namespace=namespace, name=name)
         ns = DBNamespace.get(db, namespace)
         if not user.is_admin() and not ns.owned_by_user(user):
             return 403
@@ -228,7 +229,7 @@ class DataHandler(MetaCatHandler):
 
         files = subsets = None
         files_query = params.get("files_query")
-        print("create_dataset: files query:", files_query)
+        #print("create_dataset: files query:", files_query)
         if files_query:
             query = MQLQuery.parse(files_query)
             if query.Type != "file":
@@ -258,25 +259,27 @@ class DataHandler(MetaCatHandler):
 
         return dataset.to_json(), "text/json"
         
-    @sanitize(exclude="description")
     def update_dataset(self, request, relapth, dataset=None):
         if not dataset:
-            return 400, "Dataset is not specfied"
-        namespace, name = parse_name(dataset, None)
-        if not namespace:
-            return "Namespace is not specfied", 400
+            rasie HTTPBadRequest("Dataset is not specfied")
+        try:    spec = ObjectSpec(dataset)
+        except ValueError as e:
+            raise HTTPBadRequest(str(e))
+        namespace, name = spec.Namespace, spec.Name
+        self.sanitize(namespace=namespace, name=name)
         user, error = self.authenticated_user()
         if user is None:
-            return 403
+            raise HTTPForbidden()
         db = self.App.connect()
         request_data = json.loads(request.body)
+        
         
         try:
             if not self._namespace_authorized(db, namespace, user):
                 return f"Permission to update dataset in namespace {namespace} denied", 403
         except KeyError:
             return f"Namespace {namespace} does not exist", 404
-                
+        
         ds = DBDataset.get(db, namespace, name)
         if ds is None:
             return 404, "Dataset not found"
@@ -325,18 +328,21 @@ class DataHandler(MetaCatHandler):
             parent_ds.add_child(child_ds)
         return "OK"
         
-    def add_files(self, request, relpath, namespace=None, dataset=None, **args):
+    def add_files(self, request, relpath, dataset=None, **args):
         #
         # add existing files to a dataset
         #
+
         user, error = self.authenticated_user()
         if user is None:
             return 401, error
 
-        params = json.loads(request.body)        
+        params = json.loads(request.body)
         file_list = params.get("file_list")
         query_text = params.get("query")
         default_namespace = params.get("namespace")
+
+        self.sanitize(namespace=default_namespace)
 
         if not file_list and not query_text:
             return "No files to add", 400
@@ -345,6 +351,7 @@ class DataHandler(MetaCatHandler):
             
         db = self.App.connect()
         ds_namespace, ds_name = parse_name(dataset, default_namespace)
+        self.sanitize(dataset_namespace=ds_namespace, dataset_name=ds_name)
         if ds_namespace is None:
             return "Dataset namespace unspecified", 400
         if not self._namespace_authorized(db, ds_namespace, user):
@@ -365,12 +372,13 @@ class DataHandler(MetaCatHandler):
             files = []
             for file_item in file_list:
                 spec = ObjectSpec(file_item, namespace=default_namespace)
+                self.sanitize(namespace=spec.Namespace, name=spec.Name, fid=spec.FID)
                 if spec.FID:
                     f = DBFile(db, fid=spec.FID)
                 else:
                     f = DBFile(db, spec.Namespace, spec.Name)
                 files.append(f)
-                print("add_files: files:", files)
+                #print("add_files: files:", files)
         
         if files:
             try:    ds.add_files(files, do_commit=True)
@@ -389,6 +397,11 @@ class DataHandler(MetaCatHandler):
 
         # validate input data
         file_list = json.loads(request.body) if request.body else []
+        for item in file_list:
+            fid = item.get(fid)
+            namespace, name = item.get("namespace"), item.get("name")
+            self.sanitize(namespace=namespace, name=name, fid=fid)
+
         datasets_by_file = DBDataset.datasets_for_files(db, file_list)
         out = []
         for item in file_list:
@@ -478,7 +491,7 @@ class DataHandler(MetaCatHandler):
 
         file_list = json.loads(request.body) if request.body else []
         if not file_list:
-                return "Empty file list", 400
+            return "Empty file list", 400
         files = []
         errors = []
         parents_to_resolve = set()
@@ -498,6 +511,8 @@ class DataHandler(MetaCatHandler):
             namespace = file_item.get("namespace", default_namespace)
             name = file_item.get("name")
             fid = file_item.get("fid")
+            
+            self.sanitize(namespace=namespace, name=name, fid=fid)
 
             size = file_item.get("size")
             if size is None:
@@ -766,8 +781,10 @@ class DataHandler(MetaCatHandler):
         for f in data["files"]:
             spec = ObjectSpec.from_dict(f)
             if spec.FID:
+                self.sanitize(fid = spec.FID)
                 by_fid.append(spec.FID)
             else:
+                self.sanitize(namespace=spec.Namespace, name=spec.Name)
                 by_namespace_name.append((spec.Namespace, spec.Name))
         return self.__update_meta_bulk(db, user, data["metadata"], data["mode"], ids=by_fid, names=by_namespace_name)
         
@@ -796,14 +813,9 @@ class DataHandler(MetaCatHandler):
         file_list = json.loads(request.body)
         lookup_lst = []
         for f in file_list:
-            if "fid" in f:
-                lookup_lst.append({"fid":f["fid"]})
-            elif "did" in f:
-                namespace, name = parse_name(f["did"], None)
-                lookup_lst.append({"namespace":namespace, "name":name})
-            else:
-                namespace, name = f["namespace"], f["name"]
-                lookup_lst.append({"namespace":namespace, "name":name})
+            spec = ObjectSpec(f)
+            self.sanitize(namespace=spec.Namespace, name=spec.Name, fid=spec.FID)
+            lookup_lst.append(spec.as_dict())
 
         db = self.App.connect()
         files = list(DBFile.get_files(db, lookup_lst))
@@ -812,7 +824,6 @@ class DataHandler(MetaCatHandler):
         ]
         return json.dumps(out), "text/json"
 
-    @sanitize(exclude="query")
     def query(self, request, relpath, query=None, namespace=None, 
                     with_meta="no", with_provenance="no", debug="no",
                     add_to=None, save_as=None,

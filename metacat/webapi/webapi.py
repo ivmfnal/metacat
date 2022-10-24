@@ -42,6 +42,9 @@ class WebAPIError(ServerError):
         #print("WebAPIError.json: body:", self.Body)
         return json.loads(self.Body)
         
+class InvalidArgument(Exception):
+    pass
+        
 class NotFoundError(WebAPIError):
     pass
             
@@ -195,6 +198,16 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         self.AuthURL = auth_server_url or server_url + "/auth"
         self.MaxConcurrent = max_concurrent_queries
         self.AsyncQueue = None
+        
+    def sanitize(self, *words, **kw):
+        for w in words:
+            if "'" in words:
+                raise InvalidArgument("Invalid value: %s" % (w,))
+        for name, value in kw.items():
+            if "'" in value:
+                raise InvalidArgument("Invalid value for %s: %s" % (name, value))
+            if "'" in name:
+                raise InvalidArgument("Invalid name for: %s" % (name,))
 
     @property
     def async_queue(self):
@@ -330,7 +343,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             return None
         
         
-    def create_dataset(self, spec, frozen=False, monotonic=False, metadata=None, metadata_requirements=None, 
+    def create_dataset(self, did, frozen=False, monotonic=False, metadata=None, metadata_requirements=None, 
             files_query=None, subsets_query=None,
             description=""):
 
@@ -338,7 +351,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         Parameters
         ----------
-        spec : str
+        did : str
             "namespace:name"
         frozen : bool
         monotonic : bool
@@ -358,7 +371,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             created dataset attributes
         """
 
-        namespace, name = spec.split(":",1)     
+        namespace, name = did.split(":",1)
+        #self.sanitize(namespace=namespace, name=name)
         params = {
             "namespace":    namespace,
             "name":         name,
