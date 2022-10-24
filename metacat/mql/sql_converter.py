@@ -5,9 +5,8 @@ from metacat.util import limited
 
 class SQLConverter(Ascender):
     
-    def __init__(self, db, filters, debug=False):
+    def __init__(self, db, debug=False):
         self.DB = db
-        self.Filters = filters
         self.Debug = False
         
     def columns(self, t, with_meta=True, with_provenance=True):
@@ -34,94 +33,82 @@ class SQLConverter(Ascender):
     #
     # Tree node methods
     #
-    
-    def empty(self, node, *args):
-        return Node("file_set", file_set=DBFileSet(self.DB))    # empty file set
+    def query(self, node, *args, namespace=None, name=None):
+        raise RuntimeError(f"Named query {namespace}:{name} not assembled")
         
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
-        #print("meta_filter: args:", args)
-        assert query.T in ("sql", "file_set")        
-        if meta_exp is not None:
-            if query.T == "sql":
-                t = alias("t")
-                dnf = MetaExpressionDNF(meta_exp)
-                where_sql = dnf.sql(t)
-                if not where_sql:
-                    return node
-                columns = self.columns(t, with_meta, with_provenance)
-                query_sql = query["sql"]
-                sql = f"""
-                    -- meta_filter {t}
-                        select {columns} 
-                        from (
-                            {query_sql}
-                        ) {t} where {where_sql} 
-                    -- end of meta_filter {t}
-                """
-                return Node("sql", sql=sql)
-            else:
-                evaluator = MetaEvaluator()
-                out = (f for f in self.node_to_file_set(query)
-                        if evaluator(f.metadata(), meta_exp)
-                )
-                return Node("file_set", file_set=DBFileSet(self.DB, out))
-        else:
+        if meta_exp is None:
             return query
+        if query.T == "sql":
+            t = alias("t")
+            dnf = MetaExpressionDNF(meta_exp)
+            where_sql = dnf.sql(t)
+            if not where_sql:
+                return node
+            columns = self.columns(t, with_meta, with_provenance)
+            query_sql = query["sql"]
+            sql = f"""
+                -- meta_filter {t}
+                    select {columns} 
+                    from (
+                        {query_sql}
+                    ) {t} where {where_sql} 
+                -- end of meta_filter {t}
+            """
+            return Node("sql", sql=sql)
+        else:
+            return node
 
     def basic_file_query(self, node, *args, query=None):
         sql = DBFileSet.sql_for_basic_query(self.DB, query)
-        if not sql:
-            # e.g.: no datasets found
-            self.debug("empty sql")
-            return Node("file_set", file_set=DBFileSet(self.DB))            # empty file set
-        self.debug("basic_file_query: sql: --------\n", sql, "\n--------")
-        return Node("sql", sql=sql)
+        if sql:
+            return Node("sql", sql=sql)
+        else:
+            return Node("empty")            # empty file set
         
     def file_list(self, node, specs=None, spec_type=None, with_meta=False, with_provenance=False, limit=None, skip=0):
         return Node("sql", sql=DBFileSet.sql_for_file_list(spec_type, specs, with_meta, with_provenance, limit, skip))
 
     def union(self, node, *args):
         #print("Evaluator.union: args:", args)
+
         assert all(n.T in ("sql","file_set","empty") for n in args)
+
         args = [a for a in args if a.T != "empty"]
         if not args:
             return Node("empty")
+
         sqls = [n for n in args if n.T == "sql"]
-        self.debug("sqls:")
-        for sql in sqls:
-            self.debug(sql.pretty())
+        if len(sqls) < 2:
+            return Node("union", args)
+
         file_sets = [n for n in args if n.T == "file_set"]
-        from_file_sets = DBFileSet.union(self.DB, [n["file_set"] for n in file_sets]) if file_sets else None
         u_parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
         u_sql = None if not sqls else "\nunion\n".join(u_parts)
-        
-        if not file_sets:
-            return Node("sql", sql=u_sql)        
-        elif not u_sql:
-            return Node("file_set", file_set=from_file_sets)
-        else:
-            from_sql = DBFileSet.from_sql(self.DB, u_sql)
-            return DBFileSet.union(self.DB, [from_sql, from_file_sets])
 
+        if not file_sets:
+            return Node("sql", sql=u_sql)
+        
+        return Node("union", [Node("sql", sql=u_sql)] + file_sets)
 
     def join(self, node, *args, **kv):
         #print("Evaluator.union: args:", args)
         assert all(n.T in ("sql","file_set","empty") for n in args)
         if any(n.T == "empty" for n in args):
             return Node("empty")
+
         sqls = [n for n in args if n.T == "sql"]
+        if len(sqls) < 2:
+            return node
+            
         file_sets = [n for n in args if n.T == "file_set"]
-        from_file_sets = DBFileSet.union(self.DB, [n["file_set"] for n in file_sets]) if file_sets else None
         u_parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
         u_sql = None if not sqls else "\nintersect\n".join(u_parts)
         
         if not file_sets:
-            return Node("sql", sql=u_sql)        
-        elif not u_sql:
-            return Node("file_set", file_set=from_file_sets)
-        else:
-            from_sql = DBFileSet.from_sql(self.DB, u_sql)
-            Node("file_set", file_set = DBFileSet.join(self.DB, [from_sql, from_file_sets]))
+            return Node("sql", sql=u_sql)
+        
+        return Node("join", [Node("sql", sql=u_sql)] + file_sets)
 
     def minus(self, node, *args, **kv):
         #print("Evaluator.union: args:", args)
@@ -140,12 +127,7 @@ class SQLConverter(Ascender):
                 print("SQLConverter.minus: sql:---------\n", sql, "\n-----------")
             return Node("sql", sql=sql)
         else:
-            #print("minus: \n   left:", left.pretty(), "\n   right:", right.pretty())
-            left_set = left["file_set"] if left.T == "file_set" else DBFileSet.from_sql(self.DB, left["sql"])
-            right_set = right["file_set"] if right.T == "file_set" else DBFileSet.from_sql(self.DB, right["sql"])
-            #print("minus: left_set, right_set:", left_set, right_set)
-            
-            return Node("file_set", file_set = left_set - right_set)
+            return node
 
     def parents_of(self, node, *args, with_meta=False, with_provenance=False):
         assert len(args) == 1
@@ -180,7 +162,7 @@ class SQLConverter(Ascender):
                 """
             return Node("sql", sql=new_sql)
         else:
-            return Node("file_set", file_set = arg["file_set"].parents(with_metadata=with_meta, with_provenance=with_provenance))
+            return node
 
     def children_of(self, node, *args, with_meta=False, with_provenance=False):
         assert len(args) == 1
@@ -214,15 +196,56 @@ class SQLConverter(Ascender):
 
             return Node("sql", sql=new_sql)
         else:
-            return Node("file_set", file_set = arg["file_set"].children(with_metadata=with_meta, with_provenance=with_provenance))
+            return node
+            
+    def skip(self, node, child, skip=0):
+        if child.T == "skip_limit":
+            new_skip = child["skip"] + skip
+            new_limit = child["limit"] - skip
+            if new_limit <= 0:
+                return Node("empty")
+            else:
+                return Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
+        else:
+            return Node("skip_limit", [child], skip=skip, limit=None)
+
+    def limit(self, node, child, limit=None):
+        if child.T == "skip_limit":
+            new_skip = child["skip"]
+            new_limit = child["limit"]
+            if limit is not None:
+                if new_limit is None:
+                    new_limit = limit
+                else:
+                    new_limit = min(limit, new_limit)
+            if new_limit <= 0:
+                return Node("empty")
+            else:
+                return Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
+        else:
+            return Node("skip_limit", [child], skip=0, limit=limit)
 
     def skip_limit(self, node, arg, skip=0, limit=None, **kv):
         if limit is None and skip == 0:
             return arg
         if arg.T == "empty":
             return arg
-        assert arg.T in ("file_set", "sql", "file_list")
-        if arg.T == "sql":
+        if arg.T == "skip_limit":
+            new_skip = arg["skip"]
+            new_limit = arg["limit"]
+            if skip:
+                new_skip += skip
+                if new_limit is not None:
+                    new_limit -= skip
+            if limit is not None:
+                if new_limit is None:
+                    new_limit = limit
+                else:
+                    new_limit = min(limit, new_limit)
+            if new_limit is not None and new_limit <= 0:
+                return Node("empty")
+            return Node("skip_limit", arg.C, skip=new_skip, limit=new_limit)
+        elif arg.T == "sql":
             sql = arg["sql"]
             tmp = alias()
             columns = self.columns(tmp)
@@ -231,7 +254,7 @@ class SQLConverter(Ascender):
             offset_clouse = "" if skip == 0 else f"offset {skip}"
             
             new_sql = f"""
-                -- limit {limit} {tmp}
+                -- skip {skip} limit {limit} {tmp}
                     select {columns} 
                     from (
                         {sql}
@@ -240,19 +263,4 @@ class SQLConverter(Ascender):
             """
             return Node("sql", sql=new_sql)
         else:
-            return Node("file_set", file_set = arg["file_set"].skip(skip).limit(limit))
-            
-    def filter(self, node, *queries, name=None, params=[], **kv):
-        #print("Evaluator.filter: inputs:", inputs)
-        assert name is not None
-        filter_object = self.Filters[name]
-        queries = [self.node_to_file_set(q) for q in queries]
-        limit = node.get("limit")
-        skip = node.get("skip", 0)
-        kv = node.get("kv", {})
-        node = Node("file_set", file_set = DBFileSet(self.DB, filter_object.run(queries, params, kv, limit=limit, skip=skip)))
-        #print("filter: returning:", node.pretty())
-        return node
-
-    #def _default(self, node, *children, **named):
-    #    raise ValueError("SQL converter found a node of unknown type: %s" % (node,))
+            return node

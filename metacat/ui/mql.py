@@ -51,6 +51,15 @@ def print_meta(inputs, params):
         print(f"{f.FID} {f.Namespace}:{f.Name}  " + " ".join(lst))
         yield f
 
+def connect(dbcfg):
+    connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % dbcfg
+    conn = psycopg2.connect(connstr)
+    schema = dbcfg.get("schema") or dbcfg.get("namespace")
+    if schema:
+        conn.cursor().execute("set search_path to %s" % (schema,))
+    return conn
+    
+
 from metacat.filters import standard_filters as filters
 
 
@@ -69,23 +78,44 @@ if cmd == "parse":
     qtext = " ".join(args)
     print("Query text:'%s'" % (qtext,))
     q = MQLQuery.parse(qtext, debug=debug)
-    print("Converted:---------------")
+    print("---- Parsed ----")
+    print(q.Parsed.pretty())
+    
+    print("\n---- Converted ----")
     print(q.Tree.pretty("    "))
     if "-o" in opts:
         q.skip_assembly()
         optimized = q.optimize(debug=debug)
         print("Optimized:---------------")
         print(optimized.pretty("    "))
-        
-elif cmd == "run":
+
+elif cmd == "compile":
+    qtext = " ".join(args)
+    print("Query text:'%s'" % (qtext,))
+    q = MQLQuery.parse(qtext, debug=debug)
+
+    print("---- Parsed ----")
+    print(q.Parsed.pretty())
+
+    print("\n---- Converted ----")
+    print(q.Tree.pretty("    "))
+
+    db = None
+    config_file = opts.get("-c", os.environ.get("METACAT_SERVER_CFG"))
+    if config_file:
+        config = yaml.load(open(config_file, "r").read(), Loader=yaml.SafeLoader)["database"]
+        db = connect(config)
+        q.assemble(db)
+
+    q.optimize(debug)
+    print("\n---- Optimized ----")
+    print(q.Optimized.pretty("    "))
     
-    def connect(dbcfg):
-        connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % dbcfg
-        conn = psycopg2.connect(connstr)
-        schema = dbcfg.get("schema") or dbcfg.get("namespace")
-        if schema:
-            conn.cursor().execute("set search_path to %s" % (schema,))
-        return conn
+    compiled = q.compile(db=db)
+    print("\n---- Compiled ----")
+    print(compiled.pretty("    "))
+    
+elif cmd == "run":
     
     config = opts.get("-c", os.environ.get("METACAT_SERVER_CFG"))
     if not config:

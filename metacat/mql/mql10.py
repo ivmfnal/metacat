@@ -2,7 +2,7 @@ from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet
 from metacat.util import limited, unique
 from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter, LarkToNodes
 from .sql_converter import SQLConverter
-from .query_executor import QueryExecutor
+from .query_executor import FileQueryExecutor
 from .meta_evaluator import MetaEvaluator
 import json, time
 
@@ -234,7 +234,7 @@ class FileQuery(object):
 
     def __init__(self, tree):
         self.Tree = tree
-        self.Assembled = self.Optimized = self.Compiled = None
+        self.Parsed = self.Assembled = self.Optimized = self.Compiled = None
         
     def __str__(self):
         return "FileQuery(\n%s\n)" % (self.Tree.pretty("  "),)
@@ -287,23 +287,24 @@ class FileQuery(object):
             self.Optimized = optimized
         return self.Optimized
 
-    def compile(self, skip=0, limit=None, with_meta=True, with_provenance=True, default_namespace=None, debug=False):
-        try:
-            self.assemble(db, default_namespace = default_namespace)
-            optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
+    def compile(self, db=None, skip=0, limit=None, with_meta=False, with_provenance=False, default_namespace=None, debug=False):
+        if db is not None:
+            try:
+                self.assemble(db, default_namespace = default_namespace)
+                optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
         
-            optimized = _QueryOptionsApplier().walk(optimized, 
-                dict(
-                    with_provenance = with_provenance,
-                    with_meta = with_meta
-                ))
-            if debug:
-                print("after _QueryOptionsApplier:", optimized.pretty())
-        except Exception as e:
-            raise MQLCompilationError(str(e))
+                optimized = _QueryOptionsApplier().walk(optimized, 
+                    dict(
+                        with_provenance = with_provenance,
+                        with_meta = with_meta
+                    ))
+                if debug:
+                    print("after _QueryOptionsApplier:", optimized.pretty())
+            except Exception as e:
+                raise MQLCompilationError(str(e))
             
         try:
-            self.Compiled = compiled = SQLConverter(db, filters, debug=debug)(optimized)
+            self.Compiled = compiled = SQLConverter(db, debug=debug)(optimized)
         except Exception as e:
             raise MQLCompilationError(str(e))
         
@@ -313,11 +314,11 @@ class FileQuery(object):
         return compiled
 
     def run(self, db, filters={}, skip=0, limit=None, with_meta=True, with_provenance=True, default_namespace=None, debug=False):
-        compiled = self.Compiled or self.compile(skip=skip, limit=limit, 
+        compiled = self.Compiled or self.compile(db=db, skip=skip, limit=limit, 
                     with_meta=with_meta, with_provenance=with_provenance, 
                     default_namespace=default_namespace, debug=debug)
         try:
-            result = QueryExecutor(db, filters, debug=debug)(compiled)
+            result = FileQueryExecutor(db, filters, debug=debug)(compiled)
         except Exception as e:
             raise MQLExecutionError(str(e))
         
@@ -328,7 +329,12 @@ class QueryConverter(Converter):
     #
     # converts parsed query (eiher file or dataset) from Lark tree structure to my own Node
     #
-    
+
+    def convert(self, tree):
+        q = self.transform(tree)
+        q.Parsed = tree
+        return q
+        
     def query(self, args):
         if len(args) == 2:
             params, query = args
@@ -336,8 +342,7 @@ class QueryConverter(Converter):
             #print("_Converter.query(): after applying params:", q.pretty())
         else:
             q = args[0]
-        
-        
+
         if q.T == "top_file_query": out = FileQuery(q.C[0])
         elif q.T == "top_dataset_query": out = DatasetQuery(q.C[0])
         else:
@@ -345,9 +350,6 @@ class QueryConverter(Converter):
         #print("_Converter.query() -> ", out)
         return out
     
-    def convert(self, tree):
-        return self.transform(tree)
-        
     def __default__(self, typ, children, meta):
         return Node(typ, children, _meta=meta)
         
@@ -371,7 +373,7 @@ class QueryConverter(Converter):
             child["limit"] = limit
         return Node("limit", [child], limit = limit)
         #return Node("file_query", [args[0]], meta = {"limit":int(args[1].value)})
-        
+
     def limit(self, args):
         assert len(args) == 2
         child = args[0]
@@ -383,6 +385,43 @@ class QueryConverter(Converter):
         skip=int(args[1])
         if skip == 0:   return args[0]
         else:   return Node("skip", [args[0]], skip=skip)
+
+
+    def skip(self, args):
+        assert len(args) == 2
+        child, skip = args
+        skip=int(skip)
+        if skip == 0:   return child
+        
+        if child.T == "skip_limit":
+            new_skip = child["skip"] + skip
+            new_limit = child["limit"] - skip
+            if new_limit <= 0:
+                return Node("empty")
+            else:
+                return Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
+        else:
+            return Node("skip_limit", [child], skip=skip, limit=None)
+
+    def limit(self, args):
+        assert len(args) == 2
+        child, limit = args
+        limit=int(limit)
+
+        if child.T == "skip_limit":
+            new_skip = child["skip"]
+            new_limit = child["limit"]
+            if limit is not None:
+                if new_limit is None:
+                    new_limit = limit
+                else:
+                    new_limit = min(limit, new_limit)
+            if new_limit <= 0:
+                return Node("empty")
+            else:
+                return Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
+        else:
+            return Node("skip_limit", [child], skip=0, limit=limit)
 
     def meta_filter(self, args):
         q, meta_exp = args

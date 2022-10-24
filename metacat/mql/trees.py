@@ -78,41 +78,8 @@ class Node(object):
     def __setitem__(self, name, value):
         self.D[name] = value
         
-    def _pretty(self, indent="", headline_indent=None):
-        if headline_indent is None: headline_indent = indent
-        
-        head = "%s%s" % (headline_indent, self.T)
-
-        if self.M is not None:
-            head += f" m:{self.M}"
-        
-        out = [head]
-
-        for k, v in self.D.items():
-            key = f"{k}="
-            if isinstance(v, Node) or hasattr(v, "_pretty"):
-                key_len = len(key)
-                shift = " "*key_len
-                #print("calling _pretty for %s" % (v,))
-                out += v._pretty(indent = indent + "  " + shift, headline_indent = indent + key)
-            else:
-                out.append(indent + f"{key}{repr(v)}")
-        
-        nc = len(self.C)
-        for i, c in enumerate(self.C):
-            extra = ". "
-            if isinstance(c, (Token, Node)) or hasattr(c, "_pretty"):
-                child = c._pretty("  ", "+-")
-                out.extend([indent + line for line in child])
-            else:
-                out.append("%s%s" % (indent + "+-", repr(c)))
-        return out
-
     def _pretty(self, indent=""):
-
         out = []
-
-
         items = list(self.D.items())
         for i, (k, v) in enumerate(items):
             key = f"{k} = "
@@ -123,7 +90,7 @@ class Node(object):
                 out.append(indent + "- " + key + head)
                 out += lines
             else:
-                out.append(indent + "- " + key + repr(v))
+                out.append(indent + "- " + key + str(v))
 
         nc = len(self.C)
         for i, c in enumerate(self.C):
@@ -133,7 +100,7 @@ class Node(object):
                 out.append(indent + "+- " + head)
                 out.extend(lines)
             else:
-                out.append(indent + "+- " + repr(c))
+                out.append(indent + "+- " + str(c))
 
         head = self.T
         if self.M is not None:

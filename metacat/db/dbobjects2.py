@@ -200,7 +200,7 @@ class DBFileSet(object):
         
     @staticmethod
     def sql_for_basic_query(db, basic_file_query):
-        debug("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
+        debug("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance, " with meta:", basic_file_query.WithMeta)
         limit = basic_file_query.Limit
         limit = "" if limit is None else f"limit {limit}"
         offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
