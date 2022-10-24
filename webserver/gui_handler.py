@@ -8,6 +8,7 @@ from metacat.util import to_str, to_bytes
 from metacat.mql import MQLQuery, MQLError
 from metacat import Version
 from common_handler import MetaCatHandler
+from webpie import sanitize
 
 class GUICategoryHandler(MetaCatHandler):
     
@@ -151,6 +152,7 @@ class GUICategoryHandler(MetaCatHandler):
         cat.create()
         self.redirect(f"./show?path={path}")
         
+    @sanitize(exclude="description")
     def save(self, request, relpath):
         db = self.connect()
         me, auth_error = self.authenticated_user()
@@ -303,6 +305,7 @@ class GUIHandler(MetaCatHandler):
     def filters(self, request, relpath, **args):
         return self.render_to_response("filters.html", standard=self.App.StandardFilters, custom=self.App.CustomFilters)
 
+    @sanitize(exclude="query")
     def query(self, request, relpath, query=None, namespace=None, run="no", with_meta="yes", **args):
         
         db = self.App.connect()
@@ -682,7 +685,8 @@ class GUIHandler(MetaCatHandler):
         roles = DBRole.list(db) if admin else [DBRole.get(db, r) for r in me.roles]
         users = DBUser.list(db) if admin else [me]
         return self.render_to_response("namespace.html", user=me, roles=roles, users=users, create=True, edit=False, error=unquote_plus(error))
-        
+
+    @sanitize(exclude="description")
     def save_namespace(self, request, relpath, **args):
         db = self.App.connect()
         me, auth_error = self.authenticated_user()
@@ -971,6 +975,7 @@ class GUIHandler(MetaCatHandler):
         all_users = list(DBUser.list(db))
         return self.render_to_response("role.html", all_users=all_users, edit=False, create=True)
         
+    @sanitize(exclude="description")
     def save_role(self, request, relpath, **args):
         me, auth_error = self.authenticated_user()
         if me is None:

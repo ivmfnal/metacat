@@ -7,6 +7,7 @@ from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_str, to_bytes, ObjectSpec
 from metacat.mql import MQLQuery, MQLSyntaxError, MQLExecutionError, MQLCompilationError, MQLError
 from metacat import Version
+from webpie import sanitize
 
 from common_handler import MetaCatHandler
 
@@ -85,7 +86,7 @@ class DataHandler(MetaCatHandler):
     def simulate_503(self, request, relpath, prob=0.5, **args):
         prob = float(prob)
         if prob > random.random():
-            return 503, "try later"
+            return 503, "try again later"
         else:
             return "OK"
 
@@ -107,7 +108,8 @@ class DataHandler(MetaCatHandler):
         if ns is None:
             return "Not found", 404
         return json.dumps(ns.to_jsonable()), "text/json"
-        
+
+    @sanitize(exclude="description")
     def create_namespace(self, request, relpath, name=None, owner_role=None, description=None, **args):
         db = self.App.connect()
         user, error = self.authenticated_user()
@@ -205,6 +207,7 @@ class DataHandler(MetaCatHandler):
             "Access-Control-Allow-Origin":"*"
         } 
 
+    @sanitize(exclude="description")
     def create_dataset(self, request, relpath):
         db = self.App.connect()
         user, error = self.authenticated_user()
@@ -255,6 +258,7 @@ class DataHandler(MetaCatHandler):
 
         return dataset.to_json(), "text/json"
         
+    @sanitize(exclude="description")
     def update_dataset(self, request, relapth, dataset=None):
         if not dataset:
             return 400, "Dataset is not specfied"
@@ -808,6 +812,7 @@ class DataHandler(MetaCatHandler):
         ]
         return json.dumps(out), "text/json"
 
+    @sanitize(exclude="query")
     def query(self, request, relpath, query=None, namespace=None, 
                     with_meta="no", with_provenance="no", debug="no",
                     add_to=None, save_as=None,
