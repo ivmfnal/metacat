@@ -207,7 +207,6 @@ class DataHandler(MetaCatHandler):
             "Access-Control-Allow-Origin":"*"
         } 
 
-    @sanitize(exclude="description")
     def create_dataset(self, request, relpath):
         db = self.App.connect()
         user, error = self.authenticated_user()
@@ -228,7 +227,6 @@ class DataHandler(MetaCatHandler):
 
         files = subsets = None
         files_query = params.get("files_query")
-        print("create_dataset: files query:", files_query)
         if files_query:
             query = MQLQuery.parse(files_query)
             if query.Type != "file":

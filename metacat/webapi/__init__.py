@@ -1,4 +1,4 @@
-from .webapi import MetaCatClient
+from .webapi import MetaCatClient, MCError
 from .webapi import ServerError as MCServerError
 from .webapi import AuthenticationError
 from .webapi import WebAPIError as MCWebAPIError

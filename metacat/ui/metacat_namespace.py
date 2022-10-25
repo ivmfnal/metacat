@@ -71,14 +71,15 @@ class CreateCommand(CLICommand):
     GNUStyle = True
     Opts = "oj json owner"
     MinArgs = 1
-    Usage = """[options] <namespace>
+    Usage = """[options] <namespace> [<description>]
         -o <owner>|--owner <owner>              - namespace owner
         -j|--json                               - print as JSON 
     """
     
     def __call__(self, command, client, opts, args):
         name = args[0]
-        data = client.create_namespace(name, owner_role=opts.get("-o", opts.get("--owner")))
+        description = (" ".join(args[1:])).strip() or None
+        data = client.create_namespace(name, owner_role=opts.get("-o", opts.get("--owner")), description=description)
         if "-j" in opts or "--json" in opts:
             print(json.dumps(data, indent=4, sort_keys=True))
         else:

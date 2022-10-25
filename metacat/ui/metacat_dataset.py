@@ -1,7 +1,7 @@
 import sys, getopt, os, json, fnmatch, pprint, datetime
 #from urllib.request import urlopen, Request
 from metacat.util import to_bytes, to_str, epoch
-from metacat.webapi import MetaCatClient
+from metacat.webapi import MetaCatClient, MCError
 
 from metacat.ui.cli import CLI, CLICommand, InvalidArguments
 
@@ -219,10 +219,15 @@ class CreateDatasetCommand(CLICommand):
         metadata = load_metadata(opts) or {}
         files_query = self.get_text(opts, ["-f", "--file-query"])
         #subsets_query = self.get_text(opts, ["-d", "--datasets-query"])
-        out = client.create_dataset(dataset_spec, monotonic = monotonic, frozen = frozen, description=desc, metadata = metadata,
-            files_query = files_query, subsets_query = subsets_query
-        )
-        print(out)
+        try:
+            out = client.create_dataset(dataset_spec, monotonic = monotonic, frozen = frozen, description=desc, metadata = metadata,
+                files_query = files_query
+            )
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+        else:
+            print(out)
 
 class UpdateDatasetCommand(CLICommand):
 
@@ -263,8 +268,13 @@ class UpdateDatasetCommand(CLICommand):
         if args[1:]:
             desc = " ".join(args[1:])
 
-        response = client.update_dataset(dataset, metadata=metadata, frozen=frozen, monotonic=monotonic, mode=mode, description=desc)
-        print(response)
+        try:
+            response = client.update_dataset(dataset, metadata=metadata, frozen=frozen, monotonic=monotonic, mode=mode, description=desc)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+        else:
+            print(response)
 
 class AddFilesCommand(CLICommand):
     
@@ -356,8 +366,13 @@ class AddFilesCommand(CLICommand):
             raise InvalidArguments("Eitther file list or a query must be specified, but not both")
 
         dataset = args[-1]
-        out = client.add_files(dataset, file_list=files, query=query)
-        print("Added", len(out), "files")
+        try:
+            out = client.add_files(dataset, file_list=files, query=query)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+        else:
+            print("Added", len(out), "files")
 
 DatasetCLI = CLI(
     "create",       CreateDatasetCommand(),

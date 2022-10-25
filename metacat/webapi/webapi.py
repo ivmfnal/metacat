@@ -18,7 +18,10 @@ def parse_name(name, default_namespace=None):
 
 undid = parse_name
 
-class ServerError(Exception):
+class MCError(Exception):
+    pass
+
+class ServerError(MCError):
     
     def __init__(self, url, status_code, message, body=""):
         self.URL = url
@@ -145,7 +148,8 @@ class HTTPClient(object):
     def post_json(self, uri_suffix, data):
         if not isinstance(data, (str, bytes)):
             data = json.dumps(data)
-        return self.unpack_json(self.send_request("post", uri_suffix, data=data).text)
+        headers = {"Content-Type": "text/json"}
+        return self.unpack_json(self.send_request("post", uri_suffix, data=data, headers=headers).text)
 
 class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     
