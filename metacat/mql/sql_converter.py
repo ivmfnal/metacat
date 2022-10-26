@@ -2,6 +2,7 @@ from .trees import Ascender, Node
 from metacat.db import DBFileSet, alias, MetaExpressionDNF, DBDataset
 from .meta_evaluator import MetaEvaluator
 from metacat.util import limited
+from textwrap import dedent, indent
 
 class SQLConverter(Ascender):
     
@@ -143,23 +144,23 @@ class SQLConverter(Ascender):
             pc = alias("pc")
             columns = self.columns(p, with_meta, with_provenance)
             if with_provenance:
-                new_sql = f"""
+                new_sql = dedent(f"""\
                     -- parents of {p}
                         select {columns}
                         from files_with_provenance {p}
                             inner join parent_child {pc} on {p}.id = {pc}.parent_id
                             inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
                     -- end of parents of {p}
-                """
+                """)
             else:
-                new_sql = f"""
+                new_sql = dedent(f"""\
                     -- parents of {p}
                         select {columns}
                         from files {p}
                             inner join parent_child {pc} on {p}.id = {pc}.parent_id
                             inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
                     -- end of parents of {p}
-                """
+                """)
             return Node("sql", sql=new_sql)
         else:
             return node
@@ -176,23 +177,23 @@ class SQLConverter(Ascender):
             pc = alias("pc")
             columns = self.columns(c, with_meta, with_provenance)
             if with_provenance:
-                new_sql = f"""
+                new_sql = dedent(f"""\
                     -- children of {c}
                         select {columns}
                         from files_with_provenance {c}
                             inner join parent_child {pc} on {c}.id = {pc}.child_id
                             inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
                     -- end of children of {c}
-                """
+                """)
             else:
-                new_sql = f"""
+                new_sql = dedent(f"""
                     -- children of {c}
                         select {columns}
                         from files {c}
                             inner join parent_child {pc} on {c}.id = {pc}.child_id
                             inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
                     -- end of children of {c}
-                """
+                """)
 
             return Node("sql", sql=new_sql)
         else:
@@ -253,14 +254,13 @@ class SQLConverter(Ascender):
             limit_clouse = "" if limit is None else f"limit {limit}"
             offset_clouse = "" if skip == 0 else f"offset {skip}"
             
-            new_sql = f"""
+            sql = indent("\n" + sql + "\n", "    ")
+            new_sql = dedent(f"""\
                 -- skip {skip} limit {limit} {tmp}
                     select {columns} 
-                    from (
-                        {sql}
-                    ) {tmp} {limit_clouse} {offset_clouse}
+                    from ({sql}) {tmp} {limit_clouse} {offset_clouse}
                 -- end of limit {limit} {tmp}
-            """
+            """)
             return Node("sql", sql=new_sql)
         else:
             return node

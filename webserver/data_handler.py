@@ -63,7 +63,8 @@ class DataHandler(MetaCatHandler):
             yield "".join(page)
         yield "]"
         
-    def json_chunks(self, lst, chunk=100000):
+    def json_chunks(self, lst, chunk=10000):
+        #yield json.dumps(lst)
         return self.text_chunks(self.json_generator(lst), chunk)
 
     RS = '\x1E'
@@ -929,6 +930,8 @@ class DataHandler(MetaCatHandler):
         except (AssertionError, ValueError, MQLError) as e:
             return 400, e.__class__.__name__ + ": " + e.Message
 
+        print("results:", results)
+
         if not results:
             return "[]", "application/json"
 
@@ -945,16 +948,14 @@ class DataHandler(MetaCatHandler):
                 ds = DBDataset(db, add_namespace, add_name)
                 ds.add_files(results)      
             
-            data = (f.to_jsonable(with_metadata=with_meta, with_provenance=with_provenance) for f in results)
+            data = ( f.to_jsonable(with_metadata=with_meta, with_provenance=with_provenance) for f in results)
 
         else:
-            data = (
-                    { 
-                        "name":"%s:%s" % (d.Namespace, d.Name),
-                        "parent":   None if not d.ParentName else "%s:%s" % (d.ParentNamespace, d.ParentName),
-                        "metadata": d.Metadata if with_meta else {}
-                    } for d in results 
-            )
+            data = ( d.to_jsonable(with_relatives=with_provenance) for d in results )
+        #data = list(data)
+        #j = json.dumps(data)
+        #return json.dumps(data), "application/json"
+        #print("data:", data)
         return self.json_chunks(data), "application/json"
         
     def named_queries(self, request, relpath, namespace=None, **args):

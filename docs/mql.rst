@@ -572,28 +572,53 @@ Simplest dataset query looks like this:
 
 .. code-block:: sql
 
-    datasets test:"%"
+    datasets matching test:*
     
 This query will return all the datasets from the "test" namespace.
 
-To add some metadata filtering, add "having" clause to the query:
+To select datasets by metadata:
 
 .. code-block:: sql
 
-    datasets test:"%"
+    datasets matching test:*
         having type="mc" and detector="near"
         
 Dataset queries can be combined in the same way as the file queries:
 
 .. code-block:: sql
 
-    union (
-        datasets prod:"XYZ%_3",
-        datasets mc:"XYZ%_4"
-    )
+        datasets mathcing prod:XYZ%_3 having type=mc and detector="near",
+                matching mc:XYZ%_4
     
-"union", "join" with their brackets synonims and subtraction are working in the same way as for file queries.
+To add immediate dataset children:
 
+.. code-block:: sql
+
+    datasets matching test:*
+        with children
+        having type="mc" and detector="near"
+
+This will find all the datasets mathiching the namespace:name pattern, add their immediate children and then filter the resulting set of
+datasets by their metadata.
+
+To get all subsets, recursively:
+
+.. code-block:: sql
+
+    datasets test:a with children recursively,
+            test:c with children,
+            matching test:x*
+
+Dataset name patterns in the above examples use POSIX pattern syntax. They can include eiher '*' to match any substring or '?'
+to match a single character. SQL style can be used too where '%' will match a substring and '_' will match any single character.
+
+There is also a way to use regular expressions. To do that, the `regexp` keyword must be included after the `matching` keyword
+and the regular expression has to be taken into quotes:
+
+.. code-block:: sql
+
+        datasets mathcing regexp prod:"XYZ_3[a-z0-9]+" having type="mc" and detector="near",
+                matching regexp mc:"XYZ.*_4"
 
 Combining File and Dataset Metadata Filtering
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

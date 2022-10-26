@@ -157,6 +157,7 @@ class BaseHandler(WPHandler):
         return self.App.connect()
 
     def text_chunks(self, gen, chunk=10000):
+        print("text_chunks...")
         buf = []
         size = 0
         for x in gen:
@@ -164,10 +165,12 @@ class BaseHandler(WPHandler):
             buf.append(x)
             size += n
             if size >= chunk:
+                print("yielding:", "".join(buf))
                 yield "".join(buf)
                 size = 0
                 buf = []
         if buf:
+            print("final yielding:", "".join(buf))
             yield "".join(buf)
             
     def authenticated_username(self):

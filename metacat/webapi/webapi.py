@@ -173,6 +173,32 @@ class HTTPClient(object):
         headers = {"Content-Type": "text/json"}
         return self.unpack_json(self.send_request("post", uri_suffix, data=data, headers=headers).text)
 
+    def get_json_stream(self, uri_suffix):
+        url = "%s/%s" % (self.ServerURL, uri_suffix)
+        headers = {"Accept": "application/json-seq"}
+        if self.Token is not None:
+            headers["X-Authentication-Token"] = self.Token.encode()
+
+        with self.retry_request("get", url, headers=headers, stream=True) as response:
+            if response.status_code == INVALID_METADATA_ERROR_CODE:
+                raise InvalidMetadataError(url, response.status_code, response.text)
+            if response.status_code == 404:
+                raise NotFoundError(url, response.status_code, response.text)
+            elif response.status_code != 200:
+                raise WebAPIError(url, response.status_code, response.text)
+            
+            if response.headers.get("Content-Type") != "application/json-seq":
+                raise WebAPIError(url, 200, "Expected content type application/json-seq. Got %s instead." % (response.headers.get("Content-Type"),))
+
+            for line in response.iter_lines():
+                if line:    line = line.strip()
+                while line.startswith(b'\x1E'):
+                    line = line[1:]
+                if line:
+                    #print(f"stream line:[{line}]")
+                    obj = json.loads(line)
+                    yield obj
+
 class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     
     Version = "1.0"
