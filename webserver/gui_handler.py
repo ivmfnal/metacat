@@ -7,8 +7,39 @@ from urllib.parse import quote_plus, unquote_plus, unquote
 from metacat.util import to_str, to_bytes
 from metacat.mql import MQLQuery, MQLError
 from metacat import Version
-from common_handler import MetaCatHandler
-from webpie import sanitize
+from common_handler import MetaCatHandler, SanitizeException
+
+def _check_unsafe(name, value, unsafe="'<>&"):
+    if value:
+        if any(c in value for c in unsafe):
+            raise SanitizeException("Invalid value for %s: %s" % (name, value))
+    return value
+
+def sanitize(exclude=[], only=None, sanitizer=_check_unsafe):
+    # assume accept is a compiled regexp pattern
+    def decorator(method):
+        szr = sanitizer
+        onl = only
+        excl = exclude
+        s = sanitizer
+        def decorated(handler, request, relpath, *params, **args):
+            "do-not-sanitize"       # signal "already sanitized"
+            sanitizer = szr
+            only = onl
+            exclude = excl
+            sanitizer = s
+            if isinstance(exclude, str):
+                exclude = [exclude]
+            if isinstance(only, str):
+                only = [only]
+            try:
+                relpath, args = handler.App.sanitize(sanitizer, request, relpath, args, exclude=exclude, only=only)
+            except SanitizeException as e:
+                return 400, str(e), "text/plain"
+            else:
+                return method(handler, request, relpath, *params, **args)
+        return decorated
+    return decorator
 
 class GUICategoryHandler(MetaCatHandler):
     
@@ -18,7 +49,8 @@ class GUICategoryHandler(MetaCatHandler):
         return self.render_to_response("categories.html", categories=cats, **self.messages(args))
         
     index = categories
-        
+
+    @sanitize()
     def show(self, request, relpath, path=None):
         me, auth_error = self.authenticated_user()
         db = self.connect()
@@ -35,6 +67,7 @@ class GUICategoryHandler(MetaCatHandler):
             users = users,
             types = DBParamCategory.Types)
         
+    @sanitize()
     def create(self, request, relpath):
         db = self.connect()
         me, auth_error = self.authenticated_user()
@@ -192,6 +225,7 @@ class GUICategoryHandler(MetaCatHandler):
         cat.save()
         self.redirect(f"./show?path={path}")
         
+    @sanitize()
     def remove_definition(self, request, relpath, path=None, param=None):
         db = self.connect()
         me, auth_error = self.authenticated_user()
@@ -210,6 +244,7 @@ class GUIHandler(MetaCatHandler):
         MetaCatHandler.__init__(self, request, app)
         self.categories = GUICategoryHandler(request, app)
         
+    @sanitize()
     def index(self, request, relpath, error=None, message=None, **args):
         url = "./datasets"
         if error or message:
@@ -219,6 +254,7 @@ class GUIHandler(MetaCatHandler):
             url += "?" + "&".join(messages)
         return self.redirect(url)
         
+    @sanitize()
     def mql(self, request, relpath, **args):
         namespace = request.POST.get("namespace") or self.App.DefaultNamespace
         query_text = request.POST.get("query")
@@ -255,26 +291,28 @@ class GUIHandler(MetaCatHandler):
             query_text = query_text or "", parsed = parsed, assembled = assembled, optimized = optimized,
                     with_sql = with_sql)
 
+    @sanitize()
     def show_file(self, request, relpath, fid=None, namespace=None, name=None, did=None, show_form="no", **args):
         db = self.connect()
         f = None
         namespace=namespace and unquote(namespace)
-        name=name and unquote(name)
-        did=did and unquote(did)
-        fid=fid and unquote(fid)
+        #name=name and unquote(name)
+        #did=did and unquote(did)
+        #fid=fid and unquote(fid)
         if fid:
             f = DBFile.get(db, fid=fid, with_metadata=True)
         else:
             if did:
                 try:    namespace, name = parse_name(did)
                 except Exception as e:
-                    print(e)
+                    #print(e)
                     self.redirect("./show_file?error=%s&show_form=yes" % (quote_plus("invalid DID format"),))
             if namespace and name:
                 f = DBFile.get(db, namespace=namespace, name=name, with_metadata=True)
         show_form = show_form == "yes"
         return self.render_to_response("show_file.html", f=f, show_form=show_form, namespace=namespace, name=name, did=did, fid=fid)
         
+    @sanitize()
     def find_file(self, request, relpath, **args):
         self.redirect("./show_file?show_form=yes")
 
@@ -459,6 +497,7 @@ class GUIHandler(MetaCatHandler):
             namespace=namespace or "")
         return resp
         
+    @sanitize()
     def named_queries(self, request, relpath, namespace=None, **args):
         me, auth_error = self.authenticated_user()
         db = self.App.connect()
@@ -466,6 +505,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("named_queries.html", namespace=namespace, queries = queries, logged_in = me is not None,
                 **self.messages(args))
             
+    @sanitize()
     def named_query(self, request, relpath, name=None, edit="no", **args):
         namespace, name = parse_name(name, None)
         db = self.App.connect()
@@ -478,6 +518,7 @@ class GUIHandler(MetaCatHandler):
             self.redirect(self.scriptUri() + "/auth/login?redirect=" + self.scriptUri() + "/gui/create_named_query")
         return self.render_to_response("named_query.html", namespaces=me.namespaces(), create=True)
 
+    @sanitize(exclude="text")
     def save_named_query(self, request, relpath, **args):
         user, auth_error = self.authenticated_user()
         if not user:
@@ -510,6 +551,7 @@ class GUIHandler(MetaCatHandler):
         
         return self.render_to_response("named_query.html", query=query, edit = True)
         
+    @sanitize()
     def users(self, request, relpath, error="", **args):
         me, auth_error = self.authenticated_user()
         if not me:
@@ -530,6 +572,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("users.html", users=users, error=unquote_plus(error), admin = me.is_admin(),
                 index = index)
         
+    @sanitize(exclude=["error", "message"])
     def user(self, request, relpath, username=None, error="", message="", **args):
         username = username or relpath
         #print("GUI.user(): username:", username)
@@ -566,14 +609,16 @@ class GUIHandler(MetaCatHandler):
                 , "Content-Disposition":"attachment"
             }
         
+    @sanitize(exclude=["error", "message"])
     def create_user(self, request, relpath, error="", **args):
         db = self.App.connect()
         me, auth_error = self.authenticated_user()
         if not me.is_admin():
             self.redirect("./users?error=%s" % (quote_plus("Not authorized to create users")))
-        return self.render_to_response("user.html", error=unquote_plus(error), mode="create", all_roles = DBRole.list(db),
+        return self.render_to_response("user.html", error=error, mode="create", all_roles = DBRole.list(db),
             digest_realm = self.App.Realm)
         
+    @sanitize(exclude=["error", "message"])
     def save_user(self, request, relpath, **args):
         db = self.App.connect()
         username = request.POST["username"]
@@ -657,6 +702,7 @@ class GUIHandler(MetaCatHandler):
         namespaces = sorted(namespaces, key=lambda ns: ns.Name)
         return self.render_to_response("namespaces.html", namespaces=namespaces, showing_all=all, **self.messages(args))
         
+    @sanitize(exclude=["error", "message"])
     def namespace(self, request, relpath, name=None, **args):
         db = self.App.connect()
         name = name or relpath
@@ -746,6 +792,7 @@ class GUIHandler(MetaCatHandler):
             #ds.GUI_Parents = sorted(ds.parents(), key=lambda x: (x.Namespace, x.Name))
         return self.render_to_response("datasets.html", datasets=datasets, logged_in=user is not None, **self.messages(args))
 
+    @sanitize(exclude=["error", "message"])
     def dataset_files(self, request, relpath, dataset=None, with_meta="no"):
         with_meta = with_meta == "yes"
         namespace, name = (dataset or relpath).split(":",1)
@@ -768,6 +815,7 @@ class GUIHandler(MetaCatHandler):
             self.redirect("./create_namespace?error=%s" % (quote_plus("You do not own any namespace. Create one first"),))
         return self.render_to_response("dataset.html", namespaces=namespaces, edit=False, create=True, mode="create")
         
+    @sanitize(exclude=["error", "message"])
     def dataset(self, request, relpath, namespace=None, name=None, **args):
         db = self.App.connect()
         dataset = DBDataset.get(db, namespace, name)
@@ -798,6 +846,7 @@ class GUIHandler(MetaCatHandler):
             edit=edit, 
             create=False, namespaces=namespaces, **self.messages(args))
             
+    @sanitize(exclude=["error", "message"])
     def child_subset_candidates(self, request, relpath, namespace=None, prefix=None, ds_namespace=None, ds_name=None, **args):
         db = self.App.connect()
         datasets = set((d.Namespace, d.Name) for d in DBDataset.list(db, namespace=namespace))
@@ -808,6 +857,7 @@ class GUIHandler(MetaCatHandler):
             datasets = datasets - children - ancestors
         return json.dumps({"namespace": namespace, "names": sorted([name for namespace, name in datasets])}), "text/json"
 
+    @sanitize(exclude=["error", "message"])
     def delete_dataset(self, request, relpath, namespace=None, name=None, **args):
         user, auth_error = self.authenticated_user()
         if not user:
@@ -871,6 +921,7 @@ class GUIHandler(MetaCatHandler):
                 del reqs[n]
         return reqs
 
+    @sanitize(exclude=["error", "message"])
     def save_dataset(self, request, relpath, **args):
         #print("save_dataset:...")
         db = self.App.connect()
@@ -921,6 +972,7 @@ class GUIHandler(MetaCatHandler):
             
         self.redirect(f"./dataset?namespace={namespace}&name={name}" + ("&message=" + quote_plus(warning) if warning else ""))
         
+    @sanitize(exclude=["error", "message"])
     def remove_child_dataset(self, request, relpath, namespace=None, name=None, child_namespace=None, child_name=None, **args):
         user, auth_error = self.authenticated_user()
         if not user:
@@ -953,6 +1005,7 @@ class GUIHandler(MetaCatHandler):
         admin = me.is_admin()
         return self.render_to_response("roles.html", roles=roles, edit=admin, create=admin, **self.messages(args))
         
+    @sanitize(exclude=["error", "message"])
     def role(self, request, relpath, name=None, **args):
         name = name or relpath
         me, auth_error = self.authenticated_user()

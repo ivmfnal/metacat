@@ -67,7 +67,7 @@ class App(BaseApp):
     Version = Version
 
     def __init__(self, cfg, root, static_location="./static", **args):
-        BaseApp.__init__(self, cfg, root, sanitizer="safe", **args)
+        BaseApp.__init__(self, cfg, root, **args)
         self.Title = cfg.get("site_title", "DEMO Metadata Catalog")
         
         self.StaticLocation = static_location

@@ -1,7 +1,7 @@
 import sys, getopt, os, json, fnmatch, pprint
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
-from metacat.webapi import MetaCatClient
+from metacat.webapi import MetaCatClient, MCError
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
 
 Usage = """
@@ -39,7 +39,11 @@ class ListCommand(CLICommand):
         match_owner_role = opts.get("-r", opts.get("--role"))
         if match_owner_user and match_owner_role:
             raise InvalidOptions("Owner user and owner role can not be used together")
-        output = client.list_namespaces(pattern=pattern, owner_user=match_owner_user, owner_role=match_owner_role, directly="-d" in opts)
+        try:
+            output = client.list_namespaces(pattern=pattern, owner_user=match_owner_user, owner_role=match_owner_role, directly="-d" in opts)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
         for item in output:
             name = item["name"]
             owner_user = item.get("owner_user")
@@ -60,7 +64,10 @@ class ShowCommand(CLICommand):
     """
     
     def __call__(self, command, client, opts, args):
-        data = client.get_namespace(args[0])
+        try:    data = client.get_namespace(args[0])
+        except MCError as e:
+            print(e)
+            sys.exit(1)
         if "-j" in opts or "--json" in opts:
             print(json.dumps(data, indent=4, sort_keys=True))
         else:
@@ -79,7 +86,13 @@ class CreateCommand(CLICommand):
     def __call__(self, command, client, opts, args):
         name = args[0]
         description = (" ".join(args[1:])).strip() or None
-        data = client.create_namespace(name, owner_role=opts.get("-o", opts.get("--owner")), description=description)
+        try:
+            data = client.create_namespace(name, owner_role=opts.get("-o", opts.get("--owner")), description=description)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+
+
         if "-j" in opts or "--json" in opts:
             print(json.dumps(data, indent=4, sort_keys=True))
         else:

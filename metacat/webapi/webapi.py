@@ -21,37 +21,56 @@ undid = parse_name
 class MCError(Exception):
     pass
 
-class ServerError(MCError):
+class WebAPIError(MCError):
     
-    def __init__(self, url, status_code, message, body=""):
+    Headline = "MetaCat API error"
+    
+    def __init__(self, url, response):
         self.URL = url
-        self.StatusCode = status_code
-        self.Message = message
-        self.Body = to_str(body)
+        self.StatusCode = response.status_code
+        self.Message = None
+        self.Body = to_str(response.text)
+        if response.headers.get("content-type") in ("text/json", "application/json"):
+            try:    self.Data = json.loads(response.text)
+            except: self.Data = None
+            self.Message = self.Data.get("message", "")
+        else:
+            self.Message = to_str(response.text)
         
     def __str__(self):
-        #msg = f"MetaCatServer error:\n  URL: {self.URL}\n  HTTP status code: {self.StatusCode}\n  {self.Message}"
-        msg = self.Message
-        if self.Body:
-            msg += "\nMessage from the server:\n"+self.Body+"\n"
-        return msg
-        
-class WebAPIError(ServerError):
-    
-    def __init__(self, url, status_code, body):
-        ServerError.__init__(self, url, status_code, "", body)
-    
+        lines = []
+        if self.Message:
+            lines.append(self.Message)
+        else:
+            lines.append(self.Body)
+        return "\n".join(lines)
+
     def json(self):
-        #print("WebAPIError.json: body:", self.Body)
-        return json.loads(self.Body)
+        return self.Data
+        
+class ServerReportedError(WebAPIError):
+    Headline = "Server side application error"
+
+    def __init__(self, url, status_code, type, value):
+        message = type
+        if value:
+            message += ": " + value
+        WebAPIError.__init__(self, url, status_code, message=message)
+
+class InvalidArgument(WebAPIError):
+    Headline = "Invalid argument"
         
 class NotFoundError(WebAPIError):
-    pass
+    Headline = "Object not found"
+
+class BadRequestError(WebAPIError):
+    Headline = "Invalid request"
             
 class InvalidMetadataError(WebAPIError):
+    Headline = "Invalid metadata"
 
     def __str__(self):
-        msg = ["Invalid metadata error"]
+        msg = ["Invalid metadata"]
         for item in self.json():
             item_headline = item["message"]
             index = item.get("index")
@@ -109,20 +128,25 @@ class HTTPClient(object):
 
     def send_request(self, method, uri_suffix, headers=None, timeout=None, **args):
         self.LastURL = url = "%s/%s" % (self.ServerURL, uri_suffix)
-        if headers:
-            headers = headers.copy()
+        default_headers = {
+            "Accept": "text/plain, application/json, text/json, application/json-seq"
+        }
         if self.Token is not None:
-            headers = headers or {}
-            headers["X-Authentication-Token"] = self.Token.encode()
+            default_headers["X-Authentication-Token"] = self.Token.encode()
+        if headers:
+            default_headers.update(headers)
+        headers = default_headers
         self.LastResponse = response = self.retry_request(method, url, headers=headers, **args)
         #print(response, response.text)
         self.LastStatusCode = response.status_code
         if response.status_code == INVALID_METADATA_ERROR_CODE:
-            raise InvalidMetadataError(url, response.status_code, response.text)
+            raise InvalidMetadataError(url, response)
         if response.status_code == 404:
-            raise NotFoundError(url, response.status_code, response.text)
-        elif response.status_code != 200:
-            raise WebAPIError(url, response.status_code, response.text)
+            raise NotFoundError(url, response)
+        if response.status_code == 400:
+            raise BadRequestError(url, response)
+        elif response.status_code/100 != 2:
+            raise WebAPIError(url, response)
         return response
 
     def get_text(self, uri_suffix):
@@ -133,13 +157,11 @@ class HTTPClient(object):
 
     def unpack_json(self, json_text):
         results = json.loads(json_text)
-        if isinstance(results, dict):
-            if "results" in results:
-                results = results["results"]
-            elif "error" in results:
-                message =  "Server side error: " + results["error"]["type"] + ": "
-                message += results["error"]["value"]
-                raise ServerError(self.LastURL, self.LastStatusCode, message)
+        #if isinstance(results, dict):
+        #    if "results" in results:
+        #        results = results["results"]
+        #    elif "error" in results:
+        #        raise ServerReportedError(self.LastURL, self.LastStatusCode, results["error"]["type"], results["error"].get("value", ""))
         return results
                 
     def get_json(self, uri_suffix):
@@ -199,6 +221,16 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         self.AuthURL = auth_server_url or server_url + "/auth"
         self.MaxConcurrent = max_concurrent_queries
         self.AsyncQueue = None
+        
+    def sanitize(self, *words, **kw):
+        for w in words:
+            if "'" in words:
+                raise InvalidArgument("Invalid value: %s" % (w,))
+        for name, value in kw.items():
+            if "'" in value:
+                raise InvalidArgument("Invalid value for %s: %s" % (name, value))
+            if "'" in name:
+                raise InvalidArgument("Invalid name for: %s" % (name,))
 
     @property
     def async_queue(self):
@@ -334,7 +366,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             return None
         
         
-    def create_dataset(self, spec, frozen=False, monotonic=False, metadata=None, metadata_requirements=None, 
+    def create_dataset(self, did, frozen=False, monotonic=False, metadata=None, metadata_requirements=None, 
             files_query=None, subsets_query=None,
             description=""):
 
@@ -342,7 +374,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         Parameters
         ----------
-        spec : str
+        did : str
             "namespace:name"
         frozen : bool
         monotonic : bool
@@ -362,7 +394,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             created dataset attributes
         """
 
-        namespace, name = spec.split(":",1)     
+        namespace, name = did.split(":",1)
+        #self.sanitize(namespace=namespace, name=name)
         params = {
             "namespace":    namespace,
             "name":         name,

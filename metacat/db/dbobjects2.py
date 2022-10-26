@@ -167,7 +167,7 @@ class DBFileSet(object):
         return DBFileSet.union([self, other])
         
     @staticmethod
-    def _____from_basic_query(db, basic_file_query, with_metadata, limit):
+    def from_basic_query(db, basic_file_query, with_metadata, limit):
         
         debug("from_basic_query: with_metadata:", with_metadata)
         
@@ -200,7 +200,7 @@ class DBFileSet(object):
         
     @staticmethod
     def sql_for_basic_query(db, basic_file_query):
-        debug("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance, " with meta:", basic_file_query.WithMeta)
+        debug("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
         limit = basic_file_query.Limit
         limit = "" if limit is None else f"limit {limit}"
         offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
@@ -226,7 +226,7 @@ class DBFileSet(object):
             # no dataset selection
             sql = f"""
                 -- sql_for_basic_query {f}
-                    select distinct on ({f}.id) {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
                         where {file_meta_exp}
                         {limit} {offset}
@@ -264,7 +264,7 @@ class DBFileSet(object):
         
             sql = f"""
                 -- sql_for_basic_query {f}
-                    select distinct on ({f}.id) {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
                             inner join files_datasets {fd} on {fd}.file_id = {f}.id
                         where
@@ -272,7 +272,6 @@ class DBFileSet(object):
                             and {name_where}
                             and {specs_where}
                             and {file_meta_exp}
-                        order by {f}.id
                         {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """
@@ -356,8 +355,14 @@ class DBFile(object):
     
     @staticmethod
     def generate_id():
-        return uuid.uuid4().hex
-        
+        #return uuid.uuid4().hex
+        done = False
+        x = None
+        while not done:
+            x = base64.b64encode(uuid.uuid4().bytes, b"__")[:16]            # 62**16 = 100 lifetimes of the Universe in nanoseconds
+            done = b'_' not in x
+        return x.decode("utf-8")
+
     def __str__(self):
         return "[DBFile %s %s:%s]" % (self.FID, self.Namespace, self.Name)
         
