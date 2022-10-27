@@ -1,5 +1,5 @@
-MetaCat Web API
-===============
+MetaCat API
+===========
 
 Creating MetaCat Client Interface
 ---------------------------------
