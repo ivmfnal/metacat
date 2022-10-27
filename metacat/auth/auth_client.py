@@ -8,7 +8,10 @@ class AuthenticationError(Exception):
         self.Message = message
 
     def __str__(self):
-        return f"Authentication: {self.Message}"
+        msg = "Authentication error"
+        if self.Message:
+            msg += ": " + self.Message
+        return msg
 
 class TokenAuthClientMixin(object):
     

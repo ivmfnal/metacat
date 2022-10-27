@@ -30,6 +30,7 @@ class ListCommand(CLICommand):
         -r|--role <role>            - list namespaces owned by the role
     """
 
+    
     def __call__(self, command, client, opts, args):
         pattern = None if not args else args[0]
     
@@ -39,11 +40,7 @@ class ListCommand(CLICommand):
         match_owner_role = opts.get("-r", opts.get("--role"))
         if match_owner_user and match_owner_role:
             raise InvalidOptions("Owner user and owner role can not be used together")
-        try:
-            output = client.list_namespaces(pattern=pattern, owner_user=match_owner_user, owner_role=match_owner_role, directly="-d" in opts)
-        except MCError as e:
-            print(e)
-            sys.exit(1)
+        output = client.list_namespaces(pattern=pattern, owner_user=match_owner_user, owner_role=match_owner_role, directly="-d" in opts)
         for item in output:
             name = item["name"]
             owner_user = item.get("owner_user")
@@ -63,11 +60,9 @@ class ShowCommand(CLICommand):
         -j|--json           - print as JSON
     """
     
+    
     def __call__(self, command, client, opts, args):
-        try:    data = client.get_namespace(args[0])
-        except MCError as e:
-            print(e)
-            sys.exit(1)
+        data = client.get_namespace(args[0])
         if "-j" in opts or "--json" in opts:
             print(json.dumps(data, indent=4, sort_keys=True))
         else:
@@ -83,15 +78,11 @@ class CreateCommand(CLICommand):
         -j|--json                               - print as JSON 
     """
     
+    
     def __call__(self, command, client, opts, args):
         name = args[0]
         description = (" ".join(args[1:])).strip() or None
-        try:
-            data = client.create_namespace(name, owner_role=opts.get("-o", opts.get("--owner")), description=description)
-        except MCError as e:
-            print(e)
-            sys.exit(1)
-
+        data = client.create_namespace(name, owner_role=opts.get("-o", opts.get("--owner")), description=description)
 
         if "-j" in opts or "--json" in opts:
             print(json.dumps(data, indent=4, sort_keys=True))

@@ -1,5 +1,5 @@
 import sys, getopt, os, json, pprint, time
-from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError
+from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError, MCError
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
 from metacat.util import ObjectSpec
 from datetime import timezone, datetime
@@ -187,16 +187,12 @@ class DeclareSingleCommand(CLICommand):
 
         files = [file_data]
 
-        try:
-            response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace,
-                    dry_run = "-d" in opts)[0]
-            if "-j" in opts or "--json" in opts:
-                print(json.dumps(response, indent=4, sort_keys=True))
-            else:
-                print(response["fid"], response["namespace"], response["name"])
-        except MCInvalidMetadataError as e:
-            print(e)
-            sys.exit(1)
+        response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace,
+                dry_run = "-d" in opts)[0]
+        if "-j" in opts or "--json" in opts:
+            print(json.dumps(response, indent=4, sort_keys=True))
+        else:
+            print(response["fid"], response["namespace"], response["name"])
 
 
 class DeclareManyCommand(CLICommand):
@@ -222,17 +218,13 @@ class DeclareManyCommand(CLICommand):
             raise InvalidArguments("dataset not specified")
             sys.exit(1)
 
-        try:
-            response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace,
-                    dry_run = "-d" in opts)
-            if "-j" in opts or "--json" in opts:
-                print(json.dumps(response, indent=4, sort_keys=True))
-            else:
-                for f in response:
-                    print(f["fid"], f["namespace"], f["name"])
-        except MCInvalidMetadataError as e:
-            print(e)
-            sys.exit(1)
+        response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace,
+                dry_run = "-d" in opts)
+        if "-j" in opts or "--json" in opts:
+            print(json.dumps(response, indent=4, sort_keys=True))
+        else:
+            for f in response:
+                print(f["fid"], f["namespace"], f["name"])
 
 
 class DatasetsCommand(CLICommand):
@@ -272,6 +264,7 @@ class FileIDCommand(CLICommand):
     Usage = """<namespace>:<name>|<namespace> <name>  - print file id
     """
 
+    
     def __call__(self, command, client, opts, args):
         did = namespace = name = None
         if len(args) == 1:
@@ -300,6 +293,7 @@ class NameCommand(CLICommand):
         -d|--did                    - as DID (namespace:name)
     """
 
+    
     def __call__(self, command, client, opts, args):
         fid = args[0]
     
@@ -331,6 +325,7 @@ class ShowCommand(CLICommand):
             -l|--provenance           - include provenance information
     """
 
+    
     def __call__(self, command, client, opts, args):
         if not args and "-i" not in opts and "--id" not in opts:
             raise InvalidArguments("Either <namespace:name> or -i|--id <file id> must be specified")
@@ -431,6 +426,7 @@ class UpdateCommand(CLICommand):
         ],
         indent=4, sort_keys=True)
         
+    
     def __call__(self, command, client, opts, args):
         
         if "--sample" in opts or "-s" in opts:
@@ -445,17 +441,7 @@ class UpdateCommand(CLICommand):
     
         file_list = read_file_list(opts)
 
-        try:    response = client.update_file_meta(meta, files=file_list, mode=mode, namespace=namespace)
-        except MCInvalidMetadataError as e:
-            data = e.json()
-            print(data["message"], file=sys.stderr)
-            for error in data.get("metadata_errors", []):
-                print("  {name} = {value}: {reason}".format(**error), file=sys.stderr)
-            sys.exit(1)
-        except Exception as e:
-            print(e)
-            sys.exit(1)
-        print(response)
+        response = client.update_file_meta(meta, files=file_list, mode=mode, namespace=namespace)
 
 class AddCommand(CLICommand):
     
@@ -497,6 +483,7 @@ class AddCommand(CLICommand):
         indent=4, sort_keys=True
     )
 
+    
     def __call__(self, command, client, opts, args):
         print('Use "metacat dataset add..." instead')
         sys.exit(1)

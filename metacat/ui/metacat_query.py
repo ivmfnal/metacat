@@ -2,7 +2,7 @@ import sys, getopt, os, json, pprint
 from urllib.request import urlopen, Request
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
-from metacat.webapi import MetaCatClient, MCServerError, MCWebAPIError
+from metacat.webapi import MetaCatClient, MCServerError, MCWebAPIError, MCError
 from metacat.ui.cli import CLICommand, InvalidArguments, InvalidOptions
 
 
@@ -55,7 +55,6 @@ class QueryCommand(CLICommand):
     """
     
     def __call__(self, command, client, opts, args):
-    
         namespace = opts.get("-N") or opts.get("--namespace")
         #with_meta = not "--summary" in opts and not "-s" in opts
         with_meta = "-m" in opts or "--metadata" in opts
@@ -74,15 +73,9 @@ class QueryCommand(CLICommand):
                 raise InvalidArguments("Query must be specified")
             query_text = to_str(open(query_file, "r").read())
         
-        #print("with_meta=", with_meta)
-        
-        try:    
-            results = client.query(query_text, namespace=namespace, with_metadata = with_meta, 
+        results = client.query(query_text, namespace=namespace, with_metadata = with_meta, 
                     save_as=save_as, add_to=add_to,
                     with_provenance=with_provenance)
-        except (MCServerError, MCWebAPIError) as e:
-            print(e, file=sys.stderr)
-            sys.exit(1)
 
         if "--json" in opts or "-j" in opts:
             print(json.dumps(results, sort_keys=True, indent=4, separators=(',', ': ')))
