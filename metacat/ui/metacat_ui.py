@@ -9,6 +9,7 @@ from .metacat_namespace import NamespaceCLI
 from .metacat_auth import AuthCLI
 from .metacat_admin import AdminCLI
 from .metacat_query import QueryInterpreter
+from .metacat_category import CategoryCLI
 
 import warnings
 warnings.simplefilter("ignore")
@@ -83,6 +84,7 @@ def main():
         "auth", AuthCLI,
         "dataset", DatasetCLI,
         "namespace", NamespaceCLI,
+        "category", CategoryCLI,
         "file", FileCLI,
         "query", QueryInterpreter,
         "version", VersionCommand(),

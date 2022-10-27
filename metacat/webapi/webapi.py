@@ -1102,17 +1102,26 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     #
     # Categiries
     #
-    def list_categories(self):
+    def list_categories(self, root=None):
         """List namespaces
-        
+
+        Parameters
+        ----------
+        root : str
+            Optional, if present, list only categories under the root
+
         Returns
         -------
         list 
             List of dictionaries with category information sorted by category path
         """
         lst = self.get_json("data/categories")
+        if root:
+            if not root.endswith('.'):
+                root += '.'
+            lst = [cat for cat in lst if cat["path"].startswith(root)]
         return sorted(lst, key=lambda c: c["path"])
-        
+
     def get_category(self, path):
         """Get category information
         
@@ -1121,5 +1130,5 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         dict 
             A dictionary with category information or None if not found
         """
-        lst = self.get_json("data/category/{path}")
-        return lst
+        out = self.get_json(f"data/category/{path}")
+        return out

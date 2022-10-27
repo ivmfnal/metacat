@@ -161,6 +161,24 @@ To list existing namespaces:
         -d                          - exclude namespaces owned by the user via a role
         -r|--role <role>            - list namespaces owned by the role
 
+
+Parameter Categories
+--------------------
+
+To list existing parameter categories:
+
+.. code-block:: shell
+
+        $ metacat category list [options] [<root category>]
+                  -j|--json           - print as JSON
+
+To get particular categiry information:
+
+.. code-block:: shell
+
+        $ metacat category show [options] <category>
+                  -j|--json           - print as JSON
+
 Datasets
 --------
 
