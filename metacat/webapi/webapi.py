@@ -1028,7 +1028,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         return self.get_json(url)
         
     def get_namespace(self, name):
-        """Creates new namespace
+        """Get information about a snamespace
         
         Parameters
         ----------
@@ -1047,7 +1047,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             return None
         
     def get_namespaces(self, names):
-        """Creates new namespace
+        """Get information for multiple namespaces
         
         Parameters
         ----------
@@ -1063,7 +1063,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         return self.post_json(f"data/namespaces", names)
         
     def list_namespaces(self, pattern=None, owner_user=None, owner_role=None, directly=False):
-        """Creates new namespace
+        """List namespaces
         
         Parameters
         ----------
@@ -1098,4 +1098,28 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         for item in lst:
             if pattern is None or fnmatch.fnmatch(item["name"], pattern):
                 yield item
-    
+                
+    #
+    # Categiries
+    #
+    def list_categories(self):
+        """List namespaces
+        
+        Returns
+        -------
+        list 
+            List of dictionaries with category information sorted by category path
+        """
+        lst = self.get_json("data/categories")
+        return sorted(lst, key=lambda c: c["path"])
+        
+    def get_category(self, path):
+        """Get category information
+        
+        Returns
+        -------
+        dict 
+            A dictionary with category information or None if not found
+        """
+        lst = self.get_json("data/category/{path}")
+        return lst

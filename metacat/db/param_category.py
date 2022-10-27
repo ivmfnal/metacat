@@ -1,5 +1,6 @@
 from .common import DBObject, fetch_generator
 import json
+from metacat.util import epoch
 
 class DBParamCategory(DBObject):
     
@@ -45,6 +46,18 @@ class DBParamCategory(DBObject):
             return r.members
         else:
             return []
+
+    def to_jsonable(self):
+        return dict(
+            path = self.Path,
+            owner_user = self.OwnerUser,
+            owner_role = self.OwnerRole,
+            description = self.Description,
+            restricted = self.Restricted,
+            definitions = self.Definitions,
+            creator = self.Creator,
+            created_timestamp = epoch(self.CreatedTimestamp)
+        )
             
     @staticmethod
     def list(db, parent=None):

@@ -964,3 +964,27 @@ class DataHandler(MetaCatHandler):
         data = ["%s:%s" % (q.Namespace, q.Name) for q in queries]
         return json.dumps(data), "application/json"
 
+    #
+    # Parameter categories
+    #
+    def categories(self, request, relpath, **args):
+        db = self.App.connect()
+        lst = DBParamCategory.list(db)
+        out = [cat.to_jsonable() for cat in lst]
+        return json.dumps(out), "application/json"
+
+    @sanitized
+    def category(self, request, relpath, path=None, **args):
+        path = path or relpath
+        if not path:
+            return 400, "Category path not specified", "text/plain"
+        db = self.App.connect()
+        cat = DBParamCategory.get(db, path)
+        if cat is None:
+            out = None
+        else:
+            out = cat.to_jsonable()
+        return json.dumps(out), "application/json"
+        
+        
+        
