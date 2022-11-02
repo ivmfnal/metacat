@@ -381,7 +381,7 @@ must be a list of dictionaries, one dictionary per file to be declared. Each dic
             "auto_name":pattern,        # optional
             "fid":"...",                # optional - if missing, new will be generated. If specified, must be unique
             "metadata": { ... },        # optional
-            "parents":  [ ... ]         # optional, list of parent file ids
+            "parents":  [ ... ]         # optional, list of dictionaries, one dictionary per parent, see below
             "size":   1234              # required - size of the file in bytes
         },
         ...
