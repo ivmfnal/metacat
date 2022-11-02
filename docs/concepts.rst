@@ -18,20 +18,6 @@ identified by their namespace, name combination. Namespace is very close equival
 
 Another function of a namespace is object ownership.
 
-Ownership
----------
-MetaCat has the notion of object ownership. Namespaces and Parameter Categories are explicitly owned either by an
-individual user or by a *role* (group of users).
-The owner of a namespace automatically owns all the datasets, files and named queries in the namespace. 
-The following operations can only be performed by the object owner:
-
-* Adding a file to a dataset - can only be done by the dataset owner
-* Creating a dataset in a namespace or modifying a dataset flags - by the namespace owner
-* Adding a dataset to another dataset - by the parent dataset owner
-* Creating parameter subcategories - if the category is restricted, only by the parent category owner
-* Modifying metadata constraints in the category - by the category owner
-* Create of modify a named query in the namespace - by the namespace owner
-
 File
 ----
 MetaCat is a purely metadata database. Replica management is outside of MetaCat scope. That is why in MetaCat, *file* is
@@ -104,6 +90,19 @@ The purpose of the parameter category is to allow adding *metadata constraints* 
 
 The category can be either *restricted* or not. If restricted, the category may not contain any parameters other than those listed in the category constraints.
 
+Ownership
+---------
+MetaCat has the notion of object ownership. Namespaces and Parameter Categories are explicitly owned either by an
+individual user or by a *role* (group of users).
+The owner of a namespace automatically owns all the datasets, files and named queries in the namespace. 
+The following operations can only be performed by the object owner:
+
+* Adding a file to a dataset - can only be done by the dataset owner
+* Creating a dataset in a namespace or modifying a dataset flags - by the namespace owner
+* Adding a dataset to another dataset - by the parent dataset owner
+* Creating parameter subcategories - if the category is restricted, only by the parent category owner
+* Modifying metadata constraints in the category - by the category owner
+* Create of modify a named query in the namespace - by the namespace owner
 
 Query
 -----
