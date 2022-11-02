@@ -512,7 +512,7 @@ Retrieving single file metadata
 Query
 -----
 
-:doc:`/mql`
+MetaCat queries are written in :doc:`Metadata Query Language <mql>`.
 
 .. code-block:: shell
 

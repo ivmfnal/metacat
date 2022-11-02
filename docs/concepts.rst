@@ -16,7 +16,7 @@ Namespace
 Namespace is a named entity, which provides the mechanism to avoid name clashes. Files, datasets and named queries are uniquely
 identified by their namespace, name combination. Namespace is very close equivalent to Rucio scope.
 
-Another function of a namespace is object ownership.
+Another function of a namespace is object :ref:`ownership <ownership>`.
 
 File
 ----
@@ -90,6 +90,8 @@ The purpose of the parameter category is to allow adding *metadata constraints* 
 
 The category can be either *restricted* or not. If restricted, the category may not contain any parameters other than those listed in the category constraints.
 
+.. _ownership:
+
 Ownership
 ---------
 MetaCat has the notion of object ownership. Namespaces and Parameter Categories are explicitly owned either by an
@@ -115,7 +117,7 @@ next time it is executed.
 Currently, MetaCat does not have a mechanism to specify the order of the resulting file set. Therefore, even if the set of files returned by the 
 query is the same, MetaCat does not guarantee that they are returned in the same order.
 
-MetaCat queries are written in Metadata Query Language (MQL). Fundamental concept behind MQL is that it provides a mechanism to
+MetaCat queries are written in :doc:`Metadata Query Language (MQL)<mql>`. Fundamental concept behind MQL is that it provides a mechanism to
 build a complicated query from simpler queries. The file sets produced by simple queries are transformed into results of more complicated
 queries as the query is executed.
 

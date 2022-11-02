@@ -7,7 +7,7 @@ One of the functions of the Metadata Database is to produce list of files matchi
 by the user. The product has its own simple language to write these queries in called MQL (pronpounced: MEE-quel,
 like "sequel", but with M). MQL is a language to describe queries against the metadata database.
 A query produces a set of files. The order of files in the returned set is not guaranteed and can not be
-relied on. 
+relied on.
 
 There are 2 classes of queries - file queries and dataset queries. File queries return list of files
 matching specified criteria and dataset queries list datasets.
