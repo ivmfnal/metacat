@@ -1,7 +1,8 @@
 MetaCat Client
 ===============
 
-MetaCat client consists of Command Line Interface (CLI) and Python API, described in a separate section. CLI is in fact based on the Python API.
+MetaCat client consists of Command Line Interface (CLI) and Python API, described in a :ref:`separate section <API>`. 
+CLI is in fact based on the Python API.
 When you install MetaCat client, both CLI and Python API get installed.
 
 Installation
