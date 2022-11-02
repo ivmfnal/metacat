@@ -31,9 +31,12 @@ class WebAPIError(MCError):
         self.Message = None
         self.Body = to_str(response.text)
         if response.headers.get("content-type") in ("text/json", "application/json"):
-            try:    self.Data = json.loads(response.text)
-            except: self.Data = None
-            self.Message = self.Data.get("message", "")
+            try:    
+                self.Data = json.loads(response.text)
+                if isinstance(self.Data, dict):
+                    self.Message = self.Data.get("message", "")
+            except:
+                self.Data = None
         else:
             self.Message = to_str(response.text)
         
@@ -77,9 +80,9 @@ class InvalidMetadataError(WebAPIError):
             fid = item.get("fid")
             item_id = ""
             if fid is not None:
-                item_id = f"fid={fid}" + item_id
+                item_id = f"file fid={fid}" + item_id
             if index is not None:
-                item_id = f"[{index}] " + item_id
+                item_id = f"file #{index} " + item_id
             item_id = item_id.strip()
             item_id = f"{item_id}: " if item_id else ""
             msg.append("  " + item_id + item_headline)

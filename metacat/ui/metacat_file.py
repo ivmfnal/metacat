@@ -1,15 +1,9 @@
 import sys, getopt, os, json, pprint, time
 from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError, MCError
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
-from metacat.util import ObjectSpec
+from metacat.util import ObjectSpec, undid
 from datetime import timezone, datetime
 
-def undid(did, default_namespace=None):
-    if ":" in spec:
-        return tuple(spec.split(":", 1))
-    else:
-        return default_namespace, spec
-        
 def read_file_list(opts):
     default_namespace = opts.get("-N")
     if "-i" in opts or "--ids" in opts:
@@ -129,7 +123,7 @@ class DeclareSingleCommand(CLICommand):
         if size < 0:
             raise InvalidArguments("File size must be non-negative integer")
 
-        file_namespace, file_name = parse_namespace_name(file_spec, default_namespace)
+        file_namespace, file_name = undid(file_spec, default_namespace)
         if not file_namespace:
             raise InvalidArguments("Namespace not specified")
 
@@ -145,7 +139,7 @@ class DeclareSingleCommand(CLICommand):
         if not isinstance(metadata, dict):
             raise InvalidArguments("Metadata must be a dictionary")
 
-        dataset_namespace, dataset_name = parse_namespace_name(dataset_spec, default_namespace)
+        dataset_namespace, dataset_name = undid(dataset_spec, default_namespace)
         if not dataset_namespace:
             raise InvalidArguments("Dataset namespace not specified")
             sys.exit(1)
@@ -158,7 +152,7 @@ class DeclareSingleCommand(CLICommand):
         if parent_specs:
             for item in parent_specs.split(","):
                 if ':' in item:
-                    ns, n = parse_namespace_name(item)
+                    ns, n = undid(item)
                     parents.append({"namespace": ns, "name": n})
                 else:
                     parents.append({"fid": item})
@@ -212,7 +206,7 @@ class DeclareManyCommand(CLICommand):
 
         files = json.load(open(json_file, "r"))       # parse to validate JSON
 
-        dataset_namespace, dataset_name = parse_namespace_name(dataset_spec, default_namespace)
+        dataset_namespace, dataset_name = undid(dataset_spec, default_namespace)
 
         if dataset_namespace is None:
             raise InvalidArguments("dataset not specified")
