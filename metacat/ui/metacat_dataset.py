@@ -1,4 +1,6 @@
-import sys, getopt, os, json, fnmatch, pprint, datetime
+import sys, getopt, os, json, fnmatch, pprint
+from datetime import datetime, timezone
+from textwrap import indent
 #from urllib.request import urlopen, Request
 from metacat.util import to_bytes, to_str, epoch
 from metacat.webapi import MetaCatClient, MCError
@@ -113,7 +115,7 @@ class ListDatasetsCommand(CLICommand):
                     if not ct:
                         ct = ""
                     else:
-                        ct = datetime.datetime.fromtimestamp(ct).strftime("%Y-%m-%d %H:%M:%S")
+                        ct = datetime.fromtimestamp(ct, timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z")
                     file_count = item.get("file_count")
                     if file_count is None:
                         file_count = "?"
@@ -147,18 +149,35 @@ class ShowDatasetCommand(CLICommand):
         elif "-j" in opts or "--json" in opts:
             print(json.dumps(info, indent=4, sort_keys=True))
         else:
-            for k, v in sorted(info.items()):
-                if k == "created_timestamp":
-                    v = "" if not v else datetime.datetime.fromtimestamp(v).strftime("%Y-%m-%d %H:%M:%S")
-                elif k == "children" or k == "parents":
-                    n = len(v)
-                    if n <= 5:
-                        v = " ".join(v)
-                    else:
-                        v = "(%d) " % (n,) + " ".join(v[:5]) + " ..."
-                elif k == "metadata":
-                    v = json.dumps(v or {})
-                print("%-25s: %s" % (k, v))
+            print("Namespace:       ", info["namespace"])
+            print("Name:            ", info["name"])
+            print("Description:     ", info.get("description", ""))
+            print("Creator:         ", info.get("creator", ""))
+            ct = info.get("created_timestamp") or ""
+            if ct:
+                ct = datetime.fromtimestamp(ct, timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z")
+            print("Created at:      ", ct)
+            print("Frozen:          ", "yes" if info.get("frozen", False) else "no")
+            print("Monotonic:       ", "yes" if info.get("monotonic", False) else "no")
+            print("Metadata:")
+            if info.get("metadata"):
+                print(indent(json.dumps(info["metadata"], indent=4, sort_keys=True), "  "))
+            print("Constraints:")
+            for name, constraint in sorted(info.get("file_meta_requirements", {}).items()):
+                line = "  %-40s %10s" % (name, "required" if constraint.get("required", False) else "")
+                if "values" in constraint:
+                    line += " %s" % (tuple(constraint["values"]),)
+                rng = None
+                if "min" in constraint:
+                    rng = [repr(constraint["min"]), ""]
+                if "max" in constraint:
+                    if rng is None: rng = ["", ""]
+                    rng[1] = repr(constraint["max"])
+                if rng is not None:
+                    line += " [%s - %s]" % tuple(rng)
+                if "pattern" in constraint:
+                    line += " ~ '%s'" % (constraint["pattern"])
+                print(line)
                     
 
 class AddSubsetCommand(CLICommand):

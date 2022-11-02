@@ -1538,7 +1538,7 @@ class DBDataset(DBObject):
     def validate_file_metadata(self, meta):
         """
         File metadata requirements:
-        [
+        {
             "name":
             {
                 "required":true/false,  # optional, default 'false'
@@ -1548,7 +1548,7 @@ class DBDataset(DBObject):
                 "pattern": "re pattern" # optional
             },
             ...
-        ]
+        }
         """
         errors = []
         if self.FileMetaRequirements:

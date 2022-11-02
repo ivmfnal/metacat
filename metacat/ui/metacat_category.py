@@ -1,4 +1,5 @@
 import sys, getopt, os, json, fnmatch, pprint
+from datetime import datetime, timezone
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
 from metacat.webapi import MetaCatClient, MCError
@@ -37,7 +38,34 @@ class ShowCommand(CLICommand):
             if "-j" in opts or "--json" in opts:
                 print(json.dumps(data, indent=4, sort_keys=True))
             else:
-                pprint.pprint(data)
+                print("Path:            ", data["path"])
+                print("Description:     ", data.get("description", ""))
+                print("Owner user:      ", data.get("owner_user", "") or "")
+                print("Owner role:      ", data.get("owner_role", "") or "")
+                print("Creator:         ", data.get("creator", ""))
+                ct = data.get("created_timestamp") or ""
+                if ct:
+                    ct = datetime.fromtimestamp(ct, timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z")
+                print("Created at:      ", ct)
+                print("Restricted:      ", "yes" if data.get("restricted", False) else "no")
+                print("Constraints:")
+                for name, constraint in sorted(data.get("definitions", {}).items()):
+                    line = "  %-40s %10s" % (name, constraint.get("type", "any"))
+                    if "values" in constraint:
+                        line += " %s" % (tuple(constraint["values"]),)
+                    rng = None
+                    if "min" in constraint:
+                        rng = [repr(constraint["min"]), ""]
+                    if "max" in constraint:
+                        if rng is None: rng = ["", ""]
+                        rng[1] = repr(constraint["max"])
+                    if rng is not None:
+                        line += " [%s - %s]" % tuple(rng)
+                    if "pattern" in constraint:
+                        line += " ~ '%s'" % (constraint["pattern"])
+                    print(line)
+
+
 
 CategoryCLI = CLI(
     "list",     ListCommand(),

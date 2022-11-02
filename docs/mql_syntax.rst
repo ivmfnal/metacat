@@ -51,7 +51,7 @@ Metadata expressions
                 | <metadata expression> and <metadata expression>               # and has higher priority than or
                 | <metadata expression> or <metadata expression>
 
-        <scalar>: <attribute name>                                                # assumed to be scalar
+        <scalar>: <attribute name>                                              # assumed to be scalar
                 | <attribute name> [ <index> ]                                  # assumed to be array
                 | <attribute name> [ STRING ]                                   # assumed to be dictionary
                 
