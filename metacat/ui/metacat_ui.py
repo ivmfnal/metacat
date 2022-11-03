@@ -1,6 +1,6 @@
 from metacat.webapi import MCWebAPIError, MetaCatClient, MCError, AuthenticationError
 from metacat import Version
-import sys, getopt, os
+import sys, getopt, os, json
 from .cli import CLI, CLICommand
 
 from .metacat_file import FileCLI
@@ -10,6 +10,7 @@ from .metacat_auth import AuthCLI
 from .metacat_admin import AdminCLI
 from .metacat_query import QueryInterpreter
 from .metacat_category import CategoryCLI
+from metacat.util import validate_metadata
 
 import warnings
 warnings.simplefilter("ignore")
@@ -74,6 +75,76 @@ class Simulate503Command(CLICommand):
     
     def __call__(self, command, client, opts, args):
         print(client.simulate_503())
+        
+class ValidateMetadataCommand(CLICommand):
+    
+    MinArgs = 1
+    Opts = "d:"
+    Usage = """[options] <JSON file with metadata>
+        -d <dataset namespace>:<dataset name>           - if specified, validate the file metadata against the dataset requirements
+        -q                                              - quiet - do not print anything, just use exit status to signal results
+    """
+
+    def __init__(self):
+        self.Categories = None
+
+    def find_category(self, name):
+        # assume name has at least 1 dot in it
+        cat_name, pname = name.rsplit('.', 1)
+        cat = self.Categories.get(cat_name)
+        immediate = True
+        while cat_name != '.' and not cat:
+            immediate = False
+            words = cat_name.rsplit('.', 1)
+            if len(words) == 1:
+                cat_name = "."
+            else:
+                cat_name = words[0]
+            cat = self.Categories.get(cat_name)
+        return cat, immediate
+
+    def __call__(self, command, client, opts, args):
+        
+        dataset = None
+        dataset_did = opts.get("-d")
+        if dataset_did:
+            dataset = client.get_dataset(dataset_did)
+            if dataset is None:
+                print(f"Dataset {dataset_did} not found", file=sys.stderr)
+                sys.exit(1)
+
+        if self.Categories is None:
+            categories = self.Categories = {c["path"]:c for c in client.list_categories()}
+        
+        meta = json.load(open(args[0], "r"))
+        if not isinstance(meta, dict):
+            raise InvalidArguments("Metadata must be a dictionary")
+        errors = []
+        for name, value in sorted(meta.items()):
+            if not "." in name:
+                errors.append(f"Invalid metadata parameter name: {name} - must be <category>.<name>")
+                continue
+            cat, immediate = self.find_category(name)
+            if not cat:
+                continue            # no category found, not even root
+            if immediate:
+                pname = name.rsplit('.', 1)[-1]
+                cat_path = cat["path"]
+                perrors = validate_metadata(cat["definitions"], cat["restricted"], name=pname, value=value)
+                errors += [(cat_path + "." + pname, error) for (_, error) in perrors]
+            elif cat["restricted"]:
+                cat_path = cat["path"]
+                errors.append((name, f"Undefined parameter {name} in restricted category {cat_path}"))
+        
+        if dataset is not None:
+            errors += validate_metadata(dataset.get("file_meta_requirements", {}), False, meta)
+        
+        if not errors:
+            sys.exit(0)
+        
+        for name, error in errors:
+            print("%-40s: %s" % (name, error))
+        sys.exit(1)
 
 Commands = ["admin","auth","dataset","query","namespace","file"]
 
@@ -88,7 +159,8 @@ def main():
         "file", FileCLI,
         "query", QueryInterpreter,
         "version", VersionCommand(),
-        "503", Simulate503Command()
+        "503", Simulate503Command(),
+        "validate", ValidateMetadataCommand()
     )
     try:
         cli.run(sys.argv, argv0="metacat")
