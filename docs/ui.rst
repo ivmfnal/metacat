@@ -338,6 +338,25 @@ to do so.
 Declaring new files
 -------------------
 
+
+Auto-naming
+~~~~~~~~~~~
+
+When declaring new files to MetaCat, sometimes it is useful to have MetaCat generate file names according to some naming schema.
+To do that, instead of ``name`` file attribute, specify ``auto-name`` attribute. Auto-name is a text string with some fields, which will be
+replaced by MetaCat server with actual values at the time of the declaration. The following fields are recognized and will be substituted
+in the following order:
+
+    * $clock3   - lower 3 digits of UNIX timestamp in milliseconds as integer (milliseconds portion of the timestamp)
+    * $clock6   - lower 6 digits of UNIX timestamp in milliseconds as integer
+    * $clock    - entire UNIX UNIX timestamp in milliseconds as integer
+    * $uuid8    - 8 hex digits of a random UUID 
+    * $uuid16   - 16 hex digits of a random UUID 
+    * $uuid     - 32 hex digits of a random UUID
+    * $fid      - file ID
+
+For example, the pattern ``file_$uuid8_$clock6.dat`` may generate file name like ``file_13d79a37_601828.dat``.
+
 Declare single file
 ~~~~~~~~~~~~~~~~~~~
 
@@ -364,7 +383,7 @@ then decalre the file specifying file attributes as part of the command line:
           -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
                                                 if the item contains colon ':', it is interpreted as DID
           -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
-          -a|--auto-name [[<namespace>:]<pattern>]   - generate file name automatically
+          -a|--auto-name [[<namespace>:]<auto-name pattern>]   - generate file name automatically
           -v|--verbose                        - verbose output
 
 An alternative way to declare a file is to create a JSON *file description* - a file metadata *and* file attributes like this:
@@ -444,19 +463,8 @@ must be a list of dictionaries, one dictionary per file to be declared. Each dic
     File name. The file name must be unique within the namespace. If unspecified, the name will be auto-generated or the file ID will be used as the name.
     
 ``auto_name`` : optional
-    Pattern to be used to generate new file name. The pattern is may include constant parts and parts to be replaced by the MetaCat in
-    the following order:
+    Auto-name pattern
     
-    * $clock3   - lower 3 digits of UNIX timestamp in milliseconds as integer (milliseconds portion of the timestamp)
-    * $clock6   - lower 6 digits of UNIX timestamp in milliseconds as integer
-    * $clock    - entire UNIX UNIX timestamp in milliseconds as integer
-    * $uuid8    - 8 hex digits of a random UUID 
-    * $uuid16   - 16 hex digits of a random UUID 
-    * $uuid     - 32 hex digits of a random UUID
-    * $fid      - file ID
-
-    For example, the pattern ``file_$uuid8_$clock6.dat`` may generate file name ``file_13d79a37_601828.dat``.
-
     If neither ``name`` nor ``auto_name`` are provided, then ``file ID`` will be used as the file name.
 
 ``size`` : required
