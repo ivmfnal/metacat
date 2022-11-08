@@ -402,55 +402,7 @@ An alternative way to declare a file is to create a JSON *file description* - a 
         "parents": [ "abc123" ]
     }
 
-and then use that file with ``-f`` option:
-
-.. code-block:: shell
-
-      $ metacat file declare \
-              -f <JSON file description> \
-              [other options] \
-              [[<file namespace>]:<file name>] [<dataset namespace>:]<dataset name>
-          
-Also, the user can combine the two methods by using ``-f`` option with some file attributes specified in the command line.
-In this case attribute values from the command line will override corresponding values from the JSON file. For example:
-
-.. code-block:: shell
-
-      $ metacat file declare -f my_file.json \
-          --size 2048 \                             # file size will be set to 2048 instead of 1024
-          test:file_123_test.data \                 # file namespace, name to use
-          test:dataset_a      
-
-In this case, file namespace/name do not have to be specified in the command line as long as the file description has
-those attributes specified, e.g:
-
-.. code-block:: shell
-
-      $ metacat file declare -f my_file.json \
-          --size 2048 \                             # file size will be set to 2048 instead of 1024
-          test:dataset_a                            # file namespace/name will be taken from the file description
-
-Declare multiple files
-~~~~~~~~~~~~~~~~~~~~~~
-
-When declaring multiple files, the command accepts JSON file path. The JSON file provides information about the files to be declared. The JSON structure in the file
-must be a list of dictionaries, one dictionary per file to be declared. Each dictionary has the following items:
-
-.. code-block:: json
-
-    [
-        {   
-            "namespace":"namespace",    # optional - use -N to specify default
-            "name":"name",              # optional
-            "auto_name":pattern,        # optional
-            "fid":"...",                # optional - if missing, new will be generated. If specified, must be unique
-            "metadata": { ... },        # optional
-            "parents":  [ ... ]         # optional, list of dictionaries, one dictionary per parent, see below
-            "size":   1234              # required - size of the file in bytes
-        },
-        ...
-    ]
-    
+The following file attributes can be specified:
 
 ``fid`` : optional
     File ID for the new file. Must be unique for the MetaCat instance. 
@@ -482,6 +434,55 @@ must be a list of dictionaries, one dictionary per file to be declared. Each dic
 
     Individual parent dictionaries do not have to be in the same format.
     Specifing parents with list of string file ids instead of dictionaries **is deprecated**.
+
+Once the file descrition is ready, it can be used with ``-f`` option:
+
+.. code-block:: shell
+
+      $ metacat file declare \
+              -f <JSON file description> \
+              [other options] \
+              [[<file namespace>]:<file name>] [<dataset namespace>:]<dataset name>
+          
+Also, the user can combine the two methods by using ``-f`` option with some file attributes specified in the command line.
+In this case attribute values from the command line will override corresponding values from the JSON file. For example:
+
+.. code-block:: shell
+
+      $ metacat file declare -f my_file.json \
+          --size 2048 \                             # file size will be set to 2048 instead of 1024
+          test:file_123_test.data \                 # file namespace, name to use
+          test:dataset_a      
+
+In this case, file namespace/name do not have to be specified in the command line as long as the file description has
+those attributes specified, e.g:
+
+.. code-block:: shell
+
+      $ metacat file declare -f my_file.json \
+          --size 2048 \                             # file size will be set to 2048 instead of 1024
+          test:dataset_a                            # file namespace/name will be taken from the file description
+
+Declare multiple files
+~~~~~~~~~~~~~~~~~~~~~~
+
+When declaring multiple files, the command accepts JSON file path. The file must contain a JSON representation of a list
+of file descriptions like this:
+
+.. code-block:: json
+
+    [
+        {   
+            "namespace":"namespace",    # optional - use -N to specify default
+            "name":"name",              # optional
+            "auto_name":pattern,        # optional
+            "fid":"...",                # optional - if missing, new will be generated. If specified, must be unique
+            "metadata": { ... },        # optional
+            "parents":  [ ... ]         # optional, list of dictionaries, one dictionary per parent, see below
+            "size":   1234              # required - size of the file in bytes
+        },
+        ...
+    ]
 
 You can get a sample of the JSON file:
 
