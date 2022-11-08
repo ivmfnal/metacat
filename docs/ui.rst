@@ -399,7 +399,7 @@ An alternative way to declare a file is to create a JSON *file description* - a 
             "processing.status": "done",
             "processing.version": "1.3.5"
         },
-        "parents": [ "abc123" ]
+        "parents": [ {"fid": "abc123"} ]
     }
 
 The following file attributes can be specified:
