@@ -530,7 +530,7 @@ Existing parameter categories can be listed using:
     
 Information about an individual category can be printed using:
 
-.. code-block:: shell
+.. code-block::
 
     $ metacat category show ivm
     Path:             ivm
