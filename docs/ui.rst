@@ -370,6 +370,7 @@ then decalre the file specifying file attributes as part of the command line:
 An alternative way to declare a file is to create a JSON *file description* - a file metadata *and* file attributes like this:
 
 .. code-block:: json
+
     {
         "namespace":    "production",
         "name":         "file_123.data",
