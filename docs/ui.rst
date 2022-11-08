@@ -341,7 +341,7 @@ Declaring new files
 Declare single file
 ~~~~~~~~~~~~~~~~~~~
 
-Create JSON file with file metadata, e.g.:
+Create JSON file with file metadata, *without* any file attributes such as namespace, name, size, etc. e.g.:
 
 .. code-block:: json
 
@@ -351,20 +351,64 @@ Create JSON file with file metadata, e.g.:
         "processing.version": "1.3.5"
     }
 
-then decalre the file:
+then decalre the file specifying file attributes as part of the command line:
 
 .. code-block:: shell
 
-      $ metacat declare [options]    [<file namespace>:]<filename>          [<dataset namespace>:]<dataset>
-      $ metacat declare [options] -a [<file namespace>:]<auto-name pattern> [<dataset namespace>:]<dataset>
+      $ metacat file declare [options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset name>
           -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
           -j|--json                           - print results as JSON
           -s|--size <size>                    - file size
           -c|--checksums <type>:<value>[,...] - checksums
           -N|--namespace <default namespace>
-          -p|--parents   <parent>,...         - parents can be specified as file ids or DIDs
-          -m|--metadata  <JSON metadata file> - if unspecified, file will be declared with empty metadata
-          -a|--auto-name                      - generate file name automatically
+          -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
+                                                if the item contains colon ':', it is interpreted as DID
+          -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
+          -a|--auto-name [[<namespace>:]<pattern>]   - generate file name automatically
+          -v|--verbose                        - verbose output
+
+An alternative way to declare a file is to create a JSON *file description* - a file metadata *and* file attributes like this:
+
+.. code-block:: json
+    {
+        "namespace":    "production",
+        "name":         "file_123.data",
+        "size":         1024,
+        "metadata": {
+            "math.pi": 3.14,
+            "processing.status": "done",
+            "processing.version": "1.3.5"
+        },
+        "parents": [ "abc123" ]
+    }
+
+and then use that file with ``-f`` option:
+
+.. code-block:: shell
+
+      $ metacat file declare \
+              -f <JSON file description> \
+              [other options] \
+              [[<file namespace>]:<file name>] [<dataset namespace>:]<dataset name>
+          
+Also, the user can combine the two methods by using ``-f`` option with some file attributes specified in the command line.
+In this case attribute values from the command line will override corresponding values from the JSON file. For example:
+
+.. code-block:: shell
+
+      $ metacat file declare -f my_file.json \
+          --size 2048 \                             # file size will be set to 2048 instead of 1024
+          test:file_123_test.data \                 # file namespace, name to use
+          test:dataset_a      
+
+In this case, file namespace/name do not have to be specified in the command line as long as the file description has
+those attributes specified, e.g:
+
+.. code-block:: shell
+
+      $ metacat file declare -f my_file.json \
+          --size 2048 \                             # file size will be set to 2048 instead of 1024
+          test:dataset_a                            # file namespace/name will be taken from the file description
 
 Declare multiple files
 ~~~~~~~~~~~~~~~~~~~~~~
