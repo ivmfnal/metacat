@@ -1,6 +1,6 @@
 from .common import DBObject, fetch_generator
 import json
-from metacat.util import epoch
+from metacat.util import epoch, validate_metadata
 
 class DBParamCategory(DBObject):
     
@@ -175,70 +175,11 @@ class DBParamCategory(DBObject):
         return DBParamCategory.from_tuple(db, tup)
 
     def validate_parameter(self, name, value):
-        if not name in self.Definitions:    
-            if self.Restricted:
-                return False, f"parameter not allowed in restricted category"
-            else:
-                return True, "unrestricted"
-        definition = self.Definitions[name]
-        typ = definition["type"]
-
-        if typ == "any":    return True, "valid"
-        
-        repv = repr(value)
-
-        if typ == "int" and not isinstance(value, int): return False, f"scalar int value required instead of {repv}"
-        if typ == "float" and not isinstance(value, float): return False, f"scalar float value required instead of {repv}"
-        if typ == "text" and not isinstance(value, str): return False, f"scalar text value required instead of {repv}"
-        if typ == "boolean" and not isinstance(value, bool): return False, f"scalar boolean value required instead of {repv}"
-        if typ == "dict" and not isinstance(value, dict): return False, f"dict value required instead of {repv}"
-        if typ == "list" and not isinstance(value, list): return False, f"list value required instead of {repv}"
-
-        if typ == "int[]":
-            if not isinstance(value, list): return False, f"list of ints required instead of {repv}"
-            if not all(isinstance(x, int) for x in value): return False, f"list of ints required instead of {repv}"
-
-        elif typ == "float[]":
-            if not isinstance(value, list): return False, f"list of floats required"
-            if not all(isinstance(x, float) for x in value): return False, f"list of floats required instead of {repv}"
-            
-        elif typ == "text[]":
-            if not isinstance(value, list): return False, f"list of strings required"
-            if not all(isinstance(x, str) for x in value): return False, f"list of strings required instead of {repv}"
-            
-        elif typ == "boolean[]":
-            if not isinstance(value, list): return False, f"list of booleans required"
-            if not all(isinstance(x, bool) for x in value): return False, f"list of booleans required instead of {repv}"
-            
-        if not typ in ("boolean", "boolean[]", "list", "dict", "any"):
-            if "values" in definition:
-                values = definition["values"]
-                if isinstance(value, list):
-                    if not all(x in values for x in value): return False, f"value in {value} is not allowed"
-                else:
-                    if not value in values: return False, f"value {repv} is not allowed"
-            else:
-                if "pattern" in definition:
-                    pattern = definition["pattern"]
-                    r = re.compile(pattern)
-                    if isinstance(value, list):
-                        if not all(r.match(v) is not None for v in value):  return False, f"value in {value} does not match the pattern '{pattern}'"
-                    else:
-                        if r.match(value) is None:
-                            return False, f"value {value} does not match the pattern '{pattern}'"
-                if "min" in definition:
-                    vmin = definition["min"]
-                    if isinstance(value, list):
-                        if not all(x >= vmin for x in value):   return False, f"value in {value} out of range (min:{vmin})"
-                    else:
-                        if value < vmin:    return False, f"value {value} out of range (min:{vmin})"
-                if "max" in definition:
-                    vmax = definition["max"]
-                    if isinstance(value, list):
-                        if not all(x <= vmax for x in value):   return False, f"value in {value} out of range (max:{vmax})"
-                    else:
-                        if value > vmax:    return False, f"value {value} out of range (max:{vmax})"
-                        
+        errors = validate_metadata(self.Definitions, self.Restricted, name=name, value=value)
+        if errors:
+            return False, errors[0][1]
+        else:
+            return True, "valid"
         return True, "valid"
     
     @staticmethod

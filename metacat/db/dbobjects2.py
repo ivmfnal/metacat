@@ -1,5 +1,5 @@
 import uuid, json, hashlib, re, time, io, traceback, base64
-from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty
+from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty, validate_metadata
 from metacat.auth import BaseDBUser
 from psycopg2 import IntegrityError
 
@@ -1188,46 +1188,9 @@ class DBDataset(DBObject):
     def remove_child(self, child):
         _DatasetParentToChild(self.DB, self).remove(child.Namespace, child.Name)
     
-    def __add_file(self, f, do_commit = True, validate_meta=True):
-        assert isinstance(f, DBFile)
-        c = self.DB.cursor()
-        c.execute("""
-            insert into files_datasets(file_id, dataset_namespace, dataset_name) values(%s, %s, %s)
-                on conflict do nothing""",
-            (f.FID, self.Namespace, self.Name))
-        if do_commit:   c.execute("commit")
-        return self
-        
     def add_file(self, f, **args):
         return self.add_files([f], **args)
         
-    def ___add_files(self, files, do_commit=True, validate_meta=True):
-        if isinstance(files, DBFile):
-            files = [files]
-        files = list(files)     # in case it was a generator
-        if validate_meta:
-            meta_errors = []
-            for f in files:
-                assert isinstance(f, DBFile)
-                errors = self.validate_file_metadata(f.Metadata)
-                if errors:
-                    meta_errors += errors
-            if meta_errors:
-                raise MetaValidationError("File metadata validation errors", meta_errors)
-        c = self.DB.cursor()
-        c.execute("begin")
-        try:
-            c.executemany("""
-                insert into files_datasets(file_id, dataset_namespace, dataset_name) values(%s, %s, %s)
-                    on conflict do nothing""",
-                [(f.FID, self.Namespace, self.Name) for f in files])
-            c.execute("commit")
-        except Exception as e:
-            #print(traceback.format_exc())
-            c.execute("rollback")
-            raise
-        return self
-
     def add_files(self, files, do_commit=True, validate_meta=True):
         if isinstance(files, DBFile):
             files = [files]
@@ -1550,45 +1513,11 @@ class DBDataset(DBObject):
             ...
         }
         """
+        error_list = validate_metadata(self.FileMetaRequirements, False, meta)
         errors = []
-        if self.FileMetaRequirements:
-            for k, v in meta.items():
-                reqs = self.FileMetaRequirements.get(k)
-                if reqs:
-                    if "values" in reqs:
-                        values = reqs["values"]
-                        if isinstance(v, list):
-                            if any(not x in values for x in v):
-                                errors.append(dict(name=k, value=v, reason="Invalid value"))
-                        else:
-                            if not v in values:
-                                errors.append(dict(name=k, value=v, reason="Invalid value"))
-                    if "min" in reqs:
-                        vmin = reqs["min"]
-                        if isinstance(v, list):
-                            if any(x < vmin for x in v):
-                                errors.append(dict(name=k, value=v, reason="Value out of range"))
-                        else:
-                            if v < vmin:
-                                errors.append(dict(name=k, value=v, reason="Value out of range"))
-                    if "max" in reqs:
-                        vmax = reqs["max"]
-                        if isinstance(v, list):
-                            if any(x > vmax for x in v):
-                                errors.append(dict(name=k, value=v, reason="Value out of range"))
-                        else:
-                            if v > vmax:
-                                errors.append(dict(name=k, value=v, reason="Value out of range"))
-                    if "pattern" in reqs:
-                        r = re.compile(reqs["pattern"])
-                        if isinstance(v, list) and any(isinstance(x, str) and not r.match(x) for x in v):
-                            errors.append(dict(name=k, value=v, reason="Value does not match pattern"))
-                        elif isinstance(v, str) and not r.match(v):
-                            errors.append(dict(name=k, value=v, reason="Value does not match pattern"))
-            for k, d in self.FileMetaRequirements.items():
-                debug("validate_file_metadata: FileMetaRequirements:", self.FileMetaRequirements)
-                if d.get("required", False) == True and not k in meta:
-                    errors.append(dict(name=k, reason="Required parameter is missing"))
+        for name, error in error_list:
+            v = meta.get(name)
+            errors.append({"name":name, "value":v, "reason":error})
         return errors
         
     @staticmethod

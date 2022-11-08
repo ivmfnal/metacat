@@ -1,4 +1,5 @@
 import sys, getopt, os, json, pprint, time
+from textwrap import dedent
 from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError, MCError
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
 from metacat.util import ObjectSpec, undid
@@ -94,12 +95,32 @@ class DeclareSampleCommand(CLICommand):
 
 class DeclareSingleCommand(CLICommand):
     
-    MinArgs = 2
-    Opts = ("N:p:m:c:das:P:j", ["namespace=", "parents=", "metadata=", "checksums=", "dry-run", "auto-name", "size=", "json"])
+    DeclareSample = dedent("""\
+        {        
+            "metadata": {
+                "pi": 3.14,
+                "version":"1.0",
+                "format":"raw",
+                "done":true
+            },
+            "size": 1234,
+            "parents":[
+                {"fid":"4722545"},
+                {"did":"my_scope:file_name.data"}, 
+                {"namespace":"my_files", "name":"file_name.data"} 
+            ],
+            "checksums": {
+                "adler32": "1234abcd"
+            }
+        }
+    """
+    )
+    
+    Opts = ("N:p:m:c:da:s:P:jvf:", ["namespace=", "parents=", "metadata=", "checksums=", "dry-run", "auto-name", "size=", "json",
+                    "file-description", "sample", "verbose"])
     Usage = """[options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset name>
     Declare signle file:
-        declare [options]    [<file namespace>:]<filename>          [<dataset namespace>:]<dataset>
-        declare [options] -a [<file namespace>:]<auto-name pattern> [<dataset namespace>:]<dataset>
+        declare [options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset name>
             -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
             -j|--json                           - print results as JSON
             -s|--size <size>                    - file size
@@ -108,68 +129,69 @@ class DeclareSingleCommand(CLICommand):
             -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
                                                   if the item contains colon ':', it is interpreted as DID
             -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
-            -a|--auto-name                      - generate file name automatically
+            -a|--auto-name [[<namespace>:]<pattern>]   - generate file name automatically
+            -f|--file-description <JSON file>   - JSON file with description, including file attributes and metadata
+            -v|--verbose                        - verbose output
+            --sample                            - print JSON file description sample
+            
+        Note that file attributes from command line override those from JSON file description. 
+        If explicit file name is specified, auto-name is ignored.
     """
 
     def __call__(self, command, client, opts, args):
+        
+        if "--sample" in opts:
+            print(self.DeclareSample)
+            return
 
-        if len(args) != 2:
+        if len(args) == 1:
+            file_spec, dataset_spec = None, args[0]
+        elif len(args) == 2:
+            file_spec, dataset_spec = args
+        else:
             raise InvalidArguments("Invalid number of arguments")
-        file_spec, dataset_spec = args
-        file_namespace = file_name = auto_name_pattern = None
-        auto_name = "-a" in opts
+
+        auto_name = file_namespace = file_name = None
         default_namespace = opts.get("-N") or opts.get("--namespace")
+        
+        dry_run = "-d" in opts or "--dry-run" in opts
+        
+        file_description = opts.get("-f") or opts.get("--file-description")
+        if file_description is not None:
+            file_description = json.load(open(file_description, "r"))
+        else:
+            file_description = {}
+
         size = int(opts.get("-s", opts.get("--size", 0)))
         if size < 0:
             raise InvalidArguments("File size must be non-negative integer")
+        file_description["size"] = size
 
-        file_namespace, file_name = undid(file_spec, default_namespace)
-        if not file_namespace:
-            raise InvalidArguments("Namespace not specified")
-
-        if auto_name:
-            auto_name_pattern = file_name
-            file_name = None
+        if file_spec:
+            file_namespace, file_name = undid(file_spec, default_namespace)
+            file_description["name"] = file_name
 
         metadata_file = opts.get("-m") or opts.get("--metadata")
         if metadata_file:
             metadata = json.load(open(metadata_file, "r"))
-        else:
-            metadata = {}
-        if not isinstance(metadata, dict):
-            raise InvalidArguments("Metadata must be a dictionary")
+            if not isinstance(metadata, dict):
+                raise InvalidArguments("Metadata must be a dictionary")
+            file_description["metadata"] = metadata
 
         dataset_namespace, dataset_name = undid(dataset_spec, default_namespace)
         if not dataset_namespace:
             raise InvalidArguments("Dataset namespace not specified")
-            sys.exit(1)
 
-        try:    size = int(size)
-        except: size = -1
-
-        parents = []
         parent_specs = opts.get("-p") or opts.get("--parents")
         if parent_specs:
+            parents = []
             for item in parent_specs.split(","):
                 if ':' in item:
                     ns, n = undid(item)
                     parents.append({"namespace": ns, "name": n})
                 else:
                     parents.append({"fid": item})
-
-        file_data = {
-                "namespace":    file_namespace,
-                "metadata":     metadata,
-                "size":         size
-            }
-
-        if file_name:
-            file_data["name"] = file_name
-        else:
-            file_data["auto_name"] = auto_name_pattern
-
-        if parents:
-            file_data["parents"] = parents
+            file_description["parents"] = parents
 
         checksums = opts.get("-c") or opts.get("--checksums")
         if checksums:
@@ -177,17 +199,38 @@ class DeclareSingleCommand(CLICommand):
             for item in checksums.split(","):
                 name, value = item.split(":", 1)
                 ckdict[name] = value
-            file_data["checksums"] = ckdict
+            file_description["checksums"] = ckdict
 
-        files = [file_data]
+        auto_name_spec = opts.get("-a") or opts.get("--auto-name")
+        if auto_name_spec:
+            ns, auto_name = undid(auto_name_spec, default_namespace)
+            file_namespace = file_namespace or ns
+            file_description.pop("name", None)
+            file_description["auto_name"] = auto_name
 
-        response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace,
-                dry_run = "-d" in opts)[0]
+        if file_namespace:
+            file_description["namespace"] = file_namespace
+            
+        if not file_description.get("namespace"):
+            file_description["namespace"] = default_namespace
+
+        if not file_description.get("namespace"):
+            raise InvalidArguments("File namespace not specified")
+
+        if "-v" in opts or "--verbose" in opts:
+            if dry_run:
+                print("--- dry run mode ---")
+            print(f"File description to be declared and added to dataset {dataset_namespace}:{dataset_name}")
+            print(json.dumps(file_description, indent=4, sort_keys=True))
+            
+        response = list(client.declare_files(f"{dataset_namespace}:{dataset_name}", 
+                [file_description], 
+                dry_run = dry_run))[0]
+
         if "-j" in opts or "--json" in opts:
             print(json.dumps(response, indent=4, sort_keys=True))
         else:
             print(response["fid"], response["namespace"], response["name"])
-
 
 class DeclareManyCommand(CLICommand):
     
@@ -212,10 +255,18 @@ class DeclareManyCommand(CLICommand):
             raise InvalidArguments("dataset not specified")
             sys.exit(1)
 
-        response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace,
+        try:
+            response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace,
                 dry_run = "-d" in opts)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+
         if "-j" in opts or "--json" in opts:
             print(json.dumps(response, indent=4, sort_keys=True))
+
+
+
         else:
             for f in response:
                 print(f["fid"], f["namespace"], f["name"])
@@ -239,7 +290,12 @@ class DatasetsCommand(CLICommand):
             if "-i" not in opts:
                 raise InvalidArguments("File specification error")
             fid = opts["-i"]
-        data = client.get_file(did=did, fid=fid, with_provenance=False, with_metadata=False, with_datasets=True)
+        try:
+            data = client.get_file(did=did, fid=fid, with_provenance=False, with_metadata=False, with_datasets=True)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+
         if data is None:
             print("file not found", file=sys.stderr)
             sys.exit(1)
@@ -258,7 +314,6 @@ class FileIDCommand(CLICommand):
     Usage = """<namespace>:<name>|<namespace> <name>  - print file id
     """
 
-    
     def __call__(self, command, client, opts, args):
         did = namespace = name = None
         if len(args) == 1:
@@ -270,8 +325,12 @@ class FileIDCommand(CLICommand):
         else:
             raise InvalidArguments("Too many arguments")
         
-        data = client.get_file(did=did, namespace=namespace, name=name, with_provenance=False, with_metadata=False,
+        try:
+            data = client.get_file(did=did, namespace=namespace, name=name, with_provenance=False, with_metadata=False,
                                with_datasets=False)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
         if data is None:
             print("File not found", file=sys.stderr)
             sys.exit(1)
@@ -291,7 +350,12 @@ class NameCommand(CLICommand):
     def __call__(self, command, client, opts, args):
         fid = args[0]
     
-        data = client.get_file(fid=fid, with_provenance=False, with_metadata=False, with_datasets=False)
+        try:
+            data = client.get_file(fid=fid, with_provenance=False, with_metadata=False, with_datasets=False)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+
         if data is None:
             print("File not found", file=sys.stderr)
             sys.exit(1)
@@ -341,9 +405,14 @@ class ShowCommand(CLICommand):
         if not did and not fid:
             raise InvalidArguments("Eirher DID or file id must be specified")
 
-        data = client.get_file(did=did, fid=fid, 
+        try:
+            data = client.get_file(did=did, fid=fid, 
                         with_provenance=include_provenance, with_metadata=include_meta,
                         with_datasets=include_datasets)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+
         if data is None:
             print("file not found", file=sys.stderr)
             sys.exit(1)
@@ -435,7 +504,11 @@ class UpdateCommand(CLICommand):
     
         file_list = read_file_list(opts)
 
-        response = client.update_file_meta(meta, files=file_list, mode=mode, namespace=namespace)
+        try:
+            response = client.update_file_meta(meta, files=file_list, mode=mode, namespace=namespace)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
 
 class AddCommand(CLICommand):
     

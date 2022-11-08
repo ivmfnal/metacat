@@ -104,7 +104,6 @@ class ValidateMetadataCommand(CLICommand):
         return cat, immediate
 
     def __call__(self, command, client, opts, args):
-        
         dataset = None
         dataset_did = opts.get("-d")
         if dataset_did:
@@ -115,7 +114,7 @@ class ValidateMetadataCommand(CLICommand):
 
         if self.Categories is None:
             categories = self.Categories = {c["path"]:c for c in client.list_categories()}
-        
+
         meta = json.load(open(args[0], "r"))
         if not isinstance(meta, dict):
             raise InvalidArguments("Metadata must be a dictionary")
@@ -135,16 +134,17 @@ class ValidateMetadataCommand(CLICommand):
             elif cat["restricted"]:
                 cat_path = cat["path"]
                 errors.append((name, f"Undefined parameter {name} in restricted category {cat_path}"))
-        
+
         if dataset is not None:
             errors += validate_metadata(dataset.get("file_meta_requirements", {}), False, meta)
-        
-        if not errors:
+
+        if errors:
+            if "-q" not in opts:
+                for name, error in errors:
+                    print("%-40s: %s" % (name, error))
+            sys.exit(1)
+        else:
             sys.exit(0)
-        
-        for name, error in errors:
-            print("%-40s: %s" % (name, error))
-        sys.exit(1)
 
 Commands = ["admin","auth","dataset","query","namespace","file"]
 

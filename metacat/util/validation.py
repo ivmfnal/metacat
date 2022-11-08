@@ -40,13 +40,12 @@ def validate_metadata(definitions, restricted, metadata={}, name=None, value=Non
     errors = []
     for name, value in metadata.items():
 
-        if not name in definitions:    
+        definition = definitions.get(name)
+        if definition is None:    
             if restricted:
                 errors.append((name, "parameter not allowed in restricted category"))
-            else:
-                continue
+            continue
 
-        definition = definitions[name]
         typ = definition.get("type")
         type_mismatch = False
         repv = repr(value)
