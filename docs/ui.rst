@@ -513,6 +513,40 @@ This command will print namespace/name for all the datasets the file is in. Curr
       -j print the dataset list as JSON
       otherwise print <namespace>:<name> for each dataset
 
+Metadata Parameter Categories
+-----------------------------
+
+Existing parameter categories can be listed using:
+
+.. code-block:: shell
+
+    $ metacat category list
+    .
+    DUNE
+    DUNE_MC
+    ivm
+    ...
+    
+    
+Information about an individual category can be printed using:
+
+.. code-block:: shell
+
+    $ metacat category show ivm
+    Path:             ivm
+    Description:      ivm test category
+    Owner user:       ivm
+    Owner role:       
+    Creator:          ivm
+    Created at:       2022-09-27 10:51:19 UTC
+    Restricted:       no
+    Constraints:
+      counter                                         int [0 - ]
+      done                                        boolean
+      odds                                            int (1, 3, 5, 7)
+      pi                                            float [3.0 - 4.0]
+      word                                           text ~ '[A-Z].*'
+
 
 File Metadata
 -------------
@@ -576,7 +610,7 @@ use *dry run* mode of the file declaration command. Another way is to use ``meta
       -q                                              - quiet - do not print anything, just use exit status to signal results
 
 To use the command, create a JSON file with file metadata only and use the command to validate it. The metadata will be validated
-against all the parameter category onstraints and, if the target dataset for the file is specified with ``-d``, against the
+against all the parameter category constraints and, if the target dataset for the file is specified with ``-d``, against the
 dataset metadata requirements. The command will exit with 0 (success) status if the metadata is valid. Otherwise it will
 print the violations found and exit with error status 1. ``-q`` can be used to suppress any error printing, to have the command
 quietly exit with 0 or 1 status.
