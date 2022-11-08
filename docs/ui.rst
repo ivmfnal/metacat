@@ -552,6 +552,24 @@ Retrieving single file metadata
 
           -l|--lineage|--provenance (p|c)        - parents or children instead of the file itself
           -I|--ids                               - for parents and children, print file ids instead of namespace/names
+          
+Validation
+~~~~~~~~~~
+
+Sometimes is it desireable to validate metadata without actually declaring a file. One way of doing this would be to
+use *dry run* mode of the file declaration command. Another way is to use ``metacat validate`` command:
+
+.. code-block:: shell
+
+    $ metacat validate [options] <JSON file with metadata>
+      -d <dataset namespace>:<dataset name>           - if specified, validate the file metadata against the dataset requirements
+      -q                                              - quiet - do not print anything, just use exit status to signal results
+
+To use the command, create a JSON file with file metadata only and use the command to validate it. The metadata will be validated
+against all the parameter category onstraints and, if the target dataset for the file is specified with ``-d``, against the
+dataset metadata requirements. The command will exit with 0 (success) status if the metadata is valid. Otherwise it will
+print the violations found and exit with error status 1. ``-q`` can be used to suppress any error printing, to have the command
+quietly exit with 0 or 1 status.
 
 Query
 -----
