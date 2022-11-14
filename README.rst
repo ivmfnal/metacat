@@ -1,4 +1,4 @@
-.. image:: https://readthedocs.org/projects/metadatadb/badge/?version=latest
-:target: https://metadatadb.readthedocs.io/en/latest/?badge=latest
+.. image:: https://readthedocs.org/projects/metacat/badge/?version=latest
+:target: https://metacat.readthedocs.io
 :alt: Documentation Status
 
