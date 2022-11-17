@@ -87,10 +87,10 @@ class Node(object):
                 key_len = len(key)
                 prefix = ". " if i < len(items) - 1 else "  "
                 head, lines = v._pretty(indent + prefix + " "*key_len)
-                out.append(indent + "- " + key + head)
+                out.append(indent + "| - " + key + head)
                 out += lines
             else:
-                out.append(indent + "- " + key + str(v))
+                out.append(indent + "| - " + key + str(v))
 
         nc = len(self.C)
         for i, c in enumerate(self.C):

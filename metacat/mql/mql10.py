@@ -97,6 +97,14 @@ def _make_DNF(exp, op=None, exp1=None):
         exp = Node("meta_and", [exp, exp1])
 
     return _MetaRegularizer().walk(exp)
+    
+def _merge_skip_limit(existing_skip, existing_limit, skip=0, limit=None):
+    if existing_limit is None:
+        return existing_skip+skip, limit
+    elif limit is None:
+        return existing_skip + skip, max(0, existing_limit - skip)
+    else:
+        return existing_skip + skip, max(0, min(existing_limit - skip, limit))
 
 class BasicDatasetQuery(object):
 
@@ -203,14 +211,13 @@ class BasicFileQuery(object):
         #print(self.Wheres.pretty("    "))
             
     def addLimit(self, limit):
-        if limit is not None:
-            if self.Limit is None:   self.Limit = limit
-            else:   self.Limit = min(self.Limit, limit)
+        self.add_skip_limit(0, limit)
 
     def addSkip(self, nskip):
-        self.Skip += nskip
-        if self.Limit is not None:
-            self.Limit = max(0, self.Limit-nskip)
+        self.add_skip_limit(skip, None)
+            
+    def add_skip_limit(self, skip, limit):
+        self.Skip, self.Limit = _merge_skip_limit(self.Skip, self.Limit, skip, limit)
 
     def apply_params(self, params):
         default_namespace = params.get("namespace")
@@ -291,19 +298,17 @@ class FileQuery(object):
         if db is not None:
             try:
                 self.assemble(db, default_namespace = default_namespace)
-                optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
-        
-                optimized = _QueryOptionsApplier().walk(optimized, 
-                    dict(
-                        with_provenance = with_provenance,
-                        with_meta = with_meta
-                    ))
-                if debug:
-                    print("after _QueryOptionsApplier:", optimized.pretty())
             except Exception as e:
                 raise MQLCompilationError(str(e))
-            
         try:
+            optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
+            optimized = _QueryOptionsApplier().walk(optimized, 
+                dict(
+                    with_provenance = with_provenance,
+                    with_meta = with_meta
+                ))
+            if debug:
+                print("after _QueryOptionsApplier:", optimized.pretty())
             self.Compiled = compiled = SQLConverter(db, debug=debug)(optimized)
         except Exception as e:
             raise MQLCompilationError(str(e))
@@ -343,6 +348,8 @@ class QueryConverter(Converter):
         else:
             q = args[0]
 
+        print("QueryConverter.query: q:", q.pretty())
+
         if q.T == "top_file_query": out = FileQuery(q.C[0])
         elif q.T == "top_dataset_query": out = DatasetQuery(q.C[0])
         else:
@@ -374,19 +381,6 @@ class QueryConverter(Converter):
         return Node("limit", [child], limit = limit)
         #return Node("file_query", [args[0]], meta = {"limit":int(args[1].value)})
 
-    def limit(self, args):
-        assert len(args) == 2
-        child = args[0]
-        limit = int(args[1])
-        return Node("limit", [args[0]], limit=limit)
-
-    def skip(self, args):
-        assert len(args) == 2
-        skip=int(args[1])
-        if skip == 0:   return args[0]
-        else:   return Node("skip", [args[0]], skip=skip)
-
-
     def skip(self, args):
         assert len(args) == 2
         child, skip = args
@@ -394,14 +388,17 @@ class QueryConverter(Converter):
         if skip == 0:   return child
         
         if child.T == "skip_limit":
-            new_skip = child["skip"] + skip
-            new_limit = child["limit"] - skip
-            if new_limit <= 0:
+            new_skip, new_limit = _merge_skip_limit(child["skip"], child["limit"], skip=skip)
+            if new_limit is not None and new_limit <= 0:
                 return Node("empty")
             else:
-                return Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
+                assert len(child.C) == 1
+                child = child.C[0]
+                out = Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
         else:
-            return Node("skip_limit", [child], skip=skip, limit=None)
+            out = Node("skip_limit", [child], skip=skip, limit=None)
+        return out
+    
 
     def limit(self, args):
         assert len(args) == 2
@@ -409,23 +406,24 @@ class QueryConverter(Converter):
         limit=int(limit)
 
         if child.T == "skip_limit":
-            new_skip = child["skip"]
-            new_limit = child["limit"]
-            if limit is not None:
-                if new_limit is None:
-                    new_limit = limit
-                else:
-                    new_limit = min(limit, new_limit)
+            new_skip, new_limit = _merge_skip_limit(child["skip"], child["limit"], limit=limit)
             if new_limit <= 0:
                 return Node("empty")
             else:
-                return Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
+                out = Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
         else:
-            return Node("skip_limit", [child], skip=0, limit=limit)
+            out = Node("skip_limit", [child], skip=0, limit=limit)
+        return out
 
     def meta_filter(self, args):
         q, meta_exp = args
-        return Node("meta_filter", query=q, meta_exp=_make_DNF(meta_exp))
+        meta_exp=_make_DNF(meta_exp)
+        if q.T == "basic_file_query":
+            bfq = q["query"]
+            if not (bfq.Skip or bfq.Limit):
+                bfq.addWhere(meta_exp)
+                return q
+        return Node("meta_filter", query=q, meta_exp=meta_exp)
 
     def basic_file_query(self, args):
         if args:
@@ -565,10 +563,9 @@ class QueryConverter(Converter):
         for q in queries:
             for bfq in q.find_all("basic_file_query"):
                 bfq["query"].WithMeta = True
-        node = Node("filter", queries, name = name.value, params=params, kv=kv)
-        #print("filter created:", node.pretty())
+        node = Node("filter", queries, name = name.value, params=params, kv=kv, skip=0, limit=None)
         return node
-        
+
     def scalar(self, args):
         (t,) = args
         return Node("scalar", name=t.value)
@@ -817,12 +814,6 @@ class _Assembler(Ascender):
         self.DB = db
         self.DefaultNamespace = default_namespace
         
-    def ____walk(self, inp, debug=False):
-        #print("_Assembler.walk(): in:", inp.pretty() if isinstance(inp, Node) else repr(inp))
-        out = Ascender.walk(self, inp, debug)
-        #print("_Assembler.walk(): out:", out.pretty() if isinstance(out, Node) else repr(out))
-        return out
-        
     def named_query(self, node, name=None, namespace=None):
         namespace = namespace or self.DefaultNamespace
         parsed = MQLQuery.from_db(self.DB, namespace, name)
@@ -892,56 +883,72 @@ class _SkipLimitApplier(Descender):
         )
         return self._default(node, skip_limit)
     
-    def combine_limits(self, l1, l2):
-        if l1 is None:  return l2
-        if l2 is None:  return l1
-        return min(l1, l2)
-
-    def skip(self, node, skip_limit):
+    def skip_limit(self, node, skip_limit):
         skip, limit = skip_limit
         node_skip = node.get("skip", 0)
-        return self.walk(node.C[0], node_skip + skip, limit)
-
-    def limit(self, node, skip_limit):
-        skip, limit = skip_limit
         node_limit = node.get("limit")
-        
-        if node_limit is not None:
-            node_limit = node_limit - skip
-            if node_limit <= 0:
-                return Node("empty")
-            if limit is not None:
-                limit = min(node_limit, limit)
-            else:
-                limit = node_limit
-        return self.walk(node.C[0], skip, limit)
-        
+        skip, limit = _merge_skip_limit(node_skip, node_limit, skip, limit)
+        if limit is not None and limit <= 0:
+            return Node("empty")
+        else:
+            return self.walk(node.C[0], skip, limit)
+
     def basic_file_query(self, node, skip_limit):
         query = node["query"]
         #print("_SkipLimitApplier: applying skip_limit", skip_limit, " to BFQ:", query)
         skip, limit = skip_limit
-        query.addSkip(skip)
-        query.addLimit(limit)
-        return node
+        query.add_skip_limit(skip, limit)
+        if query.Limit is not None and query.Limit <= 0:
+            return Node("empty")
+        else:
+            return node
 
     def union(self, node, skip_limit):
         #print("_SkipLimitApplier: skip_limit:", skip_limit, "  children:", node.C)
         skip, limit = skip_limit
-        node = Node("union", [self.walk(c) for c in node.C])
-        return self._default(node, skip_limit)
+        if limit is not None and limit <= 0:
+            node = None("empty")
+        else:
+            node = Node("union", [self.walk(c) for c in node.C])
+            if skip or limit:
+                node = Node("skip_limit", [node], skip=skip, limit=limit)
+        return node
+
+    def join(self, node, skip_limit):
+        #print("_SkipLimitApplier: skip_limit:", skip_limit, "  children:", node.C)
+        skip, limit = skip_limit
+        if limit is not None and limit <= 0:
+            node = None("empty")
+        else:
+            node = Node("join", [self.walk(c) for c in node.C])
+            if skip or limit:
+                node = Node("skip_limit", [node], skip=skip, limit=limit)
+        return node
 
     def filter(self, node, skip_limit):
         skip, limit = skip_limit
-        node["limit"] = limit if node.get("limit") is None else node["limit"]
-        node["skip"] = skip if not node.get("skip") else node["skip"]
+        node_skip = node["skip"]
+        node_limit = node["limit"]
+        skip, limit = _merge_skip_limit(node_skip, node_limit, skip, limit)
+        node["limit"] = limit
+        node["skip"] = skip
         node.C = [self.walk(c) for c in node.C]
-        return node
+        if limit is not None and limit <= 0:
+            return Node("empty")
+        else:
+            return node
 
     def file_list(self, node, skip_limit):
         skip, limit = skip_limit
-        node["limit"] = node.get("limit") or limit
-        node["skip"] = node.get("skip") or skip
-        return node
+        node_skip = node["skip"]
+        node_limit = node["limit"]
+        skip, limit = _merge_skip_limit(node_skip, node_limit, skip, limit)
+        node["limit"] = limit
+        node["skip"] = skip
+        if limit is not None and limit <= 0:
+            return Node("empty")
+        else:
+            return node
     
     def empty(self, node, skip_limit):
         return node
@@ -949,11 +956,7 @@ class _SkipLimitApplier(Descender):
     def _default(self, node, skip_limit):
         #print("_LimitApplier._default: node:", node.pretty())
         skip, limit = skip_limit
-        if skip:
-            node = Node("skip", [self.walk(node)], skip=skip)
-        if limit:
-            node = Node("limit", [self.walk(node)], limit=limit)
-        return node
+        return Node("skip_limit", [self.walk(node)], skip=skip, limit=limit)
 
 class _RemoveEmpty(Ascender):
     

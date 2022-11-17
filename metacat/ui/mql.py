@@ -69,7 +69,7 @@ if not sys.argv[1:] or sys.argv[1] in ("help", "--help", "-?"):
     sys.exit(2)
 
 cmd = sys.argv[1]
-opts, args = getopt(sys.argv[2:], "dc:o")
+opts, args = getopt(sys.argv[2:], "dc:os")
 opts = dict(opts)
 
 debug = "-d" in opts
@@ -106,6 +106,8 @@ elif cmd == "compile":
         config = yaml.load(open(config_file, "r").read(), Loader=yaml.SafeLoader)["database"]
         db = connect(config)
         q.assemble(db)
+    else:
+        q.skip_assembly()
 
     q.optimize(debug)
     print("\n---- Optimized ----")

@@ -53,7 +53,8 @@ class SQLConverter(Ascender):
                     select {columns} 
                     from (
                         {query_sql}
-                    ) {t} where {where_sql} 
+                    ) {t} where {where_sql}
+                    order by {t}.id 
                 -- end of meta_filter {t}
             """
             return Node("sql", sql=sql)
@@ -150,6 +151,7 @@ class SQLConverter(Ascender):
                         from files_with_provenance {p}
                             inner join parent_child {pc} on {p}.id = {pc}.parent_id
                             inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
+                        order by {p}.id
                     -- end of parents of {p}
                 """)
             else:
@@ -159,6 +161,7 @@ class SQLConverter(Ascender):
                         from files {p}
                             inner join parent_child {pc} on {p}.id = {pc}.parent_id
                             inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
+                        order by {p}.id
                     -- end of parents of {p}
                 """)
             return Node("sql", sql=new_sql)
@@ -183,6 +186,7 @@ class SQLConverter(Ascender):
                         from files_with_provenance {c}
                             inner join parent_child {pc} on {c}.id = {pc}.child_id
                             inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
+                        order by {c}.id
                     -- end of children of {c}
                 """)
             else:
@@ -192,6 +196,7 @@ class SQLConverter(Ascender):
                         from files {c}
                             inner join parent_child {pc} on {c}.id = {pc}.child_id
                             inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
+                        order by {c}.id
                     -- end of children of {c}
                 """)
 
@@ -199,33 +204,6 @@ class SQLConverter(Ascender):
         else:
             return node
             
-    def skip(self, node, child, skip=0):
-        if child.T == "skip_limit":
-            new_skip = child["skip"] + skip
-            new_limit = child["limit"] - skip
-            if new_limit <= 0:
-                return Node("empty")
-            else:
-                return Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
-        else:
-            return Node("skip_limit", [child], skip=skip, limit=None)
-
-    def limit(self, node, child, limit=None):
-        if child.T == "skip_limit":
-            new_skip = child["skip"]
-            new_limit = child["limit"]
-            if limit is not None:
-                if new_limit is None:
-                    new_limit = limit
-                else:
-                    new_limit = min(limit, new_limit)
-            if new_limit <= 0:
-                return Node("empty")
-            else:
-                return Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
-        else:
-            return Node("skip_limit", [child], skip=0, limit=limit)
-
     def skip_limit(self, node, arg, skip=0, limit=None, **kv):
         if limit is None and skip == 0:
             return arg
@@ -258,7 +236,9 @@ class SQLConverter(Ascender):
             new_sql = dedent(f"""\
                 -- skip {skip} limit {limit} {tmp}
                     select {columns} 
-                    from ({sql}) {tmp} {limit_clouse} {offset_clouse}
+                    from ({sql}) {tmp} 
+                    order by {tmp}.id
+                    {limit_clouse} {offset_clouse}
                 -- end of limit {limit} {tmp}
             """)
             return Node("sql", sql=new_sql)

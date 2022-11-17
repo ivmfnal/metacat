@@ -168,9 +168,6 @@ class DBFileSet(object):
         
     @staticmethod
     def from_basic_query(db, basic_file_query, with_metadata, limit):
-        
-        debug("from_basic_query: with_metadata:", with_metadata)
-        
         if limit is None:
             limit = basic_file_query.Limit
         elif basic_file_query.Limit is not None:
@@ -229,6 +226,7 @@ class DBFileSet(object):
                     select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
                         where {file_meta_exp}
+                        order by {f}.id
                         {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """
@@ -272,6 +270,7 @@ class DBFileSet(object):
                             and {name_where}
                             and {specs_where}
                             and {file_meta_exp}
+                        order by {f}.id
                         {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """
@@ -312,6 +311,8 @@ class DBFileSet(object):
             namespace_names = ','.join(namespace_names)
             sql += f""" where (namespace, name) in ({namespace_names})
                 """
+
+        sql += f" order by {f}.id "
 
         if limit is not None:
             sql += f" limit {limit}"
