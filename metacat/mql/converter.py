@@ -197,18 +197,6 @@ class BasicFileQuery(object):
             for ds in self.DatasetSelectors:
                 ds.apply_params(params)
 
-class PushOrdered(Descender):
-    
-    def basic_file_query(self, node, _):
-        node["query"].Ordered = True
-        return node
-        
-    def skip_limit(self, node, _):
-        return node     # already ordered
-        
-    def _default(self, node, skip_limit):
-        return Node("ordered", [node])
-
 class QueryConverter(Converter):
     
     #
@@ -236,7 +224,6 @@ class QueryConverter(Converter):
         elif q.T == "top_dataset_query":    out = DatasetQuery(q.C[0])
         else:
             raise ValueError("Unrecognozed top level node type: %s" % (q.T,))
-        #print("_Converter.query() -> ", out)
         return out
     
     def __default__(self, typ, children, meta):
@@ -266,9 +253,10 @@ class QueryConverter(Converter):
     def make_ordered(self, node):
         if node.T in ("basic_file_query", "basic_dataset_query"):
             node.Ordered = True
-        elif node.T == "file_list":
+        if node.T == "filter":
+            node["ordered"] = True
+        elif node.T in ("file_list", "skip_limit"):
             pass    # already fixed order
-        elif node
         else:
             node = Node("ordered", [node])
         return node
@@ -278,33 +266,15 @@ class QueryConverter(Converter):
         child, skip = args
         skip=int(skip)
         if skip == 0:   return child
-        
-        if child.T == "skip_limit":
-            new_skip, new_limit = _merge_skip_limit(child["skip"], child["limit"], skip=skip)
-            if new_limit is not None and new_limit <= 0:
-                return Node("empty")
-            else:
-                assert len(child.C) == 1
-                child = child.C[0]
-                out = Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
-        else:
-            out = Node("skip_limit", [self.make_ordered(child)], skip=skip, limit=None)
-        return out
+        else:   return Node("skip_limit", [self.make_ordered(child)], skip=skip)
 
     def limit(self, args):
         assert len(args) == 2
         child, limit = args
         limit=int(limit)
-
-        if child.T == "skip_limit":
-            new_skip, new_limit = _merge_skip_limit(child["skip"], child["limit"], limit=limit)
-            if new_limit <= 0:
-                return Node("empty")
-            else:
-                out = Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
-        else:
-            out = Node("skip_limit", [self.make_ordered(child)], skip=0, limit=limit)
-        return out
+        if limit == 0:  return Node("empty")
+        elif limit is None: return child
+        else: return Node("skip_limit", [self.make_ordered(child)], limit=limit)
 
     def meta_filter(self, args):
         q, meta_exp = args
@@ -459,7 +429,7 @@ class QueryConverter(Converter):
         for q in queries:
             for bfq in q.find_all("basic_file_query"):
                 bfq["query"].WithMeta = True
-        node = Node("filter", queries, name = name.value, params=params, kv=kv, skip=0, limit=None)
+        node = Node("filter", queries, name = name.value, params=params, kv=kv, skip=0, limit=None, ordered=False)
         return node
 
     def scalar(self, args):

@@ -68,30 +68,28 @@ class FileQuery(object):
 
     def __init__(self, tree):
         self.Tree = tree
-        self.Parsed = self.Assembled = self.Optimized = self.Compiled = None
-        
+        self.Assembled = self.Optimized = self.Compiled = None
+
     def __str__(self):
         return "FileQuery(\n%s\n)" % (self.Tree.pretty("  "),)
-        
+
     def assemble(self, db, default_namespace = None):
         #print("FileQuery.assemble: self.Assembled:", self.Assembled)
         if self.Assembled is None:
             #print("FileQuery.assemble: assembling...")
             self.Assembled = _Assembler(db, default_namespace).walk(self.Tree)
         return self.Assembled
-        
+
     def skip_assembly(self):
         if self.Assembled is None:
             self.Assembled = self.Tree
         return self.Assembled
-        
+
     def optimize(self, debug=False, default_namespace=None, skip=0, limit=None):
-        #print("Query.optimize: entry")
-        assert self.Assembled is not None
         if self.Optimized is None:
             #print("Query.optimize: assembled:----\n", self.Assembled.pretty())
             
-            optimized = self.Assembled
+            optimized = self.Tree
             
             optimized = _SkipLimitApplier().walk(optimized)
             if debug:
@@ -109,24 +107,21 @@ class FileQuery(object):
                 print("Query.optimize: after _RemoveEmpty:----")
                 print(optimized.pretty("    "))
             
+            print("Query.optimize(): calling second _SkipLimitApplier: skip=", skip, "   limit=", limit)
             optimized = _SkipLimitApplier().walk(optimized, skip, limit)
             if debug:
                 print("Query.optimize: after 2nd _SkipLimitApplier:----")
                 print(optimized.pretty("    "))
             
-            if default_namespace is not None:
-                optimized = _WithParamsApplier().walk(optimized, {"namespace":default_namespace})
-                
-                
+            optimized = _OrderedApplier()(optimized)
+            if debug:
+                print("Query.optimize: after applying ordering:----")
+                print(optimized.pretty("    "))
+            
             self.Optimized = optimized
         return self.Optimized
 
     def compile(self, db=None, skip=0, limit=None, with_meta=False, with_provenance=False, default_namespace=None, debug=False):
-        if db is not None:
-            try:
-                self.assemble(db, default_namespace = default_namespace)
-            except Exception as e:
-                raise MQLCompilationError(str(e))
         try:
             optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
             optimized = _QueryOptionsApplier().walk(optimized, 
@@ -139,7 +134,7 @@ class FileQuery(object):
             self.Compiled = compiled = SQLConverter(db, debug=debug)(optimized)
         except Exception as e:
             raise MQLCompilationError(str(e))
-        
+
         if debug:
             print("\nCompiled:", compiled.pretty())
 
@@ -171,6 +166,43 @@ class _Assembler(Ascender):
         tree = _WithParamsApplier().walk(tree, {"namespace":namespace})
         #print("_Assembler.named_query: returning:", tree.pretty())
         return tree
+        
+class _OrderedApplier(Descender):
+    
+    def walk(self, tree, ordered=False):
+        return Descender.walk(self, tree, ordered)
+        
+    __call__ = walk
+
+    def ordered(self, node, ordered):
+        child = node.C[0]
+        return self.walk(child, True)
+        
+    def basic_file_query(self, node, ordered):
+        node["query"].Ordered = node["query"].Ordered or ordered
+        return node
+
+    basic_dataset_query = basic_file_query
+
+    def skip_limit(self, node, ordered):
+        child = self.walk(node.C[0], True)
+        return node.clone(children=[child])
+
+    def filter(self, node, ordered):
+        children = [self.walk(c) for c in node.C]
+        node = node.clone(children = children, ordered = node.get("ordered", False) or ordered)
+        return node
+
+    def file_list(self, node, ordered):
+        return node     # already fixed order
+
+    def _default(self, node, ordered):
+        children = [self.walk(c) for c in node.C]
+        node = node.clone(children=children)
+        if ordered:
+            return Node("ordered", [node])
+        else:
+            return node
 
 class _SkipLimitApplier(Descender):
     #
@@ -197,11 +229,16 @@ class _SkipLimitApplier(Descender):
         skip, limit = skip_limit
         node_skip = node.get("skip", 0)
         node_limit = node.get("limit")
+        print("_SkipLimitApplier.skip_limit(): node:", node_skip, node_limit, "   context:", skip, limit)
         skip, limit = _merge_skip_limit(node_skip, node_limit, skip, limit)
+        print("           merged:", skip, limit)
         if limit is not None and limit <= 0:
             return Node("empty")
         else:
-            return self.walk(node.C[0], skip, limit)
+            applied = self.walk(node.C[0], skip, limit)
+            print("        applied:")
+            print(applied.pretty(indent="        "))
+            return applied
 
     def basic_file_query(self, node, skip_limit):
         query = node["query"]
@@ -266,7 +303,10 @@ class _SkipLimitApplier(Descender):
     def _default(self, node, skip_limit):
         #print("_LimitApplier._default: node:", node.pretty())
         skip, limit = skip_limit
-        return Node("skip_limit", [self.walk(node)], skip=skip, limit=limit)
+        node = self.visit_children(node, (0, None))
+        if skip or limit:
+            node = Node("skip_limit", [node], skip=skip, limit=limit)
+        return node
 
 class _RemoveEmpty(Ascender):
     
@@ -347,8 +387,7 @@ class _QueryOptionsApplier(Descender):
         node["with_meta"] = node["with_meta"] or params.get("with_meta", False)
         node["with_provenance"] = node["with_provenance"] or params.get("with_provenance", False)
         return node
-        
-            
+
 class _MetaExpPusher(Descender):
 
     def join(self, node, meta_exp):
@@ -415,24 +454,6 @@ class _DatasetEvaluator(Ascender):
         queries = (a["query"] for a in args)
         return limited(unique(DBDataset.datasets_for_bdqs(self.DB, queries), key=lambda ds: (ds.Namespace, ds.Name)), self.Limit)
 
-def _____parse_query(text, debug=False):
-    # remove comments
-    out = []
-    for l in text.split("\n"):
-        l = l.split('#', 1)[0]
-        out.append(l)
-    text = '\n'.join(out)
-    try:
-        parsed = _Parser.parse(text)
-    except LarkError as e:
-        raise MQLSyntaxError(str(e))
-    if debug:
-        print("--- parsed ---\n", LarkToNodes()(parsed).pretty())
-    converted = QueryConverter()(parsed)
-    if debug:
-        print("--- converted ---\n", converted)
-    return converted
-
 class MQLQuery(object):
     
     @staticmethod
@@ -443,17 +464,23 @@ class MQLQuery(object):
             out.append(l)
         text = '\n'.join(out)
         try:
-            out = _Parser.parse(text)
+            parsed = _Parser.parse(text)
             if debug:
-                print("parsed:\n", out.pretty())
+                print("parsed:\n", parsed.pretty())
             if convert:
-                out = QueryConverter().convert(out)
+                converted = QueryConverter().convert(parsed)
                 if debug:
-                    print("converted:\n", out.pretty())
+                    print("converted:\n", converted.pretty())
+                if converted.T == "top_file_query":
+                    q = FileQuery(converted.C[0])
+                else:
+                    q = DatasetQuery(converted.C[0])
+                q.Parsed = parsed
+                return q
+            else:
+                return parsed
         except LarkError as e:
             raise MQLSyntaxError(str(e))
-        #print(parsed)
-        return out
         
     @staticmethod
     def from_db(db, namespace, name):

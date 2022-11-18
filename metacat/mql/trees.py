@@ -261,7 +261,7 @@ class Descender(Traveler):
             self.WalkLevel -= 1
 
     def visit_children(self, node, context):
-        node.C = [self.walk(c, context) for c in node.C]
+        node.C = [self._walk(c, context) for c in node.C]
         node.D = {
             key:self._walk(n, context)
             for key, n in node.D.items()
@@ -309,7 +309,7 @@ class Ascender(Traveler):
                 out = method(node, *children, **named_children)
                 if debug:
                     me = self.__class__.__name__
-                    print(f"{me}: method {node_type} returned:", out.pretty("      ") if isinstance(out, Node) else out)
+                    #print(f"{me}: method {node_type} returned:", out.pretty("      ") if isinstance(out, Node) else out)
         finally:
             self.WalkLevel -= 1
         return out

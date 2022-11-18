@@ -54,9 +54,24 @@ class SQLConverter(Ascender):
                     from (
                         {query_sql}
                     ) {t} where {where_sql}
-                    order by {t}.id 
                 -- end of meta_filter {t}
             """
+            return Node("sql", sql=sql)
+        else:
+            return node
+
+    def ordered(self, node, child):
+        if child.T == "sql":
+            t = alias("t")
+            child_sql = child["sql"]
+            sql = dedent(f"""\
+                -- ordered {t}
+                    select {t}.*
+                    from (
+                        {child_sql}
+                    ) {t} order by {t}.id
+                -- end of ordered {t}
+            """)
             return Node("sql", sql=sql)
         else:
             return node
@@ -237,7 +252,6 @@ class SQLConverter(Ascender):
                 -- skip {skip} limit {limit} {tmp}
                     select {columns} 
                     from ({sql}) {tmp} 
-                    order by {tmp}.id
                     {limit_clouse} {offset_clouse}
                 -- end of limit {limit} {tmp}
             """)

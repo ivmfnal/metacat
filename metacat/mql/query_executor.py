@@ -37,6 +37,10 @@ class FileQueryExecutor(Ascender):
 
     def join(self, node, *args, **kv):
         return DBFileSet.join(self.DB, args)
+        
+    def ordered(self, node):
+        assert isinstance(node, DBFileSet)
+        return node.ordered()
 
     def minus(self, node, *args, **kv):
         #print("Evaluator.union: args:", args)
