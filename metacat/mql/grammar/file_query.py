@@ -16,7 +16,7 @@ top_file_query          :    file_query
     |   "parents" "(" file_query ")"                     -> parents_of
     |   "children" "(" file_query ")"                    -> children_of
     |   file_query "limit" SIGNED_INT                    -> limit              
-    |   file_query "skip" SIGNED_INT                     -> skip              
+    |   file_query "skip" SIGNED_INT                     -> skip
     |   "(" file_query ")"           
 
 file_query_term: "files" ("from" ("dataset"|"datasets")? dataset_query_list)?                               -> basic_file_query
