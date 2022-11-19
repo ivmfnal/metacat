@@ -70,26 +70,52 @@ This type of queries can be used to get metadata for known files.
 Metadata Filtering
 ------------------
 
-Results of any query can be filtered by adding some metadata criteria expression, called *meta-filter*:
+Results of any query can be filtered by adding some metadata criteria expression, called *meta-filter*. For example, the following query
+returns all the files from the ``MyScope:MyDataset``:
 
 .. code-block:: sql
 
         files from MyScope:MyDataset
-                where x > 0.5
+
+If we add a meta-filter to this query, then the results will be limited to those mathich the specified crireria:
+
+.. code-block:: sql
+
+        files from MyScope:MyDataset
+                where params.x > 0.5
                 
-This will return all the files in the dataset, which have a floating point metadata field named "x" with value greater than 0.5. A meta-filter can be more complicated:
+A meta-filter can be more complicated:
 
 .. code-block:: sql
 
-        files from MyScope:MyDataset
-                where x > 0.5 and x < 1.5 
-                        and run = 123 
-                        and ( type="MC" or type="Data" )
-                        
-White space is ignored in MQL.
+        files from MyScope:MyDataset                                # (A)
+            where params.x > 0.5 and params.x < 1.5 
+                    and data.run = 123 
+                    and ( data.type="MC" or data.type="Data" )
 
-String constants containing only letters, digits and symbols ``:%$@_^.-`` can be entered without
-enclosing them into quotes. Unquoted literals which can be interpreted as numeric or boolean constants
+Meta-filters can be chained. The following query is equivalent to the query above:
+
+.. code-block:: sql
+
+        files from MyScope:MyDataset                                # (B)
+            where x > 0.5 and x < 1.5 
+                where data.run = 123 
+                    where ( data.type="MC" or data.type="Data" )
+
+In fact, MQL compiler always merges subsequent meta-filters into single meta-filter, so, behind the scene, query (B) will be converted to (A) first
+and then further compiled and executed.
+
+Convenience Literals
+--------------------
+String constants containing only letters, digits and symbols ``:%$@_^.-`` (safe string literals) can be entered without
+enclosing quotes. So the following queries are equivalent:
+
+.. code-block:: sql
+
+    files from scope:dataset where data.type = monte-carlo
+    files from scope:dataset where data.type = "monte-carlo"
+
+Unquoted literals which can be interpreted as numeric or boolean constants
 will be interpreted as such. If you need to represent a string, which looks like a decimal representation of
 a number, you will have to put it in quotes, e.g.:
 
@@ -656,12 +682,13 @@ is equivalent to:
 .. code-block::
     
     (
-        files from dc4:dc4 
-            where 12345 in core.runs
-            ordered
-    )
-    skip 100 
-    limit 100
+        (
+            (
+                files from dc4:dc4 
+                    where 12345 in core.runs
+            ) ordered
+        ) skip 100 
+    ) limit 100
 
 This feature makes it easy to split large sets of results into smaller parts in a consistent manner. For example, one can use the following 3 queries
 to process a 15000 file dataset in 5000 files chunks:
