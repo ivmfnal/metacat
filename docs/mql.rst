@@ -6,8 +6,8 @@ Introduction
 One of the functions of the Metadata Database is to produce list of files matching a set of crieria specidied
 by the user. The product has its own simple language to write these queries in called MQL (pronpounced: MEE-quel,
 like "sequel", but with M). MQL is a language to describe queries against the metadata database.
-A query produces a set of files. The order of files in the returned set is not guaranteed and can not be
-relied on.
+A query produces a set of files. By deafult, the order of files in the returned set is not guaranteed and can not be
+relied on. See  :ref:`Query Results Ordering <ordering>` below for more details.
 
 There are 2 classes of queries - file queries and dataset queries. File queries return list of files
 matching specified criteria and dataset queries list datasets.
@@ -558,12 +558,94 @@ To skip some files from the beginning of the file set, use ``skip <n>``
         skip 100 
         limit 100
  
-``limit`` and ``skip`` are applied independently in the order as they are written. For example, if there is a query ``files from test:test_dataset``
-returns files f1, f2, f3, ... f10, then query ``files from test:test_dataset skip 2 limit 2`` will return files f3, f4. 
-Query ``files from test:test_dataset limit 5 skip 2`` will return f3, f4, f5.
+``limit`` and ``skip`` are applied independently in the order as they are written. For example, the query
 
-It is important to keep in mind that the same MQL query will always retrun the same results in the same order.
-Therefore, ``skip`` and ``limit`` can not actually be used to consistently split a file set into subsets.
+.. code-block:: sql
+
+    files from dune:all where 
+        DUNE_data.detector_config.list present 
+        skip 100 
+        limit 1000
+        skip 10
+        skip 5
+        limit 50
+        
+is interpreted like this:
+
+.. code-block:: sql
+
+    (
+        (
+            (
+                (
+                    (
+                        files from dune:all where 
+                            DUNE_data.detector_config.list present 
+                    ) skip 100
+                ) limit 1000
+            ) skip 10
+        ) skip 5
+    ) limit 50
+
+and it is equivalent to:
+
+.. code-block:: sql
+
+    files from dune:all where 
+        DUNE_data.detector_config.list present 
+        skip 115 
+        limit 50
+
+.. _ordering:
+
+Query Results Ordering
+~~~~~~~~~~~~~~~~~~~~~~
+
+By deafult, to save time on query results ordering, the order of files in the query result file set is not guaranteed and can not be
+relied on. However, there is a way for the user to explicitly override that. To do that, add keyword ``ordered`` to any query:
+
+.. code-block::
+    
+    # order of resulting file may not be consistent:
+    files from dc4:dc4 where 12345 in core.runs
+    
+    # order of resulting file is guaranteed to be consistent:
+    files from dc4:dc4 where 12345 in core.runs ordered
+
+Ordered query is guaranteed to return entries in the same order as long as the query produces the same set of results.
+
+Another case when the query results order is guaranteed is when ``skip`` or ``limit`` is used. In this case, MQL implicitly
+makes the underlying query ordered. For example:
+
+.. code-block::
+    
+    files from dc4:dc4 
+        where 12345 in core.runs
+        skip 100 
+        limit 100
+    
+is equivalent to:
+
+.. code-block::
+    
+    (
+        files from dc4:dc4 
+            where 12345 in core.runs
+            ordered
+    )
+    skip 100 
+    limit 100
+
+This feature makes it easy to split large sets of results into smaller parts in a consistent manner. For example, one can use the following 3 queries
+to process a 15000 file dataset in 5000 files chunks:
+
+.. code-block::
+
+    files from scope:Dataset15K skip 0     limit 5000
+    files from scope:Dataset15K skip 5000  limit 5000
+    files from scope:Dataset15K skip 10000 limit 5000
+
+Of course this will work only if no files are added to or removed from the dataset between the queries.
 
 Dataset Queries
 ~~~~~~~~~~~~~~~

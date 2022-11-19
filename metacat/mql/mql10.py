@@ -107,7 +107,7 @@ class FileQuery(object):
                 print("Query.optimize: after _RemoveEmpty:----")
                 print(optimized.pretty("    "))
             
-            print("Query.optimize(): calling second _SkipLimitApplier: skip=", skip, "   limit=", limit)
+            #print("Query.optimize(): calling second _SkipLimitApplier: skip=", skip, "   limit=", limit)
             optimized = _SkipLimitApplier().walk(optimized, skip, limit)
             if debug:
                 print("Query.optimize: after 2nd _SkipLimitApplier:----")
@@ -376,10 +376,9 @@ class _QueryOptionsApplier(Descender):
     children_of = parents_of
 
     def filter(self, node, params):
+        # the filter may need metadata but probably not provenance
         new_params = params.copy()
-        new_params["with_provenance"] = True
         new_params["with_meta"] = True
-        node["with_provenance"] = params.get("with_provenance", False)
         node["with_meta"] = params.get("with_meta", False)
         return self.visit_children(node, new_params)
         

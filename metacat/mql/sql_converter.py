@@ -73,6 +73,8 @@ class SQLConverter(Ascender):
                 -- end of ordered {t}
             """)
             return Node("sql", sql=sql)
+        elif child.T == "filter":
+            return child.clone(ordered=True)
         else:
             return node
 
@@ -82,55 +84,46 @@ class SQLConverter(Ascender):
             return Node("sql", sql=sql)
         else:
             return Node("empty")            # empty file set
-        
+
     def file_list(self, node, specs=None, spec_type=None, with_meta=False, with_provenance=False, limit=None, skip=0):
         return Node("sql", sql=DBFileSet.sql_for_file_list(spec_type, specs, with_meta, with_provenance, limit, skip))
 
     def union(self, node, *args):
         #print("Evaluator.union: args:", args)
-
-        assert all(n.T in ("sql","file_set","empty") for n in args)
-
         args = [a for a in args if a.T != "empty"]
         if not args:
             return Node("empty")
-
         sqls = [n for n in args if n.T == "sql"]
-        if len(sqls) < 2:
+        if not sqls:
             return Node("union", args)
-
-        file_sets = [n for n in args if n.T == "file_set"]
-        u_parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
-        u_sql = None if not sqls else "\nunion\n".join(u_parts)
-
-        if not file_sets:
-            return Node("sql", sql=u_sql)
-        
-        return Node("union", [Node("sql", sql=u_sql)] + file_sets)
+        if len(sqls) >= 2:
+            parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
+            combined_sql = "\nunion\n".join(u_parts)
+            sqls = [Node("sql", sql=combined_sql)]
+        others = [n for n in args if n.T != "sql"]
+        if not others:
+            return sqls[0]
+        return Node("union", sqls + others)
 
     def join(self, node, *args, **kv):
         #print("Evaluator.union: args:", args)
-        assert all(n.T in ("sql","file_set","empty") for n in args)
         if any(n.T == "empty" for n in args):
             return Node("empty")
-
         sqls = [n for n in args if n.T == "sql"]
-        if len(sqls) < 2:
+        if not sqls:
             return node
-            
-        file_sets = [n for n in args if n.T == "file_set"]
-        u_parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
-        u_sql = None if not sqls else "\nintersect\n".join(u_parts)
-        
-        if not file_sets:
-            return Node("sql", sql=u_sql)
-        
-        return Node("join", [Node("sql", sql=u_sql)] + file_sets)
+        if len(sqls) >= 2:
+            parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
+            combined_sql = "\nintersect\n".join(u_parts)
+            sqls = [Node("sql", sql=combined_sql)]
+        others = [n for n in args if n.T != "sql"]
+        if not others:
+            return sqls[0]
+        return Node("join", sqls + others)
 
     def minus(self, node, *args, **kv):
         #print("Evaluator.union: args:", args)
         assert len(args) == 2
-        assert all(n.T in ("sql", "file_set", "empty") for n in args)
         left, right = args
         if left.T == "empty":
             return Node("empty")
@@ -150,10 +143,9 @@ class SQLConverter(Ascender):
         assert len(args) == 1
         arg = args[0]
         if arg.T == "empty":    return arg
-        assert arg.T in ("sql","file_set")
-        with_meta = node["with_meta"]
-        with_provenance = node["with_provenance"]
         if arg.T == "sql":
+            with_meta = node["with_meta"]
+            with_provenance = node["with_provenance"]
             arg_sql = arg["sql"]
             p = alias("p")
             c = alias("c")
@@ -187,8 +179,9 @@ class SQLConverter(Ascender):
         assert len(args) == 1
         arg = args[0]
         if arg.T == "empty":    return arg
-        assert arg.T in ("sql","file_set")
         if arg.T == "sql":
+            with_meta = node["with_meta"]
+            with_provenance = node["with_provenance"]
             arg_sql = arg["sql"]
             p = alias("p")
             c = alias("c")
