@@ -98,7 +98,7 @@ Meta-filters can be chained. The following query is equivalent to the query abov
 .. code-block:: sql
 
         files from MyScope:MyDataset                                # (B)
-            where x > 0.5 and x < 1.5 
+            where params.x > 0.5 and params.x < 1.5 
                 where data.run = 123 
                     where ( data.type="MC" or data.type="Data" )
 
