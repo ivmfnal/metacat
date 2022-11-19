@@ -601,18 +601,33 @@ and it is equivalent to:
 Query Results Ordering
 ~~~~~~~~~~~~~~~~~~~~~~
 
-By deafult, to save time on query results ordering, the order of files in the query result file set is not guaranteed and can not be
-relied on. However, there is a way for the user to explicitly override that. To do that, add keyword ``ordered`` to any query:
+Because sorting query results takes additional time and is not always necessary, 
+by deafult, MetaCat does not sort the file set returned by the query in any particular order, and therefore, can not guarantee
+that the same query will always return results in the same order. However, if necessary, the user can request that the
+query results order is deterministic. To do that, add keyword ``ordered`` to any query:
 
 .. code-block::
     
-    # order of resulting file may not be consistent:
-    files from dc4:dc4 where 12345 in core.runs
+    # order of resulting file set is not guaranteed:
+    files from dc4:dc4 
+        where 12345 in core.runs
     
-    # order of resulting file is guaranteed to be consistent:
-    files from dc4:dc4 where 12345 in core.runs ordered
+    # order of resulting file is guaranteed:
+    files from dc4:dc4 
+        where 12345 in core.runs 
+        ordered
 
 Ordered query is guaranteed to return entries in the same order as long as the query produces the same set of results.
+
+Note that the following query is valid but may is *not* ordered because the ``where`` clause, whis is applied after ``ordered`` 
+may change the results order:
+
+.. code-block::
+    
+    # order of resulting file set is not guaranteed:
+    files from dc4:dc4 
+        ordered 
+        where 12345 in core.runs
 
 Another case when the query results order is guaranteed is when ``skip`` or ``limit`` is used. In this case, MQL implicitly
 makes the underlying query ordered. For example:
