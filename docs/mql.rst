@@ -512,8 +512,8 @@ Similarly, the following expressions are not equivalent:
     * ``(bits[all] == 0 or bits[all] == 1)`` - is false for the metadata above
     * ``bits[all] in (0,1)`` - is true
     
-Limiting and Skipping Query Results
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Segmenting Query Results
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you want to see only a portion of the resulting file set, add ``limit <n>`` to your query:
 
