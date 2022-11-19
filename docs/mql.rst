@@ -549,7 +549,7 @@ Another way of limiting query results is to use built-in "sample" query:
         
 The "sample" filter returns the given fraction of the input query results. In this case, the results will be limited to 1000 (=10000*0.1) files.
 
-To skip some files from the beginning of the file set, use ``skip <n>``
+To skip some files from the beginning of the file set, use ``skip <n>`` clause:
 
 .. code-block:: sql
 
@@ -605,7 +605,7 @@ while this query may return up to 50 files:
         skip 50 
         limit 50
 
-if the order of ``skip`` and ``limit`` is reversed, the result of the query is guaranteed to be empty:
+if the order of ``skip`` and ``limit`` is reversed, the result of the query is guaranteed to be *empty*:
 
 
 .. code-block:: sql
@@ -640,16 +640,6 @@ query results order is deterministic. To do that, add keyword ``ordered`` to any
         ordered
 
 Ordered query is guaranteed to return entries in the same order as long as the query produces the same set of results.
-
-Note that the following query is valid but is *not* ordered because the ``where`` clause is applied after ``ordered`` 
-and may change the results order:
-
-.. code-block::
-    
-    # order of resulting file set is not guaranteed:
-    files from dc4:dc4 
-        ordered 
-        where 12345 in core.runs
 
 Another case when the query results order is guaranteed is when ``skip`` or ``limit`` is used. In this case, MQL implicitly
 makes the underlying query ordered. For example:
