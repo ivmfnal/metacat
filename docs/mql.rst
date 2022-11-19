@@ -124,7 +124,6 @@ a number, you will have to put it in quotes, e.g.:
 	files from scope:dataset where software.version = 1.2      # will be comparing to floating point 1.2
 	files from scope:dataset where software.version = "1.2"    # will be comparing to string "1.2"
 
-
 File Provenance
 ---------------
 MetaCat supports the parent/child relationship between files. A file can have 0 or more child files and 0 or more parent files.
