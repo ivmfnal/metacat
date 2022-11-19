@@ -3,7 +3,7 @@ from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, ski
 from metacat.auth import BaseDBUser
 from psycopg2 import IntegrityError
 
-Debug = True
+Debug = False
 
 def debug(*parts):
     if Debug:
@@ -208,7 +208,7 @@ class DBFileSet(object):
         limit = basic_file_query.Limit
         limit = "" if limit is None else f"limit {limit}"
         offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
-        order = "" if not basic_file_query.Ordered else f"order by {f}.id"
+        order = f"order by {f}.id" if basic_file_query.Skip or basic_file_query.Limit or basic_file_query.Ordered else ""
         
         debug("sql_for_basic_query: offset:", offset)
 
@@ -276,8 +276,7 @@ class DBFileSet(object):
                             and {name_where}
                             and {specs_where}
                             and {file_meta_exp}
-                        order by {f}.id
-                        {limit} {offset}
+                        {order} {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """
         debug("sql_for_basic_query: sql:-------\n", sql, "\n---------")

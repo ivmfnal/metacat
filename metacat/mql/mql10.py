@@ -229,15 +229,15 @@ class _SkipLimitApplier(Descender):
         skip, limit = skip_limit
         node_skip = node.get("skip", 0)
         node_limit = node.get("limit")
-        print("_SkipLimitApplier.skip_limit(): node:", node_skip, node_limit, "   context:", skip, limit)
+        #print("_SkipLimitApplier.skip_limit(): node:", node_skip, node_limit, "   context:", skip, limit)
         skip, limit = _merge_skip_limit(node_skip, node_limit, skip, limit)
-        print("           merged:", skip, limit)
+        #print("           merged:", skip, limit)
         if limit is not None and limit <= 0:
             return Node("empty")
         else:
             applied = self.walk(node.C[0], skip, limit)
-            print("        applied:")
-            print(applied.pretty(indent="        "))
+            #print("        applied:")
+            #print(applied.pretty(indent="        "))
             return applied
 
     def basic_file_query(self, node, skip_limit):
@@ -254,7 +254,7 @@ class _SkipLimitApplier(Descender):
         #print("_SkipLimitApplier: skip_limit:", skip_limit, "  children:", node.C)
         skip, limit = skip_limit
         if limit is not None and limit <= 0:
-            node = None("empty")
+            node = Node("empty")
         else:
             node = Node("union", [self.walk(c) for c in node.C])
             if skip or limit:
@@ -265,7 +265,7 @@ class _SkipLimitApplier(Descender):
         #print("_SkipLimitApplier: skip_limit:", skip_limit, "  children:", node.C)
         skip, limit = skip_limit
         if limit is not None and limit <= 0:
-            node = None("empty")
+            node = Node("empty")
         else:
             node = Node("join", [self.walk(c) for c in node.C])
             if skip or limit:

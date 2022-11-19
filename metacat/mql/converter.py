@@ -252,8 +252,9 @@ class QueryConverter(Converter):
 
     def make_ordered(self, node):
         if node.T in ("basic_file_query", "basic_dataset_query"):
-            node.Ordered = True
-        if node.T == "filter":
+            q = node["query"]
+            q.Ordered = True
+        elif node.T == "filter":
             node["ordered"] = True
         elif node.T in ("file_list", "skip_limit"):
             pass    # already fixed order
@@ -266,7 +267,15 @@ class QueryConverter(Converter):
         child, skip = args
         skip=int(skip)
         if skip == 0:   return child
-        else:   return Node("skip_limit", [self.make_ordered(child)], skip=skip)
+        if child.T == "basic_file_query":
+            q = child["query"]
+            skip, limit = _merge_skip_limit(q.Skip, q.Limit, skip=skip)
+            q.Skip = skip
+            q.Limit = limit
+            q.Ordered = True
+            return child
+        else:   
+            return Node("skip_limit", [self.make_ordered(child)], skip=skip)
 
     def limit(self, args):
         assert len(args) == 2
@@ -274,7 +283,24 @@ class QueryConverter(Converter):
         limit=int(limit)
         if limit == 0:  return Node("empty")
         elif limit is None: return child
-        else: return Node("skip_limit", [self.make_ordered(child)], limit=limit)
+        elif child.T == "basic_file_query":
+            q = child["query"]
+            skip, limit = _merge_skip_limit(q.Skip, q.Limit, limit=limit)
+            q.Skip = skip
+            q.Limit = limit
+            q.Ordered = True
+            return child
+        else:
+            return Node("skip_limit", [self.make_ordered(child)], limit=limit)
+        
+    def ordered(self, args):
+        child = args[0]
+        if child.T == "basic_file_query":
+            print("Converter: ordered over bfq")
+            child["query"].Ordered = True
+            return child
+        else:
+            return Node("ordered", [child])
 
     def meta_filter(self, args):
         q, meta_exp = args
