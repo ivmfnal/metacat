@@ -69,7 +69,6 @@ class LDAPAuthenticator(Authenticator):
             result = True
         except ldap.INVALID_CREDENTIALS:
             result = False
-        #print("ldap:", result)
         return result, None
         
     def enabled(self):

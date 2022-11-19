@@ -1,10 +1,7 @@
 Common = """
 
-query:  ("with" param_def_list)? params_applied_query
-
-?params_applied_query:  top_file_query             
+?query:  top_file_query             
     | top_dataset_query                            
-
 
 qualified_name:     (FNAME ":")? FNAME
 

@@ -1,6 +1,7 @@
 from lark import Lark
 from lark import Transformer, Tree, Token
 import pprint
+from textwrap import dedent
 
 class SyntaxTreeConversionError(Exception):
     pass
@@ -87,10 +88,17 @@ class Node(object):
                 key_len = len(key)
                 prefix = ". " if i < len(items) - 1 else "  "
                 head, lines = v._pretty(indent + prefix + " "*key_len)
-                out.append(indent + "- " + key + head)
+                out.append(indent + "|   " + key + head)
                 out += lines
             else:
-                out.append(indent + "- " + key + str(v))
+                str_v = dedent(str(v))
+                lines = str_v.split("\n")
+                if len(lines) > 1:
+                    out.append(indent + "|   " + key)
+                    for l in lines:
+                        out.append(indent + "|   " + " " + l)
+                else:
+                    out.append(indent + "|   " + key + str(v))
 
         nc = len(self.C)
         for i, c in enumerate(self.C):
@@ -261,7 +269,7 @@ class Descender(Traveler):
             self.WalkLevel -= 1
 
     def visit_children(self, node, context):
-        node.C = [self.walk(c, context) for c in node.C]
+        node.C = [self._walk(c, context) for c in node.C]
         node.D = {
             key:self._walk(n, context)
             for key, n in node.D.items()
@@ -309,7 +317,7 @@ class Ascender(Traveler):
                 out = method(node, *children, **named_children)
                 if debug:
                     me = self.__class__.__name__
-                    print(f"{me}: method {node_type} returned:", out.pretty("      ") if isinstance(out, Node) else out)
+                    #print(f"{me}: method {node_type} returned:", out.pretty("      ") if isinstance(out, Node) else out)
         finally:
             self.WalkLevel -= 1
         return out

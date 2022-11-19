@@ -37,6 +37,10 @@ class FileQueryExecutor(Ascender):
 
     def join(self, node, *args, **kv):
         return DBFileSet.join(self.DB, args)
+        
+    def ordered(self, node):
+        assert isinstance(node, DBFileSet)
+        return node.ordered()
 
     def minus(self, node, *args, **kv):
         #print("Evaluator.union: args:", args)
@@ -54,13 +58,11 @@ class FileQueryExecutor(Ascender):
     def skip_limit(self, node, arg, skip=0, limit=None, **kv):
         return arg.skip(skip).limit(limit)
             
-    def filter(self, node, *queries, name=None, params=[], **kv):
+    def filter(self, node, *queries, name=None, params=[], skip=0, limit=None, with_meta=False, ordered=False, **kv):
         #print("Evaluator.filter: inputs:", inputs)
         assert name is not None
         filter_object = self.Filters[name]
         queries = [self.node_to_file_set(q) for q in queries]
-        limit = node.get("limit")
-        skip = node.get("skip", 0)
-        kv = node.get("kv", {})
         #print("filter: returning:", node.pretty())
-        return DBFileSet(self.DB, filter_object.run(queries, params, kv, limit=limit, skip=skip))
+        return DBFileSet(self.DB, filter_object.run(queries, params, kv, 
+                limit=limit, skip=skip, with_meta=with_meta, ordered=ordered))

@@ -21,6 +21,8 @@ def skip(it, n):
             n -= 1
         else:
             yield n
+
+
         
 def implement_limit(filter):
     def decorated(self, inputs, params, limit=None, **args):
@@ -45,20 +47,25 @@ class MetaCatFilter(object):
     def __init__(self, config=None):
         self.Config = config
 
-    def run(self, inputs, params, kv, limit=None, skip=None, stride=None):
+    # overridable
+    def run(self, inputs, params, kv, limit=None, skip=None, stride=None, ordered=False, with_meta=False):
         #
         # selection application order: skip -> limit -> stride
         #
+        if stride is not None or limit or skip:
+            ordered = True
+        
+        file_set = self.filter(inputs, *params, ordered=ordered, **kv)
+        
         return strided(
             limited(
-                skipped(
-                    self.filter(inputs, *params, **kv), 
-                    skip
-                ),
-                limit
-            ),
-            stride
+                skipped(file_set, skip), limit
+            ), stride
         )
+
+    # overridable
+    def filter(self, *params, **kv):
+        raise NotImplementedError()
 
 class Sample(MetaCatFilter):
     """
@@ -93,7 +100,7 @@ class Limit(MetaCatFilter):
         file_set = inputs[0]
         return limited(file_set, limit)
 
-class EveryNth(MetaCatFilter):
+class Stride(MetaCatFilter):
     """
     Inputs: single file set
     
@@ -203,8 +210,7 @@ class Mix(MetaCatFilter):
 
 standard_filters = {
     "sample":       Sample(),
-    "limit":        Limit(),
-    "every_nth":    EveryNth(),
+    "stride":       Stride(),
     "mix":          Mix(),
     "hash":         Hash(),
     "randomize":    Randomize()

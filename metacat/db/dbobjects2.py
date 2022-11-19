@@ -37,7 +37,11 @@ class DBFileSet(object):
         
     def chunked(self, chunk_size=1000):
         return chunked(self.Files, chunk_size)
-        
+
+    def ordered(self):
+        files = sorted(self, lambda f: f.ID)
+        yield from files
+
     @staticmethod
     def from_tuples(db, g):
         # must be in sync with DBFile.all_columns()
@@ -168,9 +172,6 @@ class DBFileSet(object):
         
     @staticmethod
     def from_basic_query(db, basic_file_query, with_metadata, limit):
-        
-        debug("from_basic_query: with_metadata:", with_metadata)
-        
         if limit is None:
             limit = basic_file_query.Limit
         elif basic_file_query.Limit is not None:
@@ -201,12 +202,15 @@ class DBFileSet(object):
     @staticmethod
     def sql_for_basic_query(db, basic_file_query):
         debug("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
+
+        f = alias("f")
+
         limit = basic_file_query.Limit
         limit = "" if limit is None else f"limit {limit}"
         offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
+        order = f"order by {f}.id" if basic_file_query.Skip or basic_file_query.Limit or basic_file_query.Ordered else ""
+        
         debug("sql_for_basic_query: offset:", offset)
-
-        f = alias("f")
 
         meta = f"{f}.metadata" if basic_file_query.WithMeta else "null as metadata"
         parents = f"{f}.parents" if basic_file_query.WithProvenance else "null as parents"
@@ -229,7 +233,7 @@ class DBFileSet(object):
                     select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
                         where {file_meta_exp}
-                        {limit} {offset}
+                        {order} {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """
         else:
@@ -272,7 +276,7 @@ class DBFileSet(object):
                             and {name_where}
                             and {specs_where}
                             and {file_meta_exp}
-                        {limit} {offset}
+                        {order} {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """
         debug("sql_for_basic_query: sql:-------\n", sql, "\n---------")
@@ -312,6 +316,8 @@ class DBFileSet(object):
             namespace_names = ','.join(namespace_names)
             sql += f""" where (namespace, name) in ({namespace_names})
                 """
+
+        sql += f" order by {f}.id "
 
         if limit is not None:
             sql += f" limit {limit}"
@@ -1394,8 +1400,9 @@ class DBDataset(DBObject):
             name_or_pattern = bdq.Name
             raise ValueError(f"Dataset specification error: {selector.Namespace}:{name_or_pattern}")
         if bdq.is_explicit():
-            debug("datasets_for_bdq: bdq is explicit")
+            debug("datasets_for_bdq: bdq is explicit:", bdq.Namespace, bdq.Name)
             ds = DBDataset.get(db, bdq.Namespace, bdq.Name)
+            debug("         ds:", ds)
             if ds is None:
                 out = []
             else:

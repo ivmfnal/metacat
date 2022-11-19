@@ -17,6 +17,7 @@ File queries
                 | <file query> - <file query>
                 | children ( <file query> )
                 | parents ( <file query> )
+                | <file query> ordered
                 | ( <file query> )
 
 Dataset queries

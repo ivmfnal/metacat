@@ -53,10 +53,28 @@ class SQLConverter(Ascender):
                     select {columns} 
                     from (
                         {query_sql}
-                    ) {t} where {where_sql} 
+                    ) {t} where {where_sql}
                 -- end of meta_filter {t}
             """
             return Node("sql", sql=sql)
+        else:
+            return node
+
+    def ordered(self, node, child):
+        if child.T == "sql":
+            t = alias("t")
+            child_sql = child["sql"]
+            sql = dedent(f"""\
+                -- ordered {t}
+                    select {t}.*
+                    from (
+                        {child_sql}
+                    ) {t} order by {t}.id
+                -- end of ordered {t}
+            """)
+            return Node("sql", sql=sql)
+        elif child.T == "filter":
+            return child.clone(ordered=True)
         else:
             return node
 
@@ -66,55 +84,46 @@ class SQLConverter(Ascender):
             return Node("sql", sql=sql)
         else:
             return Node("empty")            # empty file set
-        
+
     def file_list(self, node, specs=None, spec_type=None, with_meta=False, with_provenance=False, limit=None, skip=0):
         return Node("sql", sql=DBFileSet.sql_for_file_list(spec_type, specs, with_meta, with_provenance, limit, skip))
 
     def union(self, node, *args):
         #print("Evaluator.union: args:", args)
-
-        assert all(n.T in ("sql","file_set","empty") for n in args)
-
         args = [a for a in args if a.T != "empty"]
         if not args:
             return Node("empty")
-
         sqls = [n for n in args if n.T == "sql"]
-        if len(sqls) < 2:
+        if not sqls:
             return Node("union", args)
-
-        file_sets = [n for n in args if n.T == "file_set"]
-        u_parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
-        u_sql = None if not sqls else "\nunion\n".join(u_parts)
-
-        if not file_sets:
-            return Node("sql", sql=u_sql)
-        
-        return Node("union", [Node("sql", sql=u_sql)] + file_sets)
+        if len(sqls) >= 2:
+            parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
+            combined_sql = "\nunion\n".join(u_parts)
+            sqls = [Node("sql", sql=combined_sql)]
+        others = [n for n in args if n.T != "sql"]
+        if not others:
+            return sqls[0]
+        return Node("union", sqls + others)
 
     def join(self, node, *args, **kv):
         #print("Evaluator.union: args:", args)
-        assert all(n.T in ("sql","file_set","empty") for n in args)
         if any(n.T == "empty" for n in args):
             return Node("empty")
-
         sqls = [n for n in args if n.T == "sql"]
-        if len(sqls) < 2:
+        if not sqls:
             return node
-            
-        file_sets = [n for n in args if n.T == "file_set"]
-        u_parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
-        u_sql = None if not sqls else "\nintersect\n".join(u_parts)
-        
-        if not file_sets:
-            return Node("sql", sql=u_sql)
-        
-        return Node("join", [Node("sql", sql=u_sql)] + file_sets)
+        if len(sqls) >= 2:
+            parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
+            combined_sql = "\nintersect\n".join(u_parts)
+            sqls = [Node("sql", sql=combined_sql)]
+        others = [n for n in args if n.T != "sql"]
+        if not others:
+            return sqls[0]
+        return Node("join", sqls + others)
 
     def minus(self, node, *args, **kv):
         #print("Evaluator.union: args:", args)
         assert len(args) == 2
-        assert all(n.T in ("sql", "file_set", "empty") for n in args)
         left, right = args
         if left.T == "empty":
             return Node("empty")
@@ -134,10 +143,9 @@ class SQLConverter(Ascender):
         assert len(args) == 1
         arg = args[0]
         if arg.T == "empty":    return arg
-        assert arg.T in ("sql","file_set")
-        with_meta = node["with_meta"]
-        with_provenance = node["with_provenance"]
         if arg.T == "sql":
+            with_meta = node["with_meta"]
+            with_provenance = node["with_provenance"]
             arg_sql = arg["sql"]
             p = alias("p")
             c = alias("c")
@@ -150,6 +158,7 @@ class SQLConverter(Ascender):
                         from files_with_provenance {p}
                             inner join parent_child {pc} on {p}.id = {pc}.parent_id
                             inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
+                        order by {p}.id
                     -- end of parents of {p}
                 """)
             else:
@@ -159,6 +168,7 @@ class SQLConverter(Ascender):
                         from files {p}
                             inner join parent_child {pc} on {p}.id = {pc}.parent_id
                             inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
+                        order by {p}.id
                     -- end of parents of {p}
                 """)
             return Node("sql", sql=new_sql)
@@ -169,8 +179,9 @@ class SQLConverter(Ascender):
         assert len(args) == 1
         arg = args[0]
         if arg.T == "empty":    return arg
-        assert arg.T in ("sql","file_set")
         if arg.T == "sql":
+            with_meta = node["with_meta"]
+            with_provenance = node["with_provenance"]
             arg_sql = arg["sql"]
             p = alias("p")
             c = alias("c")
@@ -183,6 +194,7 @@ class SQLConverter(Ascender):
                         from files_with_provenance {c}
                             inner join parent_child {pc} on {c}.id = {pc}.child_id
                             inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
+                        order by {c}.id
                     -- end of children of {c}
                 """)
             else:
@@ -192,6 +204,7 @@ class SQLConverter(Ascender):
                         from files {c}
                             inner join parent_child {pc} on {c}.id = {pc}.child_id
                             inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
+                        order by {c}.id
                     -- end of children of {c}
                 """)
 
@@ -199,33 +212,6 @@ class SQLConverter(Ascender):
         else:
             return node
             
-    def skip(self, node, child, skip=0):
-        if child.T == "skip_limit":
-            new_skip = child["skip"] + skip
-            new_limit = child["limit"] - skip
-            if new_limit <= 0:
-                return Node("empty")
-            else:
-                return Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
-        else:
-            return Node("skip_limit", [child], skip=skip, limit=None)
-
-    def limit(self, node, child, limit=None):
-        if child.T == "skip_limit":
-            new_skip = child["skip"]
-            new_limit = child["limit"]
-            if limit is not None:
-                if new_limit is None:
-                    new_limit = limit
-                else:
-                    new_limit = min(limit, new_limit)
-            if new_limit <= 0:
-                return Node("empty")
-            else:
-                return Node("skip_limit", child.C, skip=new_skip, limit=new_limit)
-        else:
-            return Node("skip_limit", [child], skip=0, limit=limit)
-
     def skip_limit(self, node, arg, skip=0, limit=None, **kv):
         if limit is None and skip == 0:
             return arg
@@ -258,7 +244,8 @@ class SQLConverter(Ascender):
             new_sql = dedent(f"""\
                 -- skip {skip} limit {limit} {tmp}
                     select {columns} 
-                    from ({sql}) {tmp} {limit_clouse} {offset_clouse}
+                    from ({sql}) {tmp} 
+                    {limit_clouse} {offset_clouse}
                 -- end of limit {limit} {tmp}
             """)
             return Node("sql", sql=new_sql)
