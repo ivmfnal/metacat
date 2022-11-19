@@ -619,8 +619,8 @@ query results order is deterministic. To do that, add keyword ``ordered`` to any
 
 Ordered query is guaranteed to return entries in the same order as long as the query produces the same set of results.
 
-Note that the following query is valid but may is *not* ordered because the ``where`` clause, whis is applied after ``ordered`` 
-may change the results order:
+Note that the following query is valid but is *not* ordered because the ``where`` clause is applied after ``ordered`` 
+and may change the results order:
 
 .. code-block::
     
