@@ -589,7 +589,7 @@ is interpreted like this:
 
 and it is equivalent to:
 
-.. code-block:: sql
+.. code-block:: 
 
     files from dune:all where 
         DUNE_data.detector_config.list present 
@@ -597,9 +597,9 @@ and it is equivalent to:
         limit 50
         
 Another illustration of the fact that ``skip`` and ``limit`` caluses are applied sequentially in the order they are written is that
-while this query may return up to 50 files:
+while this query may return up to 50 files, depending on the size of the dataset:
 
-.. code-block:: sql
+.. code-block:: 
 
     files from dune:all 
         skip 50                     # skip first 50 files
@@ -608,7 +608,7 @@ while this query may return up to 50 files:
 if the order of ``skip`` and ``limit`` is reversed, the result of the query is guaranteed to be *empty*:
 
 
-.. code-block:: sql
+.. code-block:: 
 
     files from dune:all 
         limit 50                    # take only first 50 files
