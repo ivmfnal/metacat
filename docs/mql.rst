@@ -595,6 +595,28 @@ and it is equivalent to:
         DUNE_data.detector_config.list present 
         skip 115 
         limit 50
+        
+Another illustration of the fact that ``skip`` and ``limit`` caluses are applied sequentially in the order they are written is that
+while this query may return up to 50 files:
+
+.. code-block:: sql
+
+    files from dune:all 
+        skip 50 
+        limit 50
+
+if the order of ``skip`` and ``limit`` is reversed, the result of the query is guaranteed to be empty:
+
+
+.. code-block:: sql
+
+    files from dune:all 
+        limit 50
+        skip 50 
+
+
+
+
 
 .. _ordering:
 
