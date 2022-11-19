@@ -602,8 +602,8 @@ while this query may return up to 50 files:
 .. code-block:: sql
 
     files from dune:all 
-        skip 50 
-        limit 50
+        skip 50                     # skip first 50 files
+        limit 50                    # return next 50 (up to 50 to be exact)
 
 if the order of ``skip`` and ``limit`` is reversed, the result of the query is guaranteed to be *empty*:
 
@@ -611,8 +611,8 @@ if the order of ``skip`` and ``limit`` is reversed, the result of the query is g
 .. code-block:: sql
 
     files from dune:all 
-        limit 50
-        skip 50 
+        limit 50                    # take only first 50 files
+        skip 50                     # then skip all of them -> empty result
 
 
 
