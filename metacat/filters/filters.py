@@ -22,8 +22,6 @@ def skip(it, n):
         else:
             yield n
 
-
-        
 def implement_limit(filter):
     def decorated(self, inputs, params, limit=None, **args):
         unlimited = filter(self, inputs, params, limit=None, **args)
@@ -48,19 +46,20 @@ class MetaCatFilter(object):
         self.Config = config
 
     # overridable
-    def run(self, inputs, params, kv, limit=None, skip=None, stride=None, ordered=False, with_meta=False):
+    def run(self, inputs, params, kv, limit=None, skip=0,
+                ordered=False, with_meta=False, with_provenance=False):
         #
-        # selection application order: skip -> limit -> stride
+        # selection application order: skip -> limit
         #
         if stride is not None or limit or skip:
             ordered = True
         
-        file_set = self.filter(inputs, *params, ordered=ordered, **kv)
+        file_set = self.filter(inputs, *params, ordered=ordered, 
+                        with_meta=with_meta, with_provenance=with_provenance,
+                        **kv)
         
-        return strided(
-            limited(
+        return limited(
                 skipped(file_set, skip), limit
-            ), stride
         )
 
     # overridable
@@ -216,5 +215,22 @@ standard_filters = {
     "randomize":    Randomize()
 }
 
-def load_filters()
+def load_filters_module(module_name, env, config):
+    import os
+    from importlib import import_module
+    saved_environ = None
+    if env:
+        saved_environ = os.environ.copy()
+        os.environ.update(env)
+    try:
+        mod = import_module(module_name)
+        filters = mod.create_filters(config)
+    finally:
+        if saved_environ:
+            for k in env.keys():
+                if k in saved_environ:
+                    os.environ[k] = saved_environ[k]
+                else:
+                    del os.environ[k]
+    return filters
 

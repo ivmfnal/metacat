@@ -94,18 +94,12 @@ class App(BaseApp):
             from metacat.filters import standard_filters
             filters_map.update(standard_filters)
             
-            for mod_spec in filters_config.get("modules", []):
-                path = mod_spec["path"]
-                env = mod_spec.get("env")
-                cfg = mod_spec.get("config")
-                saved_environ = os.environ.copy()
-                try:    
-                    exec(open(path, "r").read(), g)
-                except:
-                    tb = traceback.format_exc()
-                    self.error(f"Error importing module {fname}:\n{tb}")
-                    return False
-
+        for mod_spec in filters_config.get("modules", []):
+            name = mod_spec["name"]
+            env = mod_spec.get("env")
+            cfg = mod_spec.get("config")
+            filters_from_module = load_filters_module(name, env, cfg)
+            filters_map.update(filters_from_module)
 
     def filters(self):
         return self.Filters
