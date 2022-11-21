@@ -166,15 +166,38 @@ class HTTPClient(object):
         #    elif "error" in results:
         #        raise ServerReportedError(self.LastURL, self.LastStatusCode, results["error"]["type"], results["error"].get("value", ""))
         return results
-                
+
+    RS = b'\x1E'
+    def unpack_json_seq(self, response):
+        for line in response.iter_lines():
+            if line:    line = line.strip()
+            while line and line.startswith(self.RS):
+                line = line[1:]
+            if line:
+                #print(f"stream line:[{line}]")
+                obj = json.loads(line)
+                yield obj
+
+    def unpack_json_data(self, response):
+        response_content_type = response.headers.get("content-type")
+        if "application/json-seq" in response_content_type:
+            return self.unpack_json_seq(response)
+        else:
+            return response.json()
+
     def get_json(self, uri_suffix):
-        return self.unpack_json(self.send_request("get", uri_suffix).text)
+        headers = {"Accept": "application/json-seq, application/json, text/json"}
+        return self.unpack_json_data(self.send_request("get", uri_suffix, headers=headers, stream=True))
 
     def post_json(self, uri_suffix, data):
         if not isinstance(data, (str, bytes)):
             data = json.dumps(data)
-        headers = {"Content-Type": "text/json"}
-        return self.unpack_json(self.send_request("post", uri_suffix, data=data, headers=headers).text)
+        headers = {
+                "Accept": "application/json-seq, application/json, text/json",
+                "Content-Type": "text/json"
+        }
+        response = self.send_request("post", uri_suffix, data=data, headers=headers, stream=True)
+        return self.unpack_json_data(response)
 
     def get_json_stream(self, uri_suffix):
         url = "%s/%s" % (self.ServerURL, uri_suffix)

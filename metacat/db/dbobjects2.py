@@ -208,7 +208,8 @@ class DBFileSet(object):
         limit = basic_file_query.Limit
         limit = "" if limit is None else f"limit {limit}"
         offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
-        order = f"order by {f}.id" if basic_file_query.Skip or basic_file_query.Limit or basic_file_query.Ordered else ""
+        #order = f"order by {f}.id" if basic_file_query.Skip or basic_file_query.Limit or basic_file_query.Ordered else ""
+        order = f"order by {f}.id" if basic_file_query.Ordered else ""
         
         debug("sql_for_basic_query: offset:", offset)
 
@@ -221,8 +222,7 @@ class DBFileSet(object):
 
         file_meta_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f) or "true"
 
-        datasets = None if basic_file_query.DatasetSelectors is None else DBDataset.datasets_for_bdqs(db, basic_file_query.DatasetSelectors)
-        datasets = list(datasets)
+        datasets = None if basic_file_query.DatasetSelectors is None else list(DBDataset.datasets_for_bdqs(db, basic_file_query.DatasetSelectors))
         debug("sql_for_basic_query: datasets:", datasets)
         
         attrs = DBFile.attr_columns(f)

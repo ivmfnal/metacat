@@ -952,11 +952,8 @@ class DataHandler(MetaCatHandler):
 
         else:
             data = ( d.to_jsonable(with_relatives=with_provenance) for d in results )
-        #data = list(data)
-        #j = json.dumps(data)
-        #return json.dumps(data), "application/json"
-        #print("data:", data)
-        return self.json_chunks(data), "application/json"
+        return self.json_stream(data), "application/json-seq"
+#        return self.json_chunks(data), "application/json"
         
     def named_queries(self, request, relpath, namespace=None, **args):
         db = self.App.connect()

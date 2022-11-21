@@ -1,5 +1,4 @@
 FILES = gui_handler.py data_handler.py common_handler.py Server.py 
-    
 
 TEMPLATES = base.html dataset_files.html dataset.html datasets.html login.html mql.html named_queries.html named_query.html \
     namespace.html namespaces.html query.html role.html roles.html show_file.html user.html users.html \
