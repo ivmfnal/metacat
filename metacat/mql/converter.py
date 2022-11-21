@@ -455,7 +455,7 @@ class QueryConverter(Converter):
         for q in queries:
             for bfq in q.find_all("basic_file_query"):
                 bfq["query"].WithMeta = True
-        node = Node("filter", queries, name = name.value, params=params, kv=kv, skip=0, limit=None, ordered=False)
+        node = Node("filter", queries, name = name.value, params=params, kw=kv, skip=0, limit=None, ordered=False, with_meta=False)
         return node
 
     def scalar(self, args):

@@ -42,22 +42,21 @@ def implement_skip(filter):
 
 class MetaCatFilter(object):
 
-    def __init__(self, config=None):
-        self.Config = config
+    def __init__(self, show_config=None):
+        self.ShowConfig = show_config
 
     # overridable
-    def run(self, inputs, params, kv, limit=None, skip=0,
+    def run(self, inputs, params, kw, limit=None, skip=0,
                 ordered=False, with_meta=False, with_provenance=False):
         #
         # selection application order: skip -> limit
         #
-        if stride is not None or limit or skip:
+        if limit or skip:
             ordered = True
         
-        file_set = self.filter(inputs, *params, ordered=ordered, 
-                        with_meta=with_meta, with_provenance=with_provenance,
-                        **kv)
-        
+        file_set = self.filter(inputs, params, kw, ordered=ordered, 
+                        with_meta=with_meta, with_provenance=with_provenance)
+
         return limited(
                 skipped(file_set, skip), limit
         )

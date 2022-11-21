@@ -11,7 +11,7 @@
     {% for key, filter in standard.items()|sort %}
         <tr>
             <th>{{key}}</th>
-            <td colspan=2><pre>{{filter.__doc__|angle_brackets}}</pre></td>
+            <td colspan=2><pre>{% if filter.__doc__ %}{{filter.__doc__|angle_brackets}}{% endif %}</pre></td>
         </tr>
     {% endfor %}
 	<tr>
@@ -20,16 +20,16 @@
     {% for key, filter in custom.items()|sort %}
         <tr>
             <th>{{key}}</th>
-            <td colspan=2><pre>{{filter.__doc__|angle_brackets}}</pre>
+            <td colspan=2><pre>{% if filter.__doc__ %}{{filter.__doc__|angle_brackets}}{% else %}(undocumented){% endif %}</pre>
             </td>
         </tr>
-        {% if not filter.Config is none %}
+        {% if filter.ShowConfig %}
             <tr>
                 <td></td>
                 <th>current configuration:</th>
                 <td>
                     <pre>
-{{filter.Config|pprint}}
+{{filter.ShowConfig|pprint}}
 </pre>
                 </td>
             </tr>

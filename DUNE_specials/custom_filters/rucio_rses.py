@@ -39,3 +39,8 @@ class RucioReplicas(MetaCatFilter):
                 f.Metadata["rucio.rses"] = list(r["rses"].keys())
 
             yield from chunk_files.values()
+
+def create_filters(config):
+    return {
+        "rucio_replicas":      RucioReplicas(config)
+    }

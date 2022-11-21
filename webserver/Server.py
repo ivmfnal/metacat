@@ -2,6 +2,8 @@ import yaml, os, getopt, sys
 
 from webpie import WPApp, WPHandler, Response, WPStaticHandler
 from metacat.db import DBUser, DBRole
+from metacat.filters import load_filters_module, standard_filters
+
 from datetime import datetime, timezone
 #import webpie
 #print("webpie imported from:", webpie.__file__)
@@ -60,6 +62,7 @@ def none_as_blank(x):
         return str(x)
 
 def angle_brackets(text):
+    if text is None:    return None
     return text.replace("<", "&lt;").replace(">", "&gt;")
 
 class App(BaseApp):
@@ -73,33 +76,23 @@ class App(BaseApp):
         self.StaticLocation = static_location
         self.DefaultNamespace = "dune"
 
-        from metacat.filters import standard_filters
-        self.StandardFilters = standard_filters
-        try:
-            from custom_filters import create_filters
-            custom_filters = create_filters(self.Cfg.get("custom_filters", {}))
-            #print("Custom filters imported:", ",".join(custom_filters.keys()))
-        except Exception as e:
-            print("Can not import custom filters:", e)
-            custom_filters = {}
-        self.CustomFilters = custom_filters
+        self.StandardFilters = {}
+        self.CustomFilters = {}
 
-        self.Filters = self.load_filters(self.Cfg.get("filters", {}))
-        self.Filters.update(self.StandardFilters)
-        self.Filters.update(self.CustomFilters)
-
-    def load_filters(self, filters_config):
-        filters_map = {}
+        filters_config = self.Cfg.get("filters", {})
         if filters_config.get("standard_filters", True):
-            from metacat.filters import standard_filters
-            filters_map.update(standard_filters)
-            
+            self.StandardFilters.update(standard_filters)
+
         for mod_spec in filters_config.get("modules", []):
             name = mod_spec["name"]
             env = mod_spec.get("env")
             cfg = mod_spec.get("config")
             filters_from_module = load_filters_module(name, env, cfg)
-            filters_map.update(filters_from_module)
+            self.CustomFilters.update(filters_from_module)
+
+        self.Filters = {}
+        self.Filters.update(self.StandardFilters)
+        self.Filters.update(self.CustomFilters)
 
     def filters(self):
         return self.Filters

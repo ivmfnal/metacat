@@ -1,5 +1,6 @@
 from metacat.filters import MetaCatFilter
 from wsdbtools import ConnectionPool
+import re
 
 
 class RunsDB(MetaCatFilter):
@@ -25,32 +26,35 @@ class RunsDB(MetaCatFilter):
     """
     
     def __init__(self, config):
-        MetaCatFilter.__init__(self, config)
+        self.Config = config
+        show_config = config.copy()
+        show_config["connection"] = self.hide(show_config["connection"], "user", "password")
+        MetaCatFilter.__init__(self, show_config)
         self.Connection = self.Config["connection"]
         self.ConnPool = ConnectionPool(postgres=self.Connection, max_idle_connections=1)
         self.TableName = self.Config["table"]
         self.IncludeColumns = self.Config["columns"]
         self.MetaPrefix = self.Config.get("meta_prefix", "runs_history")
+        
+    def hide(self, conn, *fields):
+        for f in fields:
+             conn = re.sub(f"\s+{f}\s*=\s*\S+", f" {f}=(hidden)", conn, re.I)
+        return conn
     
-    def filter(self, inputs, *params, daqinterface_commit=None, mode=None, **ignore):
+    def filter(self, inputs, params, kw, **ignore):
         db = self.ConnPool.connect()
-        print("db connected")
         cursor = db.cursor()
 
         assert len(inputs) == 1
 
-        filter = "" 
-        if daqinterface_commit:
-            filter += f" and daqinterface_commit='{daqinterface_commit}' "
-        if mode:
-            filter += f" and mode='{mode}' "
+        daqinterface_commit = kw.get("daqinterface_commit")
+        mode = kw.get("mode") 
 
         colnames = ("," + ",".join(self.IncludeColumns)) if self.IncludeColumns else ""
 
         for chunk in inputs[0].chunked():
             by_run = {}
             for f in chunk:
-                print(f.Namespace, f.Name, f.Metadata)
                 if "core.runs" in f.Metadata:
                     for runnum in f.Metadata["core.runs"]:
                         by_run.setdefault(runnum,[]).append(f)
@@ -58,8 +62,10 @@ class RunsDB(MetaCatFilter):
             cursor.execute(f"""
                 select runnum {colnames}
                     from {self.TableName}
-                    where runnum = any(%s) {filter}
-            """, (run_nums,))
+                    where runnum = any(%s)
+                        and (%s is null or daqinterface_commit=%s)
+                        and (%s is null or mode=%s)
+            """, (run_nums, daqinterface_commit, daqinterface_commit, mode, mode))
             tup = cursor.fetchone()
             while tup:
                 runnum, rest = tup[0], tup[1:]
@@ -68,3 +74,8 @@ class RunsDB(MetaCatFilter):
                         f.Metadata[f"{self.MetaPrefix}.{column}"] = value
                     yield f
                 tup = cursor.fetchone()
+
+def create_filters(config):
+    return {
+        "dune_runsdb":      RunsDB(config)
+    }

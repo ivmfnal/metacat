@@ -15,7 +15,7 @@ fid_list:  FID ("," FID)*
 
 param_def_list :  param_def ("," param_def)*
 
-param_def: CNAME "=" constant
+param_def: FNAME "=" constant
 
 ?meta_exp:   meta_or                                                           
 
