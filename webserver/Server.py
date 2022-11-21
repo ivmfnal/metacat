@@ -84,9 +84,28 @@ class App(BaseApp):
             custom_filters = {}
         self.CustomFilters = custom_filters
 
-        self.Filters = {}
+        self.Filters = self.load_filters(self.Cfg.get("filters", {}))
         self.Filters.update(self.StandardFilters)
         self.Filters.update(self.CustomFilters)
+
+    def load_filters(self, filters_config):
+        filters_map = {}
+        if filters_config.get("standard_filters", True):
+            from metacat.filters import standard_filters
+            filters_map.update(standard_filters)
+            
+            for mod_spec in filters_config.get("modules", []):
+                path = mod_spec["path"]
+                env = mod_spec.get("env")
+                cfg = mod_spec.get("config")
+                saved_environ = os.environ.copy()
+                try:    
+                    exec(open(path, "r").read(), g)
+                except:
+                    tb = traceback.format_exc()
+                    self.error(f"Error importing module {fname}:\n{tb}")
+                    return False
+
 
     def filters(self):
         return self.Filters

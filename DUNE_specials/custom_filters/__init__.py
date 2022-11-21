@@ -7,4 +7,3 @@ def create_filters(config):
         "rucio_replicas":   RucioReplicas(config.get("rucio", {}))
     }
     return filters
-    

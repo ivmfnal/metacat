@@ -215,4 +215,6 @@ standard_filters = {
     "hash":         Hash(),
     "randomize":    Randomize()
 }
-            
+
+def load_filters()
+
