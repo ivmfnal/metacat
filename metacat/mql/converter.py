@@ -254,8 +254,8 @@ class QueryConverter(Converter):
         if node.T in ("basic_file_query", "basic_dataset_query"):
             q = node["query"]
             q.Ordered = True
-        elif node.T == "filter":
-            node["ordered"] = True
+        elif node.T in ("filter", "parents_of", "children_of"):
+            return node.clone(ordered = True)
         elif node.T in ("file_list", "ordered"):
             pass
         elif node.T == "skip_limit" and node["skip"]:
@@ -263,6 +263,9 @@ class QueryConverter(Converter):
         else:
             node = Node("ordered", [node])
         return node
+
+    def ordered(self, args):
+        return self.make_ordered(args[0])
 
     def skip(self, args):
         assert len(args) == 2
@@ -299,15 +302,6 @@ class QueryConverter(Converter):
             return child.clone(skip=skip, limit=limit)
         else:
             return Node("skip_limit", [child], limit=limit, skip=0)     # do not make ordered for limit
-
-    def ordered(self, args):
-        child = args[0]
-        if child.T == "basic_file_query":
-            print("Converter: ordered over bfq")
-            child["query"].Ordered = True
-            return child
-        else:
-            return Node("ordered", [child])
 
     def meta_filter(self, args):
         q, meta_exp = args

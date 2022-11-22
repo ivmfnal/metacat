@@ -1,7 +1,7 @@
 from .trees import Ascender, Node
 from metacat.db import DBFileSet, alias, MetaExpressionDNF, DBDataset
 from .meta_evaluator import MetaEvaluator
-from metacat.util import limited
+from metacat.util import limited, insert_sql
 from textwrap import dedent, indent
 
 class SQLConverter(Ascender):
@@ -48,14 +48,14 @@ class SQLConverter(Ascender):
                 return node
             columns = self.columns(t, with_meta, with_provenance)
             query_sql = query["sql"]
-            sql = f"""
+            sql = insert_sql(f"""
                 -- meta_filter {t}
                     select {columns} 
                     from (
-                        {query_sql}
+                        $query_sql
                     ) {t} where {where_sql}
                 -- end of meta_filter {t}
-            """
+            """, query_sql=query_sql)
             return Node("sql", sql=sql)
         else:
             return node
@@ -64,14 +64,14 @@ class SQLConverter(Ascender):
         if child.T == "sql":
             t = alias("t")
             child_sql = child["sql"]
-            sql = dedent(f"""\
+            sql = insert_sql(f"""\
                 -- ordered {t}
                     select {t}.*
                     from (
-                        {child_sql}
+                        $child_sql
                     ) {t} order by {t}.id
                 -- end of ordered {t}
-            """)
+            """, child_sql = child_sql)
             return Node("sql", sql=sql)
         elif child.T == "filter":
             return child.clone(ordered=True)
@@ -97,8 +97,10 @@ class SQLConverter(Ascender):
         if not sqls:
             return Node("union", args)
         if len(sqls) >= 2:
-            parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
-            combined_sql = "\nunion\n".join(u_parts)
+            inner_sqls = {f"__{i}": n["sql"] for i, n in enumerate(sqls)}
+            parts = [f"(\n    $__{i}\n)" for i, n in enumerate(sqls)]
+            template = "\nunion\n".join(parts)
+            combined_sql = insert_sql(template, **inner_sqls)
             sqls = [Node("sql", sql=combined_sql)]
         others = [n for n in args if n.T != "sql"]
         if not others:
@@ -113,8 +115,10 @@ class SQLConverter(Ascender):
         if not sqls:
             return node
         if len(sqls) >= 2:
-            parts = ["\n(\n%s\n)" % (n["sql"],) for n in sqls]
-            combined_sql = "\nintersect\n".join(u_parts)
+            inner_sqls = {f"__{i}": n["sql"] for i, n in enumerate(sqls)}
+            parts = [f"(\n    $__{i}\n)" for i, n in enumerate(sqls)]
+            template = "\nintersect\n".join(parts)
+            combined_sql = insert_sql(template, **inner_sqls)
             sqls = [Node("sql", sql=combined_sql)]
         others = [n for n in args if n.T != "sql"]
         if not others:
@@ -132,14 +136,21 @@ class SQLConverter(Ascender):
         if left.T == "sql" and right.T == "sql":
             s1 = left["sql"]
             s2 = right["sql"]
-            sql = f"""({s1})\nexcept\n({s2})"""
+            sql = insert_sql("""\
+                (
+                    $s1
+                )
+                except
+                (
+                    $s2
+                )""", s1=s1, s2=s2)
             if self.Debug:
                 print("SQLConverter.minus: sql:---------\n", sql, "\n-----------")
             return Node("sql", sql=sql)
         else:
             return node
 
-    def parents_of(self, node, *args, with_meta=False, with_provenance=False):
+    def parents_of(self, node, *args, with_meta=False, with_provenance=False, ordered=False):
         assert len(args) == 1
         arg = args[0]
         if arg.T == "empty":    return arg
@@ -151,31 +162,24 @@ class SQLConverter(Ascender):
             c = alias("c")
             pc = alias("pc")
             columns = self.columns(p, with_meta, with_provenance)
-            if with_provenance:
-                new_sql = dedent(f"""\
-                    -- parents of {p}
-                        select {columns}
-                        from files_with_provenance {p}
-                            inner join parent_child {pc} on {p}.id = {pc}.parent_id
-                            inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
-                        order by {p}.id
-                    -- end of parents of {p}
-                """)
-            else:
-                new_sql = dedent(f"""\
-                    -- parents of {p}
-                        select {columns}
-                        from files {p}
-                            inner join parent_child {pc} on {p}.id = {pc}.parent_id
-                            inner join ({arg_sql}) as {c} on {c}.id = {pc}.child_id
-                        order by {p}.id
-                    -- end of parents of {p}
-                """)
+            order = f"order by {p}.id" if ordered else ""
+            table = "files_with_provenance" if with_provenance else "files"
+            new_sql = insert_sql(f"""\
+                --  parents of {p}
+                    select {columns}
+                    from {table} {p}
+                        inner join parent_child {pc} on {p}.id = {pc}.parent_id
+                        inner join (
+                            $arg_sql
+                        ) as {c} on {c}.id = {pc}.child_id
+                    {order}
+                --  end of parents of {p}
+            """, arg_sql=arg_sql)
             return Node("sql", sql=new_sql)
         else:
             return node
 
-    def children_of(self, node, *args, with_meta=False, with_provenance=False):
+    def children_of(self, node, *args, with_meta=False, with_provenance=False, ordered=False):
         assert len(args) == 1
         arg = args[0]
         if arg.T == "empty":    return arg
@@ -187,27 +191,19 @@ class SQLConverter(Ascender):
             c = alias("c")
             pc = alias("pc")
             columns = self.columns(c, with_meta, with_provenance)
-            if with_provenance:
-                new_sql = dedent(f"""\
-                    -- children of {c}
-                        select {columns}
-                        from files_with_provenance {c}
-                            inner join parent_child {pc} on {c}.id = {pc}.child_id
-                            inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
-                        order by {c}.id
-                    -- end of children of {c}
-                """)
-            else:
-                new_sql = dedent(f"""
-                    -- children of {c}
-                        select {columns}
-                        from files {c}
-                            inner join parent_child {pc} on {c}.id = {pc}.child_id
-                            inner join ({arg_sql}) as {p} on {p}.id = {pc}.parent_id
-                        order by {c}.id
-                    -- end of children of {c}
-                """)
-
+            order = f"order by {p}.id" if ordered else ""
+            table = "files_with_provenance" if with_provenance else "files"
+            new_sql = insert_sql(f"""\
+                -- children of {c}
+                    select {columns}
+                    from {table} {c}
+                        inner join parent_child {pc} on {c}.id = {pc}.child_id
+                        inner join (
+                            $arg_sql
+                        ) as {p} on {p}.id = {pc}.parent_id
+                    {order}
+                -- end of children of {c}
+            """, arg_sql=arg_sql)
             return Node("sql", sql=new_sql)
         else:
             return node
@@ -241,13 +237,15 @@ class SQLConverter(Ascender):
             offset_clouse = "" if skip == 0 else f"offset {skip}"
             
             sql = indent("\n" + sql + "\n", "    ")
-            new_sql = dedent(f"""\
+            new_sql = insert_sql(f"""\
                 -- skip {skip} limit {limit} {tmp}
                     select {columns} 
-                    from ({sql}) {tmp} 
+                    from (
+                        $sql
+                    ) {tmp} 
                     {limit_clouse} {offset_clouse}
                 -- end of limit {limit} {tmp}
-            """)
+            """, sql=sql)
             return Node("sql", sql=new_sql)
         else:
             return node

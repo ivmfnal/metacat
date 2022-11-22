@@ -1,7 +1,8 @@
 import uuid, json, hashlib, re, time, io, traceback, base64
-from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty, validate_metadata
+from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty, validate_metadata, insert_sql
 from metacat.auth import BaseDBUser
 from psycopg2 import IntegrityError
+from textwrap import dedent
 
 Debug = False
 
@@ -228,14 +229,14 @@ class DBFileSet(object):
         attrs = DBFile.attr_columns(f)
         if datasets is None:
             # no dataset selection
-            sql = f"""
+            sql = dedent(f"""\
                 -- sql_for_basic_query {f}
                     select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
                         where {file_meta_exp}
                         {order} {limit} {offset}
                 -- end of sql_for_basic_query {f}
-            """
+            """)
         else:
             #datasets_sql = DBDataset.sql_for_selector(dataset_selector)
             
@@ -266,7 +267,7 @@ class DBFileSet(object):
             specs_where = f"{fd}.dataset_namespace || ':' || {fd}.dataset_name = any(array %s)" % (ds_specs,)\
                 if (len(ds_namespaces) > 1 and len(ds_names) > 1) else "true"
         
-            sql = f"""
+            sql = dedent(f"""\
                 -- sql_for_basic_query {f}
                     select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
@@ -278,7 +279,7 @@ class DBFileSet(object):
                             and {file_meta_exp}
                         {order} {limit} {offset}
                 -- end of sql_for_basic_query {f}
-            """
+            """)
         debug("sql_for_basic_query: sql:-------\n", sql, "\n---------")
         return sql
         
@@ -299,14 +300,13 @@ class DBFileSet(object):
             table = "files"
             prov_columns = f"null as parents, null as children"
 
-        sql = f"""
+        sql = dedent(f"""\
                 select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {prov_columns} from {table} {f}
-        """
+        """)
 
         if spec_type == "fid":
             id_list = ",".join(["'%s'" % (i,) for i in spec_list])
-            sql += f""" where id in ({id_list})
-            """
+            sql += f" where id in ({id_list}) "
         else:
             namespace_names = []
             for spec in spec_list:
@@ -314,8 +314,7 @@ class DBFileSet(object):
                     raise ValueError("No namespace is given for " + spec.get("name"))
                 namespace_names.append("('%(namespace)s', '%(name)s')" % spec)
             namespace_names = ','.join(namespace_names)
-            sql += f""" where (namespace, name) in ({namespace_names})
-                """
+            sql += f" where (namespace, name) in ({namespace_names}) """
 
         sql += f" order by {f}.id "
 
@@ -1458,49 +1457,48 @@ class DBDataset(DBObject):
                     sql += " and " + meta_filter_dnf.sql(ds)
             else:
                 columns = ",".join(f"{d}.{c}" for c in columns)
-                top_sql = f"""select {ds}.namespace, {ds}.name, array[{ds}.namespace || ':' || {ds}.name], false
-                                from datasets {ds}
-                                where {ds}.namespace = '{namespace}' and {name_cmp}
-                                    """
+                top_sql = dedent(f"""\
+                    select {ds}.namespace, {ds}.name, array[{ds}.namespace || ':' || {ds}.name], false
+                        from datasets {ds}
+                        where {ds}.namespace = '{namespace}' and {name_cmp}
+                    """)
 
                 if not recursively:
-                    selected_sql = f"""
-                                with selected_datasets (namespace, name, path, loop) as 
-                                (
-                                    with {t} (namespace, name, path, loop) as 
-                                    ( 
-                                        {top_sql}
-                                    ) -- 4
-                                    select namespace, name, path, loop from {t}
-                                    union
-                                        select {pc}.child_namespace, {pc}.child_name,
-                                            {t}.path || ({pc}.child_namespace || ':' || {pc}.child_name), true
-                                        from datasets_parent_child {pc}, {t}
-                                        where {pc}.parent_namespace = {t}.namespace and {pc}.parent_name = {t}.name
-                                ) -- 3
-                    """
+                    selected_sql = dedent(f"""\
+                        with selected_datasets (namespace, name, path, loop) as 
+                        (
+                            with {t} (namespace, name, path, loop) as 
+                            ( 
+                                {top_sql}
+                            )
+                            select namespace, name, path, loop from {t}
+                            union
+                                select {pc}.child_namespace, {pc}.child_name,
+                                    {t}.path || ({pc}.child_namespace || ':' || {pc}.child_name), true
+                                from datasets_parent_child {pc}, {t}
+                                where {pc}.parent_namespace = {t}.namespace and {pc}.parent_name = {t}.name
+                        )""")
                 else:
-                    selected_sql = f"""
-                                with recursive selected_datasets (namespace, name, path, loop) as 
-                                (
-                                    {top_sql}
-                                    union
-                                        select {pc1}.child_namespace, {pc1}.child_name,
-                                            {s}.path || ({pc1}.child_namespace || ':' || {pc1}.child_name),
-                                            {pc1}.child_namespace || ':' || {pc1}.child_name = any({s}.path)
-                                        from datasets_parent_child {pc1}, selected_datasets {s}
-                                        where {pc1}.parent_namespace = {s}.namespace and {pc1}.parent_name = {s}.name and not {s}.loop
-                                ) -- 1
-                    """
+                    selected_sql = dedent(f"""\
+                        with recursive selected_datasets (namespace, name, path, loop) as 
+                        (
+                            {top_sql}
+                            union
+                                select {pc1}.child_namespace, {pc1}.child_name,
+                                    {s}.path || ({pc1}.child_namespace || ':' || {pc1}.child_name),
+                                    {pc1}.child_namespace || ':' || {pc1}.child_name = any({s}.path)
+                                from datasets_parent_child {pc1}, selected_datasets {s}
+                                where {pc1}.parent_namespace = {s}.namespace and {pc1}.parent_name = {s}.name and not {s}.loop
+                        )""")
                 meta_condition = "and " + meta_filter_dnf.sql(d) if meta_filter_dnf is not None else ""
-                sql = f"""
-                    {selected_sql}
+                sql = insert_sql(f"""\
+                    $selected_sql
                     select distinct {columns} 
                         from selected_datasets {s}, datasets {d}
                         where {d}.namespace = {s}.namespace and
                             {d}.name = {s}.name
                             {meta_condition}
-                """
+                """, selected_sql=selected_sql)
             debug(f"sql_for_basic_dataset_query({bdq}): sql:\n", sql)
             return sql
 

@@ -181,6 +181,12 @@ class _OrderedApplier(Descender):
     def basic_file_query(self, node, ordered):
         node["query"].Ordered = node["query"].Ordered or ordered
         return node
+        
+    def parents_of(self, node, ordered):
+        return node.clone(ordered=ordered or node.get("ordered"))
+
+    def children_of(self, node, ordered):
+        return node.clone(ordered=ordered or node.get("ordered"))
 
     basic_dataset_query = basic_file_query
 

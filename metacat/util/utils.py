@@ -1,3 +1,5 @@
+from textwrap import dedent, indent
+
 def chunked(iterable, n):
     if isinstance(iterable, (list, tuple)):
         for i in range(0, len(iterable), n):
@@ -62,3 +64,27 @@ def skipped(iterable, n):
         else:
             yield f
             
+
+def insert_sql_one(outer, tag, text):
+    lines = dedent(outer).split("\n")
+    text = dedent(text)
+    out_lines = []
+    marker = "$" + tag
+    for line_no, line in enumerate(lines):
+        line = line.expandtabs(4)
+        if marker not in line:
+            out_lines.append(line)
+            continue
+        i = line.find(marker)
+        text = indent(text, " "*i)
+        out_lines += text.split("\n")
+        break
+    out_lines += lines[line_no+1:]
+    return "\n".join(out_lines)
+    
+def insert_sql(outer, **tags):
+    out = outer
+    for tag, value in tags.items():
+        out = insert_sql_one(out, tag, value)
+    return out
+
