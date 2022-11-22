@@ -666,7 +666,7 @@ query results order is deterministic. To do that, add keyword ``ordered`` to any
 
 Ordered query is guaranteed to return entries in the same order as long as the query produces the same set of results.
 
-Another case when the query results order is guaranteed is when ``skip`` or ``limit`` is used. In this case, MQL implicitly
+Another case when the query results order is guaranteed is when ``skip`` is used. In this case, MQL implicitly
 makes the underlying query ordered. For example:
 
 .. code-block::
@@ -674,7 +674,6 @@ makes the underlying query ordered. For example:
     files from dc4:dc4 
         where 12345 in core.runs
         skip 100 
-        limit 100
     
 is equivalent to:
 
@@ -682,12 +681,10 @@ is equivalent to:
     
     (
         (
-            (
-                files from dc4:dc4 
-                    where 12345 in core.runs
-            ) ordered
-        ) skip 100 
-    ) limit 100
+            files from dc4:dc4 
+                where 12345 in core.runs
+        ) ordered
+    ) skip 100 
 
 This feature makes it easy to split large sets of results into smaller parts in a consistent manner. For example, one can use the following 3 queries
 to process a 15000 file dataset in 5000 files chunks:
