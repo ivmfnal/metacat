@@ -250,14 +250,16 @@ class QueryConverter(Converter):
         return Node("limit", [child], limit = limit)
         #return Node("file_query", [args[0]], meta = {"limit":int(args[1].value)})
 
-    def ____make_ordered(self, node):
+    def make_ordered(self, node):
         if node.T in ("basic_file_query", "basic_dataset_query"):
             q = node["query"]
             q.Ordered = True
         elif node.T == "filter":
             node["ordered"] = True
-        elif node.T in ("file_list", "skip_limit"):
-            pass    # already fixed order
+        elif node.T in ("file_list", "ordered"):
+            pass
+        elif node.T == "skip_limit" and node["skip"]:
+            pass
         else:
             node = Node("ordered", [node])
         return node
@@ -267,15 +269,18 @@ class QueryConverter(Converter):
         child, skip = args
         skip=int(skip)
         if skip == 0:   return child
+        child = self.make_ordered(child)
         if child.T == "basic_file_query":
             q = child["query"]
             skip, limit = _merge_skip_limit(q.Skip, q.Limit, skip=skip)
             q.Skip = skip
             q.Limit = limit
-            #q.Ordered = True
             return child
+        elif child.T == "skip_limit":
+            skip, limit = _merge_skip_limit(child["skip"], child["limit"], skip=skip)
+            return child.clone(skip=skip, limit=limit)
         else:   
-            return Node("skip_limit", [child], skip=skip)
+            return Node("skip_limit", [child], skip=skip, limit=None)
 
     def limit(self, args):
         assert len(args) == 2
@@ -288,15 +293,17 @@ class QueryConverter(Converter):
             skip, limit = _merge_skip_limit(q.Skip, q.Limit, limit=limit)
             q.Skip = skip
             q.Limit = limit
-            #q.Ordered = True
             return child
+        elif child.T == "skip_limit":
+            skip, limit = _merge_skip_limit(child["skip"], child["limit"], limit=limit)
+            return child.clone(skip=skip, limit=limit)
         else:
-            return Node("skip_limit", [child], limit=limit)
-        
+            return Node("skip_limit", [child], limit=limit, skip=0)     # do not make ordered for limit
+
     def ordered(self, args):
         child = args[0]
         if child.T == "basic_file_query":
-            #print("Converter: ordered over bfq")
+            print("Converter: ordered over bfq")
             child["query"].Ordered = True
             return child
         else:
