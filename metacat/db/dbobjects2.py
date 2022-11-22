@@ -1,5 +1,5 @@
 import uuid, json, hashlib, re, time, io, traceback, base64
-from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty, validate_metadata, insert_sql
+from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty, validate_metadata, insert_sql, MetaExpressionDNF
 from metacat.auth import BaseDBUser
 from psycopg2 import IntegrityError
 from textwrap import dedent
@@ -246,10 +246,10 @@ class DBFileSet(object):
             ds_names = set()
             ds_namespaces = set()
             ds_specs = set()
-            for ds in datasets:
-                ds_names.add(ds.Name)
-                ds_namespaces.add(ds.Namespace)
-                ds_specs.add(ds.Namespace + ":" + ds.Name)
+            for ns, n in datasets:
+                ds_names.add(ns)
+                ds_namespaces.add(n)
+                ds_specs.add(ns + ":" + n)
                 
             fd = alias("fd")
             ds = alias("ds")
@@ -258,28 +258,21 @@ class DBFileSet(object):
             ds_names = list(ds_names)
             ds_specs = list(ds_specs)
 
-            namespace_where = f"{fd}.dataset_namespace = any(array %s)" % (ds_namespaces,) \
-                if len(ds_namespaces) > 1 else f"{fd}.dataset_namespace = '%s'" % (ds_namespaces[0],)
-
-            name_where = f"{fd}.dataset_name = any(array %s)" % (ds_names,) \
-                if len(ds_names) > 1 else f"{fd}.dataset_name = '%s'" % (ds_names[0],)
-                
-            specs_where = f"{fd}.dataset_namespace || ':' || {fd}.dataset_name = any(array %s)" % (ds_specs,)\
-                if (len(ds_namespaces) > 1 and len(ds_names) > 1) else "true"
+            pairs_where = f"({fd}.dataset_namespace, {fd}.dataset_name) in %s" % (tuple(datasets),)
         
-            sql = dedent(f"""\
+            sql = insert_sql(f"""\
                 -- sql_for_basic_query {f}
                     select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
                             inner join files_datasets {fd} on {fd}.file_id = {f}.id
                         where
-                            {namespace_where}
-                            and {name_where}
-                            and {specs_where}
-                            and {file_meta_exp}
+                            {pairs_where}
+                            and (
+                                $file_meta_exp
+                            )
                         {order} {limit} {offset}
                 -- end of sql_for_basic_query {f}
-            """)
+            """, file_meta_exp = file_meta_exp)
         debug("sql_for_basic_query: sql:-------\n", sql, "\n---------")
         return sql
         
@@ -753,243 +746,6 @@ class DBFile(object):
     def datasets(self):
         return _DBManyToMany(self.DB, "files_datasets", "dataset_namespace", "dataset_name", file_id = self.FID)
 
-
-class MetaExpressionDNF(object):
-    
-    def __init__(self, exp):
-        #
-        # meta_exp is a nested list representing the query filter expression in DNF:
-        #
-        # meta_exp = [meta_or, ...]
-        # meta_or = [meta_and, ...]
-        # meta_and = [(op, aname, avalue), ...]
-        #
-        debug("===MetaExpressionDNF===")
-        self.Exp = None
-        self.DNF = None
-        if exp is not None:
-            #
-            # converts canonic Node expression (meta_or of one or more meta_ands) into nested or-list or and-lists
-            #
-            #assert isinstance(self.Exp, Node)
-            assert exp.T == "meta_or"
-            for c in exp.C:
-                assert c.T == "meta_and"
-    
-            or_list = []
-            for and_item in exp.C:
-                or_list.append(and_item.C)
-            self.DNF = or_list
-
-        #print("MetaExpressionDNF: exp:", self.DNF)
-        #self.validate_exp(meta_exp)
-        
-    def __str__(self):
-        return self.file_ids_sql()
-        
-    __repr__= __str__
-    
-    def sql_and(self, and_term, table_name):
-        
-
-        def sql_literal(v):
-            if isinstance(v, str):       v = "'%s'" % (v,)
-            elif isinstance(v, bool):    v = "true" if v else "false"
-            elif v is None:              v = "null"
-            else:   v = str(v)
-            return v
-            
-        def json_literal(v):
-            if isinstance(v, str):       v = '"%s"' % (v,)
-            else:   v = sql_literal(v)
-            return v
-            
-        def pg_type(v):
-            if isinstance(v, bool):   pgtype='boolean'
-            elif isinstance(v, str):   pgtype='text'
-            elif isinstance(v, int):   pgtype='bigint'
-            elif isinstance(v, float):   pgtype='double precision'
-            else:
-                raise ValueError("Unrecognized literal type: %s %s" % (v, type(v)))
-            return pgtype
-            
-        contains_items = []
-        parts = []
-        
-        for exp in and_term:
-            debug("sql_and:")
-            debug(exp.pretty("    "))
-            
-            op = exp.T
-            args = exp.C
-            negate = False
-
-            term = ""
-
-            if op == "present":
-                aname = exp["name"]
-                if not '.' in aname:
-                    term = "true" if aname in DBFile.ColumnAttributes else "false"
-                else:
-                    term = f"{table_name}.metadata ? '{aname}'"
-
-            elif op == "not_present":
-                aname = exp["name"]
-                if not '.' in aname:
-                    term = "false" if aname in DBFile.ColumnAttributes else "true"
-                else:
-                    term = f"{table_name}.metadata ? '{aname}'"
-            
-            else:
-                assert op in ("cmp_op", "in_range", "in_set", "not_in_range", "not_in_set")
-                arg = args[0]
-                assert arg.T in ("array_any", "array_subscript","array_length","scalar")
-                negate = exp["neg"]
-                aname = arg["name"]
-                if not '.' in aname:
-                    assert arg.T == "scalar", f"File attribute {aname} value must be a scalar. Got {arg.T} instead"
-                    if not aname in DBFile.ColumnAttributes:
-                        raise ValueError(f"Unrecognized file attribute \"{aname}\"\n" +
-                            "  Allowed file attibutes: " +
-                            ", ".join(DBFile.ColumnAttributes)
-                        )
-                    
-                if arg.T == "array_subscript":
-                    # a[i] = x
-                    aname, inx = arg["name"], arg["index"]
-                    inx = json_literal(inx)
-                    subscript = f"[{inx}]"
-                elif arg.T == "array_any":
-                    aname = arg["name"]
-                    subscript = "[*]"
-                elif arg.T == "scalar":
-                    aname = arg["name"]
-                    subscript = ""
-                elif arg.T == "array_length":
-                    aname = arg["name"]
-                else:
-                    raise ValueError(f"Unrecognozed argument type \"{arg.T}\"")
-
-                #parts.append(f"{table_name}.metadata ? '{aname}'")
-
-                    
-                # - query time slows down significantly if this is addded
-                #if arg.T in ("array_subscript", "array_any", "array_all"):
-                #    # require that "aname" is an array, not just a scalar
-                #    parts.append(f"{table_name}.metadata @> '{{\"{aname}\":[]}}'")
-                
-                if op == "in_range":
-                    assert len(args) == 1
-                    typ, low, high = exp["type"], exp["low"], exp["high"]
-                    low = json_literal(low)
-                    high = json_literal(high)
-                    if not '.' in aname:
-                        low = sql_literal(low)
-                        high = sql_literal(high)
-                        term = f"{table_name}.{aname} between {low} and {high}"
-                    elif arg.T in ("array_subscript", "scalar", "array_any"):
-                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? (@ >= {low} && @ <= {high})'"
-                    elif arg.T == "array_length":
-                        n = "not" if negate else ""
-                        negate = False
-                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {n} between {low} and {high}"
-                        
-                if op == "not_in_range":
-                    assert len(args) == 1
-                    typ, low, high = exp["type"], exp["low"], exp["high"]
-                    low = json_literal(low)
-                    high = json_literal(high)
-                    if not '.' in aname:
-                        low = sql_literal(low)
-                        high = sql_literal(high)
-                        term = f"not ({table_name}.{aname} between {low} and {high})"
-                    elif arg.T in ("array_subscript", "scalar", "array_any"):
-                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? (@ < {low} || @ > {high})'"
-                    elif arg.T == "array_length":
-                        n = "" if negate else "not"
-                        negate = False
-                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {n} between {low} and {high}"
-                        
-                elif op == "in_set":
-                    if not '.' in aname:
-                        values = [sql_literal(v) for v in exp["set"]]
-                        value_list = ",".join(values)
-                        term = f"{table_name}.{aname} in ({value_list})"
-                    elif arg.T == "array_length":
-                        values = [sql_literal(v) for v in exp["set"]]
-                        value_list = ",".join(values)
-                        n = "not" if negate else ""
-                        negate = False
-                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {n} in ({value_list})"
-                    else:           # arg.T in ("array_any", "array_subscript","scalar")
-                        values = [json_literal(x) for x in exp["set"]]
-                        or_parts = [f"@ == {v}" for v in values]
-                        predicate = " || ".join(or_parts)
-                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'"
-                        
-                elif op == "not_in_set":
-                    if not '.' in aname:
-                        values = [sql_literal(v) for v in exp["set"]]
-                        value_list = ",".join(values)
-                        term = f"not ({table_name}.{aname} in ({value_list}))"
-                    elif arg.T == "array_length":
-                        values = [sql_literal(v) for v in exp["set"]]
-                        value_list = ",".join(values)
-                        n = "" if negate else "not"
-                        negate = False
-                        term = f"not(jsonb_array_length({table_name}.metadata -> '{aname}') {n} in ({value_list}))"
-                    else:           # arg.T in ("array_any", "array_subscript","scalar")
-                        values = [json_literal(x) for x in exp["set"]]
-                        and_parts = [f"@ != {v}" for v in values]
-                        predicate = " && ".join(and_parts)
-                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'"
-                        
-                elif op == "cmp_op":
-                    cmp_op = exp["op"]
-                    if cmp_op == '=': cmp_op = "=="
-                    sql_cmp_op = "=" if cmp_op == "==" else cmp_op
-                    value = args[1]
-                    value_type, value = value.T, value["value"]
-                    sql_value = sql_literal(value)
-                    value = json_literal(value)
-                    
-                    if not '.' in aname:
-                        term = f"{table_name}.{aname} {sql_cmp_op} {sql_value}"
-                    elif arg.T == "array_length":
-                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {sql_cmp_op} {value}"
-                    else:
-                        if cmp_op in ("~", "~*", "!~", "!~*"):
-                            negate_predicate = False
-                            if cmp_op.startswith('!'):
-                                cmp_op = cmp_op[1:]
-                                negate_predicate = not negate_predicate
-                            flags = ' flag "i"' if cmp_op.endswith("*") else ''
-                            cmp_op = "like_regex"
-                            value = f"{value}{flags}"
-                        
-                            predicate = f"@ like_regex {value} {flags}"
-                            if negate_predicate: 
-                                predicate = f"!({predicate})"
-                            term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'"
-
-                        else:
-                            # scalar, array_subscript, array_any
-                            term = f"{table_name}.metadata @@ '$.\"{aname}\"{subscript} {cmp_op} {value}'"
-                    
-            if negate:  term = f"not ({term})"
-            parts.append(term)
-
-        if contains_items:
-            parts.append("%s.metadata @> '{%s}'" % (table_name, ",".join(contains_items )))
-            
-        return " and ".join([f"({p})" for p in parts])
-        
-    def sql(self, table_name):
-        if self.DNF:
-            return " or ".join([self.sql_and(t, table_name) for t in self.DNF])
-        else:
-            return None
-            
 class _DatasetParentToChild(_DBManyToMany):
     
     def __init__(self, db, parent):
@@ -1393,7 +1149,7 @@ class DBDataset(DBObject):
         return limited(dataset_selector.filter_by_having(datasets), limit)
 
     @staticmethod
-    def datasets_for_bdq(db, bdq, limit=None):
+    def _____datasets_for_bdq(db, bdq, limit=None):
         #print("datasets_for_bdq: bdq:", bdq)
         if not (bdq.Namespace and bdq.Name):
             name_or_pattern = bdq.Name
@@ -1415,6 +1171,23 @@ class DBDataset(DBObject):
         return out
 
     @staticmethod
+    def datasets_for_bdq(db, bdq, limit=None):
+        #print("datasets_for_bdq: bdq:", bdq)
+        if not (bdq.Namespace and bdq.Name):
+            name_or_pattern = bdq.Name
+            raise ValueError(f"Dataset specification error: {selector.Namespace}:{name_or_pattern}")
+        if bdq.is_explicit():
+            out = [(bdq.Namespace, bdq.Name)]
+        else:
+            sql = DBDataset.sql_for_basic_dataset_query(bdq)
+            debug("datasets_for_bdq: sql: " + sql)
+            c = db.cursor()
+            c.execute(sql)
+            datasets = (DBDataset.from_tuple(db, tup) for tup in fetch_generator(c))
+            out = limited(((ds.Namespace, ds.Name) for ds in datasets), limit)
+        return out
+
+    @staticmethod
     def datasets_for_bdqs(db, bdq_list):
         for bdq in bdq_list:
             debug("datasets_for_bdqs: bdq:", bdq)
@@ -1422,9 +1195,17 @@ class DBDataset(DBObject):
                 yield ds
 
     @staticmethod
-    def sql_for_basic_dataset_query(bdq):
+    def sql_for_basic_dataset_query(bdq, names_only=False):
             namespace = bdq.Namespace
             name = bdq.Name
+            columns = ["namespace", "name"] if names_only else DBDataset.columns(as_text=False)
+            table = DBDataset.Table
+            
+            if bdq.is_explicit():
+                a = alias("exp")
+                columns = ",".join([f"{a}.{c}" for c in columns])
+                return f"select {columns} from {table} {a} where namespace='{namespace}' and name='{name}'"
+
             pattern = bdq.Pattern
             regexp = bdq.RegExp
             with_children = bdq.WithChildren
@@ -1438,7 +1219,6 @@ class DBDataset(DBObject):
             ds = alias("ds")
             t = alias("t")
 
-            columns = DBDataset.columns(as_text=False)
 
             meta_filter_dnf = MetaExpressionDNF(where) if where is not None else None
 
@@ -1452,14 +1232,14 @@ class DBDataset(DBObject):
                 #print([f"{ds}.{c}" for c in columns])
                 columns = ",".join([f"{ds}.{c}" for c in columns])
                 #print("columns:", columns)
-                sql = f"select {columns} from datasets {ds} where {ds}.namespace = '{namespace}' and {name_cmp}"
+                sql = f"select {columns} from {table} {ds} where {ds}.namespace = '{namespace}' and {name_cmp}"
                 if meta_filter_dnf is not None:
                     sql += " and " + meta_filter_dnf.sql(ds)
             else:
                 columns = ",".join(f"{d}.{c}" for c in columns)
                 top_sql = dedent(f"""\
                     select {ds}.namespace, {ds}.name, array[{ds}.namespace || ':' || {ds}.name], false
-                        from datasets {ds}
+                        from {table} {ds}
                         where {ds}.namespace = '{namespace}' and {name_cmp}
                     """)
 
