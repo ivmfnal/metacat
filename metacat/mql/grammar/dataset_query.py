@@ -15,8 +15,8 @@ dataset_query_list: basic_dataset_query ("," basic_dataset_query)*            ->
 !dataset_provenance_op: "with" "children" "recursively"?
 
 !dataset_spec: qualified_name
-    | "matching" sql_pattern
     | "matching" "regexp" regexp_pattern
+    | "matching" sql_pattern
 
 sql_pattern:    (FNAME ":")? UNQUOTED_STRING                   
 regexp_pattern:    (FNAME ":")? STRING                              

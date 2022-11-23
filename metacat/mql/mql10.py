@@ -51,6 +51,33 @@ def _merge_skip_limit(existing_skip, existing_limit, skip=0, limit=None):
         return existing_skip + skip, max(0, existing_limit - skip)
     else:
         return existing_skip + skip, max(0, min(existing_limit - skip, limit))
+        
+class _DatasetQueryCompiler(Ascender):
+
+    def __init__(self):
+        Ascender.__init__(self)
+
+    def __call__(self, tree):
+        out = self.walk(tree)
+        return out
+
+    def dataset_query_list(self, node, *args):
+        queries = [a["query"] for a in args]
+        sql = DBDataset.sql_for_bdqs(queries)
+        return Node("sql", sql=sql)
+
+class _DatasetQueryExecutor(Ascender):
+    
+    def __init__(self, db):
+        Ascender.__init__(self)
+        self.DB = db
+
+    def __call__(self, tree):
+        out = self.walk(tree)
+        return out
+
+    def sql(self, node, sql=None):
+        return DBDataset.datasets_from_sql(self.DB, sql)
 
 class DatasetQuery(object):
     
@@ -58,9 +85,15 @@ class DatasetQuery(object):
     
     def __init__(self, tree):
         self.Tree = tree
+        self.Compiled = None
 
-    def run(self, db, limit=None, with_meta=True, with_provenance=True, filters={}, default_namespace=None, debug=False):
-        return _DatasetEvaluator(db, with_meta, limit)(self.Tree)
+    def compile(self):
+        self.Compiled = self.Compiled or _DatasetQueryCompiler()(self.Tree)
+        return self.Compiled
+
+    def run(self, db, debug=False, **ignore):
+        compiled = self.compile()
+        return _DatasetQueryExecutor(db)(compiled)
         
 class FileQuery(object):
 
@@ -87,7 +120,7 @@ class FileQuery(object):
             self.Assembled = self.Tree
         return self.Assembled
 
-    def optimize(self, debug=False, default_namespace=None, skip=0, limit=None):
+    def optimize(self, debug=False, skip=0, limit=None):
         if self.Optimized is None:
             #print("Query.optimize: assembled:----\n", self.Assembled.pretty())
             
@@ -123,9 +156,9 @@ class FileQuery(object):
             self.Optimized = optimized
         return self.Optimized
 
-    def compile(self, db=None, skip=0, limit=None, with_meta=False, with_provenance=False, default_namespace=None, debug=False):
+    def compile(self, db=None, skip=0, limit=None, with_meta=False, with_provenance=False, debug=False):
         try:
-            optimized = self.optimize(debug=debug, default_namespace=default_namespace, skip=skip, limit=limit)
+            optimized = self.optimize(debug=debug, skip=skip, limit=limit)
             optimized = _QueryOptionsApplier().walk(optimized, 
                 dict(
                     with_provenance = with_provenance,
@@ -142,11 +175,11 @@ class FileQuery(object):
 
         return compiled
 
-    def run(self, db=None, loader=None, filters={}, skip=0, limit=None, with_meta=True, with_provenance=True, default_namespace=None, debug=False):
-        compiled = self.Compiled or self.compile(db=db, loader=loader, 
+    def run(self, db=None, filters={}, skip=0, limit=None, with_meta=True, with_provenance=True, debug=False):
+        compiled = self.Compiled or self.compile(db=db, 
                     skip=skip, limit=limit, 
                     with_meta=with_meta, with_provenance=with_provenance, 
-                    default_namespace=default_namespace, debug=debug)
+                    debug=debug)
         try:
             result = FileQueryExecutor(db, filters, debug=debug)(compiled)
         except Exception as e:
@@ -468,7 +501,6 @@ class _DatasetEvaluator(Ascender):
         queries = (a["query"] for a in args)
         return limited(unique(DBDataset.datasets_for_bdqs(self.DB, queries), key=lambda ds: (ds.Namespace, ds.Name)), self.Limit)
         
-        
 
 CMP_OPS = [">" , "<" , ">=" , "<=" , "==" , "=" , "!=", "~~", "~~*", "!~~", "!~~*"]
 
@@ -564,7 +596,7 @@ class BasicDatasetQuery(object):
                 " (pattern) " if self.Pattern and not self.RegExp else (" (pattern re) " if self.Pattern and self.RegExp else ""),
                 " with children" if self.WithChildren else "",
                 " recursively" if self.Recursively else "",
-                " " + (self.Where.pretty() if self.Where is not None else ""))
+                (" having:" + self.Where.pretty("    ") if self.Where is not None else ""))
 
     __str__ = line
     __repr__ = line
@@ -604,11 +636,12 @@ class BasicFileQuery(object):
         self.Ordered = False
         
     def __str__(self):
-        return "BasicFileQuery(selectors:%s, limit:%s, skip:%s, %smeta, %sprovenance, %sordered)" % (self.DatasetSelectors, 
+        return "BasicFileQuery(datasets:%s, limit:%s, skip:%s, %smeta, %sprovenance%s)" % (
+            ",".join(str(s) for s in self.DatasetSelectors), 
             self.Limit, self.Skip,
             "with " if self.WithMeta else "no ",
             "with " if self.WithProvenance else "no ",
-            "" if self.Ordered else "not ",
+            "" if self.Ordered else ", ordered",
             )
 
     __repr__ = __str__
@@ -1165,12 +1198,10 @@ class QueryConverter(Converter):
     def dataset_provenance_op(self, children):
         return Node("subsets", recursive=any(c.value == "recursively" for c in children))
 
-
-
 class MQLQuery(object):
     
     @staticmethod
-    def parse(text, db=None, loader=None, debug=False, convert=True):
+    def parse(text, db=None, loader=None, debug=False, convert=True, default_namespace=None):
         out = []
         for l in text.split("\n"):
             l = l.split('#', 1)[0]
@@ -1181,7 +1212,7 @@ class MQLQuery(object):
             if debug:
                 print("parsed:\n", parsed.pretty())
             if convert:
-                converted = QueryConverter(db=db, loader=loader).convert(parsed)
+                converted = QueryConverter(db=db, loader=loader, default_namespace=default_namespace).convert(parsed)
                 if debug:
                     print("converted:\n", converted.pretty())
                 if converted.T == "top_file_query":

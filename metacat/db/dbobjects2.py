@@ -1258,6 +1258,12 @@ class DBDataset(DBObject):
                 yield ds
 
     @staticmethod
+    def datasets_from_sql(db, sql):
+        c = db.cursor()
+        c.execute(sql)
+        return (DBDataset.from_tuple(db, tup) for tup in fetch_generator(c))
+
+    @staticmethod
     def sql_for_bdq(bdq, names_only=False):
             namespace = bdq.Namespace
             name = bdq.Name
@@ -1267,7 +1273,11 @@ class DBDataset(DBObject):
             if bdq.is_explicit():
                 a = alias("exp")
                 columns = ",".join([f"{a}.{c}" for c in columns])
-                return f"select {columns} from {table} {a} where namespace='{namespace}' and name='{name}'"
+                return dedent(f"""\
+                    select {columns} 
+                        from {table} {a} 
+                        where namespace='{namespace}' and name='{name}'
+                """)
 
             pattern = bdq.Pattern
             regexp = bdq.RegExp
@@ -1294,7 +1304,16 @@ class DBDataset(DBObject):
                 #print([f"{ds}.{c}" for c in columns])
                 columns = ",".join([f"{ds}.{c}" for c in columns])
                 #print("columns:", columns)
-                sql = f"select {columns} from {table} {ds} where {ds}.namespace = '{namespace}' and {name_cmp}"
+                meta_filter = ""
+                if meta_filter_dnf is not None:
+                    meta_filter = "and " + meta_filter_dnf.sql(ds)
+                sql = dedent(f"""\
+                    select {columns} 
+                        from {table} {ds} 
+                        where {ds}.namespace = '{namespace}' 
+                            and {name_cmp}
+                            {meta_filter}
+                """)
                 if meta_filter_dnf is not None:
                     sql += " and " + meta_filter_dnf.sql(ds)
             else:
@@ -1306,12 +1325,12 @@ class DBDataset(DBObject):
                     """)
 
                 if not recursively:
-                    selected_sql = dedent(f"""\
+                    selected_sql = insert_sql(dedent(f"""\
                         with selected_datasets (namespace, name, path, loop) as 
                         (
                             with {t} (namespace, name, path, loop) as 
                             ( 
-                                {top_sql}
+                                $top_sql
                             )
                             select namespace, name, path, loop from {t}
                             union
@@ -1319,19 +1338,19 @@ class DBDataset(DBObject):
                                     {t}.path || ({pc}.child_namespace || ':' || {pc}.child_name), true
                                 from datasets_parent_child {pc}, {t}
                                 where {pc}.parent_namespace = {t}.namespace and {pc}.parent_name = {t}.name
-                        )""")
+                        )"""), top_sql=top_sql)
                 else:
-                    selected_sql = dedent(f"""\
+                    selected_sql = insert_sql(dedent(f"""\
                         with recursive selected_datasets (namespace, name, path, loop) as 
                         (
-                            {top_sql}
+                            $top_sql
                             union
                                 select {pc1}.child_namespace, {pc1}.child_name,
                                     {s}.path || ({pc1}.child_namespace || ':' || {pc1}.child_name),
                                     {pc1}.child_namespace || ':' || {pc1}.child_name = any({s}.path)
                                 from datasets_parent_child {pc1}, selected_datasets {s}
                                 where {pc1}.parent_namespace = {s}.namespace and {pc1}.parent_name = {s}.name and not {s}.loop
-                        )""")
+                        )"""), top_sql=top_sql)
                 meta_condition = "and " + meta_filter_dnf.sql(d) if meta_filter_dnf is not None else ""
                 sql = insert_sql(f"""\
                     $selected_sql
@@ -1347,7 +1366,7 @@ class DBDataset(DBObject):
     @staticmethod
     def sql_for_bdqs(bdqs, names_only=False):
         explicits = [q for q in bdqs if q.is_explicit()]
-        orthers = [q for q in bdqs if not q.is_explicit()]
+        others = [q for q in bdqs if not q.is_explicit()]
         
         parts = []
         if explicits:
@@ -1363,7 +1382,7 @@ class DBDataset(DBObject):
                     where ({a}.namespace, {a}.name) in ({pairs})
             """
             parts.append(sql)
-        parts.extend([DBDataset.sql_for_bdq(q, names_only) for q in orthers])
+        parts.extend([DBDataset.sql_for_bdq(q, names_only) for q in others])
         return"\nunion\n".join(dedent(p) for p in parts)
 
     def validate_file_metadata(self, meta):

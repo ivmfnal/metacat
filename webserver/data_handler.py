@@ -922,15 +922,15 @@ class DataHandler(MetaCatHandler):
             return "[]", "application/json"
             
         try:
-            query = MQLQuery.parse(query_text, db=db)
+            query = MQLQuery.parse(query_text, db=db, default_namespace=namespace or None)
             query_type = query.Type
-            results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance, default_namespace=namespace or None,
+            results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance,
                 debug = debug == "yes"
             )
         except (AssertionError, ValueError, MQLError) as e:
             return 400, e.__class__.__name__ + ": " + e.Message
 
-        print("results:", results)
+        #print("results:", results)
 
         if not results:
             return "[]", "application/json"

@@ -395,12 +395,11 @@ class GUIHandler(MetaCatHandler):
                 url_query = quote_plus(url_query)
                 if namespace: url_query += "&namespace=%s" % (namespace,)
                 #print("with_meta=", with_meta)
-                parsed = MQLQuery.parse(query_text)
+                parsed = MQLQuery.parse(query_text, db=db, default_namespace=namespace or None)
                 query_type = parsed.Type
                 #print("Server.query: with_meta:", with_meta)
                 try:
                     results = parsed.run(db, filters=self.App.filters(),
-                        default_namespace=namespace or None,
                         limit=1000 if not save_as_dataset else None, 
                         with_meta=with_meta)
                 except MQLError as e:

@@ -87,11 +87,10 @@ class QueryCommand(CLICommand):
             print(q.Tree.pretty("    "))
             print("")
         
-            q.skip_assembly()
-            q.optimize(False)
-            print("---- Optimized ----")
-            print(q.Optimized.pretty("    "))
-            print("")
+            #q.optimize(False)
+            #print("---- Optimized ----")
+            #print(q.Optimized.pretty("    "))
+            #print("")
     
             compiled = q.compile()
             print("---- Compiled ----")

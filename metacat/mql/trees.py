@@ -82,25 +82,27 @@ class Node(object):
     def _pretty(self, indent=""):
         out = []
         items = list(self.D.items())
+        nitems = len(items)
+        nc = len(self.C)
         for i, (k, v) in enumerate(items):
             key = f"{k} = "
             if isinstance(v, (Node, Token)):
                 key_len = len(key)
-                prefix = ". " if i < len(items) - 1 else "  "
-                head, lines = v._pretty(indent + prefix + " "*key_len)
-                out.append(indent + "    " + key + head)
+                prefix = "|  " if i < len(items) - 1 else "   "
+                head, lines = v._pretty(indent + prefix + " "*key_len + " ")
+                out.append(indent + "+   " + key + head)
                 out += lines
             else:
                 str_v = dedent(str(v))
                 lines = str_v.split("\n")
                 if len(lines) > 1:
-                    out.append(indent + "    " + key)
+                    out.append(indent + "+   " + key)
+                    prefix = "|   " if i < nitems-1 or nc else "    "
                     for l in lines:
-                        out.append(indent + "    " + " " + l)
+                        out.append(indent + prefix + " " + l)
                 else:
-                    out.append(indent + "    " + key + str(v))
+                    out.append(indent + "+   " + key + str(v))
 
-        nc = len(self.C)
         for i, c in enumerate(self.C):
             child_indent = indent + (' ' if i == nc-1 else '|') + "  "
             if isinstance(c, (Node, Token)):
