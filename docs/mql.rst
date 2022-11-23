@@ -152,11 +152,12 @@ If you want to get a list of files without any children, you can use this trick 
 
 .. code-block:: sql
 
-        parents (
+        files from MyScope:MyDataset 
+        - parents (
             children (
                 files from MyScope:MyDataset
             )
-        ) - files from MyScope:MyDataset
+        )
 
 
                 
