@@ -229,13 +229,7 @@ The following two queries are equivalent:
                         files from s:C
                 }
         ]
-        
-        [
-            files my_scope:file1.data, file2.data,
-            fids 12345, 123476
-        ]
 
-        
 External Filters
 ----------------
 

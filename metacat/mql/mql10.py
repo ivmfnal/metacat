@@ -123,9 +123,12 @@ class FileQuery(object):
     def optimize(self, debug=False, skip=0, limit=None):
         if self.Optimized is None:
             #print("Query.optimize: assembled:----\n", self.Assembled.pretty())
-            
+
             optimized = self.Tree
-            
+            if debug:
+                print("Query.optimize: initial:----")
+                print(optimized.pretty("    "))
+
             optimized = _SkipLimitApplier().walk(optimized)
             if debug:
                 print("Query.optimize: after 1st _SkipLimitApplier:----")
@@ -148,10 +151,10 @@ class FileQuery(object):
                 print("Query.optimize: after 2nd _SkipLimitApplier:----")
                 print(optimized.pretty("    "))
             
-            optimized = _OrderedApplier()(optimized)
-            if debug:
-                print("Query.optimize: after applying ordering:----")
-                print(optimized.pretty("    "))
+            #optimized = _OrderedApplier()(optimized)
+            #if debug:
+            #    print("Query.optimize: after applying ordering:----")
+            #    print(optimized.pretty("    "))
             
             self.Optimized = optimized
         return self.Optimized
@@ -217,8 +220,8 @@ class _OrderedApplier(Descender):
     __call__ = walk
 
     def ordered(self, node, ordered):
-        child = node.C[0]
-        return self.walk(child, True)
+        children = [self.walk(c) for c in node.C]
+        return node.clone(children=children)
         
     def basic_file_query(self, node, ordered):
         node["query"].Ordered = node["query"].Ordered or ordered
@@ -233,7 +236,10 @@ class _OrderedApplier(Descender):
     basic_dataset_query = basic_file_query
 
     def skip_limit(self, node, ordered):
-        child = self.walk(node.C[0], True)
+        if ordered and node["skip"] == 0:
+            child = node.C[0]
+            
+        child = self.walk(node.C[0], False)
         return node.clone(children=[child])
 
     def filter(self, node, ordered):
@@ -299,7 +305,7 @@ class _SkipLimitApplier(Descender):
             return node
 
     def union(self, node, skip_limit):
-        #print("_SkipLimitApplier: skip_limit:", skip_limit, "  children:", node.C)
+        #print("_SkipLimitApplier: union: skip_limit:", skip_limit, "  children:", node.C)
         skip, limit = skip_limit
         if limit is not None and limit <= 0:
             node = Node("empty")
@@ -349,7 +355,7 @@ class _SkipLimitApplier(Descender):
         return node
 
     def _default(self, node, skip_limit):
-        #print("_LimitApplier._default: node:", node.pretty())
+        # print("_LimitApplier._default: node:", node.pretty())
         skip, limit = skip_limit
         node = self.visit_children(node, (0, None))
         if skip or limit:
@@ -641,7 +647,7 @@ class BasicFileQuery(object):
             self.Limit, self.Skip,
             "with " if self.WithMeta else "no ",
             "with " if self.WithProvenance else "no ",
-            "" if self.Ordered else ", ordered",
+            "" if not self.Ordered else ", ordered",
             )
 
     __repr__ = __str__
@@ -760,8 +766,11 @@ class QueryConverter(Converter):
             return node.clone(ordered = True)
         elif node.T in ("file_list", "ordered"):
             pass
-        elif node.T == "skip_limit" and node["skip"]:
-            pass
+        elif node.T == "skip_limit":
+            if node["skip"]:
+                pass        # aready ordered
+            else:
+                node = node.clone(children=[self.make_ordered(node.C[0])])
         else:
             node = Node("ordered", [node])
         return node

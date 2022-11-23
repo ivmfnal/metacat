@@ -127,13 +127,13 @@ elif cmd == "run":
     
     qtext = " ".join(args)
     config = yaml.load(open(config, "r").read(), Loader=yaml.SafeLoader)["database"]
-    print("Query text:'%s'" % (qtext,))
+    print("Query text:\n\n%s\n" % (qtext,))
     q = MQLQuery.parse(qtext, debug=debug)
     #print("connecting to db...")
     db = connect(config)
     #print("connected to db")
-    results = q.run(db, debug=True, filters=filters, with_meta=True, with_provenance=False)
-    print("Query results:", results)
+    results = q.run(db, debug=debug, filters=filters, with_meta=True, with_provenance=False)
+    print("Query results:")
     for r in results:
         pprint.pprint(r.to_jsonable())
 else:

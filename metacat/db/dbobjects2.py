@@ -418,7 +418,7 @@ class DBFile(object):
         done = False
         x = None
         while not done:
-            x = base64.b64encode(uuid.uuid4().bytes, b"__")[:16]            # 62**16 = 100 lifetimes of the Universe in nanoseconds
+            x = base64.b64encode(uuid.uuid4().bytes, b"__")[:16]            # 62**16 = 5E28 = 100 lifetimes of the Universe in nanoseconds
             done = b'_' not in x
         return x.decode("utf-8")
 
@@ -1380,6 +1380,9 @@ class DBDataset(DBObject):
                 select {columns}
                     from {table} {a}
                     where ({a}.namespace, {a}.name) in ({pairs})
+            """
+            sql = f"""\
+                values {pairs}
             """
             parts.append(sql)
         parts.extend([DBDataset.sql_for_bdq(q, names_only) for q in others])
