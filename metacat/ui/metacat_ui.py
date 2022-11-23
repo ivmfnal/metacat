@@ -10,6 +10,7 @@ from .metacat_auth import AuthCLI
 from .metacat_admin import AdminCLI
 from .metacat_query import QueryInterpreter
 from .metacat_category import CategoryCLI
+from .metacat_mql import MQLInterpreter
 from metacat.util import validate_metadata
 
 import warnings

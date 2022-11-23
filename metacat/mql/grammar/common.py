@@ -28,7 +28,7 @@ meta_and:   term_meta ( "and" term_meta )*
     | scalar "not" "in" constant ":" constant       -> not_in_range
     | scalar "in" "(" constant_list ")"             -> in_set
     | scalar "not" "in" "(" constant_list ")"       -> not_in_set
-    | ANAME "present"?                              -> present                   
+    | ANAME "present"                               -> present                   
     | ANAME "not" "present"                         -> not_present                   
     | constant "in" ANAME                           -> constant_in_array
     | constant "not" "in" ANAME                     -> constant_not_in_array

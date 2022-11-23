@@ -1,4 +1,5 @@
 from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter, LarkToNodes
+from .mql10 import MQLQuery
 
 import pprint
 
@@ -203,8 +204,9 @@ class QueryConverter(Converter):
     # converts parsed query (eiher file or dataset) from Lark tree structure to my own Node
     #
 
-    def __init__(self, db=None, default_namespace=None):
+    def __init__(self, db=None, loader=None, default_namespace=None):
         self.DB = db
+        self.Loader = loader
         self.DefaultNamespace = default_namespace
 
     def convert(self, tree):
@@ -380,12 +382,15 @@ class QueryConverter(Converter):
         return out
         
     def named_query(self, args):
-        if self.DB is None:
-            raise RuntimeError("Can not load named query without access to the database")
+        if self.DB is None and self.Loader is None:
+            raise RuntimeError("Can not load named query without access to the database or query loader")
         (q,) = args
         namespace = q["namespace"] or self.DefaultNamespace
         name = q["name"]
-        parsed = MQLQuery.from_db(self.DB, namespace, name)
+        if self.DB is not None:
+            parsed = MQLQuery.from_db(self.DB, namespace, name)
+        else:
+            parsed = MQLQuery.from_loader(self.Loader, namespace, name)
 
         loaded = DBNamedQuery.get(self.DB, namespace, name)
         if loaded is None:

@@ -4,4 +4,3 @@ from .trace import Tracer
 from .object_spec import ObjectSpec, undid
 from .utils import chunked, limited, unique, first_not_empty, strided, skipped, insert_sql
 from .validation import validate_metadata
-from .meta_expression import MetaExpressionDNF

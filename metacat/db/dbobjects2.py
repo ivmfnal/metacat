@@ -1,5 +1,5 @@
 import uuid, json, hashlib, re, time, io, traceback, base64
-from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty, validate_metadata, insert_sql, MetaExpressionDNF
+from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty, validate_metadata, insert_sql
 from metacat.auth import BaseDBUser
 from psycopg2 import IntegrityError
 from textwrap import dedent
@@ -16,8 +16,6 @@ from .common import (
     parse_name, fetch_generator, alias, 
     insert_bulk
 )
-
-
 
 class DBFileSet(object):
     
@@ -201,7 +199,7 @@ class DBFileSet(object):
             )
         
     @staticmethod
-    def sql_for_basic_query(db, basic_file_query):
+    def ____sql_for_basic_query(db, basic_file_query):
         debug("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
 
         f = alias("f")
@@ -225,6 +223,8 @@ class DBFileSet(object):
 
         datasets = None if basic_file_query.DatasetSelectors is None else list(DBDataset.datasets_for_bdqs(db, basic_file_query.DatasetSelectors))
         debug("sql_for_basic_query: datasets:", datasets)
+        
+        
         
         attrs = DBFile.attr_columns(f)
         if datasets is None:
@@ -273,6 +273,67 @@ class DBFileSet(object):
                         {order} {limit} {offset}
                 -- end of sql_for_basic_query {f}
             """, file_meta_exp = file_meta_exp)
+        debug("sql_for_basic_query: sql:-------\n", sql, "\n---------")
+        return sql
+        
+    @staticmethod
+    def sql_for_basic_query(db, basic_file_query):
+        debug("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
+
+        f = alias("f")
+
+        limit = basic_file_query.Limit
+        limit = "" if limit is None else f"limit {limit}"
+        offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
+        #order = f"order by {f}.id" if basic_file_query.Skip or basic_file_query.Limit or basic_file_query.Ordered else ""
+        order = f"order by {f}.id" if basic_file_query.Ordered else ""
+        
+        debug("sql_for_basic_query: offset:", offset)
+
+        meta = f"{f}.metadata" if basic_file_query.WithMeta else "null as metadata"
+        parents = f"{f}.parents" if basic_file_query.WithProvenance else "null as parents"
+        children = f"{f}.children" if basic_file_query.WithProvenance else "null as children"
+        table = "files_with_provenance" if basic_file_query.WithProvenance else "files"
+
+        debug("sql_for_basic_query: table:", table)
+
+        file_meta_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f) or "true"
+
+        attrs = DBFile.attr_columns(f)
+        if basic_file_query.DatasetSelectors is None:
+            # no dataset selection
+            sql = dedent(f"""\
+                -- sql_for_basic_query {f}
+                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                        from {table} {f}
+                        where {file_meta_exp}
+                        {order} {limit} {offset}
+                -- end of sql_for_basic_query {f}
+            """)
+        else:
+            datasets_sql = DBDataset.sql_for_bdqs(basic_file_query.DatasetSelectors, names_only=True)
+            #datasets_sql = DBDataset.sql_for_selector(dataset_selector)
+            
+            fd = alias("fd")
+            ds = alias("ds")
+            
+            sql = insert_sql(f"""\
+                -- sql_for_basic_query {f}
+                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                        from {table} {f},
+                            files_datasets {fd},
+                            (
+                                $datasets_sql
+                            ) as {ds}(namespace, name)
+                        where {fd}.file_id = {f}.id
+                            and {ds}.namespace = {fd}.dataset_namespace
+                            and {ds}.name = {fd}.dataset_name
+                            and (  -- metadata
+                                $file_meta_exp
+                            )
+                        {order} {limit} {offset}
+                -- end of sql_for_basic_query {f}
+            """, file_meta_exp = file_meta_exp, datasets_sql=datasets_sql)
         debug("sql_for_basic_query: sql:-------\n", sql, "\n---------")
         return sql
         
@@ -756,6 +817,8 @@ class DBDataset(DBObject):
     
     ColumnsText = "namespace,name,frozen,monotonic,metadata,creator,created_timestamp,description,file_metadata_requirements"
     Columns = ColumnsText.split(",")
+    Table = "datasets"
+    
 
     def __init__(self, db, namespace, name, frozen=False, monotonic=False, metadata={}, file_meta_requirements=None, creator=None,
             description = None):
@@ -1195,7 +1258,7 @@ class DBDataset(DBObject):
                 yield ds
 
     @staticmethod
-    def sql_for_basic_dataset_query(bdq, names_only=False):
+    def sql_for_bdq(bdq, names_only=False):
             namespace = bdq.Namespace
             name = bdq.Name
             columns = ["namespace", "name"] if names_only else DBDataset.columns(as_text=False)
@@ -1218,7 +1281,6 @@ class DBDataset(DBObject):
             s = alias("s")
             ds = alias("ds")
             t = alias("t")
-
 
             meta_filter_dnf = MetaExpressionDNF(where) if where is not None else None
 
@@ -1282,7 +1344,28 @@ class DBDataset(DBObject):
             debug(f"sql_for_basic_dataset_query({bdq}): sql:\n", sql)
             return sql
 
+    @staticmethod
+    def sql_for_bdqs(bdqs, names_only=False):
+        explicits = [q for q in bdqs if q.is_explicit()]
+        orthers = [q for q in bdqs if not q.is_explicit()]
         
+        parts = []
+        if explicits:
+            table = DBDataset.Table
+            columns = ["namespace", "name"] if names_only else DBDataset.columns(as_text=False)
+            a = alias("exp")
+            columns = ",".join(f"{a}.{c}" for c in columns)
+            pairs = tuple((q.Namespace, q.Name) for q in explicits)
+            pairs = ','.join(str(pair) for pair in pairs)
+            sql = f"""\
+                select {columns}
+                    from {table} {a}
+                    where ({a}.namespace, {a}.name) in ({pairs})
+            """
+            parts.append(sql)
+        parts.extend([DBDataset.sql_for_bdq(q, names_only) for q in orthers])
+        return"\nunion\n".join(dedent(p) for p in parts)
+
     def validate_file_metadata(self, meta):
         """
         File metadata requirements:
@@ -1722,3 +1805,248 @@ class DBRole(object):
         
     def __iter__(self):
         return self.members.__iter__()
+
+
+
+
+
+class MetaExpressionDNF(object):
+    
+    def __init__(self, exp):
+        #
+        # meta_exp is a nested list representing the query filter expression in DNF:
+        #
+        # meta_exp = [meta_or, ...]
+        # meta_or = [meta_and, ...]
+        # meta_and = [(op, aname, avalue), ...]
+        #
+        self.Exp = None
+        self.DNF = None
+        if exp is not None:
+            #
+            # converts canonic Node expression (meta_or of one or more meta_ands) into nested or-list or and-lists
+            #
+            #assert isinstance(self.Exp, Node)
+            assert exp.T == "meta_or"
+            for c in exp.C:
+                assert c.T == "meta_and"
+    
+            or_list = []
+            for and_item in exp.C:
+                or_list.append(and_item.C)
+            self.DNF = or_list
+
+        #print("MetaExpressionDNF: exp:", self.DNF)
+        #self.validate_exp(meta_exp)
+        
+    def __str__(self):
+        return self.file_ids_sql()
+        
+    __repr__= __str__
+    
+    def sql_and(self, and_terms, table_name):
+        
+
+        def sql_literal(v):
+            if isinstance(v, str):       v = "'%s'" % (v,)
+            elif isinstance(v, bool):    v = "true" if v else "false"
+            elif v is None:              v = "null"
+            else:   v = str(v)
+            return v
+            
+        def json_literal(v):
+            if isinstance(v, str):       v = '"%s"' % (v,)
+            else:   v = sql_literal(v)
+            return v
+            
+        def pg_type(v):
+            if isinstance(v, bool):   pgtype='boolean'
+            elif isinstance(v, str):   pgtype='text'
+            elif isinstance(v, int):   pgtype='bigint'
+            elif isinstance(v, float):   pgtype='double precision'
+            else:
+                raise ValueError("Unrecognized literal type: %s %s" % (v, type(v)))
+            return pgtype
+            
+        contains_items = []
+        parts = []
+        
+        for exp in and_terms:
+            
+            op = exp.T
+            args = exp.C
+            negate = False
+
+            term = ""
+
+            if op == "present":
+                aname = exp["name"]
+                if not '.' in aname:
+                    term = "true" if aname in DBFile.ColumnAttributes else "false"
+                else:
+                    term = f"{table_name}.metadata ? '{aname}'"
+
+            elif op == "not_present":
+                aname = exp["name"]
+                if not '.' in aname:
+                    term = "false" if aname in DBFile.ColumnAttributes else "true"
+                else:
+                    term = f"{table_name}.metadata ? '{aname}'"
+            
+            else:
+                assert op in ("cmp_op", "in_range", "in_set", "not_in_range", "not_in_set")
+                arg = args[0]
+                assert arg.T in ("array_any", "array_subscript","array_length","scalar")
+                negate = exp["neg"]
+                aname = arg["name"]
+                if not '.' in aname:
+                    assert arg.T == "scalar", f"File attribute {aname} value must be a scalar. Got {arg.T} instead"
+                    if not aname in DBFile.ColumnAttributes:
+                        raise ValueError(f"Unrecognized file attribute \"{aname}\"\n" +
+                            "  Allowed file attibutes: " +
+                            ", ".join(DBFile.ColumnAttributes)
+                        )
+
+                if arg.T == "array_subscript":
+                    # a[i] = x
+                    aname, inx = arg["name"], arg["index"]
+                    inx = json_literal(inx)
+                    subscript = f"[{inx}]"
+                elif arg.T == "array_any":
+                    aname = arg["name"]
+                    subscript = "[*]"
+                elif arg.T == "scalar":
+                    aname = arg["name"]
+                    subscript = ""
+                elif arg.T == "array_length":
+                    aname = arg["name"]
+                else:
+                    raise ValueError(f"Unrecognozed argument type \"{arg.T}\"")
+
+                # - query time slows down significantly if this is addded
+                #if arg.T in ("array_subscript", "array_any", "array_all"):
+                #    # require that "aname" is an array, not just a scalar
+                #    parts.append(f"{table_name}.metadata @> '{{\"{aname}\":[]}}'")
+                
+                if op == "in_range":
+                    assert len(args) == 1
+                    typ, low, high = exp["type"], exp["low"], exp["high"]
+                    low = json_literal(low)
+                    high = json_literal(high)
+                    if not '.' in aname:
+                        low = sql_literal(low)
+                        high = sql_literal(high)
+                        term = f"{table_name}.{aname} between {low} and {high}"
+                    elif arg.T in ("array_subscript", "scalar", "array_any"):
+                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? (@ >= {low} && @ <= {high})'"
+                    elif arg.T == "array_length":
+                        n = "not" if negate else ""
+                        negate = False
+                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {n} between {low} and {high}"
+                        
+                if op == "not_in_range":
+                    assert len(args) == 1
+                    typ, low, high = exp["type"], exp["low"], exp["high"]
+                    low = json_literal(low)
+                    high = json_literal(high)
+                    if not '.' in aname:
+                        low = sql_literal(low)
+                        high = sql_literal(high)
+                        term = f"not ({table_name}.{aname} between {low} and {high})"
+                    elif arg.T in ("array_subscript", "scalar", "array_any"):
+                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? (@ < {low} || @ > {high})'"
+                    elif arg.T == "array_length":
+                        n = "" if negate else "not"
+                        negate = False
+                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {n} between {low} and {high}"
+                        
+                elif op == "in_set":
+                    if not '.' in aname:
+                        values = [sql_literal(v) for v in exp["set"]]
+                        value_list = ",".join(values)
+                        term = f"{table_name}.{aname} in ({value_list})"
+                    elif arg.T == "array_length":
+                        values = [sql_literal(v) for v in exp["set"]]
+                        value_list = ",".join(values)
+                        n = "not" if negate else ""
+                        negate = False
+                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {n} in ({value_list})"
+                    else:           # arg.T in ("array_any", "array_subscript","scalar")
+                        values = [json_literal(x) for x in exp["set"]]
+                        or_parts = [f"@ == {v}" for v in values]
+                        predicate = " || ".join(or_parts)
+                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'"
+                        
+                elif op == "not_in_set":
+                    if not '.' in aname:
+                        values = [sql_literal(v) for v in exp["set"]]
+                        value_list = ",".join(values)
+                        term = f"not ({table_name}.{aname} in ({value_list}))"
+                    elif arg.T == "array_length":
+                        values = [sql_literal(v) for v in exp["set"]]
+                        value_list = ",".join(values)
+                        n = "" if negate else "not"
+                        negate = False
+                        term = f"not(jsonb_array_length({table_name}.metadata -> '{aname}') {n} in ({value_list}))"
+                    else:           # arg.T in ("array_any", "array_subscript","scalar")
+                        values = [json_literal(x) for x in exp["set"]]
+                        and_parts = [f"@ != {v}" for v in values]
+                        predicate = " && ".join(and_parts)
+                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'"
+                        
+                elif op == "cmp_op":
+                    cmp_op = exp["op"]
+                    if cmp_op == '=': cmp_op = "=="
+                    sql_cmp_op = "=" if cmp_op == "==" else cmp_op
+                    value = args[1]
+                    value_type, value = value.T, value["value"]
+                    sql_value = sql_literal(value)
+                    value = json_literal(value)
+                    
+                    if not '.' in aname:
+                        term = f"{table_name}.{aname} {sql_cmp_op} {sql_value}"
+                    elif arg.T == "array_length":
+                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {sql_cmp_op} {value}"
+                    else:
+                        if cmp_op in ("~", "~*", "!~", "!~*"):
+                            negate_predicate = False
+                            if cmp_op.startswith('!'):
+                                cmp_op = cmp_op[1:]
+                                negate_predicate = not negate_predicate
+                            flags = ' flag "i"' if cmp_op.endswith("*") else ''
+                            cmp_op = "like_regex"
+                            value = f"{value}{flags}"
+                        
+                            predicate = f"@ like_regex {value} {flags}"
+                            if negate_predicate: 
+                                predicate = f"!({predicate})"
+                            term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'"
+
+                        else:
+                            # scalar, array_subscript, array_any
+                            term = f"{table_name}.metadata @@ '$.\"{aname}\"{subscript} {cmp_op} {value}'"
+                    
+            if negate:  term = f"not ({term})"
+            parts.append(term)
+
+        if contains_items:
+            parts.append("%s.metadata @> '{%s}'" % (table_name, ",".join(contains_items )))
+        return parts
+
+    def sql(self, table_name):
+        if not self.DNF:
+            return None
+        else:
+            out = []
+            for i, or_part in enumerate(self.DNF):
+                and_parts = self.sql_and(or_part, table_name)
+                for j, and_part in enumerate(and_parts):
+                    #print("and_part:", and_part)
+                    if i == 0:
+                        prefix = "" if j == 0 else "and "
+                    else:
+                        prefix = "or  " if j == 0 else "    and "
+                    out.append(f"{prefix}( {and_part} )")
+            out = "\n".join(out)
+            #print("returning:\n", out)
+            return out

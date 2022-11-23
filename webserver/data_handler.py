@@ -922,7 +922,7 @@ class DataHandler(MetaCatHandler):
             return "[]", "application/json"
             
         try:
-            query = MQLQuery.parse(query_text)
+            query = MQLQuery.parse(query_text, db=db)
             query_type = query.Type
             results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance, default_namespace=namespace or None,
                 debug = debug == "yes"
@@ -960,6 +960,13 @@ class DataHandler(MetaCatHandler):
         queries = list(DBNamedQuery.list(db, namespace))
         data = ["%s:%s" % (q.Namespace, q.Name) for q in queries]
         return json.dumps(data), "application/json"
+
+    def named_query(self, request, relpath, namespace=None, name=None, **args):
+        db = self.App.connect()
+        q = DBNamedQuery.get(db, namespace, name)
+        if q is None:
+            return 404, ""
+        return q.Source, "text/plain"
 
     #
     # Parameter categories

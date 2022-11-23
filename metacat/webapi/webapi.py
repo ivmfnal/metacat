@@ -1158,3 +1158,12 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         """
         out = self.get_json(f"data/category/{path}")
         return out
+        
+    #
+    # Named queries
+    #
+    def get_named_query(self, namespace, name):
+        try:    text = self.get_text(f"data/named_query?namespace={namespace}&name={name}")
+        except NotFoundError:
+            return None
+        return text
