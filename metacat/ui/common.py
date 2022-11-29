@@ -2,7 +2,7 @@
 # not used
 #
 
-from metacat.webapi MCError
+from metacat.webapi import MCError
 import sys
 
 def catch_mc_errors(method):
