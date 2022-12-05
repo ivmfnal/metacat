@@ -250,7 +250,7 @@ class DataHandler(MetaCatHandler):
             query = MQLQuery.parse(files_query, default_namespace=namespace or None)
             if query.Type != "file":
                 return 400, f"Invalid file query: {file_query}"
-            files = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False)
+            files = query.run(db, filters=self.App.filters(), with_meta=True, with_provenance=False)
 
         dataset = DBDataset(db, namespace, name,
             frozen = params.get("frozen", False), monotonic = params.get("monotonic", False),

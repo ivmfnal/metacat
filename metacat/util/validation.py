@@ -33,6 +33,8 @@ def validate_metadata(definitions, restricted, metadata={}, name=None, value=Non
         empty list indicates that validation succeeded
     """
 
+    definitions = definitions or {}
+    
     metadata = (metadata or {}).copy()
     if name is not None:
         metadata[name] = value

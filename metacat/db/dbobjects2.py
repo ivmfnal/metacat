@@ -1403,7 +1403,7 @@ class DBDataset(DBObject):
             ...
         }
         """
-        error_list = validate_metadata(self.FileMetaRequirements, False, meta)
+        error_list = validate_metadata(self.FileMetaRequirements or {}, False, meta)
         errors = []
         for name, error in error_list:
             v = meta.get(name)
