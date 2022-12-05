@@ -4,7 +4,6 @@ from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter, Lar
 from .sql_converter import SQLConverter
 from .query_executor import FileQueryExecutor
 from .meta_evaluator import MetaEvaluator
-#from .converter import QueryConverter
 import json, time
 
 from lark import Lark, LarkError
@@ -129,10 +128,10 @@ class FileQuery(object):
                 print("Query.optimize: initial:----")
                 print(optimized.pretty("    "))
 
-            optimized = _SkipLimitApplier().walk(optimized)
-            if debug:
-                print("Query.optimize: after 1st _SkipLimitApplier:----")
-                print(optimized.pretty("    "))
+            #optimized = _SkipLimitApplier().walk(optimized)
+            #if debug:
+            #    print("Query.optimize: after 1st _SkipLimitApplier:----")
+            #    print(optimized.pretty("    "))
                 
             #print("starting _MetaExpPusher...")
             optimized = _MetaExpPusher().walk(optimized, None)
@@ -703,6 +702,40 @@ class BasicFileQuery(object):
         if self.DatasetSelectors:
             for ds in self.DatasetSelectors:
                 ds.apply_params(params)
+                
+class Orderer(Descender):
+
+    def __call__(self, tree):
+        #print("Orderer: input: ", tree.pretty())
+        out = self.walk(tree)
+        #print("Orderer: output:", out.pretty())
+        return out
+
+    def basic_file_query(self, node, _):
+        q = node["query"]
+        q.Ordered = True
+        return node
+
+    basic_dataset_query = basic_file_query
+    
+    def filter(self, node, _):
+        return node.clone(ordered = True)
+
+    parents_of = children_of = filter
+    
+    def _done(self, node, _):
+        return node
+        
+    ordered = file_list = _done
+
+    def skip_limit(self, node, _):
+        if node["skip"]:
+            return node     # already ordered
+        else:
+            node.clone(children=[self(node.C[0])])
+
+    def _default(self, node, _):
+        return Node("ordered", [node])
 
 class QueryConverter(Converter):
     
@@ -774,6 +807,9 @@ class QueryConverter(Converter):
         else:
             node = Node("ordered", [node])
         return node
+        
+    def make_ordered(self, node):
+        return Orderer()(node)
 
     def ordered(self, args):
         return self.make_ordered(args[0])
@@ -782,8 +818,10 @@ class QueryConverter(Converter):
         assert len(args) == 2
         child, skip = args
         skip=int(skip)
+        #print("skip: before make_ordered:", child.pretty())
+        child = self.make_ordered(child)            # even if skip=0, still make it ordered
+        #print("skip: after  make_ordered:", child.pretty())
         if skip == 0:   return child
-        child = self.make_ordered(child)
         if child.T == "basic_file_query":
             q = child["query"]
             skip, limit = _merge_skip_limit(q.Skip, q.Limit, skip=skip)

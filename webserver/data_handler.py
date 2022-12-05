@@ -244,19 +244,13 @@ class DataHandler(MetaCatHandler):
 
         creator = user.Username 
 
-        files = subsets = None
+        files = None
         files_query = params.get("files_query")
         if files_query:
-            query = MQLQuery.parse(files_query)
+            query = MQLQuery.parse(files_query, default_namespace=namespace or None)
             if query.Type != "file":
                 return 400, f"Invalid file query: {file_query}"
-            files = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False, default_namespace=namespace or None)
-        subsets_query = params.get("subsets_query")
-        if subsets_query:
-            query = MQLQuery.parse(subsets_query)
-            if query.Type != "dataset":
-                return 400, f"Invalid dataset query: {subsets_query}"
-            subsets = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False, default_namespace=namespace or None)
+            files = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False)
 
         dataset = DBDataset(db, namespace, name,
             frozen = params.get("frozen", False), monotonic = params.get("monotonic", False),
@@ -268,10 +262,6 @@ class DataHandler(MetaCatHandler):
 
         if files:
             dataset.add_files(files)
-
-        if subsets:
-            for child in subsets:
-                dataset.add_child(child)
 
         return dataset.to_json(), "application/json"
     

@@ -237,7 +237,6 @@ class CreateDatasetCommand(CLICommand):
         frozen = "-F" in opts or "--frozen" in opts
         metadata = load_metadata(opts) or {}
         files_query = self.get_text(opts, ["-f", "--file-query"])
-        #subsets_query = self.get_text(opts, ["-d", "--datasets-query"])
         try:
             out = client.create_dataset(dataset_spec, monotonic = monotonic, frozen = frozen, description=desc, metadata = metadata,
                 files_query = files_query
