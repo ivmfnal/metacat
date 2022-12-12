@@ -102,7 +102,16 @@ class BaseApp(WPApp):
             return None
 
     def token_from_request(self, request):
-        encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
+        encoded = None
+        authorization = request.headers.get("Authorization", "").strip()
+        if authorization and " " in authorization:
+            scheme, rest = authorization.split(None, 1)
+            if scheme.lower() == "bearer":
+                encoded = rest
+        if encoded is None
+            encoded = request.cookies.get("auth_token")
+        if encoded is None:
+            encoded = request.headers.get("X-Authentication-Token")             # legacy, deprecated
         if not encoded: return None
         try:
             #print("token_from_request: encoded:", encoded)

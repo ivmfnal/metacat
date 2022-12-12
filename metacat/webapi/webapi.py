@@ -1,6 +1,6 @@
 import requests, json, fnmatch, sys, os, random, time
 from metacat.util import to_str, to_bytes, ObjectSpec
-from metacat.auth import SignedToken, TokenLib, AuthenticationError
+from metacat.auth import SignedToken, TokenLib
 from urllib.parse import quote_plus, unquote_plus
 from metacat.auth import TokenAuthClientMixin
 
@@ -63,6 +63,9 @@ class ServerReportedError(WebAPIError):
 class InvalidArgument(WebAPIError):
     Headline = "Invalid argument"
         
+class PermissionError(WebAPIError):
+    Headline = "Permission denied"
+        
 class NotFoundError(WebAPIError):
     Headline = "Object not found"
 
@@ -114,7 +117,7 @@ class HTTPClient(object):
         retry_interval = self.InitialRetry
         response = None
         done = False
-        while not done:
+        while time.time() < tend:
             if method == "get":
                 response = requests.get(url, timeout=self.Timeout, **args)
             else:
@@ -123,32 +126,33 @@ class HTTPClient(object):
                 break
             sleep_time = min(random.random() * retry_interval, tend-time.time())
             retry_interval *= self.RetryExponent
-            if sleep_time >= 0:
+            if sleep_time > 0:
                 time.sleep(sleep_time)
-            else:
-                break       # time out
         return response
 
     def send_request(self, method, uri_suffix, headers=None, timeout=None, **args):
         self.LastURL = url = "%s/%s" % (self.ServerURL, uri_suffix)
-        default_headers = {
+        req_headers = {
             "Accept": "text/plain, application/json, text/json, application/json-seq"
         }
-        if self.Token is not None:
-            default_headers["X-Authentication-Token"] = self.Token.encode()
+        try:
+            req_headers.update(self.auth_headers())           # in case we have TokenAuthClientMixin or similar
+        except AttributeError:
+            pass
         if headers:
-            default_headers.update(headers)
-        headers = default_headers
-        self.LastResponse = response = self.retry_request(method, url, headers=headers, **args)
+            req_headers.update(headers)
+        self.LastResponse = response = self.retry_request(method, url, headers=req_headers, **args)
         #print(response, response.text)
         self.LastStatusCode = response.status_code
         if response.status_code == INVALID_METADATA_ERROR_CODE:
             raise InvalidMetadataError(url, response)
-        if response.status_code == 404:
+        if response.status_code == 403:
+            raise PermissionError(url, response)
+        elif response.status_code == 404:
             raise NotFoundError(url, response)
-        if response.status_code == 400:
+        elif response.status_code//100 == 4:
             raise BadRequestError(url, response)
-        elif response.status_code/100 != 2:
+        elif response.status_code//100 != 2:
             raise WebAPIError(url, response)
         return response
 
