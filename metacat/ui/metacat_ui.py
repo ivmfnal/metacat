@@ -1,4 +1,4 @@
-from metacat.webapi import MCWebAPIError, MetaCatClient, MCError, AuthenticationError
+from metacat.webapi import MetaCatClient, MCError, MCAuthenticationError
 from metacat import Version
 import sys, getopt, os, json
 from .cli import CLI, CLICommand
@@ -165,7 +165,7 @@ def main():
     )
     try:
         cli.run(sys.argv, argv0="metacat")
-    except (AuthenticationError, MCError) as e:
+    except (MCAuthenticationError, MCError) as e:
         print(e, file=sys.stderr)
         sys.exit(1)
 

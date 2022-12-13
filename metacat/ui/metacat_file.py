@@ -1,6 +1,6 @@
 import sys, getopt, os, json, pprint, time
 from textwrap import dedent
-from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError, MCError
+from metacat.webapi import MetaCatClient, MCInvalidMetadataError, MCError
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
 from metacat.util import ObjectSpec, undid
 from datetime import timezone, datetime

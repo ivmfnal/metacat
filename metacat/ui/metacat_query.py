@@ -2,7 +2,7 @@ import sys, getopt, os, json, pprint
 from urllib.request import urlopen, Request
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
-from metacat.webapi import MetaCatClient, MCServerError, MCWebAPIError, MCError
+from metacat.webapi import MetaCatClient, MCServerError, MCError
 from metacat.ui.cli import CLICommand, InvalidArguments, InvalidOptions
 from metacat.mql import MQLQuery
 
@@ -101,7 +101,7 @@ class QueryCommand(CLICommand):
                         with_provenance=with_provenance)
 
             if "--json" in opts or "-j" in opts:
-                print(json.dumps(results, sort_keys=True, indent=4, separators=(',', ': ')))
+                print(json.dumps(list(results), sort_keys=True, indent=4, separators=(',', ': ')))
                 sys.exit(0)
 
             if "--pretty" in opts or "-p" in opts:

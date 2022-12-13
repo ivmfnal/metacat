@@ -2,7 +2,7 @@ import sys, getopt, os, json, pprint
 from urllib.request import urlopen, Request
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
-from metacat.webapi import MetaCatClient, MCServerError, MCWebAPIError, MCError
+from metacat.webapi import MetaCatClient
 from metacat.ui.cli import CLICommand, InvalidArguments, InvalidOptions
 from metacat.mql import MQLQuery
 
