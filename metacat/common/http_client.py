@@ -1,6 +1,17 @@
 import requests, time, json, random
 from urllib.parse import quote_plus, unquote_plus
-from .exceptions import MCError, NotFoundError, ServerSideError, InvalidArgument, PermissionError, BadRequestError
+from .exceptions import MCError, NotFoundError, ServerSideError, InvalidArgument, PermissionError, BadRequestError, WebAPIError
+
+def to_bytes(x):
+    if not isinstance(x, bytes):
+        x = x.encode("utf-8")
+    return x
+    
+def to_str(x):
+    if isinstance(x, bytes):
+        x = x.decode("utf-8")
+    return x
+
 
 class HTTPClient(object):
 
@@ -139,3 +150,60 @@ class HTTPClient(object):
                     obj = json.loads(line)
                     yield obj
 
+    def interpret_json_stream(self, response):
+        for line in response.iter_lines():
+            if line:    line = line.strip()
+            while line.startswith(b'\x1E'):
+                line = line[1:]
+            if line:
+                #print(f"stream line:[{line}]")
+                obj = json.loads(line)
+                yield obj
+                    
+    def interpret_response(self, response, none_if_not_found=True):
+        if response.status_code != 200:
+            if none_if_not_found and response.status_code == 404:
+                return None
+            elif response.status_code == 404:
+                raise NotFoundError(self.LastURL, response)
+            else:
+                raise WebAPIError(self.LastURL, response)
+        content_type = response.headers.get("Content-Type", "")
+        if content_type.startswith("text/json"):
+            return json.loads(response.text)
+        elif content_type == "application/json-seq":
+            return self.interpret_json_stream(response)
+        else:
+            return response.text
+
+    def get(self, uri_suffix, none_if_not_found=False):
+        if not uri_suffix.startswith("/"):  uri_suffix = "/"+uri_suffix
+        url = "%s%s" % (self.ServerURL, uri_suffix)
+        #print("url:", url)
+        try:
+            headers = self.auth_headers()           # in case we have TokenAuthClientMixin or similar
+        except AttributeError:
+            headers = {}
+        response = self.retry_request("get", url, headers=headers)
+        return self.interpret_response(response, none_if_not_found)
+
+    def post(self, uri_suffix, data):
+        #print("post_json: data:", type(data), data)
+        
+        if not uri_suffix.startswith("/"):  uri_suffix = "/"+uri_suffix
+        
+        if data is None or isinstance(data, (dict, list)):
+            data = json.dumps(data)
+        else:
+            data = to_bytes(data)
+        #print("post_json: data:", type(data), data)
+            
+        url = "%s%s" % (self.ServerURL, uri_suffix)
+        
+        try:
+            headers = self.auth_headers()           # in case we have TokenAuthClientMixin or similar
+        except AttributeError:
+            headers = {}
+
+        response = self.retry_request("post", url, data=data, headers=headers)
+        return self.interpret_response(response)

@@ -1,3 +1,17 @@
+def to_bytes(x):
+    if not isinstance(x, bytes):
+        x = x.encode("utf-8")
+    return x
+    
+def to_str(x):
+    if isinstance(x, bytes):
+        x = x.decode("utf-8")
+    return x
+
+
+
+
+
 class MCError(Exception):
     pass
 

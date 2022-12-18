@@ -26,6 +26,10 @@ class TokenAuthClientMixin(object):
         self.TokenFile = token_file
         self.Token = token 
         if self.Token is None: self.Token = self.token()      # load from file/lib if needed
+        
+    def auth_headers(self):
+        if self.Token:
+            return {"X-Authentication-Token":self.Token.encode()}
 
     def token(self):
         if self.Token is None or self.Token.expiration <= time.time():
