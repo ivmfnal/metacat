@@ -1,6 +1,6 @@
 from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet
 from metacat.util import limited, unique
-from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter, LarkToNodes
+from metacat.common.trees import Node, Ascender, Descender, Converter
 from .sql_converter import SQLConverter
 from .query_executor import FileQueryExecutor
 from .meta_evaluator import MetaEvaluator
@@ -1007,9 +1007,13 @@ class QueryConverter(Converter):
         node = Node("filter", queries, name = name.value, params=params, kw=kv, skip=0, limit=None, ordered=False, with_meta=False)
         return node
 
-    def scalar(self, args):
+    def meta_attribute(self, args):
         (t,) = args
-        return Node("scalar", name=t.value)
+        return Node("meta_attribute", name=t.value)
+
+    def object_attribute(self, args):
+        (t,) = args
+        return Node("object_attribute", name=t.value)
 
     def _convert_array_all(self, node):
         left = node.C[0]

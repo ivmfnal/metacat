@@ -1,5 +1,6 @@
-from .trees import Ascender, Node
-from metacat.db import DBFileSet, alias, MetaExpressionDNF, DBDataset
+from metacat.common.trees import Ascender, Node
+from metacat.db import DBFileSet, alias, DBDataset
+from metacat.common import MetaExpressionDNF
 from .meta_evaluator import MetaEvaluator
 from metacat.util import limited, insert_sql
 from textwrap import dedent, indent

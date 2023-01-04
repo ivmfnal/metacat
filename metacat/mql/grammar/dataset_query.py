@@ -27,6 +27,10 @@ dataset_spec_list : dataset_spec ("," dataset_spec)*
 
 simple_dataset_query_list : simple_dataset_query ("," simple_dataset_query)*        -> dataset_query_list
 
+// dataset attributes
+DATASET_ATTR_NAME: "namespace" | "name" | "parent_namespace" | "parent_name" | "creator" | "description" | "created_timestamp" | "updated_timestamp"
+    | "frozen" 
+    | "monotonic"
 """
 
 

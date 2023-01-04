@@ -34,4 +34,7 @@ filter_params : constant_list
 
 file_query_list: file_query ("," file_query)*     
 
+// file attributes
+FILE_ATTR_NAME: ("id" | "namespace" | "name" | "creator" | "updated_by" | "created_timestamp" | "updated_timestamp")
+
 """

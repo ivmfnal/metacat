@@ -1,4 +1,4 @@
-from .trees import Ascender, Node
+from metacat.common.trees  import Ascender, Node
 from metacat.db import DBFileSet
 
 class FileQueryExecutor(Ascender):
