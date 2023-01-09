@@ -114,7 +114,7 @@ class QueryCommand(CLICommand):
             #print("response results:", results)
     
             if "-s" in opts or "--summary" in opts and not with_meta:
-                print("%d files" % (len(results),))
+                print("%d files" % (len(list(results)),))
             else:
                 for f in results:
                     meta_lst = []
