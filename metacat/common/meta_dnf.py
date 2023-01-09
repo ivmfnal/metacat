@@ -1,3 +1,66 @@
+from metacat.common.trees import Ascender, Node
+
+class _MetaRegularizer(Ascender):
+    # converts the meta expression into DNF form:
+    #
+    #   Node(or, [Node(and, [exp, ...])])
+    #
+
+    def _flatten_bool(self, op, nodes):
+        #print("_flatten_bool: input:", nodes)
+        new_nodes = []
+        for c in nodes:
+            #print("_flatten_bool: c:", c)
+            if c.T == op:
+                new_nodes += self._flatten_bool(op, c.C)
+            else:
+                new_nodes.append(c)
+        #print("_flatten_bool: output:", new_nodes)
+        return new_nodes
+
+    def meta_or(self, node, *children):
+        children = [x if x.T == "meta_and" else Node("meta_and", [x]) for x in self._flatten_bool("meta_or", children)]
+        out = Node("meta_or", children)
+        return out
+
+    def _generate_and_terms(self, path, rest):
+        if len(rest) == 0:  yield path
+        else:
+            node = rest[0]
+            rest = rest[1:]
+            if node.T == "meta_or":
+                for c in node.C:
+                    my_path = path + [c]
+                    for p in self._generate_and_terms(my_path, rest):
+                        yield p
+            else:
+                for p in self._generate_and_terms(path + [node], rest):
+                    yield p
+
+    def meta_and(self, node, *children):
+        children = self._flatten_bool("meta_and", children)
+        or_present = False
+        for c in children:
+            if c.T == "meta_or":
+                or_present = True
+                break
+
+        if or_present:
+            paths = list(self._generate_and_terms([], children))
+            #print("paths:")
+            #for p in paths:
+            #    print(p)
+            paths = [self._flatten_bool("meta_and", p) for p in paths]
+            #print("meta_and: children:", paths)
+            return Node("meta_or", [Node("meta_and", p) for p in paths])
+        else:
+            return Node("meta_and", children)
+
+    def __default__(self, typ, children, meta):
+        return Node("meta_or", [
+            Node("meta_and", [Node(typ, children, _meta=meta)])
+        ])
+
 class MetaExpressionDNF(object):
     
     def __init__(self, exp):
@@ -15,14 +78,10 @@ class MetaExpressionDNF(object):
             # converts canonic Node expression (meta_or of one or more meta_ands) into nested or-list or and-lists
             #
             #assert isinstance(self.Exp, Node)
-            assert exp.T == "meta_or"
-            for c in exp.C:
-                assert c.T == "meta_and"
-    
-            or_list = []
-            for and_item in exp.C:
-                or_list.append(and_item.C)
-            self.DNF = or_list
+            assert exp.T in ("meta_or", "meta_and")
+            exp = self.regularize(exp)
+            assert exp.T == "meta_or" and all (c.T == "meta_and" for c in exp.C or [])
+            self.DNF = [and_item.C for and_item in exp.C]
 
         #print("MetaExpressionDNF: exp:", self.DNF)
         #self.validate_exp(meta_exp)
@@ -32,6 +91,10 @@ class MetaExpressionDNF(object):
         
     __repr__= __str__
     
+    @staticmethod
+    def regularize(exp):
+        return _MetaRegularizer()(exp)
+
     def sql_and(self, and_terms, table_name, meta_column_name="metadata"):
 
         def sql_literal(v):
@@ -82,7 +145,7 @@ class MetaExpressionDNF(object):
                     term = f"{table_name}.{meta_column_name} ? '{aname}'"
             
             else:
-                assert op in ("cmp_op", "in_range", "in_set", "not_in_range", "not_in_set")
+                assert op in ("cmp_op", "in_range", "in_set", "not_in_range", "not_in_set"), f"Unexpected expression type: {op}, exp:\n" + exp.pretty()
                 arg = args[0]
                 assert arg.T in ("array_any", "array_subscript", "array_length", "object_attribute", "meta_attribute")
 
@@ -232,3 +295,4 @@ class MetaExpressionDNF(object):
             out = "\n".join(out)
             #print("returning:\n", out)
             return out
+            

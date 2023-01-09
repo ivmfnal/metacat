@@ -30,8 +30,8 @@ meta_and:   term_meta ( "and" term_meta )*
     | scalar "not" "in" "(" constant_list ")"       -> not_in_set
     | META_NAME "present"                               -> present                   
     | META_NAME "not" "present"                         -> not_present                   
-    | constant "in" META_NAME                           -> constant_in_array
-    | constant "not" "in" META_NAME                     -> constant_not_in_array
+    | constant "in" META_NAME                           -> constant_in
+    | constant "not" "in" META_NAME                     -> constant_not_in
     | "(" meta_exp ")"                              
     | "!" term_meta                                 -> meta_not
     | "exists" STRING                               -> json_path
