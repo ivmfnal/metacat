@@ -21,6 +21,7 @@ class FileQueryExecutor(Ascender):
         return DBFileSet(self.DB)    # empty file set
         
     def sql(self, node, sql=None):
+        #print("sql:", sql)
         return DBFileSet.from_sql(self.DB, sql)
         
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):

@@ -91,22 +91,14 @@ class FileQuery(object):
 
     Type = "file"
 
-    def __init__(self, tree):
+    def __init__(self, tree, include_retired=False):
         self.Tree = tree
         self.Assembled = self.Optimized = self.Compiled = None
+        self.IncludeRetired = include_retired
 
     def __str__(self):
         return "FileQuery(\n%s\n)" % (self.Tree.pretty("  "),)
 
-    """
-        def assemble(self, db=None, loader=None, default_namespace = None):
-        #print("FileQuery.assemble: self.Assembled:", self.Assembled)
-        if self.Assembled is None:
-            #print("FileQuery.assemble: assembling...")
-            self.Assembled = _Assembler(db=db, loader=loader, default_namespace).walk(self.Tree)
-        return self.Assembled
-    """
-        
     def skip_assembly(self):
         if self.Assembled is None:
             self.Assembled = self.Tree
@@ -161,7 +153,7 @@ class FileQuery(object):
                 ))
             if debug:
                 print("after _QueryOptionsApplier:", optimized.pretty())
-            self.Compiled = compiled = SQLConverter(db, debug=debug)(optimized)
+            self.Compiled = compiled = SQLConverter(db, debug=debug, include_retired=self.IncludeRetired)(optimized)
         except Exception as e:
             raise MQLCompilationError(str(e))
 
@@ -572,7 +564,7 @@ class BasicFileQuery(object):
         
     def __str__(self):
         out = "BasicFileQuery(datasets:%s, limit:%s, skip:%s, %smeta, %sprovenance%s)" % (
-            ",".join(str(s) for s in self.DatasetSelectors), 
+            ",".join(str(s) for s in self.DatasetSelectors or []), 
             self.Limit, self.Skip,
             "with " if self.WithMeta else "no ",
             "with " if self.WithProvenance else "no ",
@@ -1220,7 +1212,7 @@ class QueryConverter(Converter):
 class MQLQuery(object):
     
     @staticmethod
-    def parse(text, db=None, loader=None, debug=False, convert=True, default_namespace=None):
+    def parse(text, db=None, loader=None, debug=False, convert=True, default_namespace=None, include_retired_files=None):
         out = []
         for l in text.split("\n"):
             l = l.split('#', 1)[0]
@@ -1235,7 +1227,7 @@ class MQLQuery(object):
                 if debug:
                     print("converted:\n", converted.pretty())
                 if converted.T == "top_file_query":
-                    q = FileQuery(converted.C[0])
+                    q = FileQuery(converted.C[0], include_retired_files)
                 else:
                     q = DatasetQuery(converted.C[0])
                 q.Parsed = parsed

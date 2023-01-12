@@ -394,7 +394,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         except NotFoundError:
             return None
 
-    def get_dataset_files(self, did, namespace=None, name=None, with_metadata=False):
+    def get_dataset_files(self, did, namespace=None, name=None, with_metadata=False, include_retired_files=False):
         """Gets single dataset
         
         Parameters
@@ -413,7 +413,9 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             did = namespace + ':' + name
         try:
             with_metadata = "yes" if with_metadata else "no"
-            return self.get_json_stream(f"data/dataset_files?dataset={did}&with_metadata={with_metadata}")
+            include_retired_files = "yes" if include_retired_files else "no"
+            url = f"data/dataset_files?dataset={did}&with_metadata={with_metadata}&include_retired_files={include_retired_files}"
+            return self.get_json_stream(url)
         except NotFoundError:
             return None
         
@@ -809,6 +811,41 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         return out
 
+    def retire_file(self, did=None, namespace=None, name=None, fid=None, retire=True):
+        """Modify retired status of the file
+        
+        Parameters
+        ----------
+        did : str
+            file "namespace:name"
+        fid : str
+            file id
+        namespace : str
+            file namespace
+        name : str
+            file name
+        retire : bool
+            whether the file should be retired
+        
+        Returns
+        -------
+        dict
+            Dictionary with updated file information
+        """
+        data = {
+            "retire":   retire
+        }
+        if fid:
+            data["fid"] = fid
+        else:
+            if did:
+                namespace, name = did.split(':', 1)
+            assert namespace and name
+            data["namespace"] = namespace
+            data["name"] = name
+        #print("API.retire: sending:", data)
+        return self.post_json("data/retire_file", data)
+
     def update_dataset(self, dataset, metadata=None, mode="update", frozen=None, monotonic=None, description=None):   
         """Update dataset. Requires client authentication.
         
@@ -959,7 +996,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         except NotFoundError:
             return None
 
-    def query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None, add_to=None):
+    def query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None, add_to=None,
+                        include_retired_files=False):
         """Run file query. Requires client authentication if save_as or add_to are used.
         
         Parameters
@@ -968,6 +1006,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             Query in MQL
         namespace : str
             default namespace for the query
+        include_retired_files:
+            boolean, whether to include retired files into the query results, default=False
         with_metadata : boolean
             whether to return file metadata
         with_provenance:
@@ -976,6 +1016,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             namespace:name for a new dataset to create and add found files to
         add_to:
             namespace:name for an existing dataset to add found files to
+            
 
         Returns
         -------
@@ -994,6 +1035,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             url += f"&save_as={save_as}"
         if add_to:
             url += f"&add_to={add_to}"
+        if include_retired_files:
+            url += "&include_retired_files=yes"
         results = self.post_json(url, query)
         return results
 

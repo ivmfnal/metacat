@@ -41,17 +41,20 @@ Usage:
 
 class ListDatasetFilesCommand(CLICommand):
     
-    Opts = "mj with-metadata"
+    Opts = "mjr with-metadata include-retired-files"
     Usage = """[<options>] <dataset namespace>:<dataset name>           -- list dataset files
-        -m|--with-metadata      - include file metadata
-        -j                      - as JSON
+        -m|--with-metadata              - include file metadata
+        -r|--include-retired-files      - include retired files
+        -j                              - as JSON
     """
     MinArgs = 1
     
     def __call__(self, command, client, opts, args):
         dataset_did = args[0]
         with_meta = "-m" in opts or "--with-metadata" in opts
-        files = client.get_dataset_files(dataset_did, with_metadata = with_meta)
+        files = client.get_dataset_files(dataset_did,
+                    with_metadata = with_meta,
+                    include_retired_files = "-r" in opts or "--include-retired-files" in opts)
         if "-j" in opts:
             first = True
             print("[")

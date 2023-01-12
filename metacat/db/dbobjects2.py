@@ -4,6 +4,7 @@ from metacat.auth import BaseDBUser
 from metacat.common import MetaExpressionDNF
 from psycopg2 import IntegrityError
 from textwrap import dedent
+from datetime import datetime, timezone
 
 Debug = False
 
@@ -278,7 +279,7 @@ class DBFileSet(object):
         return sql
         
     @staticmethod
-    def sql_for_basic_query(db, basic_file_query):
+    def sql_for_basic_query(db, basic_file_query, include_retired=False):
         debug("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
 
         f = alias("f")
@@ -299,18 +300,23 @@ class DBFileSet(object):
         debug("sql_for_basic_query: table:", table)
 
         file_meta_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f) or "true"
+        retired_condition = "true" if include_retired else f"not {f}.retired"
 
         attrs = DBFile.attr_columns(f)
+        #print("attrs:", attrs)
         if basic_file_query.DatasetSelectors is None:
             # no dataset selection
-            sql = dedent(f"""\
+            sql = insert_sql(f"""\
                 -- sql_for_basic_query {f}
                     select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
-                        where {file_meta_exp}
+                        where {retired_condition}   -- include retired ? 
+                            and (   -- metadata
+                                $file_meta_exp
+                            )
                         {order} {limit} {offset}
                 -- end of sql_for_basic_query {f}
-            """)
+            """, file_meta_exp = file_meta_exp)
         else:
             datasets_sql = DBDataset.sql_for_bdqs(basic_file_query.DatasetSelectors, names_only=True)
             #datasets_sql = DBDataset.sql_for_selector(dataset_selector)
@@ -329,6 +335,7 @@ class DBFileSet(object):
                         where {fd}.file_id = {f}.id
                             and {ds}.namespace = {fd}.dataset_namespace
                             and {ds}.name = {fd}.dataset_name
+                            and {retired_condition}   -- include retired ? 
                             and (  -- metadata
                                 $file_meta_exp
                             )
@@ -397,6 +404,8 @@ class DBFile(object):
     ]  
     def __init__(self, db, namespace = None, name = None, metadata = None, fid = None, size=None, checksums=None,
                     parents = None, children = None, creator = None, created_timestamp=None,
+                    updated_timestamp = None, updated_by = None,
+                    retired = False, retired_timestamp = None, retired_by = None
                     ):
 
         assert (namespace is None) == (name is None)
@@ -412,6 +421,11 @@ class DBFile(object):
         self.Size = size
         self.Parents = parents      # list of file ids
         self.Children = children    # list of file ids
+        self.UpdatedBy = updated_by
+        self.UpdatedTimestamp = updated_timestamp
+        self.Retired = retired
+        self.RetiredTimestamp = retired_timestamp
+        self.RetiredBy = retired_by
     
     @staticmethod
     def generate_id():
@@ -425,15 +439,17 @@ class DBFile(object):
 
     def __str__(self):
         return "[DBFile %s %s:%s]" % (self.FID, self.Namespace, self.Name)
-        
+
     __repr__ = __str__
 
     CoreColumnNames = [
         "id", "namespace", "name", "metadata"
     ]
-    
+
     AttrColumnNames = [
-        "creator", "created_timestamp", "size", "checksums"
+        "creator", "created_timestamp", "size", "checksums", 
+        "updated_by", "updated_timestamp", 
+        "retired", "retired_timestamp", "retired_by"
     ]
 
     AllColumnNames = CoreColumnNames + AttrColumnNames
@@ -521,15 +537,18 @@ class DBFile(object):
         return DBFileSet(db, files)
 
         
-    def update(self, do_commit = True):
+    def update(self, user, do_commit = True):
         from psycopg2 import IntegrityError
         c = self.DB.cursor()
         meta = json.dumps(self.Metadata or {})
         checksums = json.dumps(self.Checksums or {})
         try:
             c.execute("""
-                update files set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s where id = %s
-                """, (self.Namespace, self.Name, meta, self.Size, checksums, self.FID)
+                update files set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s 
+                    updated_by=%s, updated_timestamp = now()
+                    where id = %s
+                """, (self.Namespace, self.Name, meta, self.Size, checksums, user,
+                        self.FID)
             )
             if do_commit:   c.execute("commit")
         except:
@@ -537,21 +556,61 @@ class DBFile(object):
             raise    
         return self
         
+    def set_retire(self, retire, user, do_commit=True):
+        #print("set_retire:", retire, user)
+        from psycopg2 import IntegrityError
+        if retire != self.Retired:
+            c = self.DB.cursor()
+            try:
+                if retire:
+                    self.RetiredTimestamp = datetime.now(timezone.utc)
+                    self.RetiredBy = user
+                    c.execute("""
+                        update files set retired=true, retired_by=%s, retired_timestamp = %s
+                            where id = %s
+                        """, (self.RetiredBy, self.RetiredTimestamp, self.FID)
+                    )
+                else:
+                    self.UpdatedTimestamp = datetime.now(timezone.utc)
+                    self.UpdatedBy = user
+                    c.execute("""
+                        update files set retired=false, updated_by=%s, updated_timestamp = %s
+                            where id = %s
+                        """, (self.UpdatedBy, self.UpdatedTimestamp, self.FID)
+                    )
+                if do_commit:   c.execute("commit")
+            except:
+                c.execute("rollback")
+                raise
+            self.Retired = retire
+
     @staticmethod
     def from_tuple(db, tup):
         debug("----DBFile.from_tup: tup:", tup)
         if tup is None: return None
         try:
             try:    
-                fid, namespace, name, meta, creator, created_timestamp, size, checksums, parents, children = tup
+                (fid, namespace, name, meta, creator, created_timestamp, size, checksums, 
+                        updated_by, updated_timestamp, 
+                        retired, retired_timestamp, retired_by,
+                        parents, children) = tup
                 f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums,
                     parents = parents, children=children, creator=creator,
-                            created_timestamp=created_timestamp)
+                            created_timestamp=created_timestamp,
+                            updated_by=updated_by, updated_timestamp=updated_timestamp, 
+                            retired=retired, retired_timestamp=retired_timestamp, retired_by=retired_by
+                            )
+                debug("file created:", f.to_json())
             except: 
+                # try without provenance
                 try:    
-                    fid, namespace, name, meta, creator, created_timestamp, size, checksums = tup
+                    (fid, namespace, name, meta, creator, created_timestamp, size, checksums, 
+                         updated_by, updated_timestamp, retired, retired_timestamp, retired_by)= tup
                     f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums, creator=creator,
-                            created_timestamp=created_timestamp)
+                            created_timestamp=created_timestamp,
+                            updated_by=updated_by, updated_timestamp=updated_timestamp, 
+                            retired=retired, retired_timestamp=retired_timestamp, retired_by=retired_by
+                            )
                     #print(tup)
                     #print(f.__dict__)
                 except: 
@@ -724,12 +783,20 @@ class DBFile(object):
         data = dict(
             fid = self.FID,
             namespace = self.Namespace,
-            name = self.Name
+            name = self.Name,
+            retired = self.Retired,
+            retired_by = self.RetiredBy,
+            updated_by = self.UpdatedBy,
+            retired_timestamp = None,
+            updated_timestamp = None,
+            created_timestamp = None
         )
         if self.Checksums is not None:  data["checksums"] = self.Checksums
         if self.Size is not None:       data["size"] = self.Size
         if self.Creator is not None:    data["creator"] = self.Creator
         if self.CreatedTimestamp is not None:    data["created_timestamp"] = epoch(self.CreatedTimestamp)
+        if self.RetiredTimestamp is not None:    data["retired_timestamp"] = epoch(self.RetiredTimestamp)
+        if self.UpdatedTimestamp is not None:    data["updated_timestamp"] = epoch(self.UpdatedTimestamp)
         if with_metadata:     data["metadata"] = self.metadata()
         if with_provenance:   
             data["parents"] = [f.FID for f in self.parents()]
@@ -1054,13 +1121,15 @@ class DBDataset(DBObject):
             raise
         return self
 
-    def list_files(self, with_metadata=False, limit=None):
+    def list_files(self, with_metadata=False, limit=None, include_retired_files=False):
         meta = "null as metadata" if not with_metadata else "f.metadata"
         limit = f"limit {limit}" if limit else ""
+        retired = "" if include_retired_files else "and not f.retired"
         sql = f"""select f.id, f.namespace, f.name, {meta}, f.size, f.checksums, f.creator, f.created_timestamp 
                     from files f
                         inner join files_datasets fd on fd.file_id = f.id
                     where fd.dataset_namespace = %s and fd.dataset_name=%s
+                        {retired}
                     {limit}
         """
         c = self.DB.cursor()
@@ -1140,8 +1209,11 @@ class DBDataset(DBObject):
     def nfiles(self):
         c = self.DB.cursor()
         c.execute("""select count(*) 
-                        from files_datasets 
-                        where dataset_namespace=%s and dataset_name=%s""", (self.Namespace, self.Name))
+                        from files_datasets fd, files f
+                        where fd.dataset_namespace=%s and fd.dataset_name=%s
+                            and fd.file_id = f.id
+                            and not f.retired
+                        """, (self.Namespace, self.Name))
         return c.fetchone()[0]     
     
     def to_jsonable(self, with_relatives=False):

@@ -50,11 +50,24 @@
     	                <th>Size</th><td>{{f.Size}} {% if f.Size %}({{"%.3f" % (f.Size/1024.0/1024.0,)}} MB){% endif %}</td>
                     </tr>
                     <tr>
-                        <th>Created at</th><td>{{f.CreatedTimestamp or ""}}</td>
+                        <th>Created</th><td>{{f.CreatedTimestamp or ""}} by 
+                            {% if f.Creator %}<a href="./user?username={{f.Creator}}">{{f.Creator}}</a>{% endif %}</td>
                     </tr>
                     <tr>
-                        <th>Created by</th><td>{% if f.Creator %}<a href="./user?username={{f.Creator}}">{{f.Creator}}</a>{% endif %}</td>
+                        <th>Updated</th>
+                        <td>{{f.UpdatedTimestamp or ""}} {% if f.UpdatedBy %} by 
+                            <a href="./user?username={{f.UpdatedBy}}">{{f.UpdatedBy}}</a>{% endif %}
+                        </td>
                     </tr>
+                    {% if f.Retired %}
+                        <tr>
+                            <th>Retired</th>
+                            <td>
+                                {{f.RetiredTimestamp or ""}}
+                                {% if f.RetiredBy %}by <a href="./user?username={{f.RetiredBy}}">{{f.RetiredBy}}</a>{% endif %}
+                            </td>
+                        </tr>
+                    {% endif %}
                     <tr>
     	                <th>Checksums</th>
                         <td>

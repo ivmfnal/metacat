@@ -337,6 +337,34 @@ class FileIDCommand(CLICommand):
 
         print(data["fid"])
 
+class RetireCommand(CLICommand):
+
+    MinArgs = 1
+    Opts = "u unretire"
+    Usage = """[-u|--unretire] (<namespace>:<name>|<namespace> <name>)  - retire/unretire file
+        -u - unretire the file
+    """
+
+    def __call__(self, command, client, opts, args):
+        did = namespace = name = None
+        if len(args) == 1:
+            did = args[0]
+            if ':' not in did:
+                raise InvalidArguments("Invalid DID: " + did)
+        elif len(args) == 2:
+            namespace, name = args
+        else:
+            raise InvalidArguments("Too many arguments")
+
+        try:
+            data = client.retire_file(did=did, namespace=namespace, name=name, retire="-u" not in opts)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+        if data is None:
+            print("File not found", file=sys.stderr)
+            sys.exit(1)
+
 class NameCommand(CLICommand):
 
     MinArgs = 1
@@ -573,6 +601,7 @@ FileCLI = CLI(
     "add",      AddCommand(),
     "datasets", DatasetsCommand(),
     "update",   UpdateCommand(),
+    "retire",   RetireCommand(),
     "name",     NameCommand(),
     "fid",      FileIDCommand(),
     "show",     ShowCommand()

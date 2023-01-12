@@ -58,7 +58,10 @@ create table files
     checksums   jsonb   default '{}',
     created_timestamp   timestamp with time zone    default now(),
     updated_by  text references users(username),
-    updated_timestamp   timestamp with time zone    default now()
+    updated_timestamp   timestamp with time zone    default now(),
+    retired     boolean default false,
+    retired_timestamp   timestamp with time zone,
+    retired_by  text references users(username)
 );
 
 create unique index file_names_unique on files(namespace, name);

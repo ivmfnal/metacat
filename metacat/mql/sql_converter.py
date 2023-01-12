@@ -7,10 +7,11 @@ from textwrap import dedent, indent
 
 class SQLConverter(Ascender):
     
-    def __init__(self, db, debug=False):
+    def __init__(self, db, debug=False, include_retired=False):
         self.DB = db
         self.Debug = False
-        
+        self.IncludeRetired = include_retired
+
     def columns(self, t, with_meta=True, with_provenance=True):
         meta = f"{t}.metadata" if with_meta else "null as metadata"
         if with_provenance:
@@ -20,24 +21,24 @@ class SQLConverter(Ascender):
             parents = "null as parents"
             children = "null as children"
         return f"{t}.id, {t}.namespace, {t}.name, {meta}, {t}.creator, {t}.created_timestamp, {t}.size, {t}.checksums, {parents}, {children}"
-        
+
     def debug(self, *params, **args):
         if self.Debug:
             parts = ["SQLConverter:"]+list(params)
             print(*parts, **args)
-            
+
     def __call__(self, tree):
         self.debug("\nSQL converter: input tree:----------\n", tree.pretty(), "\n-------------")
         result = self.walk(tree)
         self.debug("\nSQL converter: output tree:----------\n", result.pretty(), "\n-------------")
         return result
-        
+
     #
     # Tree node methods
     #
     def query(self, node, *args, namespace=None, name=None):
         raise RuntimeError(f"Named query {namespace}:{name} not assembled")
-        
+
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
         if meta_exp is None:
             return query
@@ -80,7 +81,7 @@ class SQLConverter(Ascender):
             return node
 
     def basic_file_query(self, node, *args, query=None):
-        sql = DBFileSet.sql_for_basic_query(self.DB, query)
+        sql = DBFileSet.sql_for_basic_query(self.DB, query, self.IncludeRetired)
         if sql:
             return Node("sql", sql=sql)
         else:

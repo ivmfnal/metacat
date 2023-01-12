@@ -380,6 +380,8 @@ class GUIHandler(MetaCatHandler):
         query_type = None
         action = "show"     # just show the form
         
+        include_retired_files = request.POST.get("include_retired_files", "off") == "on"
+
         if request.method == "GET" and run == "yes":
             action = "run"
             with_meta = with_meta == "yes"
@@ -395,7 +397,11 @@ class GUIHandler(MetaCatHandler):
                 url_query = quote_plus(url_query)
                 if namespace: url_query += "&namespace=%s" % (namespace,)
                 #print("with_meta=", with_meta)
-                parsed = MQLQuery.parse(query_text, db=db, default_namespace=namespace or None)
+                parsed = MQLQuery.parse(query_text, 
+                                        db=db, 
+                                        default_namespace=namespace or None, 
+                                        include_retired_files=include_retired_files
+                )
                 query_type = parsed.Type
                 #print("Server.query: with_meta:", with_meta)
                 try:
@@ -493,6 +499,7 @@ class GUIHandler(MetaCatHandler):
             show_files=files is not None, files=files, 
             show_datasets=datasets is not None,datasets = datasets,
             runtime = runtime, meta_stats = meta_stats, with_meta = with_meta,
+            include_retired_files = include_retired_files,
             namespace=namespace or "")
         return resp
         
@@ -704,7 +711,6 @@ class GUIHandler(MetaCatHandler):
     @sanitize(exclude=["error", "message"])
     def namespace(self, request, relpath, name=None, **args):
         db = self.App.connect()
-        name = name or relpath
         ns = DBNamespace.get(db, name)
         roles = []
         edit = False
@@ -792,7 +798,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("datasets.html", datasets=datasets, logged_in=user is not None, **self.messages(args))
 
     @sanitize(exclude=["error", "message"])
-    def dataset_files(self, request, relpath, dataset=None, with_meta="no"):
+    def _____dataset_files(self, request, relpath, dataset=None, with_meta="no"):
         with_meta = with_meta == "yes"
         namespace, name = (dataset or relpath).split(":",1)
         db = self.App.connect()
