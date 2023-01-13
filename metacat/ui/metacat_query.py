@@ -4,7 +4,6 @@ from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
 from metacat.webapi import MetaCatClient, MCServerError, MCWebAPIError, MCError
 from metacat.ui.cli import CLICommand, InvalidArguments, InvalidOptions
-from metacat.mql import MQLQuery
 
 Usage = """
 Usage: --
@@ -78,6 +77,7 @@ class QueryCommand(CLICommand):
             query_text = to_str(open(query_file, "r").read())
             
         if "-x" in opts or "--explain" in opts:
+            from metacat.mql import MQLQuery
             print("---- Query text ----\n%s\n" % (query_text,))
             q = MQLQuery.parse(query_text, loader=client, include_retired_files=include_retired)
 
