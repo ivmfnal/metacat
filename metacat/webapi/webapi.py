@@ -250,27 +250,14 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             Request timeout in seconds. Default: None - use default timeout, which is 300 seconds
         """
 
-        self.TokenLib = self.Token = None
-        self.TokenFile = token_file
-
-        if token_file and token is None:
-            token = self.resfresh_token()
-
-        if token is not None:
-            if isinstance(token, (str, bytes)):
-                token = SignedToken.decode(token)
-            self.Token = token
-
         server_url = server_url or os.environ.get("METACAT_SERVER_URL")
         if not server_url:
             raise RuntimeError("MetaCat server URL unspecified")
 
-        if token is None:
-            self.TokenLib = TokenLib()
-            token = self.TokenLib.get(server_url)
+        auth_server_url = auth_server_url or os.environ.get("METACAT_AUTH_SERVER_URL")
 
-        HTTPClient.__init__(self, server_url, token, timeout)
-        self.AuthURL = auth_server_url or server_url + "/auth"
+        TokenAuthClientMixin.__init__(self, server_url, auth_server_url, token=token, token_file=token_file)
+        HTTPClient.__init__(self, server_url, token=self.token(), timeout=timeout)
         self.MaxConcurrent = max_concurrent_queries
         self.AsyncQueue = None
         

@@ -15,7 +15,7 @@ class AuthenticationError(Exception):
 
 class TokenAuthClientMixin(object):
     
-    def __init__(self, service_url, token=None, token_file=None, auth_url=None):
+    def __init__(self, service_url, auth_url, token=None, token_file=None):
         self.ServiceURL = service_url
         self.AuthURL = auth_url or service_url + "/auth"
         #print("TokenAuthClientMixin: AuthURL:", self.AuthURL)
