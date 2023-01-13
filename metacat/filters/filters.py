@@ -111,7 +111,6 @@ class Stride(MetaCatFilter):
     """
     
     def filter(self, inputs, modulo, remainder, **ignore):
-        print("modulo:", modulo)
         file_set = inputs[0]
         i = 0
         for f in file_set:
