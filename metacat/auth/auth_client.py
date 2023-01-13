@@ -3,6 +3,10 @@ from .signed_token_jwt import SignedToken
 from .token_lib import TokenLib
 import time, requests, json
 
+import urllib3      # disable "Unverified HTTPS request is being made..." warning
+urllib3.disable_warnings()
+del urllib3
+
 class AuthenticationError(Exception):
     def __init__(self, message):
         self.Message = message
