@@ -205,25 +205,25 @@ class HTTPClient(object):
         if self.Token is not None:
             headers["X-Authentication-Token"] = self.Token.encode()
 
-        with self.retry_request("get", url, headers=headers, stream=True) as response:
-            if response.status_code == INVALID_METADATA_ERROR_CODE:
-                raise InvalidMetadataError(url, response.status_code, response.text)
-            if response.status_code == 404:
-                raise NotFoundError(url, response.status_code, response.text)
-            elif response.status_code != 200:
-                raise WebAPIError(url, response.status_code, response.text)
-            
-            if response.headers.get("Content-Type") != "application/json-seq":
-                raise WebAPIError(url, 200, "Expected content type application/json-seq. Got %s instead." % (response.headers.get("Content-Type"),))
+        response = self.retry_request("get", url, headers=headers, stream=True)
+        if response.status_code == INVALID_METADATA_ERROR_CODE:
+            raise InvalidMetadataError(url, response.status_code, response.text)
+        if response.status_code == 404:
+            raise NotFoundError(url, response.status_code, response.text)
+        elif response.status_code != 200:
+            raise WebAPIError(url, response.status_code, response.text)
+        
+        if response.headers.get("Content-Type") != "application/json-seq":
+            raise WebAPIError(url, 200, "Expected content type application/json-seq. Got %s instead." % (response.headers.get("Content-Type"),))
 
-            for line in response.iter_lines():
-                if line:    line = line.strip()
-                while line.startswith(b'\x1E'):
-                    line = line[1:]
-                if line:
-                    #print(f"stream line:[{line}]")
-                    obj = json.loads(line)
-                    yield obj
+        for line in response.iter_lines():
+            if line:    line = line.strip()
+            while line.startswith(b'\x1E'):
+                line = line[1:]
+            if line:
+                #print(f"stream line:[{line}]")
+                obj = json.loads(line)
+                yield obj
 
 class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     
@@ -363,9 +363,9 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             dataset counts or None if the dataset was not found
         """        
 
-        spec = ObjectSpec(did, namespace=namespace, name=name).did()
+        did = ObjectSpec(did, namespace=namespace, name=name).did()
         try:
-            out = self.get_json(f"data/dataset_counts/{spec}")
+            out = self.get_json(f"data/dataset_counts?dataset={did}")
             #print("get_dataset_counts", did, " out=", out)
             return out
         except NotFoundError:
