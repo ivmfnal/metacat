@@ -67,6 +67,7 @@ class ListCommand(CLICommand):
             max_exp = max(len(et)+len(delta)+1+2, max_exp)
     
         format = f"%-{max_tid}s %-{max_url}s %-{max_user}s %s"
+        print("Token library:", client.TokenLib.Location)
         print(format % ("Token id", "Server URL", "User", "Expiration"))
         print("-"*max_tid, "-"*max_url, "-"*max_user, "-"*max_exp)
         for tid, url, user, et, delta in lst:
@@ -136,6 +137,9 @@ class LoginCommand(CLICommand):
             user, expiration = client.login_x509(username, cert, key=key)
         else:
             raise InvalidArguments(f"Unknown authentication mechanism {mechanism}")
+        if not client.tokens_saved():
+            print("Authentication token not saved. Can not access/create token library", sys.stderr)
+            sys.exit(1)
         print ("User:   ", user)
         print ("Expires:", time.ctime(expiration))
     

@@ -230,7 +230,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     Version = "1.0"
     
     def __init__(self, server_url=None, auth_server_url=None, max_concurrent_queries = 5,
-                token = None, token_file = None, timeout = None):    
+                token = None, token_file = None, token_library = None, timeout = None):    
 
         """Initializes the MetaCatClient object
 
@@ -256,7 +256,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         auth_server_url = auth_server_url or os.environ.get("METACAT_AUTH_SERVER_URL")
 
-        TokenAuthClientMixin.__init__(self, server_url, auth_server_url, token=token, token_file=token_file)
+        TokenAuthClientMixin.__init__(self, server_url, auth_server_url, token=token, token_file=token_file, token_library=token_library)
         HTTPClient.__init__(self, server_url, token=self.token(), timeout=timeout)
         self.MaxConcurrent = max_concurrent_queries
         self.AsyncQueue = None

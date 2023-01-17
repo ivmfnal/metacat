@@ -19,11 +19,11 @@ class AuthenticationError(Exception):
 
 class TokenAuthClientMixin(object):
     
-    def __init__(self, service_url, auth_url, token=None, token_file=None):
+    def __init__(self, service_url, auth_url, token=None, token_file=None, token_library=None):
         self.ServiceURL = service_url
         self.AuthURL = auth_url or service_url + "/auth"
         #print("TokenAuthClientMixin: AuthURL:", self.AuthURL)
-        self.TokenLib = TokenLib()
+        self.TokenLib = TokenLib(token_library)
         if isinstance(token, (str, bytes)):
             token = SignedToken.decode(token)
 
@@ -43,6 +43,9 @@ class TokenAuthClientMixin(object):
             else:
                 self.Token = self.TokenLib.get(self.ServiceURL)
         return self.Token
+        
+    def tokens_saved(self):
+        return self.TokenLib is not None and self.TokenLib.exists()
 
     def login_digest(self, username, password, save_token=False):
         """Performs password-based authentication and stores the authentication token locally.
