@@ -41,6 +41,12 @@ copy (
 ) to stdout;
 
 copy (
+   select df.file_id, '${core_category}.process_id', df.process_id
+                from active_files df
+                where df.process_id is not null
+) to stdout;
+
+copy (
     select df.file_id, '${origin_category}.worker_id', '"' || df.process_id || '"'      -- convert process id to string
         from active_files df
 	where df.process_id is not null
