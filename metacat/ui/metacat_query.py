@@ -120,7 +120,28 @@ class QueryCommand(CLICommand):
             #print("response results:", results)
     
             if "-s" in opts or "--summary" in opts and not with_meta:
-                print("%d files" % (len(list(results)),))
+                nfiles = total_size = 0
+                for f in results:
+                    nfiles += 1
+                    total_size += f.get("size", 0)
+                print("Files:       ", nfiles)
+                if total_size >= 1024*1024*1024*1024:
+                    unit = "TB"
+                    n = total_size / (1024*1024*1024*1024)
+                elif total_size >= 1024*1024*1024:
+                    unit = "GB"
+                    n = total_size / (1024*1024*1024)
+                elif total_size >= 1024*1024:
+                    unit = "MB"
+                    n = total_size / (1024*1024)
+                elif total_size >= 1024:
+                    unit = "KB"
+                    n = total_size / 1024
+                else:
+                    unit = "B"
+                    n = total_size
+                print("Total size:  ", total_size, " (%.3f %s)" % (n, unit))
+                    
             else:
                 for f in results:
                     meta_lst = []
