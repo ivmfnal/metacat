@@ -799,8 +799,8 @@ class DBFile(object):
         if self.UpdatedTimestamp is not None:    data["updated_timestamp"] = epoch(self.UpdatedTimestamp)
         if with_metadata:     data["metadata"] = self.metadata()
         if with_provenance:   
-            data["parents"] = [f.FID for f in self.parents()]
-            data["children"] = [f.FID for f in self.children()]
+            data["parents"] = [{"fid":fid} for fid in self.parents()]
+            data["children"] = [{"fid":fid} for fid in self.children()]
         if with_datasets:
             data["datasets"] = [{"namespace":ns, "name":n} for ns, n in self.datasets]
         return data
@@ -808,16 +808,30 @@ class DBFile(object):
     def to_json(self, with_metadata = False, with_datasets = False, with_provenance=False):
         return json.dumps(self.to_jsonable(with_metadata=with_metadata, with_provenance=with_provenance, with_datasets=with_datasets))
         
-    def children(self, as_files=False, with_metadata = False):
-        if self.Children is None:
-            self.Children = list(DBFileSet(self.DB, [self]).children(with_metadata))
-        return self.Children
-        
     def parents(self, as_files=False, with_metadata = False):
         if self.Parents is None:
-            self.Parents = list(DBFileSet(self.DB, [self]).parents(with_metadata))
-        return self.Parents
-        
+            c = self.DB.cursor()
+            c.execute(f"""
+                select parent_id from parent_child where child_id = %s
+            """, (self.FID,))
+            self.Parents = [fid for (fid,) in c.fetchall()]
+        if as_files:
+            return self.get_files(self.DB, [{"fid":fid} for fid in self.Parents])
+        else:
+            return self.Parents
+
+    def children(self, as_files=False, with_metadata = False):
+        if self.Children is None:
+            c = self.DB.cursor()
+            c.execute(f"""
+                select child_id from parent_child where parent_id = %s
+            """, (self.FID,))
+            self.Children = [fid for (fid,) in c.fetchall()]
+        if as_files:
+            return self.get_files(self.DB, [{"fid":fid} for fid in self.Children])
+        else:
+            return self.Children
+
     def add_child(self, child, do_commit=True):
         child_fid = child if isinstance(child, str) else child.FID
         c = self.DB.cursor()

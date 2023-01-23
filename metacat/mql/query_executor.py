@@ -51,10 +51,10 @@ class FileQueryExecutor(Ascender):
         return left - right
 
     def parents_of(self, node, arg, with_meta=False, with_provenance=False):
-        return arg.parents(with_metadata=with_meta, with_provenance=with_provenance)
+        return arg.parents(as_files=True, with_metadata=with_meta, with_provenance=with_provenance)
 
     def children_of(self, node, *args, with_meta=False, with_provenance=False):
-        return arg.children(with_metadata=with_meta, with_provenance=with_provenance)
+        return arg.children(as_files=True, with_metadata=with_meta, with_provenance=with_provenance)
 
     def skip_limit(self, node, arg, skip=0, limit=None, **kv):
         return arg.skip(skip).limit(limit)

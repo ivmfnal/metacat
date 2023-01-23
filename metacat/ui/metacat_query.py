@@ -94,7 +94,7 @@ class QueryCommand(CLICommand):
             #print(q.Optimized.pretty("    "))
             #print("")
     
-            compiled = q.compile()
+            compiled = q.compile(with_meta=with_meta, with_provenance=with_provenance)
             print("---- Compiled ----")
             print(compiled.pretty("    "))
         else:
@@ -140,7 +140,7 @@ class QueryCommand(CLICommand):
                 else:
                     unit = "B"
                     n = total_size
-                print("Total size:  ", total_size, " (%.3f %s)" % (n, unit))
+                print("Total size:  ", "%d (%.3f %s)" % (total_size, n, unit))
                     
             else:
                 for f in results:

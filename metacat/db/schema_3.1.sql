@@ -93,6 +93,12 @@ create view files_with_provenance as
     from files f, file_provenance r
     where f.id = r.id
 ;
+
+create view ____files_with_provenance as                                                                                                                      
+    select f.*, coalesce(r.children, Array[]::text[]) as children, coalesce(r.parents, Array[]::text[]) as parents
+    from files f
+        left outer join file_provenance r on (f.id = r.id)
+;
     
 create table datasets
 (

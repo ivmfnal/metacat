@@ -79,7 +79,7 @@
                     <tr>
     	                <th>Parents</th>
                         <td>
-    		                {% for p in f.parents() -%}
+    		                {% for p in f.parents(as_files=True) -%}
     		                    <a href="./show_file?fid={{p.FID}}">{{p.Namespace}}:{{p.Name}}</a><br/>
     		                {%- endfor %}
     	                </td>
@@ -87,7 +87,7 @@
                     <tr>
     	                <th>Children</th>
                         <td>
-    		                {% for p in f.children() -%}
+    		                {% for p in f.children(as_files=True) -%}
     		                    <a href="./show_file?fid={{p.FID}}">{{p.Namespace}}:{{p.Name}}</a><br/>
     		                {%- endfor %}
     	                </td>
