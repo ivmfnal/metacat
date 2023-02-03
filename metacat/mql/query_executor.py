@@ -28,7 +28,7 @@ class FileQueryExecutor(Ascender):
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
         #print("meta_filter: args:", args)
         evaluator = MetaEvaluator()
-        out = (f for f in self.node_to_file_set(query)
+        out = (f for f in node
                 if evaluator(f.metadata(), meta_exp)
         )
         return DBFileSet(self.DB, out)
