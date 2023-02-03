@@ -26,7 +26,6 @@ class FileQueryExecutor(Ascender):
         
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
         #print("meta_filter: args:", args)
-        assert query.T == "file_set"
         evaluator = MetaEvaluator()
         out = (f for f in self.node_to_file_set(query)
                 if evaluator(f.metadata(), meta_exp)
