@@ -316,6 +316,7 @@ class Ascender(Traveler):
                 }
                 children = [self._walk(c, debug) for c in children]
                 node = node.clone(children)
+                node.D = named_children
                 out = method(node, *children, **named_children)
                 if debug:
                     me = self.__class__.__name__

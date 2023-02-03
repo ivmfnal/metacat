@@ -97,7 +97,7 @@ class MetaEvaluator(object):
             left, right = args
             #print("cmp_op: left:", left.pretty())
             value = right["value"]
-            if left.T == "scalar":
+            if left.T == "meta_attribute":
                 aname = left["name"]
                 try:    
                     result = aname in metadata and self.do_cmp_op(metadata[aname], cmp_op, value)
