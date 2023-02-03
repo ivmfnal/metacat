@@ -1,5 +1,6 @@
 from metacat.common.trees  import Ascender, Node
 from metacat.db import DBFileSet
+from .meta_evaluator import MetaEvaluator
 
 class FileQueryExecutor(Ascender):
     
