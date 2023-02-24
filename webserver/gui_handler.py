@@ -1,4 +1,4 @@
-from webpie import WPApp, WPHandler, Response, WPStaticHandler
+from webpie import WPApp, WPHandler, Response, WPStaticHandler, sanitize
 import psycopg2, json, time, secrets, traceback, hashlib, pprint
 from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, DBParamCategory, \
         parse_name, AlreadyExistsError, IntegrityError
@@ -8,38 +8,6 @@ from metacat.util import to_str, to_bytes
 from metacat.mql import MQLQuery, MQLError
 from metacat import Version
 from common_handler import MetaCatHandler, SanitizeException
-
-def _check_unsafe(name, value, unsafe="'<>&"):
-    if value:
-        if any(c in value for c in unsafe):
-            raise SanitizeException("Invalid value for %s: %s" % (name, value))
-    return value
-
-def sanitize(exclude=[], only=None, sanitizer=_check_unsafe):
-    # assume accept is a compiled regexp pattern
-    def decorator(method):
-        szr = sanitizer
-        onl = only
-        excl = exclude
-        s = sanitizer
-        def decorated(handler, request, relpath, *params, **args):
-            "do-not-sanitize"       # signal "already sanitized"
-            sanitizer = szr
-            only = onl
-            exclude = excl
-            sanitizer = s
-            if isinstance(exclude, str):
-                exclude = [exclude]
-            if isinstance(only, str):
-                only = [only]
-            try:
-                relpath, args = handler.App.sanitize(sanitizer, request, relpath, args, exclude=exclude, only=only)
-            except SanitizeException as e:
-                return 400, str(e), "text/plain"
-            else:
-                return method(handler, request, relpath, *params, **args)
-        return decorated
-    return decorator
 
 class GUICategoryHandler(MetaCatHandler):
     
