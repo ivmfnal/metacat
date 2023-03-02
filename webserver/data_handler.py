@@ -7,6 +7,7 @@ from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_str, to_bytes, ObjectSpec
 from metacat.mql import MQLQuery, MQLSyntaxError, MQLExecutionError, MQLCompilationError, MQLError
 from metacat import Version
+from datetime import datetime, timezone
 
 from common_handler import MetaCatHandler, sanitized
 
@@ -171,7 +172,7 @@ class DataHandler(MetaCatHandler):
         return json.dumps(out), "application/json"
         
     @sanitized
-    def dataset_files(self, request, relpath, dataset=None, with_metadata="no", **args):
+    def dataset_files(self, request, relpath, dataset=None, with_metadata="no", include_retired_files="no", **args):
         with_metadata=with_metadata == "yes"
         namespace, name = (dataset or relpath).split(":", 1)
         self.sanitize(namespace, name)
@@ -179,7 +180,8 @@ class DataHandler(MetaCatHandler):
         dataset = DBDataset.get(db, namespace, name)
         if dataset is None:
             return 404, "Dataset not found"
-        files = dataset.list_files(with_metadata=with_metadata)
+        files = dataset.list_files(with_metadata=with_metadata, 
+                        include_retired_files = include_retired_files == "yes")
         return self.json_stream((f.to_jsonable(with_metadata=with_metadata) for f in files)), "application/json-seq"
         
     @sanitized
@@ -196,7 +198,7 @@ class DataHandler(MetaCatHandler):
             
     @sanitized
     def dataset_count(self, request, relpath, dataset=None, **args):
-        namespace, name = (dataset or relpath).split(":", 1)
+        namespace, name = dataset.split(":", 1)
         self.sanitize(namespace, name)
         db = self.App.connect()
         nfiles = DBDataset(db, namespace, name).nfiles
@@ -206,7 +208,7 @@ class DataHandler(MetaCatHandler):
 
     @sanitized
     def dataset_counts(self, request, relpath, dataset=None, **args):
-        namespace, name = (dataset or relpath).split(":", 1)
+        namespace, name = dataset.split(":", 1)
         self.sanitize(namespace, name)
         db = self.App.connect()
         ds = DBDataset(db, namespace, name)
@@ -828,6 +830,36 @@ class DataHandler(MetaCatHandler):
         if f is None:
             return "File not found", 404
         return f.to_json(with_metadata=with_metadata, with_provenance=with_provenance, with_datasets=with_datasets), "application/json"
+        
+    @sanitized
+    def retire_file(self, request, relpath):
+        #print("retire file...")
+        user, error = self.authenticated_user()
+        if user is None:
+            return "Authentication required", 403
+
+        data = json.loads(request.body)
+        retire = data["retire"]
+        db = self.App.connect()
+        spec = ObjectSpec.from_dict(data)
+        namespace = None
+        if spec.FID:
+            f = DBFile.get(db, fid = spec.FID)
+            if f is None:
+                return 404, "File not found"
+        else:
+            f = DBFile.get(db, namespace=spec.Namespace, name=spec.Name)
+        namespace = f.Namespace
+        try:
+            if not self._namespace_authorized(db, namespace, user):
+                return f"Permission to manage files in namespace {namespace} denied", 403
+        except KeyError:
+            return f"Namespace {namespace} does not exist", 404
+        #print("retire_file: doing it: retire:", retire, "  f.Retired:", f.Retired)
+        if retire != f.Retired:
+            #print("retire_file: doing it: retire:", retire, "  f.Retired:", f.Retired)
+            f.set_retire(retire, user.Username)
+        return f.to_json(), "application/json"
 
     @sanitized
     def files(self, request, relpath, with_metadata="no", with_provenance="no", **args):
@@ -852,12 +884,13 @@ class DataHandler(MetaCatHandler):
 
     @sanitized
     def query(self, request, relpath, query=None, namespace=None, 
-                    with_meta="no", with_provenance="no", debug="no",
+                    with_meta="no", with_provenance="no", debug="no", include_retired_files="no",
                     add_to=None, save_as=None,
                     **args):
         with_meta = with_meta == "yes"
         with_provenance = with_provenance == "yes"
         namespace = namespace or self.App.DefaultNamespace
+        include_retired_files = include_retired_files == "yes"
 
         self.sanitize(namespace=namespace)
 
@@ -912,7 +945,11 @@ class DataHandler(MetaCatHandler):
             return "[]", "application/json"
             
         try:
-            query = MQLQuery.parse(query_text, db=db, default_namespace=namespace or None)
+            query = MQLQuery.parse(query_text, 
+                        db=db, 
+                        default_namespace=namespace or None, 
+                        include_retired_files=include_retired_files
+            )
             query_type = query.Type
             results = query.run(db, filters=self.App.filters(), with_meta=with_meta, with_provenance=with_provenance,
                 debug = debug == "yes"
@@ -926,13 +963,11 @@ class DataHandler(MetaCatHandler):
             return "[]", "application/json"
 
         if query_type == "file":
-
             if save_as:
                 results = list(results)
                 ds = DBDataset(db, ds_namespace, ds_name)
                 ds.create()
                 ds.add_files(results)            
-            
             if add_to:
                 results = list(results)
                 ds = DBDataset(db, add_namespace, add_name)
@@ -943,7 +978,6 @@ class DataHandler(MetaCatHandler):
         else:
             data = ( d.to_jsonable(with_relatives=with_provenance) for d in results )
         return self.json_stream(data), "application/json-seq"
-#        return self.json_chunks(data), "application/json"
         
     def named_queries(self, request, relpath, namespace=None, **args):
         db = self.App.connect()

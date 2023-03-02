@@ -63,7 +63,6 @@ def skipped(iterable, n):
             n -= 1
         else:
             yield f
-            
 
 def insert_sql_one(outer, tag, text):
     lines = dedent(outer).split("\n")

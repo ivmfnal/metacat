@@ -28,22 +28,23 @@ meta_and:   term_meta ( "and" term_meta )*
     | scalar "not" "in" constant ":" constant       -> not_in_range
     | scalar "in" "(" constant_list ")"             -> in_set
     | scalar "not" "in" "(" constant_list ")"       -> not_in_set
-    | ANAME "present"                               -> present                   
-    | ANAME "not" "present"                         -> not_present                   
-    | constant "in" ANAME                           -> constant_in_array
-    | constant "not" "in" ANAME                     -> constant_not_in_array
+    | META_NAME "present"                               -> present                   
+    | META_NAME "not" "present"                         -> not_present                   
+    | constant "in" META_NAME                           -> constant_in
+    | constant "not" "in" META_NAME                     -> constant_not_in
     | "(" meta_exp ")"                              
     | "!" term_meta                                 -> meta_not
     | "exists" STRING                               -> json_path
 
-scalar:  ANAME
-        | ANAME "[" "all" "]"                       -> array_all
-        | ANAME "[" "any" "]"                       -> array_any
-        | ANAME "[" SIGNED_INT "]"                  -> array_subscript
-        | ANAME "[" STRING "]"                      -> array_subscript
-        | "len" "(" ANAME ")"                       -> array_length
+scalar: META_NAME                                       -> meta_attribute
+        | FILE_ATTR_NAME                                -> object_attribute
+        | DATASET_ATTR_NAME                             -> object_attribute
+        | META_NAME "[" "all" "]"                       -> array_all
+        | META_NAME "[" "any" "]"                       -> array_any
+        | META_NAME "[" SIGNED_INT "]"                  -> array_subscript
+        | META_NAME "[" STRING "]"                      -> array_subscript
+        | "len" "(" META_NAME ")"                       -> array_length
 
-    
 constant_list:    constant ("," constant)*                    
 
 constant : SIGNED_FLOAT                             -> float_constant                      
@@ -55,8 +56,7 @@ constant : SIGNED_FLOAT                             -> float_constant
 index:  STRING
     | SIGNED_INT
 
-ANAME: "." WORD
-    | WORD ("." WORD)*
+META_NAME: WORD ("." WORD)+                            // meta attribute has to have a dot in the name
 
 FNAME: LETTER ("_"|"-"|"."|LETTER|DIGIT|"/")*
 
@@ -67,7 +67,6 @@ WORD: LETTER ("_"|LETTER|DIGIT)*
 CMPOP:  "<" "="? | "!"? "=" "="? | "!"? "~" "*"? | ">" "="? | "like"            //# like is not implemented yet
 
 BOOL: "true"i | "false"i
-
 
 STRING : /("(?!"").*?(?<!\\\\)(\\\\\\\\)*?"|'(?!'').*?(?<!\\\\)(\\\\\\\\)*?')/i
 UNQUOTED_STRING : /[a-z0-9:%$@_^.%*?-]+/i

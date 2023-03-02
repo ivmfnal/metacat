@@ -4,7 +4,6 @@ from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
 from metacat.webapi import MetaCatClient, MCServerError, MCWebAPIError, MCError
 from metacat.ui.cli import CLICommand, InvalidArguments, InvalidOptions
-from metacat.mql import MQLQuery
 
 Usage = """
 Usage: --
@@ -31,9 +30,9 @@ class QueryCommand(CLICommand):
 
     GNUStyle = False    
     Opts = (
-        "jism:N:pq:S:A:lPx", 
+        "jism:N:pq:S:A:lPxr", 
         ["line", "json", "ids", "summary", "metadata=", "namespace=", "pretty",
-            "with-provenance", "save-as=", "add-to=", "explain"
+            "with-provenance", "save-as=", "add-to=", "explain", "include-retired-files"
         ]
     )
     Usage = """[<options>] (-q <MQL query file>|"<MQL query>")
@@ -52,7 +51,8 @@ class QueryCommand(CLICommand):
             -N|--namespace=<default namespace>  - default namespace for the query
             -S|--save-as=<namespace>:<name>     - save files as a new datset
             -A|--add-to=<namespace>:<name>      - add files to an existing dataset
-            
+            -r|--include-retired-files          - include retired files into the query results
+
             -x|--explain                        - dp not run the query, show resulting SQL only
     """
     
@@ -65,6 +65,7 @@ class QueryCommand(CLICommand):
         if keys and keys != "all":    keys = keys.split(",")
         save_as = opts.get("-S") or opts.get("--saves-as")
         add_to = opts.get("-A") or opts.get("--add-to")
+        include_retired = "-r" in opts or "--include-retired-files" in opts
 
         #print("url:", url)
         if args:
@@ -76,8 +77,9 @@ class QueryCommand(CLICommand):
             query_text = to_str(open(query_file, "r").read())
             
         if "-x" in opts or "--explain" in opts:
+            from metacat.mql import MQLQuery
             print("---- Query text ----\n%s\n" % (query_text,))
-            q = MQLQuery.parse(query_text, loader=client)
+            q = MQLQuery.parse(query_text, loader=client, include_retired_files=include_retired)
 
             print("---- Parsed ----")
             print(q.Parsed.pretty())
@@ -92,19 +94,23 @@ class QueryCommand(CLICommand):
             #print(q.Optimized.pretty("    "))
             #print("")
     
-            compiled = q.compile()
+            compiled = q.compile(with_meta=with_meta, with_provenance=with_provenance)
             print("---- Compiled ----")
             print(compiled.pretty("    "))
         else:
-            results = client.query(query_text, namespace=namespace, with_metadata = with_meta, 
+            results = client.query(query_text, 
+                        namespace=namespace, with_metadata = with_meta, 
                         save_as=save_as, add_to=add_to,
-                        with_provenance=with_provenance)
-
+                        with_provenance=with_provenance,
+                        include_retired_files=include_retired
+            )
             if "--json" in opts or "-j" in opts:
+                results = list(results)
                 print(json.dumps(results, sort_keys=True, indent=4, separators=(',', ': ')))
                 sys.exit(0)
 
             if "--pretty" in opts or "-p" in opts:
+                results = list(results)
                 meta = sorted(results, key=lambda x: x["name"])
                 pprint.pprint(meta)
                 sys.exit(0)
@@ -114,7 +120,28 @@ class QueryCommand(CLICommand):
             #print("response results:", results)
     
             if "-s" in opts or "--summary" in opts and not with_meta:
-                print("%d files" % (len(results),))
+                nfiles = total_size = 0
+                for f in results:
+                    nfiles += 1
+                    total_size += f.get("size", 0)
+                print("Files:       ", nfiles)
+                if total_size >= 1024*1024*1024*1024:
+                    unit = "TB"
+                    n = total_size / (1024*1024*1024*1024)
+                elif total_size >= 1024*1024*1024:
+                    unit = "GB"
+                    n = total_size / (1024*1024*1024)
+                elif total_size >= 1024*1024:
+                    unit = "MB"
+                    n = total_size / (1024*1024)
+                elif total_size >= 1024:
+                    unit = "KB"
+                    n = total_size / 1024
+                else:
+                    unit = "B"
+                    n = total_size
+                print("Total size:  ", "%d (%.3f %s)" % (total_size, n, unit))
+                    
             else:
                 for f in results:
                     meta_lst = []

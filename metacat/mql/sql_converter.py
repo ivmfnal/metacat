@@ -1,15 +1,17 @@
-from .trees import Ascender, Node
-from metacat.db import DBFileSet, alias, MetaExpressionDNF, DBDataset
+from metacat.common.trees import Ascender, Node
+from metacat.db import DBFileSet, alias, DBDataset
+from metacat.common import MetaExpressionDNF
 from .meta_evaluator import MetaEvaluator
 from metacat.util import limited, insert_sql
 from textwrap import dedent, indent
 
 class SQLConverter(Ascender):
     
-    def __init__(self, db, debug=False):
+    def __init__(self, db, debug=False, include_retired=False):
         self.DB = db
-        self.Debug = False
-        
+        self.Debug = debug
+        self.IncludeRetired = include_retired
+
     def columns(self, t, with_meta=True, with_provenance=True):
         meta = f"{t}.metadata" if with_meta else "null as metadata"
         if with_provenance:
@@ -19,25 +21,29 @@ class SQLConverter(Ascender):
             parents = "null as parents"
             children = "null as children"
         return f"{t}.id, {t}.namespace, {t}.name, {meta}, {t}.creator, {t}.created_timestamp, {t}.size, {t}.checksums, {parents}, {children}"
-        
+
     def debug(self, *params, **args):
         if self.Debug:
             parts = ["SQLConverter:"]+list(params)
             print(*parts, **args)
-            
+
     def __call__(self, tree):
+        #print("hello")
         self.debug("\nSQL converter: input tree:----------\n", tree.pretty(), "\n-------------")
         result = self.walk(tree)
+        #print("debug:", self.Debug)
         self.debug("\nSQL converter: output tree:----------\n", result.pretty(), "\n-------------")
         return result
-        
+
     #
     # Tree node methods
     #
     def query(self, node, *args, namespace=None, name=None):
         raise RuntimeError(f"Named query {namespace}:{name} not assembled")
-        
+
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
+        #print("meta_filter: query=", query.pretty())
+        #print("meta_filter: node[query]=", node["query"].pretty())
         if meta_exp is None:
             return query
         if query.T == "sql":
@@ -79,11 +85,12 @@ class SQLConverter(Ascender):
             return node
 
     def basic_file_query(self, node, *args, query=None):
-        sql = DBFileSet.sql_for_basic_query(self.DB, query)
+        sql = DBFileSet.sql_for_basic_query(self.DB, query, self.IncludeRetired)
         if sql:
-            return Node("sql", sql=sql)
+            out = Node("sql", sql=sql)
         else:
-            return Node("empty")            # empty file set
+            out = Node("empty")            # empty file set
+        return out
 
     def file_list(self, node, specs=None, spec_type=None, with_meta=False, with_provenance=False, limit=None, skip=0):
         return Node("sql", sql=DBFileSet.sql_for_file_list(spec_type, specs, with_meta, with_provenance, limit, skip))
@@ -144,8 +151,7 @@ class SQLConverter(Ascender):
                 (
                     $s2
                 )""", s1=s1, s2=s2)
-            if self.Debug:
-                print("SQLConverter.minus: sql:---------\n", sql, "\n-----------")
+            self.debug("SQLConverter.minus: sql:---------\n", sql, "\n-----------")
             return Node("sql", sql=sql)
         else:
             return node
@@ -249,3 +255,12 @@ class SQLConverter(Ascender):
             return Node("sql", sql=new_sql)
         else:
             return node
+
+    def _default(self, node, *children, **named):
+        #print("_default:", node.pretty())
+        #print("      children:")
+        #for c in children:
+        #    print("+ ", c.pretty())
+        out = Node(node.T, children, _meta=node.M, _data=named)
+        #print("_default returning:", out.pretty())
+        return out

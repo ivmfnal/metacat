@@ -54,8 +54,8 @@ class MetaCatFilter(object):
         if limit or skip:
             ordered = True
         
-        file_set = self.filter(inputs, params, kw, ordered=ordered, 
-                        with_meta=with_meta, with_provenance=with_provenance)
+        file_set = self.filter(inputs, *params, ordered=ordered, 
+                        with_meta=with_meta, with_provenance=with_provenance, **kw)
 
         return limited(
                 skipped(file_set, skip), limit
@@ -151,7 +151,7 @@ class Randomize(MetaCatFilter):
     Output: Returns the same files as in the input set, but in randomized order.
     """
     
-    def filter(self, inputs, seed=None, window=1000):
+    def filter(self, inputs, seed=None, window=1000, **ignore):
         rng = random.Random(seed)
         saved = [None] * window
         for f in inputs[0]:

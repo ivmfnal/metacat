@@ -1,5 +1,5 @@
 from .dbobjects2 import (
-    DBUser, DBDataset, DBFile, DBRole, DBNamespace, DBFileSet, DBNamedQuery, MetaExpressionDNF
+    DBUser, DBDataset, DBFile, DBRole, DBNamespace, DBFileSet, DBNamedQuery
 )
 
 from .common import (

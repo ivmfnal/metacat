@@ -3,6 +3,10 @@ from .signed_token_jwt import SignedToken
 from .token_lib import TokenLib
 import time, requests, json
 
+import urllib3      # disable "Unverified HTTPS request is being made..." warning
+urllib3.disable_warnings()
+del urllib3
+
 class AuthenticationError(Exception):
     def __init__(self, message):
         self.Message = message
@@ -15,17 +19,21 @@ class AuthenticationError(Exception):
 
 class TokenAuthClientMixin(object):
     
-    def __init__(self, service_url, token=None, token_file=None, auth_url=None):
+    def __init__(self, service_url, auth_url, token=None, token_file=None, token_library=None):
         self.ServiceURL = service_url
         self.AuthURL = auth_url or service_url + "/auth"
         #print("TokenAuthClientMixin: AuthURL:", self.AuthURL)
-        self.TokenLib = TokenLib()
+        self.TokenLib = TokenLib(token_library)
         if isinstance(token, (str, bytes)):
             token = SignedToken.decode(token)
 
         self.TokenFile = token_file
         self.Token = token 
         if self.Token is None: self.Token = self.token()      # load from file/lib if needed
+        
+    def auth_headers(self):
+        if self.Token:
+            return {"X-Authentication-Token":self.Token.encode()}
 
     def token(self):
         if self.Token is None or self.Token.expiration <= time.time():
@@ -35,6 +43,9 @@ class TokenAuthClientMixin(object):
             else:
                 self.Token = self.TokenLib.get(self.ServiceURL)
         return self.Token
+        
+    def tokens_saved(self):
+        return self.TokenLib is not None and self.TokenLib.exists()
 
     def login_digest(self, username, password, save_token=False):
         """Performs password-based authentication and stores the authentication token locally.

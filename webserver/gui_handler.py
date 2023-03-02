@@ -1,4 +1,4 @@
-from webpie import WPApp, WPHandler, Response, WPStaticHandler
+from webpie import WPApp, WPHandler, Response, WPStaticHandler, sanitize
 import psycopg2, json, time, secrets, traceback, hashlib, pprint
 from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, DBParamCategory, \
         parse_name, AlreadyExistsError, IntegrityError
@@ -8,38 +8,6 @@ from metacat.util import to_str, to_bytes
 from metacat.mql import MQLQuery, MQLError
 from metacat import Version
 from common_handler import MetaCatHandler, SanitizeException
-
-def _check_unsafe(name, value, unsafe="'<>&"):
-    if value:
-        if any(c in value for c in unsafe):
-            raise SanitizeException("Invalid value for %s: %s" % (name, value))
-    return value
-
-def sanitize(exclude=[], only=None, sanitizer=_check_unsafe):
-    # assume accept is a compiled regexp pattern
-    def decorator(method):
-        szr = sanitizer
-        onl = only
-        excl = exclude
-        s = sanitizer
-        def decorated(handler, request, relpath, *params, **args):
-            "do-not-sanitize"       # signal "already sanitized"
-            sanitizer = szr
-            only = onl
-            exclude = excl
-            sanitizer = s
-            if isinstance(exclude, str):
-                exclude = [exclude]
-            if isinstance(only, str):
-                only = [only]
-            try:
-                relpath, args = handler.App.sanitize(sanitizer, request, relpath, args, exclude=exclude, only=only)
-            except SanitizeException as e:
-                return 400, str(e), "text/plain"
-            else:
-                return method(handler, request, relpath, *params, **args)
-        return decorated
-    return decorator
 
 class GUICategoryHandler(MetaCatHandler):
     
@@ -380,6 +348,8 @@ class GUIHandler(MetaCatHandler):
         query_type = None
         action = "show"     # just show the form
         
+        include_retired_files = request.POST.get("include_retired_files", "off") == "on"
+
         if request.method == "GET" and run == "yes":
             action = "run"
             with_meta = with_meta == "yes"
@@ -395,7 +365,11 @@ class GUIHandler(MetaCatHandler):
                 url_query = quote_plus(url_query)
                 if namespace: url_query += "&namespace=%s" % (namespace,)
                 #print("with_meta=", with_meta)
-                parsed = MQLQuery.parse(query_text, db=db, default_namespace=namespace or None)
+                parsed = MQLQuery.parse(query_text, 
+                                        db=db, 
+                                        default_namespace=namespace or None, 
+                                        include_retired_files=include_retired_files
+                )
                 query_type = parsed.Type
                 #print("Server.query: with_meta:", with_meta)
                 try:
@@ -493,6 +467,7 @@ class GUIHandler(MetaCatHandler):
             show_files=files is not None, files=files, 
             show_datasets=datasets is not None,datasets = datasets,
             runtime = runtime, meta_stats = meta_stats, with_meta = with_meta,
+            include_retired_files = include_retired_files,
             namespace=namespace or "")
         return resp
         
@@ -704,7 +679,6 @@ class GUIHandler(MetaCatHandler):
     @sanitize(exclude=["error", "message"])
     def namespace(self, request, relpath, name=None, **args):
         db = self.App.connect()
-        name = name or relpath
         ns = DBNamespace.get(db, name)
         roles = []
         edit = False
@@ -792,7 +766,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("datasets.html", datasets=datasets, logged_in=user is not None, **self.messages(args))
 
     @sanitize(exclude=["error", "message"])
-    def dataset_files(self, request, relpath, dataset=None, with_meta="no"):
+    def _____dataset_files(self, request, relpath, dataset=None, with_meta="no"):
         with_meta = with_meta == "yes"
         namespace, name = (dataset or relpath).split(":",1)
         db = self.App.connect()

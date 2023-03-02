@@ -12,7 +12,7 @@ build:
 	cd webapi; cp $(WEBAPIFILES) $(MODULEDIR)/webapi
 	cd filters; cp $(FILTERSFILES) $(MODULEDIR)/filters
 	cd mql; make MQLDIR=$(MODULEDIR)/mql build
-	cp -R auth $(MODULEDIR)
+	cp -R auth common $(MODULEDIR)
 	cp util/*.py $(MODULEDIR)/util
 	
 	

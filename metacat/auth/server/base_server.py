@@ -16,12 +16,12 @@ class BaseApp(WPApp):
         
         db_config = cfg["database"]
         connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % db_config
-        self.DB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=1)
+        self.DB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=20)
         self.DBSchema = db_config.get("schema")
 
         if "user_database" in cfg:
             connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % cfg["user_database"]
-            self.UserDB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=1)
+            self.UserDB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=20)
             self.UserDBSchema = cfg["user_database"].get("schema")
         else:
             self.UserDB = self.DB

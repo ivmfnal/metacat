@@ -28,7 +28,7 @@
 	{% for ds in datasets %}
         {% set did=ds.Namespace + ':' + ds.Name %}
 		<tr>
-            <td><a href="./namespace/{{ds.Namespace}}">{{ds.Namespace}}</a></td>
+            <td><a href="./namespace?name={{ds.Namespace}}">{{ds.Namespace}}</a></td>
             <td><a href="./dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">{{ds.Name}}</a></td>
             {% if logged_in %}
                 <td>{% if ds.Creator %}<a href="./user?username={{ds.Creator}}">{{ds.Creator}}</a>{% endif %}</td>
@@ -67,7 +67,7 @@
                     document.getElementById(ds + "_subset_count").innerHTML = "" + data.subset_count;
                     document.getElementById(ds + "_superset_count").innerHTML = "" + data.superset_count;
                 };
-                HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_counts/{{ds.Namespace}}:{{ds.Name}}", 
+                HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_counts?dataset={{ds.Namespace}}:{{ds.Name}}", 
 			        out, "{{did}}", "json");
             </script>
 

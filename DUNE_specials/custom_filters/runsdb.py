@@ -41,14 +41,11 @@ class RunsDB(MetaCatFilter):
              conn = re.sub(f"\s+{f}\s*=\s*\S+", f" {f}=(hidden)", conn, re.I)
         return conn
     
-    def filter(self, inputs, params, kw, **ignore):
+    def filter(self, inputs, daqinterface_commit=None, mode=None, **ignore):
         db = self.ConnPool.connect()
         cursor = db.cursor()
 
         assert len(inputs) == 1
-
-        daqinterface_commit = kw.get("daqinterface_commit")
-        mode = kw.get("mode") 
 
         colnames = ("," + ",".join(self.IncludeColumns)) if self.IncludeColumns else ""
 

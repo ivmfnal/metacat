@@ -1,8 +1,10 @@
 import uuid, json, hashlib, re, time, io, traceback, base64
 from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty, validate_metadata, insert_sql
 from metacat.auth import BaseDBUser
+from metacat.common import MetaExpressionDNF
 from psycopg2 import IntegrityError
 from textwrap import dedent
+from datetime import datetime, timezone
 
 Debug = False
 
@@ -277,7 +279,7 @@ class DBFileSet(object):
         return sql
         
     @staticmethod
-    def sql_for_basic_query(db, basic_file_query):
+    def sql_for_basic_query(db, basic_file_query, include_retired=False):
         debug("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
 
         f = alias("f")
@@ -298,18 +300,23 @@ class DBFileSet(object):
         debug("sql_for_basic_query: table:", table)
 
         file_meta_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f) or "true"
+        retired_condition = "true" if include_retired else f"not {f}.retired"
 
         attrs = DBFile.attr_columns(f)
+        #print("attrs:", attrs)
         if basic_file_query.DatasetSelectors is None:
             # no dataset selection
-            sql = dedent(f"""\
+            sql = insert_sql(f"""\
                 -- sql_for_basic_query {f}
                     select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f}
-                        where {file_meta_exp}
+                        where {retired_condition}   -- include retired ? 
+                            and (   -- metadata
+                                $file_meta_exp
+                            )
                         {order} {limit} {offset}
                 -- end of sql_for_basic_query {f}
-            """)
+            """, file_meta_exp = file_meta_exp)
         else:
             datasets_sql = DBDataset.sql_for_bdqs(basic_file_query.DatasetSelectors, names_only=True)
             #datasets_sql = DBDataset.sql_for_selector(dataset_selector)
@@ -328,6 +335,7 @@ class DBFileSet(object):
                         where {fd}.file_id = {f}.id
                             and {ds}.namespace = {fd}.dataset_namespace
                             and {ds}.name = {fd}.dataset_name
+                            and {retired_condition}   -- include retired ? 
                             and (  -- metadata
                                 $file_meta_exp
                             )
@@ -396,6 +404,8 @@ class DBFile(object):
     ]  
     def __init__(self, db, namespace = None, name = None, metadata = None, fid = None, size=None, checksums=None,
                     parents = None, children = None, creator = None, created_timestamp=None,
+                    updated_timestamp = None, updated_by = None,
+                    retired = False, retired_timestamp = None, retired_by = None
                     ):
 
         assert (namespace is None) == (name is None)
@@ -411,6 +421,11 @@ class DBFile(object):
         self.Size = size
         self.Parents = parents      # list of file ids
         self.Children = children    # list of file ids
+        self.UpdatedBy = updated_by
+        self.UpdatedTimestamp = updated_timestamp
+        self.Retired = retired
+        self.RetiredTimestamp = retired_timestamp
+        self.RetiredBy = retired_by
     
     @staticmethod
     def generate_id():
@@ -424,15 +439,17 @@ class DBFile(object):
 
     def __str__(self):
         return "[DBFile %s %s:%s]" % (self.FID, self.Namespace, self.Name)
-        
+
     __repr__ = __str__
 
     CoreColumnNames = [
         "id", "namespace", "name", "metadata"
     ]
-    
+
     AttrColumnNames = [
-        "creator", "created_timestamp", "size", "checksums"
+        "creator", "created_timestamp", "size", "checksums", 
+        "updated_by", "updated_timestamp", 
+        "retired", "retired_timestamp", "retired_by"
     ]
 
     AllColumnNames = CoreColumnNames + AttrColumnNames
@@ -520,15 +537,18 @@ class DBFile(object):
         return DBFileSet(db, files)
 
         
-    def update(self, do_commit = True):
+    def update(self, user, do_commit = True):
         from psycopg2 import IntegrityError
         c = self.DB.cursor()
         meta = json.dumps(self.Metadata or {})
         checksums = json.dumps(self.Checksums or {})
         try:
             c.execute("""
-                update files set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s where id = %s
-                """, (self.Namespace, self.Name, meta, self.Size, checksums, self.FID)
+                update files set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s 
+                    updated_by=%s, updated_timestamp = now()
+                    where id = %s
+                """, (self.Namespace, self.Name, meta, self.Size, checksums, user,
+                        self.FID)
             )
             if do_commit:   c.execute("commit")
         except:
@@ -536,21 +556,61 @@ class DBFile(object):
             raise    
         return self
         
+    def set_retire(self, retire, user, do_commit=True):
+        #print("set_retire:", retire, user)
+        from psycopg2 import IntegrityError
+        if retire != self.Retired:
+            c = self.DB.cursor()
+            try:
+                if retire:
+                    self.RetiredTimestamp = datetime.now(timezone.utc)
+                    self.RetiredBy = user
+                    c.execute("""
+                        update files set retired=true, retired_by=%s, retired_timestamp = %s
+                            where id = %s
+                        """, (self.RetiredBy, self.RetiredTimestamp, self.FID)
+                    )
+                else:
+                    self.UpdatedTimestamp = datetime.now(timezone.utc)
+                    self.UpdatedBy = user
+                    c.execute("""
+                        update files set retired=false, updated_by=%s, updated_timestamp = %s
+                            where id = %s
+                        """, (self.UpdatedBy, self.UpdatedTimestamp, self.FID)
+                    )
+                if do_commit:   c.execute("commit")
+            except:
+                c.execute("rollback")
+                raise
+            self.Retired = retire
+
     @staticmethod
     def from_tuple(db, tup):
         debug("----DBFile.from_tup: tup:", tup)
         if tup is None: return None
         try:
             try:    
-                fid, namespace, name, meta, creator, created_timestamp, size, checksums, parents, children = tup
+                (fid, namespace, name, meta, creator, created_timestamp, size, checksums, 
+                        updated_by, updated_timestamp, 
+                        retired, retired_timestamp, retired_by,
+                        parents, children) = tup
                 f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums,
                     parents = parents, children=children, creator=creator,
-                            created_timestamp=created_timestamp)
+                            created_timestamp=created_timestamp,
+                            updated_by=updated_by, updated_timestamp=updated_timestamp, 
+                            retired=retired, retired_timestamp=retired_timestamp, retired_by=retired_by
+                            )
+                debug("file created:", f.to_json())
             except: 
+                # try without provenance
                 try:    
-                    fid, namespace, name, meta, creator, created_timestamp, size, checksums = tup
+                    (fid, namespace, name, meta, creator, created_timestamp, size, checksums, 
+                         updated_by, updated_timestamp, retired, retired_timestamp, retired_by)= tup
                     f = DBFile(db, fid=fid, namespace=namespace, name=name, metadata=meta, size=size, checksums = checksums, creator=creator,
-                            created_timestamp=created_timestamp)
+                            created_timestamp=created_timestamp,
+                            updated_by=updated_by, updated_timestamp=updated_timestamp, 
+                            retired=retired, retired_timestamp=retired_timestamp, retired_by=retired_by
+                            )
                     #print(tup)
                     #print(f.__dict__)
                 except: 
@@ -723,16 +783,24 @@ class DBFile(object):
         data = dict(
             fid = self.FID,
             namespace = self.Namespace,
-            name = self.Name
+            name = self.Name,
+            retired = self.Retired,
+            retired_by = self.RetiredBy,
+            updated_by = self.UpdatedBy,
+            retired_timestamp = None,
+            updated_timestamp = None,
+            created_timestamp = None
         )
         if self.Checksums is not None:  data["checksums"] = self.Checksums
         if self.Size is not None:       data["size"] = self.Size
         if self.Creator is not None:    data["creator"] = self.Creator
         if self.CreatedTimestamp is not None:    data["created_timestamp"] = epoch(self.CreatedTimestamp)
+        if self.RetiredTimestamp is not None:    data["retired_timestamp"] = epoch(self.RetiredTimestamp)
+        if self.UpdatedTimestamp is not None:    data["updated_timestamp"] = epoch(self.UpdatedTimestamp)
         if with_metadata:     data["metadata"] = self.metadata()
         if with_provenance:   
-            data["parents"] = [f.FID for f in self.parents()]
-            data["children"] = [f.FID for f in self.children()]
+            data["parents"] = [{"fid":fid} for fid in self.parents()]
+            data["children"] = [{"fid":fid} for fid in self.children()]
         if with_datasets:
             data["datasets"] = [{"namespace":ns, "name":n} for ns, n in self.datasets]
         return data
@@ -740,16 +808,30 @@ class DBFile(object):
     def to_json(self, with_metadata = False, with_datasets = False, with_provenance=False):
         return json.dumps(self.to_jsonable(with_metadata=with_metadata, with_provenance=with_provenance, with_datasets=with_datasets))
         
-    def children(self, as_files=False, with_metadata = False):
-        if self.Children is None:
-            self.Children = list(DBFileSet(self.DB, [self]).children(with_metadata))
-        return self.Children
-        
     def parents(self, as_files=False, with_metadata = False):
         if self.Parents is None:
-            self.Parents = list(DBFileSet(self.DB, [self]).parents(with_metadata))
-        return self.Parents
-        
+            c = self.DB.cursor()
+            c.execute(f"""
+                select parent_id from parent_child where child_id = %s
+            """, (self.FID,))
+            self.Parents = [fid for (fid,) in c.fetchall()]
+        if as_files:
+            return self.get_files(self.DB, [{"fid":fid} for fid in self.Parents])
+        else:
+            return self.Parents
+
+    def children(self, as_files=False, with_metadata = False):
+        if self.Children is None:
+            c = self.DB.cursor()
+            c.execute(f"""
+                select child_id from parent_child where parent_id = %s
+            """, (self.FID,))
+            self.Children = [fid for (fid,) in c.fetchall()]
+        if as_files:
+            return self.get_files(self.DB, [{"fid":fid} for fid in self.Children])
+        else:
+            return self.Children
+
     def add_child(self, child, do_commit=True):
         child_fid = child if isinstance(child, str) else child.FID
         c = self.DB.cursor()
@@ -1053,13 +1135,15 @@ class DBDataset(DBObject):
             raise
         return self
 
-    def list_files(self, with_metadata=False, limit=None):
+    def list_files(self, with_metadata=False, limit=None, include_retired_files=False):
         meta = "null as metadata" if not with_metadata else "f.metadata"
         limit = f"limit {limit}" if limit else ""
+        retired = "" if include_retired_files else "and not f.retired"
         sql = f"""select f.id, f.namespace, f.name, {meta}, f.size, f.checksums, f.creator, f.created_timestamp 
                     from files f
                         inner join files_datasets fd on fd.file_id = f.id
                     where fd.dataset_namespace = %s and fd.dataset_name=%s
+                        {retired}
                     {limit}
         """
         c = self.DB.cursor()
@@ -1139,8 +1223,11 @@ class DBDataset(DBObject):
     def nfiles(self):
         c = self.DB.cursor()
         c.execute("""select count(*) 
-                        from files_datasets 
-                        where dataset_namespace=%s and dataset_name=%s""", (self.Namespace, self.Name))
+                        from files_datasets fd, files f
+                        where fd.dataset_namespace=%s and fd.dataset_name=%s
+                            and fd.file_id = f.id
+                            and not f.retired
+                        """, (self.Namespace, self.Name))
         return c.fetchone()[0]     
     
     def to_jsonable(self, with_relatives=False):
@@ -1828,247 +1915,3 @@ class DBRole(object):
     def __iter__(self):
         return self.members.__iter__()
 
-
-
-
-
-class MetaExpressionDNF(object):
-    
-    def __init__(self, exp):
-        #
-        # meta_exp is a nested list representing the query filter expression in DNF:
-        #
-        # meta_exp = [meta_or, ...]
-        # meta_or = [meta_and, ...]
-        # meta_and = [(op, aname, avalue), ...]
-        #
-        self.Exp = None
-        self.DNF = None
-        if exp is not None:
-            #
-            # converts canonic Node expression (meta_or of one or more meta_ands) into nested or-list or and-lists
-            #
-            #assert isinstance(self.Exp, Node)
-            assert exp.T == "meta_or"
-            for c in exp.C:
-                assert c.T == "meta_and"
-    
-            or_list = []
-            for and_item in exp.C:
-                or_list.append(and_item.C)
-            self.DNF = or_list
-
-        #print("MetaExpressionDNF: exp:", self.DNF)
-        #self.validate_exp(meta_exp)
-        
-    def __str__(self):
-        return self.file_ids_sql()
-        
-    __repr__= __str__
-    
-    def sql_and(self, and_terms, table_name):
-        
-
-        def sql_literal(v):
-            if isinstance(v, str):       v = "'%s'" % (v,)
-            elif isinstance(v, bool):    v = "true" if v else "false"
-            elif v is None:              v = "null"
-            else:   v = str(v)
-            return v
-            
-        def json_literal(v):
-            if isinstance(v, str):       v = '"%s"' % (v,)
-            else:   v = sql_literal(v)
-            return v
-            
-        def pg_type(v):
-            if isinstance(v, bool):   pgtype='boolean'
-            elif isinstance(v, str):   pgtype='text'
-            elif isinstance(v, int):   pgtype='bigint'
-            elif isinstance(v, float):   pgtype='double precision'
-            else:
-                raise ValueError("Unrecognized literal type: %s %s" % (v, type(v)))
-            return pgtype
-            
-        contains_items = []
-        parts = []
-        
-        for exp in and_terms:
-            
-            op = exp.T
-            args = exp.C
-            negate = False
-
-            term = ""
-
-            if op == "present":
-                aname = exp["name"]
-                if not '.' in aname:
-                    term = "true" if aname in DBFile.ColumnAttributes else "false"
-                else:
-                    term = f"{table_name}.metadata ? '{aname}'"
-
-            elif op == "not_present":
-                aname = exp["name"]
-                if not '.' in aname:
-                    term = "false" if aname in DBFile.ColumnAttributes else "true"
-                else:
-                    term = f"{table_name}.metadata ? '{aname}'"
-            
-            else:
-                assert op in ("cmp_op", "in_range", "in_set", "not_in_range", "not_in_set")
-                arg = args[0]
-                assert arg.T in ("array_any", "array_subscript","array_length","scalar")
-                negate = exp["neg"]
-                aname = arg["name"]
-                if not '.' in aname:
-                    assert arg.T == "scalar", f"File attribute {aname} value must be a scalar. Got {arg.T} instead"
-                    if not aname in DBFile.ColumnAttributes:
-                        raise ValueError(f"Unrecognized file attribute \"{aname}\"\n" +
-                            "  Allowed file attibutes: " +
-                            ", ".join(DBFile.ColumnAttributes)
-                        )
-
-                if arg.T == "array_subscript":
-                    # a[i] = x
-                    aname, inx = arg["name"], arg["index"]
-                    inx = json_literal(inx)
-                    subscript = f"[{inx}]"
-                elif arg.T == "array_any":
-                    aname = arg["name"]
-                    subscript = "[*]"
-                elif arg.T == "scalar":
-                    aname = arg["name"]
-                    subscript = ""
-                elif arg.T == "array_length":
-                    aname = arg["name"]
-                else:
-                    raise ValueError(f"Unrecognozed argument type \"{arg.T}\"")
-
-                # - query time slows down significantly if this is addded
-                #if arg.T in ("array_subscript", "array_any", "array_all"):
-                #    # require that "aname" is an array, not just a scalar
-                #    parts.append(f"{table_name}.metadata @> '{{\"{aname}\":[]}}'")
-                
-                if op == "in_range":
-                    assert len(args) == 1
-                    typ, low, high = exp["type"], exp["low"], exp["high"]
-                    low = json_literal(low)
-                    high = json_literal(high)
-                    if not '.' in aname:
-                        low = sql_literal(low)
-                        high = sql_literal(high)
-                        term = f"{table_name}.{aname} between {low} and {high}"
-                    elif arg.T in ("array_subscript", "scalar", "array_any"):
-                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? (@ >= {low} && @ <= {high})'"
-                    elif arg.T == "array_length":
-                        n = "not" if negate else ""
-                        negate = False
-                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {n} between {low} and {high}"
-                        
-                if op == "not_in_range":
-                    assert len(args) == 1
-                    typ, low, high = exp["type"], exp["low"], exp["high"]
-                    low = json_literal(low)
-                    high = json_literal(high)
-                    if not '.' in aname:
-                        low = sql_literal(low)
-                        high = sql_literal(high)
-                        term = f"not ({table_name}.{aname} between {low} and {high})"
-                    elif arg.T in ("array_subscript", "scalar", "array_any"):
-                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? (@ < {low} || @ > {high})'"
-                    elif arg.T == "array_length":
-                        n = "" if negate else "not"
-                        negate = False
-                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {n} between {low} and {high}"
-                        
-                elif op == "in_set":
-                    if not '.' in aname:
-                        values = [sql_literal(v) for v in exp["set"]]
-                        value_list = ",".join(values)
-                        term = f"{table_name}.{aname} in ({value_list})"
-                    elif arg.T == "array_length":
-                        values = [sql_literal(v) for v in exp["set"]]
-                        value_list = ",".join(values)
-                        n = "not" if negate else ""
-                        negate = False
-                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {n} in ({value_list})"
-                    else:           # arg.T in ("array_any", "array_subscript","scalar")
-                        values = [json_literal(x) for x in exp["set"]]
-                        or_parts = [f"@ == {v}" for v in values]
-                        predicate = " || ".join(or_parts)
-                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'"
-                        
-                elif op == "not_in_set":
-                    if not '.' in aname:
-                        values = [sql_literal(v) for v in exp["set"]]
-                        value_list = ",".join(values)
-                        term = f"not ({table_name}.{aname} in ({value_list}))"
-                    elif arg.T == "array_length":
-                        values = [sql_literal(v) for v in exp["set"]]
-                        value_list = ",".join(values)
-                        n = "" if negate else "not"
-                        negate = False
-                        term = f"not(jsonb_array_length({table_name}.metadata -> '{aname}') {n} in ({value_list}))"
-                    else:           # arg.T in ("array_any", "array_subscript","scalar")
-                        values = [json_literal(x) for x in exp["set"]]
-                        and_parts = [f"@ != {v}" for v in values]
-                        predicate = " && ".join(and_parts)
-                        term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'"
-                        
-                elif op == "cmp_op":
-                    cmp_op = exp["op"]
-                    if cmp_op == '=': cmp_op = "=="
-                    sql_cmp_op = "=" if cmp_op == "==" else cmp_op
-                    value = args[1]
-                    value_type, value = value.T, value["value"]
-                    sql_value = sql_literal(value)
-                    value = json_literal(value)
-                    
-                    if not '.' in aname:
-                        term = f"{table_name}.{aname} {sql_cmp_op} {sql_value}"
-                    elif arg.T == "array_length":
-                        term = f"jsonb_array_length({table_name}.metadata -> '{aname}') {sql_cmp_op} {value}"
-                    else:
-                        if cmp_op in ("~", "~*", "!~", "!~*"):
-                            negate_predicate = False
-                            if cmp_op.startswith('!'):
-                                cmp_op = cmp_op[1:]
-                                negate_predicate = not negate_predicate
-                            flags = ' flag "i"' if cmp_op.endswith("*") else ''
-                            cmp_op = "like_regex"
-                            value = f"{value}{flags}"
-                        
-                            predicate = f"@ like_regex {value} {flags}"
-                            if negate_predicate: 
-                                predicate = f"!({predicate})"
-                            term = f"{table_name}.metadata @? '$.\"{aname}\"{subscript} ? ({predicate})'"
-
-                        else:
-                            # scalar, array_subscript, array_any
-                            term = f"{table_name}.metadata @@ '$.\"{aname}\"{subscript} {cmp_op} {value}'"
-                    
-            if negate:  term = f"not ({term})"
-            parts.append(term)
-
-        if contains_items:
-            parts.append("%s.metadata @> '{%s}'" % (table_name, ",".join(contains_items )))
-        return parts
-
-    def sql(self, table_name):
-        if not self.DNF:
-            return None
-        else:
-            out = []
-            for i, or_part in enumerate(self.DNF):
-                and_parts = self.sql_and(or_part, table_name)
-                for j, and_part in enumerate(and_parts):
-                    #print("and_part:", and_part)
-                    if i == 0:
-                        prefix = "" if j == 0 else "and "
-                    else:
-                        prefix = "or  " if j == 0 else "    and "
-                    out.append(f"{prefix}( {and_part} )")
-            out = "\n".join(out)
-            #print("returning:\n", out)
-            return out

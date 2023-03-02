@@ -205,32 +205,32 @@ class HTTPClient(object):
         if self.Token is not None:
             headers["X-Authentication-Token"] = self.Token.encode()
 
-        with self.retry_request("get", url, headers=headers, stream=True) as response:
-            if response.status_code == INVALID_METADATA_ERROR_CODE:
-                raise InvalidMetadataError(url, response.status_code, response.text)
-            if response.status_code == 404:
-                raise NotFoundError(url, response.status_code, response.text)
-            elif response.status_code != 200:
-                raise WebAPIError(url, response.status_code, response.text)
-            
-            if response.headers.get("Content-Type") != "application/json-seq":
-                raise WebAPIError(url, 200, "Expected content type application/json-seq. Got %s instead." % (response.headers.get("Content-Type"),))
+        response = self.retry_request("get", url, headers=headers, stream=True)
+        if response.status_code == INVALID_METADATA_ERROR_CODE:
+            raise InvalidMetadataError(url, response.status_code, response.text)
+        if response.status_code == 404:
+            raise NotFoundError(url, response.status_code, response.text)
+        elif response.status_code != 200:
+            raise WebAPIError(url, response.status_code, response.text)
+        
+        if response.headers.get("Content-Type") != "application/json-seq":
+            raise WebAPIError(url, 200, "Expected content type application/json-seq. Got %s instead." % (response.headers.get("Content-Type"),))
 
-            for line in response.iter_lines():
-                if line:    line = line.strip()
-                while line.startswith(b'\x1E'):
-                    line = line[1:]
-                if line:
-                    #print(f"stream line:[{line}]")
-                    obj = json.loads(line)
-                    yield obj
+        for line in response.iter_lines():
+            if line:    line = line.strip()
+            while line.startswith(b'\x1E'):
+                line = line[1:]
+            if line:
+                #print(f"stream line:[{line}]")
+                obj = json.loads(line)
+                yield obj
 
 class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     
     Version = "1.0"
     
     def __init__(self, server_url=None, auth_server_url=None, max_concurrent_queries = 5,
-                token = None, token_file = None, timeout = None):    
+                token = None, token_file = None, token_library = None, timeout = None):    
 
         """Initializes the MetaCatClient object
 
@@ -250,27 +250,14 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             Request timeout in seconds. Default: None - use default timeout, which is 300 seconds
         """
 
-        self.TokenLib = self.Token = None
-        self.TokenFile = token_file
-
-        if token_file and token is None:
-            token = self.resfresh_token()
-
-        if token is not None:
-            if isinstance(token, (str, bytes)):
-                token = SignedToken.decode(token)
-            self.Token = token
-
         server_url = server_url or os.environ.get("METACAT_SERVER_URL")
         if not server_url:
             raise RuntimeError("MetaCat server URL unspecified")
 
-        if token is None:
-            self.TokenLib = TokenLib()
-            token = self.TokenLib.get(server_url)
+        auth_server_url = auth_server_url or os.environ.get("METACAT_AUTH_SERVER_URL")
 
-        HTTPClient.__init__(self, server_url, token, timeout)
-        self.AuthURL = auth_server_url or server_url + "/auth"
+        TokenAuthClientMixin.__init__(self, server_url, auth_server_url, token=token, token_file=token_file, token_library=token_library)
+        HTTPClient.__init__(self, server_url, token=self.token(), timeout=timeout)
         self.MaxConcurrent = max_concurrent_queries
         self.AsyncQueue = None
         
@@ -363,9 +350,9 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             dataset counts or None if the dataset was not found
         """        
 
-        spec = ObjectSpec(did, namespace=namespace, name=name).did()
+        did = ObjectSpec(did, namespace=namespace, name=name).did()
         try:
-            out = self.get_json(f"data/dataset_counts/{spec}")
+            out = self.get_json(f"data/dataset_counts?dataset={did}")
             #print("get_dataset_counts", did, " out=", out)
             return out
         except NotFoundError:
@@ -394,7 +381,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         except NotFoundError:
             return None
 
-    def get_dataset_files(self, did, namespace=None, name=None, with_metadata=False):
+    def get_dataset_files(self, did, namespace=None, name=None, with_metadata=False, include_retired_files=False):
         """Gets single dataset
         
         Parameters
@@ -413,7 +400,9 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             did = namespace + ':' + name
         try:
             with_metadata = "yes" if with_metadata else "no"
-            return self.get_json_stream(f"data/dataset_files?dataset={did}&with_metadata={with_metadata}")
+            include_retired_files = "yes" if include_retired_files else "no"
+            url = f"data/dataset_files?dataset={did}&with_metadata={with_metadata}&include_retired_files={include_retired_files}"
+            return self.get_json_stream(url)
         except NotFoundError:
             return None
         
@@ -809,6 +798,41 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         return out
 
+    def retire_file(self, did=None, namespace=None, name=None, fid=None, retire=True):
+        """Modify retired status of the file
+        
+        Parameters
+        ----------
+        did : str
+            file "namespace:name"
+        fid : str
+            file id
+        namespace : str
+            file namespace
+        name : str
+            file name
+        retire : bool
+            whether the file should be retired
+        
+        Returns
+        -------
+        dict
+            Dictionary with updated file information
+        """
+        data = {
+            "retire":   retire
+        }
+        if fid:
+            data["fid"] = fid
+        else:
+            if did:
+                namespace, name = did.split(':', 1)
+            assert namespace and name
+            data["namespace"] = namespace
+            data["name"] = name
+        #print("API.retire: sending:", data)
+        return self.post_json("data/retire_file", data)
+
     def update_dataset(self, dataset, metadata=None, mode="update", frozen=None, monotonic=None, description=None):   
         """Update dataset. Requires client authentication.
         
@@ -959,7 +983,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         except NotFoundError:
             return None
 
-    def query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None, add_to=None):
+    def query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None, add_to=None,
+                        include_retired_files=False):
         """Run file query. Requires client authentication if save_as or add_to are used.
         
         Parameters
@@ -968,6 +993,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             Query in MQL
         namespace : str
             default namespace for the query
+        include_retired_files:
+            boolean, whether to include retired files into the query results, default=False
         with_metadata : boolean
             whether to return file metadata
         with_provenance:
@@ -976,6 +1003,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             namespace:name for a new dataset to create and add found files to
         add_to:
             namespace:name for an existing dataset to add found files to
+            
 
         Returns
         -------
@@ -994,6 +1022,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             url += f"&save_as={save_as}"
         if add_to:
             url += f"&add_to={add_to}"
+        if include_retired_files:
+            url += "&include_retired_files=yes"
         results = self.post_json(url, query)
         return results
 

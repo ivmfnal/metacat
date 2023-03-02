@@ -1,22 +1,47 @@
-import os
+import os, os.path, stat
 from .signed_token_jwt import SignedToken, SignedTokenExpiredError, SignedTokenImmatureError
 from .py3 import to_bytes, to_str
 
 class TokenLib(object):
 
-        DefaultFile = "%s/.token_library" % (os.environ["HOME"],)
+        def __init__(self, path = None, create = True):
+            if not path:
+                locations = [
+                    f"{location}/.token_library" for location in 
+                    [ os.environ.get("HOME"), os.getcwd(), "/tmp" ]
+                    if location
+                ]
+            else:
+                locations = [path]
+            self.Tokens, self.Location = self.load_library(locations)
+            if not self.Location and create:
+                # not found
+                self.Location = self.create_library(locations)
+                
+        def create_library(self, paths):
+            for path in paths:
+                try:    
+                    open(path, "w").close()         # create empty library
+                    os.chmod(path, stat.S_IRUSR | stat.S_IWUSR )
+                    return path
+                except: pass
+            return None
 
-        def __init__(self, path = None):
-            self.Path = path or self.DefaultFile
-            #print("Token lib path:", self.Path)
-            self.Tokens = self.load_tokens()
-
-        def load_tokens(self):
-            # returns dict: { url: token }
-            # removes expired tokens
-            token_file = self.Path
-            try:        lines = open(token_file, "r").readlines()
-            except:     return {}
+        def load_library(self, paths):
+            #print("load_library: paths:", paths)
+            for path in paths:
+                if os.path.isfile(path):
+                    try:    
+                        #print("loading tokens from:", path)
+                        tokens = self.load_from_file(path)
+                        #print("tokens loaded from:", path)
+                        return tokens, path
+                    except:
+                        pass
+            return {}, None     # not found
+            
+        def load_from_file(self, path):
+            lines = open(path, "r").readlines()
             out = {}
             for line in lines:
                 line = line.strip()
@@ -38,11 +63,11 @@ class TokenLib(object):
             return out
 
         def save_tokens(self):
-            token_file = self.Path
-            f = open(token_file, "w")
-            for url, token  in self.Tokens.items():
-                f.write("%s %s\n" % (url, to_str(token.encode())))
-            f.close()
+            if self.Location:
+                f = open(self.Location, "w")
+                for url, token  in self.Tokens.items():
+                    f.write("%s %s\n" % (url, to_str(token.encode())))
+                f.close()
 
         def __setitem__(self, url, token):
                 if isinstance(token, (str, bytes)):
@@ -58,4 +83,6 @@ class TokenLib(object):
 
         def items(self):
                 return self.Tokens.items()
-
+                
+        def exists(self):
+            return not not self.Location

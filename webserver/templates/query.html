@@ -27,15 +27,20 @@
             <td></td>
         </tr>
         <tr>
+            <th>Include retired files:</th><td><input type="checkbox" name="include_retired_files"
+                    {% if include_retired_files %}checked="checked"{% endif %}/></td>
+            <td></td>
+        </tr>
+        <tr>
             <th>Query:</th>
-            <td colspan=3>
-                <p style="width:100%; text-align:right">
+            <td>
+                <textarea class="query_text" name="query" cols=80 rows=10>{{query}}</textarea>
+            </td>
+            <td><p style="width:100%; text-align:right">
 					<!-- <a href="https://metadatadb.readthedocs.io/en/latest/query_language.html" target="_new">MQL documentation</a> -->
 					<a href="https://metacat.readthedocs.io/en/latest/mql.html" target="_new">MQL documentation</a>
 				</p>
-                <textarea class="query_text" name="query" cols=80 rows=10>{{query}}</textarea>
             </td>
-            <td></td>
 
         </tr>
         {% if allow_save_query %}

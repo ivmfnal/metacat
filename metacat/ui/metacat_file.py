@@ -337,6 +337,34 @@ class FileIDCommand(CLICommand):
 
         print(data["fid"])
 
+class RetireCommand(CLICommand):
+
+    MinArgs = 1
+    Opts = "u unretire"
+    Usage = """[-u|--unretire] (<namespace>:<name>|<namespace> <name>)  - retire/unretire file
+        -u - unretire the file
+    """
+
+    def __call__(self, command, client, opts, args):
+        did = namespace = name = None
+        if len(args) == 1:
+            did = args[0]
+            if ':' not in did:
+                raise InvalidArguments("Invalid DID: " + did)
+        elif len(args) == 2:
+            namespace, name = args
+        else:
+            raise InvalidArguments("Too many arguments")
+
+        try:
+            data = client.retire_file(did=did, namespace=namespace, name=name, retire="-u" not in opts)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+        if data is None:
+            print("File not found", file=sys.stderr)
+            sys.exit(1)
+
 class NameCommand(CLICommand):
 
     MinArgs = 1
@@ -416,7 +444,18 @@ class ShowCommand(CLICommand):
         if data is None:
             print("file not found", file=sys.stderr)
             sys.exit(1)
-            
+        
+        if include_provenance:
+            parents = data.get("parents", [])
+            if parents:
+                parents = client.get_files(parents)
+                parents = data["parents"] = [{k:f[k] for k in ("fid", "namespace", "name")} for f in parents]
+        
+            children = data.get("children", [])
+            if children:
+                children = client.get_files(children)
+                children = data["children"] = [{k:f[k] for k in ("fid", "namespace", "name")} for f in children]
+
         if as_json:
             print(json.dumps(data, indent=4, sort_keys=True))
         elif pretty:
@@ -437,14 +476,15 @@ class ShowCommand(CLICommand):
                 print("metadata:")
                 for name, value in sorted(data["metadata"].items()):
                     print("    %-20s: %s" % (name, value))
-            if "parents" in data:
-                print("parents:")
-                for fid in data["parents"]:
-                    print("   ", fid)
-            if "children" in data:
-                print("children:")
-                for fid in data["children"]:
-                    print("   ", fid)
+            if include_provenance:
+                if parents:
+                    print("parents:")
+                    for f in parents:
+                        print("   %(namespace)s:%(name)s (%(fid)s)" % f)
+                if children:
+                    print("children:")
+                    for f in children:
+                        print("   %(namespace)s:%(name)s (%(fid)s)" % f)
             if "datasets" in data:
                 print("datasets:")
                 for item in sorted(data["datasets"], key=lambda ds: (ds["namespace"], ds["name"])):
@@ -573,6 +613,7 @@ FileCLI = CLI(
     "add",      AddCommand(),
     "datasets", DatasetsCommand(),
     "update",   UpdateCommand(),
+    "retire",   RetireCommand(),
     "name",     NameCommand(),
     "fid",      FileIDCommand(),
     "show",     ShowCommand()

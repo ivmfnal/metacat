@@ -1,6 +1,7 @@
 from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet
 from metacat.util import limited, unique
-from .trees import Node, pass_node, Ascender, Descender, Visitor, Converter, LarkToNodes
+from metacat.common.trees import Node, Ascender, Descender, Converter
+from metacat.common import MetaExpressionDNF
 from .sql_converter import SQLConverter
 from .query_executor import FileQueryExecutor
 from .meta_evaluator import MetaEvaluator
@@ -35,14 +36,6 @@ class MQLExecutionError(MQLError):
     def __str__(self):
         return f"MQL execution Error: {self.Message}"
         
-def _make_DNF(exp, op=None, exp1=None):
-    if op == "or":
-        exp = Node("meta_or", [exp, exp1])
-    elif op == "and":
-        exp = Node("meta_and", [exp, exp1])
-
-    return _MetaRegularizer().walk(exp)
-    
 def _merge_skip_limit(existing_skip, existing_limit, skip=0, limit=None):
     if existing_limit is None:
         return existing_skip+skip, limit
@@ -98,22 +91,14 @@ class FileQuery(object):
 
     Type = "file"
 
-    def __init__(self, tree):
+    def __init__(self, tree, include_retired=False):
         self.Tree = tree
         self.Assembled = self.Optimized = self.Compiled = None
+        self.IncludeRetired = include_retired
 
     def __str__(self):
         return "FileQuery(\n%s\n)" % (self.Tree.pretty("  "),)
 
-    """
-        def assemble(self, db=None, loader=None, default_namespace = None):
-        #print("FileQuery.assemble: self.Assembled:", self.Assembled)
-        if self.Assembled is None:
-            #print("FileQuery.assemble: assembling...")
-            self.Assembled = _Assembler(db=db, loader=loader, default_namespace).walk(self.Tree)
-        return self.Assembled
-    """
-        
     def skip_assembly(self):
         if self.Assembled is None:
             self.Assembled = self.Tree
@@ -168,7 +153,7 @@ class FileQuery(object):
                 ))
             if debug:
                 print("after _QueryOptionsApplier:", optimized.pretty())
-            self.Compiled = compiled = SQLConverter(db, debug=debug)(optimized)
+            self.Compiled = compiled = SQLConverter(db, debug=debug, include_retired=self.IncludeRetired)(optimized)
         except Exception as e:
             raise MQLCompilationError(str(e))
 
@@ -487,7 +472,7 @@ class _MetaExpPusher(Descender):
         elif meta_exp is None:
             new_exp = node_exp
         else:
-            new_exp = _make_DNF(Node("meta_and", [meta_exp, node_exp]))
+            new_exp = MetaExpressionDNF.regularize(Node("meta_and", [meta_exp, node_exp]))
         return self.walk(child, new_exp)
 
 class _DatasetEvaluator(Ascender):
@@ -509,69 +494,6 @@ class _DatasetEvaluator(Ascender):
 
 CMP_OPS = [">" , "<" , ">=" , "<=" , "==" , "=" , "!=", "~~", "~~*", "!~~", "!~~*"]
 
-class _MetaRegularizer(Ascender):
-    # converts the meta expression into DNF form:
-    #
-    #   Node(or, [Node(and, [exp, ...])])
-    #
-
-    def _flatten_bool(self, op, nodes):
-        #print("_flatten_bool: input:", nodes)
-        new_nodes = []
-        for c in nodes:
-            if c.T == op:
-                new_nodes += self._flatten_bool(op, c.C)
-            else:
-                new_nodes.append(c)
-        #print("_flatten_bool: output:", new_nodes)
-        return new_nodes
-
-    def meta_or(self, node, *children):
-        children = [x if x.T == "meta_and" else Node("meta_and", [x]) for x in self._flatten_bool("meta_or", children)]
-        out = Node("meta_or", children)
-        return out
-
-    def _generate_and_terms(self, path, rest):
-        if len(rest) == 0:  yield path
-        else:
-            node = rest[0]
-            rest = rest[1:]
-            if node.T == "meta_or":
-                for c in node.C:
-                    my_path = path + [c]
-                    for p in self._generate_and_terms(my_path, rest):
-                        yield p
-            else:
-                for p in self._generate_and_terms(path + [node], rest):
-                    yield p
-
-    def meta_and(self, node, *children):
-        children = self._flatten_bool("meta_and", children)
-        or_present = False
-        for c in children:
-            if c.T == "meta_or":
-                or_present = True
-                break
-
-        if or_present:
-            paths = list(self._generate_and_terms([], children))
-            #print("paths:")
-            #for p in paths:
-            #    print(p)
-            paths = [self._flatten_bool("meta_and", p) for p in paths]
-            #print("meta_and: children:", paths)
-            return Node("meta_or", [Node("meta_and", p) for p in paths])
-        else:
-            return Node("meta_and", children)
-            
-def _make_DNF(exp, op=None, exp1=None):
-    if op == "or":
-        exp = Node("meta_or", [exp, exp1])
-    elif op == "and":
-        exp = Node("meta_and", [exp, exp1])
-
-    return _MetaRegularizer().walk(exp)
-    
 def _merge_skip_limit(existing_skip, existing_limit, skip=0, limit=None):
     if existing_limit is None:
         return existing_skip+skip, limit
@@ -641,13 +563,16 @@ class BasicFileQuery(object):
         self.Ordered = False
         
     def __str__(self):
-        return "BasicFileQuery(datasets:%s, limit:%s, skip:%s, %smeta, %sprovenance%s)" % (
-            ",".join(str(s) for s in self.DatasetSelectors), 
+        out = "BasicFileQuery(datasets:%s, limit:%s, skip:%s, %smeta, %sprovenance%s)" % (
+            ",".join(str(s) for s in self.DatasetSelectors or []), 
             self.Limit, self.Skip,
             "with " if self.WithMeta else "no ",
             "with " if self.WithProvenance else "no ",
             "" if not self.Ordered else ", ordered",
             )
+        if self.Wheres:
+            out += "\n" + self.Wheres.pretty(indent="    ")
+        return out
 
     __repr__ = __str__
         
@@ -684,7 +609,7 @@ class BasicFileQuery(object):
             wheres = where
         else:
             wheres = Node("meta_and", self.Wheres, where)
-        self.Wheres = _make_DNF(wheres)
+        self.Wheres = MetaExpressionDNF.regularize(wheres)
         #print("BasicFileQuery.addWhere() result:")
         #print(self.Wheres.pretty("    "))
             
@@ -854,7 +779,7 @@ class QueryConverter(Converter):
 
     def meta_filter(self, args):
         q, meta_exp = args
-        meta_exp=_make_DNF(meta_exp)
+        meta_exp=MetaExpressionDNF.regularize(meta_exp)
         if q.T == "basic_file_query":
             bfq = q["query"]
             if not (bfq.Skip or bfq.Limit):
@@ -1007,9 +932,13 @@ class QueryConverter(Converter):
         node = Node("filter", queries, name = name.value, params=params, kw=kv, skip=0, limit=None, ordered=False, with_meta=False)
         return node
 
-    def scalar(self, args):
+    def meta_attribute(self, args):
         (t,) = args
-        return Node("scalar", name=t.value)
+        return Node("meta_attribute", name=t.value)
+
+    def object_attribute(self, args):
+        (t,) = args
+        return Node("object_attribute", name=t.value)
 
     def _convert_array_all(self, node):
         left = node.C[0]
@@ -1077,6 +1006,41 @@ class QueryConverter(Converter):
         return Node("cmp_op",
             [Node("array_any", name=args[1].value), args[0]], op="=", neg=True
         )
+        
+    def constant_in(self, args):
+        const_arg = args[0]
+        const_type = const_arg.T
+        const_value = const_arg["value"]
+        array_in = Node("cmp_op", [Node("array_any", name=args[1].value), const_arg], op="=", neg=False)
+        if const_type == "string":
+            return Node("meta_or",
+                [   array_in,
+                    Node("cmp_op", [
+                        Node("meta_attribute", name=args[1].value), 
+                        Node("string", value=".*%s.*" % (const_value,))
+                    ], op="~", neg=False)
+                ]
+            )
+        else:
+            return array_in
+            
+        
+    def constant_not_in(self, args):
+        const_arg = args[0]
+        const_type = const_arg.T
+        const_value = const_arg["value"]
+        array_not_in = Node("cmp_op", [Node("array_any", name=args[1].value), const_arg], op="=", neg=True)
+        if const_type == "string":
+            return Node("meta_and",
+                [   array_not_in,
+                    Node("cmp_op", [
+                        Node("meta_attribute", name=args[1].value), 
+                        Node("string", value=".*%s.*" % (const_value,))
+                    ], op="~", neg=True)
+                ]
+            )
+        else:
+            return array_in
         
     def in_range(self, args):
         assert len(args) == 3 and args[1].T in ("string", "int", "float") and args[2].T in ("string", "int", "float")
@@ -1248,7 +1212,7 @@ class QueryConverter(Converter):
 class MQLQuery(object):
     
     @staticmethod
-    def parse(text, db=None, loader=None, debug=False, convert=True, default_namespace=None):
+    def parse(text, db=None, loader=None, debug=False, convert=True, default_namespace=None, include_retired_files=None):
         out = []
         for l in text.split("\n"):
             l = l.split('#', 1)[0]
@@ -1263,7 +1227,7 @@ class MQLQuery(object):
                 if debug:
                     print("converted:\n", converted.pretty())
                 if converted.T == "top_file_query":
-                    q = FileQuery(converted.C[0])
+                    q = FileQuery(converted.C[0], include_retired_files)
                 else:
                     q = DatasetQuery(converted.C[0])
                 q.Parsed = parsed

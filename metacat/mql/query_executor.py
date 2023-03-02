@@ -1,5 +1,6 @@
-from .trees import Ascender, Node
+from metacat.common.trees  import Ascender, Node
 from metacat.db import DBFileSet
+from .meta_evaluator import MetaEvaluator
 
 class FileQueryExecutor(Ascender):
     
@@ -21,13 +22,14 @@ class FileQueryExecutor(Ascender):
         return DBFileSet(self.DB)    # empty file set
         
     def sql(self, node, sql=None):
+        #print("sql:", sql)
         return DBFileSet.from_sql(self.DB, sql)
         
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
         #print("meta_filter: args:", args)
-        assert query.T == "file_set"
+        #print("meta_filter: node:", node, "  query:", query)
         evaluator = MetaEvaluator()
-        out = (f for f in self.node_to_file_set(query)
+        out = (f for f in query
                 if evaluator(f.metadata(), meta_exp)
         )
         return DBFileSet(self.DB, out)
@@ -50,10 +52,10 @@ class FileQueryExecutor(Ascender):
         return left - right
 
     def parents_of(self, node, arg, with_meta=False, with_provenance=False):
-        return arg.parents(with_metadata=with_meta, with_provenance=with_provenance)
+        return arg.parents(as_files=True, with_metadata=with_meta, with_provenance=with_provenance)
 
     def children_of(self, node, *args, with_meta=False, with_provenance=False):
-        return arg.children(with_metadata=with_meta, with_provenance=with_provenance)
+        return arg.children(as_files=True, with_metadata=with_meta, with_provenance=with_provenance)
 
     def skip_limit(self, node, arg, skip=0, limit=None, **kv):
         return arg.skip(skip).limit(limit)
@@ -64,5 +66,6 @@ class FileQueryExecutor(Ascender):
         #print("Evaluator.filter: inputs:", inputs)
         assert name is not None
         filter_object = self.Filters[name]
+        #print("filter: queries:", queries)
         return DBFileSet(self.DB, filter_object.run(queries, params, kw, 
                 limit=limit, skip=skip, with_meta=with_meta, ordered=ordered))

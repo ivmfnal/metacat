@@ -58,7 +58,10 @@ create table files
     checksums   jsonb   default '{}',
     created_timestamp   timestamp with time zone    default now(),
     updated_by  text references users(username),
-    updated_timestamp   timestamp with time zone    default now()
+    updated_timestamp   timestamp with time zone    default now(),
+    retired     boolean default false,
+    retired_timestamp   timestamp with time zone,
+    retired_by  text references users(username)
 );
 
 create unique index file_names_unique on files(namespace, name);
@@ -89,6 +92,12 @@ create view files_with_provenance as
     select f.*, r.children, r.parents
     from files f, file_provenance r
     where f.id = r.id
+;
+
+create view ____files_with_provenance as                                                                                                                      
+    select f.*, coalesce(r.children, Array[]::text[]) as children, coalesce(r.parents, Array[]::text[]) as parents
+    from files f
+        left outer join file_provenance r on (f.id = r.id)
 ;
     
 create table datasets
