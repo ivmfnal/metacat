@@ -29,9 +29,9 @@
 		<th>Username</th>
 		<td>
 			{% if mode=="create" %}
-				<input type="text" name="username"/>
+				<input type="text" name="username" id="username"/>
 			{% else %}
-				<input type="hidden" name="username" value="{{user.Username}}"/>
+				<input type="hidden" name="username" value="{{user.Username}}" id="username"/>
 				{{user.Username}}
 			{% endif %}
 		</td>
@@ -186,7 +186,7 @@
                 var password2_input = document.getElementById("password2");
                 var password1 = password1_input.value;
                 var password2 = password2_input.value;
-                var username =  "{{user.Username}}";
+                var username =  document.getElementById("username").value;
                 if( password1 != password2 )
                 {
                     show_error("Password mismatch. Please re-enter");

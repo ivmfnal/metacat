@@ -24,7 +24,6 @@ Requires direct access to the database. The YAML config file must include:
 def connect(config):
     import psycopg2
     dbcfg = config["database"]
-    print("connecting to:", dbcfg)
     connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % dbcfg
     conn = psycopg2.connect(connstr)
     schema = dbcfg.get("schema")
@@ -49,16 +48,23 @@ class CreateCommand(CLICommand):
     MinArgs = 2
     Usage = """<username> <password>                -- create new admin account"""
 
+    Realm = "metacat"
+
     def __call__(self, command, config, opts, args):
         from metacat.db import DBUser
         db = connect(config)
+        realm = opts.get("-r", config.get("authentication", {}).get("realm"))
+        if not realm:
+            print("Digest authentication realm must be specified either in the config file (authentication->realm) or with -r",
+                file = sys.stderr)
+            sys.exit(2)
         username, password = args
         u = DBUser.get(db, username)
         if u is not None:
             print("User already exists. Leaving users status unchanged. Use 'metacat admin add ...'")
             sys.exit(1)
         u = DBUser(db, username, "Admin", "", flags="a")
-        u.set_password(password)
+        u.set_password(self.Realm, password)
         u.save()
         print("Admin user %s created" % (username,))
 
