@@ -1,0 +1,21 @@
+site_title:  AD AI Metadata Demo
+templates:      $METACAT_SERVER_TEMPLATES_DIR
+port:           8080
+filters:
+    standard_filters: yes
+
+authentication:
+    ldap:
+        server_url: ldaps://ldaps.fnal.gov
+        dn_template: "cn=%s,ou=FermiUsers,dc=services,dc=fnal,dc=gov"
+    secret: "qergQBGoYGq4gxAXaoryTgeI4ujcsPjEX3yu" # some random string
+    realm: metacat
+
+database:
+    port: 5434
+    host: ifdbprod.fnal.gov
+    user: dbuser
+    password: dbpassword
+    dbname: adai_meta_demo
+    schema: public
+
