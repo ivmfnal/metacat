@@ -1,6 +1,6 @@
 from metacat.auth import SignedToken
 from .base_server import BaseHandler
-from metacat.auth import BaseDBUser as DBUser
+from metacat.auth import BaseDBUser as DBUser, digest_server
 from metacat.util import to_str, to_bytes
 
 import time, os, yaml, json
@@ -17,7 +17,6 @@ class AuthHandler(BaseHandler):
         return self.App.encoded_token_from_request(request)+"\n"
         
     def _auth_digest(self, request_env, redirect):
-        from metacat.auth import digest_server
         # give them cookie with the signed token
         
         ok, data = digest_server(self.App.Realm, request_env, self.App.get_digest_password)
