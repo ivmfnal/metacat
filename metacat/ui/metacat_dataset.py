@@ -306,18 +306,18 @@ class AddFilesCommand(CLICommand):
     Opts = ("i:j:d:N:sq:", ["namespace=", "json=", "dids=", "ids=", "sample", "query="])
     Usage = """[options] <dataset namespace>:<dataset name>
 
-            list files by DIDs or namespace/names
+            add files by DIDs or namespace/names
             -N|--namespace <default namespace>           - default namespace for files
             -d|--names <file namespace>:<file name>[,...]
             -d|--names -            - read the list from stdin
             -d|--names @<file>      - read the list from file
 
-            list files by file id
+            add files by file id
             -i|--ids <file id>[,...]
             -i|--ids -              - read the list from stdin
             -i|--ids @<file>        - read the list from file
 
-            read file list from JSON file
+            add file list from JSON file
             -j|--json <json file>
             -j|--json -             - read JSON file list from stdin
             -s|--sample             - print JOSN file list sample
@@ -385,7 +385,7 @@ class AddFilesCommand(CLICommand):
             json_file = opts.get("-j") or opts.get("--json")
             files = json.loads(self.get_text(opts, ["-j", "--json"]))
         else:
-            query = opts.get("-q") or opts("--query")
+            query = opts.get("-q") or opts.get("--query")
             
         if (query is None) == (files is None):
             raise InvalidArguments("Eitther file list or a query must be specified, but not both")
