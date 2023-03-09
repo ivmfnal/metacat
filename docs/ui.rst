@@ -222,25 +222,25 @@ Adding files to dataset
 
     $ metacat dataset add-files [options] <dataset namespace>:<dataset name>
   
-      list files by DIDs or namespace/names
-      -N|--namespace <default namespace>           - default namespace for files
-      -d|--names <file namespace>:<file name>[,...]
-      -d|--names -            - read the list from stdin
-      -d|--names @<file>      - read the list from file
-  
-      list files by file id
-      -i|--ids <file id>[,...]
-      -i|--ids -              - read the list from stdin
-      -i|--ids @<file>        - read the list from file
-  
-      read file list from JSON file
-      -j|--json <json file>
-      -j|--json -             - read JSON file list from stdin
-      -s|--sample             - print JOSN file list sample
-  
-      add files matching a query
-      -q|--query "<MQL query>"
-      -q|--query @<file>      - read query from the file
+    add files by DIDs or namespace/names
+    -N|--namespace <default namespace>           - default namespace for files
+    -d|--names <file namespace>:<file name>[,...]
+    -d|--names -            - read the list from stdin
+    -d|--names @<file>      - read the list from file
+
+    add files by file id
+    -i|--ids <file id>[,...]
+    -i|--ids -              - read the list from stdin
+    -i|--ids @<file>        - read the list from file
+
+    add file list from JSON file
+    -j|--json <json file>
+    -j|--json -             - read JSON file list from stdin
+    -s|--sample             - print JOSN file list sample
+
+    add files matching a query
+    -q|--query "<MQL query>"
+    -q|--query @<file>      - read query from the file
 
 There are several ways to specify the list of files to be added to the dataset:
 
