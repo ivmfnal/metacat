@@ -66,6 +66,7 @@ def angle_brackets(text):
     if text is None:    return None
     return text.replace("<", "&lt;").replace(">", "&gt;")
 
+
 class App(BaseApp, Primitive):
 
     Version = Version
@@ -95,10 +96,10 @@ class App(BaseApp, Primitive):
         self.Filters = {}
         self.Filters.update(self.StandardFilters)
         self.Filters.update(self.CustomFilters)
-        
+
         self.DatasetCounts = {}         # {name -> {counts}}
         #schedule_task(self.update_file_counts, interval=30*60, after=0)
-        
+
     def get_dataset_counts(self, dataset):
         if dataset is None:
             return None
@@ -145,6 +146,7 @@ class App(BaseApp, Primitive):
                 "G_StaticRoot": self.externalPath("/" + self.StaticLocation)
             }
         )
+
 
 def create_application(config=None, prefix=None):
     config = config or os.environ.get("METACAT_SERVER_CFG")
