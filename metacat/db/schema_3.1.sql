@@ -104,8 +104,6 @@ create table datasets
 (
     namespace           text references namespaces(name),
     name                text,
-    parent_namespace    text,
-    parent_name         text,
     frozen		boolean default 'false',
     monotonic		boolean default 'false',
     primary key (namespace, name),

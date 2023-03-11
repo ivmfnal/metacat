@@ -383,7 +383,7 @@ class AddFilesCommand(CLICommand):
             files = [{"did": did} for did in self.get_list(opts, ["-d", "--dids"])]
         elif "-j" in opts or "--json" in opts:
             json_file = opts.get("-j") or opts.get("--json")
-            files = json.loads(self.get_text(opts, ["-j", "--json"]))
+            files = json.load(open(json_file, "r"))
         else:
             query = opts.get("-q") or opts.get("--query")
             

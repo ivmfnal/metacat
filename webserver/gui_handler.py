@@ -3,7 +3,7 @@ import psycopg2, json, time, secrets, traceback, hashlib, pprint
 from metacat.db import DBFile, DBDataset, DBFileSet, DBNamedQuery, DBUser, DBNamespace, DBRole, DBParamCategory, \
         parse_name, AlreadyExistsError, IntegrityError
 from wsdbtools import ConnectionPool
-from urllib.parse import quote_plus, unquote_plus, unquote
+from urllib.parse import quote_plus, unquote_plus, unquote, quote
 from metacat.util import to_str, to_bytes
 from metacat.mql import MQLQuery, MQLError
 from metacat import Version
@@ -29,8 +29,9 @@ class GUICategoryHandler(MetaCatHandler):
             list(me.roles) if me is not None else [])
         users = sorted(list(u.Username for u in DBUser.list(db))) if admin else [me.Username if me is not None else None]
         cats = list(DBParamCategory.list(db))
-        #for name, d in cat.Definitions.items():
-        #    print(name, d)
+        print("GUICategoryHandler.show(): category definitions:")
+        for name, d in cat.Definitions.items():
+            print(name, d)
         return self.render_to_response("category.html", category=cat, edit=edit, create=False, roles=roles, admin=admin, user=me,
             users = users,
             types = DBParamCategory.Types)
@@ -546,7 +547,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("users.html", users=users, error=unquote_plus(error), admin = me.is_admin(),
                 index = index)
         
-    @sanitize(exclude=["error", "message"])
+    @sanitize()
     def user(self, request, relpath, username=None, error="", message="", **args):
         username = username or relpath
         #print("GUI.user(): username:", username)
@@ -583,7 +584,7 @@ class GUIHandler(MetaCatHandler):
                 , "Content-Disposition":"attachment"
             }
         
-    @sanitize(exclude=["error", "message"])
+    @sanitize()
     def create_user(self, request, relpath, error="", **args):
         db = self.App.connect()
         me, auth_error = self.authenticated_user()
@@ -592,7 +593,7 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("user.html", error=error, mode="create", all_roles = DBRole.list(db),
             digest_realm = self.App.Realm)
         
-    @sanitize(exclude=["error", "message"])
+    @sanitize()
     def save_user(self, request, relpath, **args):
         db = self.App.connect()
         username = request.POST["username"]
@@ -666,6 +667,7 @@ class GUIHandler(MetaCatHandler):
 #
 
     def namespaces(self, request, relpath, all="no", **args):
+        user, auth_error = self.authenticated_user()
         db = self.App.connect()
         all = all == "yes"
         if all:
@@ -674,9 +676,9 @@ class GUIHandler(MetaCatHandler):
             me, auth_error = self.authenticated_user()
             namespaces = DBNamespace.list(db, owned_by_user=me)
         namespaces = sorted(namespaces, key=lambda ns: ns.Name)
-        return self.render_to_response("namespaces.html", namespaces=namespaces, showing_all=all, **self.messages(args))
-        
-    @sanitize(exclude=["error", "message"])
+        return self.render_to_response("namespaces.html", namespaces=namespaces, logged_in=user is not None, showing_all=all, **self.messages(args))
+
+    @sanitize()
     def namespace(self, request, relpath, name=None, **args):
         db = self.App.connect()
         ns = DBNamespace.get(db, name)
@@ -747,32 +749,44 @@ class GUIHandler(MetaCatHandler):
                 ns.OwnerRole = owner_role
             ns.save()
         self.redirect("./namespaces")
-        
-    def datasets(self, request, relpath, **args):
+    
+    @sanitize()
+    def datasets(self, request, relpath, selection=None, **args):
         user, auth_error = self.authenticated_user()
         admin = user is not None and user.is_admin()
         db = self.App.connect()
-        datasets = list(DBDataset.list(db))
+
+        all_namespaces = {ns.Name:ns for ns in DBNamespace.list(db)}
+        owned_namespaces = []
+        other_namespaces = sorted(all_namespaces.keys())
+        selection = selection or ("user" if user is not None else None) or "all"
+        
+        print("selection:", selection)
+        
+        if user is not None:
+            owned_namespaces = sorted([ns.Name for ns in DBNamespace.list(db, owned_by_user=user.Username)])
+            other_namespaces = sorted([name for name in all_namespaces.keys() if name not in owned_namespaces])
+        if selection == "user":
+            datasets = DBDataset.list(db, namespaces=owned_namespaces)
+        elif selection.startswith("namespace:"):
+            ns = selection[len("namespace:"):]
+            datasets = DBDataset.list(db, namespace=ns)
+        else:
+            # assume selection == "all"
+            datasets = DBDataset.list(db)
+            
         datasets = sorted(datasets, key=lambda x: (x.Namespace, x.Name))
-        namespaces = set(ds.Namespace for ds in datasets)
-        namespaces = {ns.Name:ns for ns in DBNamespace.get_many(db, namespaces)}
+                
         for ds in datasets:
-            ns = namespaces[ds.Namespace]
+            ns = all_namespaces[ds.Namespace]
             ds.GUI_OwnerUser = ns.OwnerUser
             ds.GUI_OwnerRole = ns.OwnerRole
             ds.GUI_Authorized = user is not None and (admin or self._namespace_authorized(db, ds.Namespace, user))
             #ds.GUI_Children = sorted(ds.children(), key=lambda x: (x.Namespace, x.Name))
             #ds.GUI_Parents = sorted(ds.parents(), key=lambda x: (x.Namespace, x.Name))
-        return self.render_to_response("datasets.html", datasets=datasets, logged_in=user is not None, **self.messages(args))
-
-    @sanitize(exclude=["error", "message"])
-    def _____dataset_files(self, request, relpath, dataset=None, with_meta="no"):
-        with_meta = with_meta == "yes"
-        namespace, name = (dataset or relpath).split(":",1)
-        db = self.App.connect()
-        dataset = DBDataset.get(db, namespace, name)
-        files = sorted(list(dataset.list(with_metadata=with_meta)), key=lambda x: (x.Namespace, x.Name))
-        return self.render_to_response("dataset_files.html", files=files, dataset=dataset, with_meta=with_meta)
+        return self.render_to_response("datasets.html", datasets=datasets,
+            owned_namespaces = owned_namespaces, other_namespaces=other_namespaces,
+            selection=selection, user=user, **self.messages(args))
 
     def create_dataset(self, request, relpath, **args):
         user, auth_error = self.authenticated_user()
@@ -788,7 +802,7 @@ class GUIHandler(MetaCatHandler):
             self.redirect("./create_namespace?error=%s" % (quote_plus("You do not own any namespace. Create one first"),))
         return self.render_to_response("dataset.html", namespaces=namespaces, edit=False, create=True, mode="create")
         
-    @sanitize(exclude=["error", "message"])
+    @sanitize()
     def dataset(self, request, relpath, namespace=None, name=None, **args):
         db = self.App.connect()
         dataset = DBDataset.get(db, namespace, name)
@@ -819,7 +833,7 @@ class GUIHandler(MetaCatHandler):
             edit=edit, 
             create=False, namespaces=namespaces, **self.messages(args))
             
-    @sanitize(exclude=["error", "message"])
+    @sanitize()
     def child_subset_candidates(self, request, relpath, namespace=None, prefix=None, ds_namespace=None, ds_name=None, **args):
         db = self.App.connect()
         datasets = set((d.Namespace, d.Name) for d in DBDataset.list(db, namespace=namespace))
@@ -830,7 +844,7 @@ class GUIHandler(MetaCatHandler):
             datasets = datasets - children - ancestors
         return json.dumps({"namespace": namespace, "names": sorted([name for namespace, name in datasets])}), "text/json"
 
-    @sanitize(exclude=["error", "message"])
+    @sanitize()
     def delete_dataset(self, request, relpath, namespace=None, name=None, **args):
         user, auth_error = self.authenticated_user()
         if not user:
@@ -894,7 +908,7 @@ class GUIHandler(MetaCatHandler):
                 del reqs[n]
         return reqs
 
-    @sanitize(exclude=["error", "message"])
+    @sanitize()
     def save_dataset(self, request, relpath, **args):
         #print("save_dataset:...")
         db = self.App.connect()
@@ -945,7 +959,7 @@ class GUIHandler(MetaCatHandler):
             
         self.redirect(f"./dataset?namespace={namespace}&name={name}" + ("&message=" + quote_plus(warning) if warning else ""))
         
-    @sanitize(exclude=["error", "message"])
+    @sanitize()
     def remove_child_dataset(self, request, relpath, namespace=None, name=None, child_namespace=None, child_name=None, **args):
         user, auth_error = self.authenticated_user()
         if not user:
@@ -978,7 +992,7 @@ class GUIHandler(MetaCatHandler):
         admin = me.is_admin()
         return self.render_to_response("roles.html", roles=roles, edit=admin, create=admin, **self.messages(args))
         
-    @sanitize(exclude=["error", "message"])
+    @sanitize()
     def role(self, request, relpath, name=None, **args):
         name = name or relpath
         me, auth_error = self.authenticated_user()

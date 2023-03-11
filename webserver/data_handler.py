@@ -213,6 +213,7 @@ class DataHandler(MetaCatHandler):
         db = self.App.connect()
         ds = DBDataset(db, namespace, name)
         
+        #nfiles = self.App.dataset_file_count(namespace, name)
         nfiles = DBDataset(db, namespace, name).nfiles
         data = {
             "dataset":      namespace + ":" + name,
@@ -225,6 +226,12 @@ class DataHandler(MetaCatHandler):
         return json.dumps(data), {"Content-Type":"application/json",
             "Access-Control-Allow-Origin":"*"
         }
+
+    @sanitized
+    def ____dataset_counts(self, request, relpath, dataset=None, **args):
+        namespace, name = dataset.split(":", 1)
+        self.sanitize(namespace, name)
+        return self.App.dataset_file_counts(namespace, name)
 
     @sanitized
     def create_dataset(self, request, relpath):

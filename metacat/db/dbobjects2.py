@@ -1198,25 +1198,44 @@ class DBDataset(DBObject):
         return DBDataset.get(db, namespace, name) is not None
 
     @staticmethod
-    def list(db, namespace=None, parent_namespace=None, parent_name=None, creator=None):
+    def list(db, namespace=None, parent_namespace=None, parent_name=None, creator=None, namespaces=None):
         namespace = namespace.Name if isinstance(namespace, DBNamespace) else namespace
         parent_namespace = parent_namespace.Name if isinstance(parent_namespace, DBNamespace) else parent_namespace
         creator = creator.Username if isinstance(creator, DBUser) else creator
-        wheres = []
-        if namespace is not None:
-            wheres.append("namespace = '%s'" % (namespace,))
-        if parent_namespace is not None:
-            wheres.append("parent_namespace = '%s'" % (parent_namespace,))
-        if parent_name is not None:
-            wheres.append("parent_name = '%s'" % (parent_name,))
-        if creator is not None:
-            wheres.append("creator = '%s'" % (creator,))
-        wheres = "" if not wheres else "where " + " and ".join(wheres)
+        
+        params = dict(
+            namespace=namespace,
+            parent_namespace=parent_namespace,
+            parent_name=parent_name,
+            creator=creator,
+            namespace_names=namespaces or [] 
+        )
         c=db.cursor()
-        columns = DBDataset.columns()
-        c.execute(f"""select {columns}
-                from datasets %s""" % (wheres,))
+        columns = DBDataset.columns("ds")
+        
+        if parent_namespace or parent_name:
+            sql=f"""select {columns}
+                            from datasets ds, datasets_parent_child pc
+                            where true
+            """
+            if parent_name:
+                sql += " and pc.parent_name=%(parent_name)s and pc.child_name=ds.name"
+            if parent_namespace:
+                sql += " and pc.parent_namspace=%(parent_namspace)s and pc.child_namespace=ds.namespace"
+        else:
+            sql=f"""select {columns}
+                            from datasets ds
+                            where true
+                            """
+        if namespace is not None:
+            sql += " and ds.namespace=%(namespace)s"
+        if namespaces is not None:
+            sql += " and ds.namespace=any(%(namespace_names)s)"
+
+        #print(sql % params)
+        c.execute(sql, params) 
         for tup in fetch_generator(c):
+            #print(tup)
             yield DBDataset.from_tuple(db, tup)
 
     @property

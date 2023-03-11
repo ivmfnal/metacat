@@ -4,13 +4,15 @@
 
 {% block content %}
 
-<p><a href="./create_namespace">create</a>&nbsp;&nbsp;&nbsp;
-    {%- if showing_all -%}
-        <a href="./namespaces?all=no">my namespaces</a></p>
-    {%- else -%}
-        <a href="./namespaces?all=yes">all namespaces</a></p>
-    {%- endif -%}
-</p>
+{% if logged_in %}
+    <p><a href="./create_namespace">create</a>&nbsp;&nbsp;&nbsp;
+        {%- if showing_all -%}
+            <a href="./namespaces?all=no">my namespaces</a></p>
+        {%- else -%}
+            <a href="./namespaces?all=yes">all namespaces</a></p>
+        {%- endif -%}
+    </p>
+{% endif %}
 
 <table class="data">
 	<tr>

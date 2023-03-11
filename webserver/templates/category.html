@@ -108,7 +108,7 @@
     <tr>
         <th>Parameter definitions</th>
         <td>
-            <table>
+            <table class="data">
                 {% set inx = 0 %}
                 <tr>
                     <th>Parameter name</th>
@@ -117,7 +117,9 @@
                     <th>Max</th>
                     <th>Values</th>
                     <th>Pattern</th>
-                    <td>{% if edit %}delete{% endif %}</td>
+                    {% if edit %}
+                        <td>delete</td>
+                    {% endif %}
                 </tr>
                 {% if edit %}
                     {% for name, definition in category.Definitions.items() %}
@@ -135,8 +137,9 @@
                                     value="{{definition['values']|join(',')}}"
                                 {% endif %}/></td>
                             <td><input type="text" name="param:1_{{loop.index}}:pattern" value="{{definition['pattern'] or ''}}"/></td>
-                            <td>{% if edit %}<input type="checkbox" name="param:1_{{loop.index}}:remove">{% endif %}
-                            </td>
+                            {% if edit %}
+                                <td><input type="checkbox" name="param:1_{{loop.index}}:remove"></td>
+                            {% endif %}
                         </tr>
                     {% endfor %}
                 {% endif %}
@@ -145,7 +148,7 @@
                     {% for i in range(5) %}
 
                         <tr>
-                            <td><input type="text" name="param:2_{{loop.index}}:name"/></td>
+                            <td><span style="color:#888">add: </span><input type="text" name="param:2_{{loop.index}}:name"/></td>
                             <td><select name="param:2_{{loop.index}}:type">
                                 {% for t in types %}
                                     <option value="{{t}}">{{t}}</option>
@@ -155,18 +158,24 @@
                             <td><input type="text" name="param:2_{{loop.index}}:max"/></td>
                             <td><input type="text" name="param:2_{{loop.index}}:values"/></td>
                             <td><input type="text" name="param:2_{{loop.index}}:pattern"/></td>
-                            <td></td>
+                            {% if edit %}
+                                <td></td>
+                            {% endif %}
                         </tr>
                     {% endfor %}
                 {% else %}
                     {% for name, definition in category.Definitions.items() %}
+                        <!-- {{definition}} -->
                         <tr>
                             <td>{{name}}</td>
-                            <td>{{definition["type"]}}</td>
-                            <td>{{definition["min"] or ""}}</td>
-                            <td>{{definition["max"] or ""}}</td>
-                            <td>{{definition["values"]|join(',') or ""}}</td>
-                            <td></td>
+                            <td>{{definition.get("type", "any")}}</td>
+                            <td>{{definition.get("min", "")}}</td>
+                            <td>{{definition.get("max", "")}}</td>
+                            <td>{{definition.get("values", [])|join(',') or ""}}</td>
+                            <td>{{definition.get("pattern", "")}}</td>
+                            {% if edit %}
+                                <td></td>
+                            {% endif %}
                         </tr>
                     {% endfor %}
                 {% endif %}

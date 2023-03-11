@@ -8,72 +8,100 @@
 <a href="./create_dataset">create</a>
 </p>
 
-<!-- {{authenticated}} -->
 
-<table class="data">
-	<tr>
-        <th>Namespace</th>
-		<th>Name</th>
-        {% if logged_in %}<th>Creator</th>{% endif %}
-        <th>Created</th>
-        {% if logged_in %}<th>Owner</th>{% endif %}
-		<th>Flags</th>
-		<th>Files</th>
-        <th>Children</th>
-        <th>Subsets</th>
-        <th>Parents</th>
-        <th>Supersets</th>
-        {% if logged_in %}<th>Delete</th>{% endif %}
-	</tr>
-	{% for ds in datasets %}
-        {% set did=ds.Namespace + ':' + ds.Name %}
-		<tr>
-            <td><a href="./namespace?name={{ds.Namespace}}">{{ds.Namespace}}</a></td>
-            <td><a href="./dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">{{ds.Name}}</a></td>
-            {% if logged_in %}
-                <td>{% if ds.Creator %}<a href="./user?username={{ds.Creator}}">{{ds.Creator}}</a>{% endif %}</td>
-            {% endif %}
-            <td>{% if ds.CreatedTimestamp %}{{ds.CreatedTimestamp|as_dt_local}}{% endif %}</td>
-            {% if logged_in %}
-                <td>{% if ds.GUI_OwnerUser %}user <a href="./user?username={{ds.GUI_OwnerUser}}">{{ds.GUI_OwnerUser}}</a>
-                    {% else %}role <a href="./role/{{ds.GUI_OwnerRole}}">{{ds.GUI_OwnerRole}}</a>
+<form target="" method="GET">
+    <!-- selection: [{{selection}}] -->
+    <table class="form">
+        <tr>
+            <th>Namespace</th>
+            <td>
+                <select name="selection" onchange="this.form.submit()">
+                    <option value="all">(all)</option>
+                    {% if not user is none %}
+                        <option value="user" {% if selection == "user" %}selected="selected"{% endif %}>owned by {{user.Username}}</option>
                     {% endif %}
-                </td>
-            {% endif %}
-            <td>{{'frozen' if ds.Frozen}} {{'monotonic' if ds.Monotonic}}</td>
-            <td id="{{did}}_file_count" class="right"></td>
-            <td id="{{did}}_child_count" class="right"></td>
-            <td id="{{did}}_subset_count" class="right"></td>
-            <td id="{{did}}_parent_count" class="right"></td>
-            <td id="{{did}}_superset_count" class="right"></td>
-            {% if logged_in %}
-                <td>
-                    {% if not ds.GUI_Authorized %}
-                        <span style="color:gray">unauthorized</span>
-                    {% elif ds.GUI_Children|length > 0 %}
-                        <span style="color:gray">not empty</span>
-                    {% else %}
-                        <a href="./delete_dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">delete</a>
-                    {% endif %}
-                </td>
-            {% endif %}
-
-            <script>
-                var out = {};
-		        out.data_received = function(data, ds) {
-                    document.getElementById(ds + "_file_count").innerHTML = "" + data.file_count;
-                    document.getElementById(ds + "_parent_count").innerHTML = "" + data.parent_count;
-                    document.getElementById(ds + "_child_count").innerHTML = "" + data.child_count;
-                    document.getElementById(ds + "_subset_count").innerHTML = "" + data.subset_count;
-                    document.getElementById(ds + "_superset_count").innerHTML = "" + data.superset_count;
-                };
-                HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_counts?dataset={{ds.Namespace}}:{{ds.Name}}", 
-			        out, "{{did}}", "json");
-            </script>
-
+                    <option value="" disabled="disabled">-- owned namespaces --</option>
+                    {% for namespace in owned_namespaces %}
+                        <option value="namespace:{{namespace}}" {% if selection == "namespace:"+namespace %}selected="selected"{% endif %}>{{namespace}}</option>
+                    {% endfor %}
+                    <option value="" disabled="disabled">-- other namespaces --</option>
+                    {% for namespace in other_namespaces %}
+                        <option value="namespace:{{namespace}}" {% if selection == "namespace:"+namespace %}selected="selected"{% endif %}>{{namespace}}</option>
+                    {% endfor %}
+                </select>
+            </td>
         </tr>
-	{% endfor %}
-</table>
+    </table>
+</form>
 
+{% if datasets %}
+
+    <table class="data">
+    	<tr>
+            <th>Namespace</th>
+    		<th>Name</th>
+            {% if logged_in %}<th>Creator</th>{% endif %}
+            <th>Created</th>
+            {% if logged_in %}<th>Owner</th>{% endif %}
+    		<th>Flags</th>
+    		<th>Files</th>
+            <th>Children</th>
+            <th>Subsets</th>
+            <th>Parents</th>
+            <th>Supersets</th>
+            {% if logged_in %}<th>Delete</th>{% endif %}
+    	</tr>
+    	{% for ds in datasets %}
+            {% set did=ds.Namespace + ':' + ds.Name %}
+    		<tr>
+                <td><a href="./namespace?name={{ds.Namespace}}">{{ds.Namespace}}</a></td>
+                <td><a href="./dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">{{ds.Name}}</a></td>
+                {% if logged_in %}
+                    <td>{% if ds.Creator %}<a href="./user?username={{ds.Creator}}">{{ds.Creator}}</a>{% endif %}</td>
+                {% endif %}
+                <td>{% if ds.CreatedTimestamp %}{{ds.CreatedTimestamp|as_dt_local}}{% endif %}</td>
+                {% if logged_in %}
+                    <td>{% if ds.GUI_OwnerUser %}user <a href="./user?username={{ds.GUI_OwnerUser}}">{{ds.GUI_OwnerUser}}</a>
+                        {% else %}role <a href="./role/{{ds.GUI_OwnerRole}}">{{ds.GUI_OwnerRole}}</a>
+                        {% endif %}
+                    </td>
+                {% endif %}
+                <td>{{'frozen' if ds.Frozen}} {{'monotonic' if ds.Monotonic}}</td>
+                <td id="{{did}}_file_count" class="right"></td>
+                <td id="{{did}}_child_count" class="right"></td>
+                <td id="{{did}}_subset_count" class="right"></td>
+                <td id="{{did}}_parent_count" class="right"></td>
+                <td id="{{did}}_superset_count" class="right"></td>
+                {% if logged_in %}
+                    <td>
+                        {% if not ds.GUI_Authorized %}
+                            <span style="color:gray">unauthorized</span>
+                        {% elif ds.GUI_Children|length > 0 %}
+                            <span style="color:gray">not empty</span>
+                        {% else %}
+                            <a href="./delete_dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">delete</a>
+                        {% endif %}
+                    </td>
+                {% endif %}
+
+                <script>
+                    var out = {};
+    		        out.data_received = function(data, ds) {
+                        document.getElementById(ds + "_file_count").innerHTML = "" + data.file_count;
+                        document.getElementById(ds + "_parent_count").innerHTML = "" + data.parent_count;
+                        document.getElementById(ds + "_child_count").innerHTML = "" + data.child_count;
+                        document.getElementById(ds + "_subset_count").innerHTML = "" + data.subset_count;
+                        document.getElementById(ds + "_superset_count").innerHTML = "" + data.superset_count;
+                    };
+                    HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_counts?dataset={{ds.Namespace}}:{{ds.Name}}", 
+    			        out, "{{did}}", "json");
+                </script>
+
+            </tr>
+    	{% endfor %}
+    </table>
+{% else %}
+    <p>No datasets found</p>
+{% endif %}
 
 {% endblock %}
