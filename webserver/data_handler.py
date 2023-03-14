@@ -356,7 +356,7 @@ class DataHandler(MetaCatHandler):
 
         user, error = self.authenticated_user()
         if user is None:
-            return 401, error
+            return 403, "Client authentication failed"
 
         params = json.loads(request.body)
         file_list = params.get("file_list")
@@ -404,7 +404,7 @@ class DataHandler(MetaCatHandler):
             try:    ds.add_files(files, do_commit=True)
             except MetaValidationError as e:
                 return e.as_json(), 400, "application/json"
-        return json.dumps([f.FID for f in files]), "application/json"
+        return json.dumps([f.to_jsonable() for f in files]), "application/json"
 
     @sanitized
     def datasets_for_files(self, request, relpath, **args):

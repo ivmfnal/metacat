@@ -531,7 +531,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             params["query"] = query
         else:
             raise ValueError("Either file_list or query must be specified, but not both")
-            
+        
         out = self.post_json(url, params)
         return out
 
