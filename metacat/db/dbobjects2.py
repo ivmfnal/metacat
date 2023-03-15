@@ -303,7 +303,7 @@ class DBFileSet(object):
         retired_condition = "true" if include_retired else f"not {f}.retired"
 
         attrs = DBFile.attr_columns(f)
-        #print("attrs:", attrs)
+        debug("attrs:", attrs)
         if basic_file_query.DatasetSelectors is None:
             # no dataset selection
             sql = insert_sql(f"""\

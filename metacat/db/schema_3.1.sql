@@ -107,7 +107,6 @@ create table datasets
     frozen		boolean default 'false',
     monotonic		boolean default 'false',
     primary key (namespace, name),
-    foreign key (parent_namespace, parent_name) references datasets(namespace, name),
     metadata    jsonb   default '{}',
     required_metadata   text[],
     creator        text references users(username),

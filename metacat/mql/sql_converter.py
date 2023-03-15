@@ -1,5 +1,5 @@
 from metacat.common.trees import Ascender, Node
-from metacat.db import DBFileSet, alias, DBDataset
+from metacat.db import DBFileSet, alias, DBDataset, DBFile
 from metacat.common import MetaExpressionDNF
 from .meta_evaluator import MetaEvaluator
 from metacat.util import limited, insert_sql
@@ -20,7 +20,10 @@ class SQLConverter(Ascender):
         else:
             parents = "null as parents"
             children = "null as children"
-        return f"{t}.id, {t}.namespace, {t}.name, {meta}, {t}.creator, {t}.created_timestamp, {t}.size, {t}.checksums, {parents}, {children}"
+
+        attrs = DBFile.attr_columns(alias=t)
+
+        return f"{t}.id, {t}.namespace, {t}.name, {meta}, {attrs}, {parents}, {children}"
 
     def debug(self, *params, **args):
         if self.Debug:

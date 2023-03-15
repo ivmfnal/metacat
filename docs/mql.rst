@@ -105,8 +105,8 @@ Meta-filters can be chained. The following query is equivalent to the query abov
 In fact, MQL compiler always merges subsequent meta-filters into single meta-filter, so, behind the scene, query (B) will be converted to (A) first
 and then further compiled and executed.
 
-Convenience Literals
---------------------
+Safe Strings
+------------
 String constants containing only letters, digits and symbols ``:%$@_^.-`` (safe string literals) can be entered without
 enclosing quotes. So the following queries are equivalent:
 
@@ -532,6 +532,128 @@ Similarly, the following expressions are not equivalent:
     * ``(bits[all] == 0 or bits[all] == 1)`` - is false for the metadata above
     * ``bits[all] in (0,1)`` - is true
     
+Date and Time
+~~~~~~~~~~~~~
+
+Because of JSON limitations, date/time values are stored in metadata as integer or floating point timestamps - number
+of seconds since the Epoch (January 1 1970 00:00:00 UTC). MQL offers 2 convenience functions to help the user include
+date/time based conditions in the query.
+
+datetime
+--------
+
+``datetime`` function will convert a text representation of date/time to the corresponding numeric timestamp value. The function
+supports a subset of ISO 8601 date/time representation format:
+
+.. code-block::
+
+    YYYY-MM-DD[(T| )hh:mm:ss[.fff][(+|-)hh:mm]]
+
+Here are some examples of supported date/time representation:
+
+
+.. code-block::
+
+    '2011-11-04'
+    '2011-11-04T00:05:23'
+    '2011-11-04 00:05:23.283'
+    '2011-11-04 00:05:23.283+00:00'
+    '2011-11-04T00:05:23+04:00’
+
+If the time portion of the date/time representation is missing, the midnight (00:00:00) will be used. Default timezone is UTC.
+
+This function can be used like this:
+
+.. code-block:: sql
+
+    files from namespace:dataset
+        where core.timestamp > datetime("2011-11-04 00:05:23.283")
+        
+    files from namespace:dataset    # a safe string does not have to be quoted below
+        where core.timestamp > datetime(2011-11-04T00:05:23)            
+
+``datetime`` values can be used anywhere a floating point constant can appear, including range specifications:
+
+.. code-block:: sql
+
+    files from namespace:dataset
+        where core.timestamp in datetime("2011-11-04 00:05:23.283"):datetime("2011-11-06 06:06:23")     # timestamp range
+
+    files from namespace:dataset
+        where core.timestamp in (       # timestamp set (not very useful)    
+            datetime("2011-11-04 00:05:23.283"),
+            datetime("2011-11-06 06:06:23")
+        )   
+
+date
+----
+
+``date`` function can be used to compare the timestamp stored in the database using 24 hours accuracy. The date can be specified as a string in format:
+
+.. code-block::
+
+    YYYY-MM-DD
+
+The ``date`` function takes one or 2 parameters. First parameter is the date specification and the second optional parameter is the time zone specification
+as a string in the format:
+
+.. code-block::
+
+    (+|-)hh:mm
+
+Default time zone is UTC.
+
+Examples:
+
+.. code-block::
+
+    date("2020-04-01")
+    date(2020-04-01)                # safe string does not need to be quoted
+    date(2020-04-01, -05:00)        # date with the timezone specification, unquoted safe strings
+    
+When a ``date`` value it compared to a numeric timestamp, first the numeric timestamp corresponding to the midnight of the specified date
+in the specified (or UTC) timezone is calculated. Then the timestamp from the metadata is tested whether or not it is in the 24 hours interval
+starting at the calculated timestamp.
+
+``date`` function can be used in simple comparisons as well as value ranges:
+
+
+.. code-block:: sql
+
+    files from namespace:dataset
+        where core.timestamp > date("2011-11-04")
+        
+    files from namespace:dataset
+        where core.timestamp < date(2011-11-04, "-05:00")
+
+    files from namespace:dataset
+        where core.timestamp in date(2011-11-04, "-05:00") : date(2011-11-05, "+01:00")
+
+In a range expression, if one of the range endpoints is a ``date``, the other endpoint must be a ``date`` too.
+
+At present, ``date`` function can not be used in value set comparisons. For example, this will cause an error:
+
+.. code-block:: sql
+
+    files from namespace:dataset      
+        where core.timestamp in (   # ERROR - not supported !
+            date("2011-11-04"), 
+            date("2011-11-06"), 
+            date("2011-11-08")
+        )
+
+If you need to compare the date to a list of dates, use the logical ``or`` with simple comparisons:
+
+.. code-block:: sql
+
+    files from namespace:dataset
+        where 
+            core.timestamp = date("2011-11-04")
+            or core.timestamp = date("2011-11-06")
+            or core.timestamp = date("2011-11-08")
+
+
+
 Segmenting Query Results
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

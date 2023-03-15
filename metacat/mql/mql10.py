@@ -6,6 +6,7 @@ from .sql_converter import SQLConverter
 from .query_executor import FileQueryExecutor
 from .meta_evaluator import MetaEvaluator
 import json, time
+from datetime import date, datetime, timezone
 
 from lark import Lark, LarkError
 from lark import Tree, Token
@@ -829,20 +830,43 @@ class QueryConverter(Converter):
         v = args[0]
         #print("bool_constant:", args, args[0].value)
         return Node("bool", value=v.value.lower() == "true")
-
-    def string_constant(self, args):
-        v = args[0]
-        assert v.type in ("STRING", "UNQUOTED_STRING")
-        s = v.value
-        if v.type == "STRING":
+        
+    def unpack_string(self, node):
+        assert node.type in ("STRING", "UNQUOTED_STRING")
+        s = node.value
+        if node.type == "STRING":
             if s[0] in ('"', "'"):
                 s = s[1:-1]
         if '"' in s or "'" in s:        # sanitize
             raise ValueError("Unsafe string constant containing double or single quote: %s" % (repr(s),))
+        return s
+
+    def datetime_constant(self, args):
+        s = self.unpack_string(args[0])
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return Node("float", value=float(dt.timestamp()))
+
+    def date_constant(self, args):
+        dt = self.unpack_string(args[0])
+        date.fromisoformat(dt)         # check if it parses
+        if len(args) == 1:
+            dt = datetime.fromisoformat(dt)
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            tzshift = self.unpack_string(args[1]) or "+00:00"
+            if tzshift[0] not in "-+":
+                tzshift = "+" + tzshift
+            dt = datetime.fromisoformat(dt + " 00:00:00" + tzshift)
+        return Node("date_constant", value=float(dt.timestamp()))
+
+    def string_constant(self, args):
+        s = self.unpack_string(args[0])
         return Node("string", value=s)
 
-    def constant_list(self, args):
-        return [n["value"] for n in args]
+    #def constant_list(self, args):
+    #    return [n["value"] for n in args]
 
     def qualified_name(self, args):
         assert len(args) in (1,2)
@@ -916,7 +940,12 @@ class QueryConverter(Converter):
             else:
                 others.append(a)
         return Node("join", joins + others)
-        
+
+    def params_list(self, args):
+        # convert date, datetime to floats
+        assert len(args) == 1 and args[0].T == "constant_list"
+        return [c["value"] for c in args[0].C]
+
     def filter(self, args):
         if len(args) == 3:
             name, (params, kv), queries = args
@@ -966,7 +995,7 @@ class QueryConverter(Converter):
                     "not_in_range":"in_range",
                 }[node.T]
             left.T = "array_any"
-            node["neg"] = not node["neg"]
+            node["neg"] = not node.get("neg")
         #print("_convert_array_all: returning:", node.pretty())
         return node
     
@@ -994,7 +1023,35 @@ class QueryConverter(Converter):
         node = Node("json_path", [args[0]], neg=False)
 
     def cmp_op(self, args):
-        node = Node("cmp_op", [args[0], args[2]], op=args[1].value, neg=False)
+        left, op, right = args
+        if right.T == "date_constant":
+            t = right["value"]
+            if op in ("=", "=="):
+                node = Node("meta_and",
+                    [
+                        Node("cmp_op", [left, Node("float", value=t)], op=">=", neg=False),
+                        Node("cmp_op", [left, Node("float", value=t + 3600*24)], op="<", neg=False),
+                    ]
+                )
+            elif op == "!=":
+                node = Node("meta_or",
+                    [
+                        Node("cmp_op", [left, Node("float", value=t)], op="<", neg=False),
+                        Node("cmp_op", [left, Node("float", value=t + 3600*24)], op=">=", neg=False),
+                    ]
+                )
+            elif op == "<":
+                node = Node("cmp_op", [left, Node("float", value=t)], op="<", neg=False)
+            elif op == "<=":
+                node = Node("cmp_op", [left, Node("float", value=t + 3600*24)], op="<", neg=False)
+            elif op == ">":
+                node = Node("cmp_op", [left, Node("float", value=t + 3600*24)], op=">=", neg=False)
+            elif op == ">=":
+                node = Node("cmp_op", [left, Node("float", value=t)], op=">=", neg=False)
+            else:
+                raise ValueError("Unsopported comparison operation for date constant: %s", op)
+        else:
+            node = Node("cmp_op", [args[0], args[2]], op=args[1].value, neg=False)
         return self._convert_array_all(node)
         
     def constant_in_array(self, args):
@@ -1043,22 +1100,56 @@ class QueryConverter(Converter):
             return array_in
         
     def in_range(self, args):
-        assert len(args) == 3 and args[1].T in ("string", "int", "float") and args[2].T in ("string", "int", "float")
+        assert len(args) == 3 and args[1].T in ("string", "int", "float", "date_constant") and args[2].T in ("string", "int", "float", "date_constant")
         assert args[1].T == args[2].T, "Range ends must be of the same type"
-        return self._convert_array_all(Node("in_range", [args[0]], low=args[1]["value"], high=args[2]["value"], neg=False, type=args[1].T))
+        typ = args[1].T
+        if typ == "date_constant":
+            left = args[0]
+            low = args[1]["value"]
+            high = args[2]["value"] + 24*3600
+            node = Node("meta_and",
+                [
+                    Node("cmp_op", [left, Node("float", value=low)], op=">="),
+                    Node("cmp_op", [left, Node("float", value=high)], op="<"),
+                ]
+            )
+        else:
+            node = Node("in_range", [args[0]], low=args[1]["value"], high=args[2]["value"], neg=False, type=args[1].T)
+        return self._convert_array_all(node)
     
     def not_in_range(self, args):
-        assert len(args) == 3 and args[1].T in ("string", "int", "float") and args[2].T in ("string", "int", "float")
+        assert len(args) == 3 and args[1].T in ("string", "int", "float", "date_constant") and args[2].T in ("string", "int", "float", "date_constant")
         assert args[1].T == args[2].T, "Range ends must be of the same type"
-        return self._convert_array_all(Node("in_range", [args[0]], low=args[1]["value"], high=args[2]["value"], neg=True, type=args[1].T))
+        typ = args[1].T
+        if typ == "date_constant":
+            left = args[0]
+            low = args[1]["value"]
+            high = args[2]["value"] + 24*3600
+            node = Node("meta_or",
+                [
+                    Node("cmp_op", [left, Node("float", value=low)], op="<"),
+                    Node("cmp_op", [left, Node("float", value=high)], op=">="),
+                ]
+            )
+        else:
+            node = Node("in_range", [args[0]], low=args[1]["value"], high=args[2]["value"], neg=True, type=args[1].T)
+        return self._convert_array_all(node)
 
     def in_set(self, args):
-        assert len(args) == 2
-        return self._convert_array_all(Node("in_set", [args[0]], neg=False, set=args[1]))
+        assert len(args) == 2 and args[1].T == "constant_list"
+        constant_list = args[1]
+        if any(c.T == "date_constant" for c in constant_list.C):
+            raise ValueError("in_set operation is not supported for date()")
+        values = [c["value"] for c in constant_list.C]
+        return self._convert_array_all(Node("in_set", [args[0]], neg=False, set=values))
         
     def not_in_set(self, args):
-        assert len(args) == 2
-        return self._convert_array_all(Node("in_set", [args[0]], neg=True, set=args[1]))
+        assert len(args) == 2 and args[1].T == "constant_list"
+        constant_list = args[1]
+        if any(c.T == "date_constant" for c in constant_list.C):
+            raise ValueError("in_set operation is not supported for date()")
+        values = [c["value"] for c in constant_list.C]
+        return self._convert_array_all(Node("in_set", [args[0]], neg=True, set=values))
         
     def index(self, args):
         return args[0].value
@@ -1111,7 +1202,7 @@ class QueryConverter(Converter):
         elif node.T == "meta_not":
             return node.C[0]
         elif node.T in ("cmp_op", "in_set", "in_range", "json_path"):   # why cmp_op is here ??? 
-            node["neg"] = not node["neg"]
+            node["neg"] = not node.get("neg")
             return node
         elif node.T == "cmp_op":                                        # why cmp_op is not here ???
             new_op = {

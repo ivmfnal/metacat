@@ -29,8 +29,10 @@ file_query_term: "files" ("from" ("dataset"|"datasets")? dataset_query_list)?   
 !file_list: ("fids"|"fid") fid_list
     |   ("files"|"file") qualified_name_list
 
-filter_params : constant_list
-    |   (constant_list ",")? param_def_list
+filter_params : params_list
+    |   (params_list ",")? param_def_list
+
+params_list : constant_list         // convert date, datetime to floats
 
 file_query_list: file_query ("," file_query)*     
 

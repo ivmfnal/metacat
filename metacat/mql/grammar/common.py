@@ -52,6 +52,8 @@ constant : SIGNED_FLOAT                             -> float_constant
     | SIGNED_INT                                    -> int_constant
     | BOOL                                          -> bool_constant
     | UNQUOTED_STRING                               -> string_constant
+    | "datetime" "(" (STRING|UNQUOTED_STRING) ")"   -> datetime_constant
+    | "date" "(" (STRING|UNQUOTED_STRING) ( "," (STRING|UNQUOTED_STRING) )? ")"         -> date_constant
 
 index:  STRING
     | SIGNED_INT

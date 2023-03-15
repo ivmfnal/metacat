@@ -149,7 +149,7 @@ class MetaExpressionDNF(object):
                 arg = args[0]
                 assert arg.T in ("array_any", "array_subscript", "array_length", "object_attribute", "meta_attribute")
 
-                negate = exp["neg"]
+                negate = not not exp.get("neg")
                 aname = arg["name"]
                 
                 if arg.T == "array_subscript":
@@ -176,11 +176,15 @@ class MetaExpressionDNF(object):
                 if op == "in_range":
                     assert len(args) == 1
                     typ, low, high = exp["type"], exp["low"], exp["high"]
-                    low = json_literal(low)
-                    high = json_literal(high)
+                    if typ == "date_constant":
+                        high = float(high + 3600*24 - 0.0001)
                     if arg.T == "object_attribute":
                         low = sql_literal(low)
                         high = sql_literal(high)
+                    else:
+                        low = json_literal(low)
+                        high = json_literal(high)
+                    if arg.T == "object_attribute":
                         term = f"{table_name}.{aname} between {low} and {high}"
                     elif arg.T in ("array_subscript", "scalar", "array_any"):
                         term = f"{table_name}.{meta_column_name} @? '$.\"{aname}\"{subscript} ? (@ >= {low} && @ <= {high})'"
@@ -192,11 +196,15 @@ class MetaExpressionDNF(object):
                 if op == "not_in_range":
                     assert len(args) == 1
                     typ, low, high = exp["type"], exp["low"], exp["high"]
-                    low = json_literal(low)
-                    high = json_literal(high)
+                    if typ == "date_constant":
+                        high = float(high + 3600*24 - 0.0001)
                     if arg.T == "object_attribute":
                         low = sql_literal(low)
                         high = sql_literal(high)
+                    else:
+                        low = json_literal(low)
+                        high = json_literal(high)
+                    if arg.T == "object_attribute":
                         term = f"not ({table_name}.{aname} between {low} and {high})"
                     elif arg.T in ("array_subscript", "scalar", "array_any"):
                         term = f"{table_name}.{meta_column_name} @? '$.\"{aname}\"{subscript} ? (@ < {low} || @ > {high})'"
@@ -252,24 +260,38 @@ class MetaExpressionDNF(object):
                         term = f"{table_name}.{aname} {sql_cmp_op} {sql_value}"
                     elif arg.T == "array_length":
                         term = f"jsonb_array_length({table_name}.{meta_column_name} -> '{aname}') {sql_cmp_op} {value}"
-                    else:
-                        if cmp_op in ("~", "~*", "!~", "!~*"):
-                            negate_predicate = False
-                            if cmp_op.startswith('!'):
-                                cmp_op = cmp_op[1:]
-                                negate_predicate = not negate_predicate
-                            flags = ' flag "i"' if cmp_op.endswith("*") else ''
-                            cmp_op = "like_regex"
-                            value = f"{value}{flags}"
-                        
-                            predicate = f"@ like_regex {value} {flags}"
-                            if negate_predicate: 
-                                predicate = f"!({predicate})"
-                            term = f"{table_name}.{meta_column_name} @? '$.\"{aname}\"{subscript} ? ({predicate})'"
-
+                    elif value_type == "date_constant":
+                        assert cmp_op in ("<", "<=", ">", ">=", "=", "==", "!=")
+                        if cmp_op in ("=", "=="):
+                            v1 = value + 3600*24
+                            term = f"{table_name}.{meta_column_name} @? '$.\"{aname}\"{subscript} ? (@ < {v1} && @ >= {value})'"
+                        elif cmp_op == "!=":
+                            v1 = value + 3600*24
+                            term = f"{table_name}.{meta_column_name} @? '$.\"{aname}\"{subscript} ? (@ >= {v1} || @ < {value})'"
                         else:
-                            # scalar, array_subscript, array_any
+                            if cmp_op == ">":
+                                value += 3600*24
+                                cmp_op = ">="
+                            elif cmp_op == "<=":
+                                value += 3600*24
+                                cmp_op = "<"
                             term = f"{table_name}.{meta_column_name} @@ '$.\"{aname}\"{subscript} {cmp_op} {value}'"
+                    elif cmp_op in ("~", "~*", "!~", "!~*"):
+                        negate_predicate = False
+                        if cmp_op.startswith('!'):
+                            cmp_op = cmp_op[1:]
+                            negate_predicate = not negate_predicate
+                        flags = ' flag "i"' if cmp_op.endswith("*") else ''
+                        cmp_op = "like_regex"
+                        value = f"{value}{flags}"
+                    
+                        predicate = f"@ like_regex {value} {flags}"
+                        if negate_predicate: 
+                            predicate = f"!({predicate})"
+                        term = f"{table_name}.{meta_column_name} @? '$.\"{aname}\"{subscript} ? ({predicate})'"
+                    else:
+                        # scalar, array_subscript, array_any
+                        term = f"{table_name}.{meta_column_name} @@ '$.\"{aname}\"{subscript} {cmp_op} {value}'"
                     
             if negate:  term = f"not ({term})"
             parts.append(term)
