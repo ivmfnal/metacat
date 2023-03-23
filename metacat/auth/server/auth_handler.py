@@ -7,7 +7,7 @@ import time, os, yaml, json
 from datetime import datetime
 from urllib.parse import quote_plus, unquote_plus
 
-print("auth_handler importing")
+#print("auth_handler importing")
 
 class AuthHandler(BaseHandler):
 
@@ -101,7 +101,7 @@ class AuthHandler(BaseHandler):
             return "Authentication failed\n", 401
         
     def auth(self, request, relpath, redirect=None, method="password", username=None, **args):
-        print("method:", method)
+        #print("method:", method)
         if method == "x509":
             return self._auth_x509(request, redirect, username)
         elif method == "digest":
@@ -147,6 +147,8 @@ class AuthHandler(BaseHandler):
         password = request.POST.get("password")
         token_text = request.POST.get("token_text")
         redirect = request.POST.get("redirect")
+        
+        #print("do_login: POST:", list(request.POST.items()))
         #print("redirect:", redirect)
         db = self.App.user_db()
         u = DBUser.get(db, username)
@@ -175,7 +177,7 @@ class AuthHandler(BaseHandler):
         else:
             self.redirect("%serror=%s" % (relogin_url, quote_plus("Authentication error")))
 
-        #print("authenticated")
+        #print("authenticated as", username)
         return self.App.response_with_auth_cookie(username, redirect, token=token)
         
     def token(self, request, relpath, download=False, **args):

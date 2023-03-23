@@ -76,10 +76,14 @@ class SignedToken(object):
         if self.Encoded is None:
             raise ValueError("The ticket was not decoded")
 
-        options = {}
+        options = {
+            "verify_iat": False,
+            "verify_nfb": False
+        }
         if ignore_times:
             options["verify_exp"] = False
             options["verify_nbf"] = False
+
         use_key = None
         algorithms = []
         if public_key:
@@ -91,11 +95,14 @@ class SignedToken(object):
         else:
             options["verify_signature"] = False
         
-        self.Payload = jwt.decode(self.Encoded, use_key,
-                leeway = timedelta(seconds=leeway),
-                algorithms=algorithms,
-                options = options
-        )
+        try:
+            self.Payload = jwt.decode(self.Encoded, use_key,
+                    leeway = timedelta(seconds=leeway),
+                    algorithms=algorithms,
+                    options = options
+                )
+        except Exception as e:
+            print("SignedToken.verify():", e)
     
     
     #

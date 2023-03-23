@@ -598,6 +598,8 @@ class GUIHandler(MetaCatHandler):
         db = self.App.connect()
         username = request.POST["username"]
         me, auth_error = self.authenticated_user()
+        if not (me and (me.is_admin() or me.Username == username)):
+            self.redirect(f"./user?username={username}&message="+quote_plus("Not authorized"))
         
         new_user = request.POST["new_user"] == "yes"
         
@@ -605,52 +607,51 @@ class GUIHandler(MetaCatHandler):
         if u is None:   
             if not new_user:    
                 self.redirect("./users?error=%s", quote_plus("user not found"))
-            u = DBUser(db, username, request.POST["name"], request.POST["email"], request.POST["flags"])
+            u = DBUser(db, username, request.POST["name"], request.POST["email"], request.POST["flags"], {}, request.POST.get("auid") or None)
         else:
             u.Name = request.POST["name"]
             u.EMail = request.POST["email"]
             if me.is_admin():   u.Flags = request.POST["flags"]
+            u.AUID = request.POST.get("auid") or None
             
-        if me.is_admin() or me.Username == u.Username:
-
-            if "save_user" in request.POST:
-                hashed_password = request.POST.get("hashed_password")
-                if hashed_password:
-                    u.set_password(self.App.Realm, hashed_password, hashed=True)
-                
-                u.save()
-                if me.is_admin():
-                    # update roles
-                    new_roles = set()
-                    for k, v in request.POST.items():
-                        #print("POST:", k, v)
-                        if k.startswith("member:"):
-                            r = k[len("member:"):]
-                            if v == "on":
-                                new_roles.add(r)
-                    u.roles.set(new_roles)
-            elif "add_dn" in request.POST:
-                dn = request.POST.get("new_dn")
-                if dn:
-                    dn_list = u.get_dns()
-                    if not dn in dn_list:
-                        dn_list.append(dn)
-                        u.set_dns(dn_list)
-                        u.save()
-            else:
-                for k in request.POST:
-                    if k.startswith("remove_dn:"):
-                        dn_to_remove = k.split(":",1)[-1]
-                        break
-                else:
-                    dn_to_remove = None
-                if dn_to_remove:
-                    dn_list = u.get_dns()
-                    while dn_to_remove in dn_list:
-                        dn_list.remove(dn_to_remove)
+        if "save_user" in request.POST:
+            hashed_password = request.POST.get("hashed_password")
+            if hashed_password:
+                u.set_password(self.App.Realm, hashed_password, hashed=True)
+            
+            u.save()
+            if me.is_admin():
+                # update roles
+                new_roles = set()
+                for k, v in request.POST.items():
+                    #print("POST:", k, v)
+                    if k.startswith("member:"):
+                        r = k[len("member:"):]
+                        if v == "on":
+                            new_roles.add(r)
+                u.roles.set(new_roles)
+        elif "add_dn" in request.POST:
+            dn = request.POST.get("new_dn")
+            if dn:
+                dn_list = u.get_dns()
+                if not dn in dn_list:
+                    dn_list.append(dn)
                     u.set_dns(dn_list)
                     u.save()
-        self.redirect(f"./user?username={username}&message="+quote_plus("User updated"))
+        else:
+            for k in request.POST:
+                if k.startswith("remove_dn:"):
+                    dn_to_remove = k.split(":",1)[-1]
+                    break
+            else:
+                dn_to_remove = None
+            if dn_to_remove:
+                dn_list = u.get_dns()
+                while dn_to_remove in dn_list:
+                    dn_list.remove(dn_to_remove)
+                u.set_dns(dn_list)
+                u.save()
+        self.redirect(f"./user?username={username}")
 
     def generate_token(self, request, relpath, **args):
         db = self.App.connect()
@@ -760,8 +761,6 @@ class GUIHandler(MetaCatHandler):
         owned_namespaces = []
         other_namespaces = sorted(all_namespaces.keys())
         selection = selection or ("user" if user is not None else None) or "all"
-        
-        print("selection:", selection)
         
         if user is not None:
             owned_namespaces = sorted([ns.Name for ns in DBNamespace.list(db, owned_by_user=user.Username)])

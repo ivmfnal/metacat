@@ -29,7 +29,7 @@
 		<th>Username</th>
 		<td>
 			{% if mode=="create" %}
-				<input type="text" name="username" id="username"/>
+				<input type="text" name="username" id="username" size="40"/>
 			{% else %}
 				<input type="hidden" name="username" value="{{user.Username}}" id="username"/>
 				{{user.Username}}
@@ -40,11 +40,23 @@
 		<th>Name</th>
 		<td>
 			{% if mode == "create" %}
-				<input type="text" name="name"/>
+				<input type="text" name="name" size="40"/>
 			{% elif mode == "edit" %}
-				<input type="text" name="name" value="{{user.Name}}"/>
+				<input type="text" name="name" value="{{user.Name}}" size="40"/>
             {% else %}
                 {{user.Name}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>Anonymized user id</th>
+		<td>
+			{% if mode == "create" %}
+				<input type="text" name="auid" size="40"/>
+			{% elif mode == "edit" %}
+				<input type="text" name="auid" value="{{user.AUID}}" size="40" style="font-family: monospace"/>
+            {% else %}
+                {{user.AUID}}
 			{% endif %}
 		</td>
 	</tr>
@@ -52,9 +64,9 @@
 		<th>EMail</th>
 		<td>
 			{% if mode == "create" %}
-				<input type="text" name="email"/>
+				<input type="text" name="email" size="40"/>
 			{% elif mode == "edit" %}
-				<input type="text" name="email" value="{{user.EMail}}"/>
+				<input type="text" name="email" value="{{user.EMail}}" size="40"/>
             {% else %}
                 {{user.EMail}}
 			{% endif %}
@@ -67,7 +79,7 @@
 			    <input type="text" name="flags"/>
 		    {% elif mode == "edit" %}
                 {% if admin %}
-                    <input type="text" name="flags" value="{{user.Flags}}"/>
+                    <input type="text" name="flags" value="{{user.Flags}}" size="10"/>
                 {% else %}
                     {{user.Flags}}
                 {% endif %}
@@ -80,27 +92,14 @@
         <tr>
             <th>Password</th>
             <td><input type="hidden" id="hashed_password" name="hashed_password"/>
-                <input type="password" id="password1"/>
+                <input type="password" id="password1" size="40"/>
             </td>
             <td id="error" class="error" style="visibility:hidden; display:none"></td>
         </tr>
         <tr>
             <th>Repeat password</th>
-            <td><input type="password" id="password2"/></td>
+            <td><input type="password" id="password2" size="40"/></td>
         </tr>
-        {#
-            {% if ldap_url %}
-            <tr>
-                <th>Allow LDAP authentication</th>
-                <td>
-                        <input type="checkbox" name="allow_ldap" 
-                            {%- if user.auth_info("ldap") %} checked="checked"{% endif %}
-                            {%- if not admin %} disabled="disabled"{% endif -%}
-                        />&nbsp;<span style="color:#AAA">server: {{ldap_url}}</span>
-                </td>
-            </tr>
-            {% endif %}
-        #}
     {% endif %}
 	<tr>
 		<th>Roles</th>

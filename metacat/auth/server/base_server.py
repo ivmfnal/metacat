@@ -79,12 +79,18 @@ class BaseApp(WPApp):
         #print("server.user_from_request: encoded:", encoded)
         if not encoded: 
             return None, "Token not found"
-        return self.verify_token(encoded)
+        out = self.verify_token(encoded)
+        #print("user_from_request: out:", out)
+        return out
             
     def verify_token(self, encoded_token):
         try:    
-            token = SignedToken.from_bytes(encoded)
+            token = SignedToken.from_bytes(encoded_token)
+            #print("verify_token: token:", token.Payload)
+            t = time.time()
+            #print("   time:", t, "  t-iat:", t-token["iat"], "  t-nbf:", t-token["nbf"])
             token.verify(self.TokenSecret)
+            #print("verify_token: verified. subject:", token.subject)
         except SignedTokenExpiredError:
             return None, "Token expired"           
         except SignedTokenImmatureError:
@@ -96,7 +102,8 @@ class BaseApp(WPApp):
         except Exception as e:
             return None, str(e)
         else:
-            return token.get("sub"), None
+            #print("verify_token: token:", token, "  subject:", token.subject)
+            return token.subject, None
 
     def encoded_token_from_request(self, request):
         token = self.token_from_request(request)
@@ -121,6 +128,7 @@ class BaseApp(WPApp):
         if expiration is None:
             expiration = self.TokenExpiration
         token = SignedToken(payload, subject=user, expiration=expiration, issuer=self.Issuer)
+        #print("generate_token: payload:", token.Payload)
         return token, token.encode(self.TokenSecret)
 
     def response_with_auth_cookie(self, user, redirect, token=None, expiration=None):
@@ -131,8 +139,10 @@ class BaseApp(WPApp):
         if token is not None:
             encoded = token.encode()
         else:
-            _, encoded = self.generate_token(user, {"user": user}, expiration=expiration)
-        #print("Server.App.response_with_auth_cookie: new token created:", token.TID)
+            token, encoded = self.generate_token(user, {"user": user}, expiration=expiration)
+        #print("Server.App.response_with_auth_cookie: new token created:", token.Payload)
+        #print("   ", encoded)
+        #print("   time:", time.time())
         if redirect:
             resp = Response(status=302, headers={"Location": redirect})
         else:
@@ -151,7 +161,7 @@ class BaseApp(WPApp):
         except: pass
         return resp
 
-    def verify_token(self, encoded):
+    def ___verify_token(self, encoded):
         try:
             token = SignedToken.decode(encoded)
             token.verify(self.TokenSecret)

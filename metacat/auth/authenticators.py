@@ -65,7 +65,6 @@ class LDAPAuthenticator(Authenticator):
         if not dn:
             #print("no dn")
             return False, "LDAP not configured", None        # not allowed
-
         ld = ldap.initialize(config["server_url"])
         #print("ldap password:", password)
         try:
@@ -82,21 +81,31 @@ class LDAPAuthenticator(Authenticator):
 class SciTokenAuthenticator(Authenticator):
     
     def authenticate(self, user, encoded):
-        print("SciTokenAuthenticator.authenticate: token:", encoded)
+        #print("SciTokenAuthenticator.authenticate: token:", encoded)
         import scitokens
         issuers = self.Config
         subject = issuer = expiration = None
+        
+        if False:
+            try:    
+                token = SignedToken.from_bytes(encoded)
+                expiration = token.expiration
+            except Exception as e:
+                token = None
+                return False, None, expiration
+
         try:
             token = scitokens.SciToken.deserialize(encoded)
+            #print("token:", token)
             subject = token["sub"]
             issuer = token["iss"]
             expiration = token["exp"]
         except Exception as e:
-            print("SciTokenAuthenticator.authenticate: error:", e)
+            #print("SciTokenAuthenticator.authenticate: error:", e, type(e))
             subject = None
-        
-        print("SciTokenAuthenticator.authenticate:", subject, issuer)
-        
+
+        #print("SciTokenAuthenticator.authenticate:", subject, issuer)
+
         return (
             subject and issuer
                 and issuer in issuers
@@ -226,7 +235,7 @@ class X509Authenticator(Authenticator):
         return not not self.Info
 
 def authenticator(method, config, user_info):
-    print("authenticator(): method:", method)
+    #print("authenticator(): method:", method)
     if method == "password":        a = PasswordAuthenticator(config, user_info)
     elif method == "x509":          a = X509Authenticator(config, user_info)
     elif method == "ldap":          a = LDAPAuthenticator(config, user_info)

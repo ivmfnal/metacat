@@ -12,9 +12,7 @@ class AuthenticationError(Exception):
         self.Message = message
 
     def __str__(self):
-        msg = "Authentication error"
-        if self.Message:
-            msg += ": " + self.Message
+        msg = self.Message or "Authentication error"
         return msg
 
 class TokenAuthClientMixin(object):
@@ -160,7 +158,7 @@ class TokenAuthClientMixin(object):
         url = f"{self.AuthURL}/auth?method=token&username={username}"    
         headers = {"Authorization": "bearer " + to_str(encoded_token)}
         #print("HTTPClient.post_json: headers:", headers)
-        print("url:", url)
+        #print("url:", url)
         response = requests.post(url, verify=False, headers=headers)
         if response.status_code != 200:
             raise AuthenticationError(response.text)
