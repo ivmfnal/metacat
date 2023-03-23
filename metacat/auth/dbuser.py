@@ -94,7 +94,7 @@ class BaseDBUser(DBObject):
     def save(self, do_commit=True):
         c = self.DB.cursor()
         auth_info = json.dumps(self.AuthInfo)
-        columns = self.columns("u")
+        columns = self.columns()
         c.execute(f"""
             insert into users({columns}) values(%s, %s, %s, %s, %s, %s)
                 on conflict(username) 
