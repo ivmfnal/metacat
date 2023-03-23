@@ -1,18 +1,19 @@
 import hashlib, re
 from .py3 import to_str, to_bytes
 from .password_hash import password_digest_hash
+from .signed_token_jwt import \
+    SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
 
 class Authenticator(object):
     
-    def __init__(self, config, db_info):
+    def __init__(self, config, user_info):
         self.Config = config
-        self.Info = db_info        # User authentication info stored in the DB, e.g. hashed password or X.509 DNs
+        self.Info = user_info        # User authentication info stored in the DB, e.g. hashed password or X.509 DNs
 
-    def authenticate(self, username, presented):
-        # info is the DB representation of the secret, e.g. hashed password
+    def authenticate(self, user, presented):
         # presented is the user authentication info presented by the client, e.g. unhashed password
         raise NotImplementedError()
-        # returns yes/no, info
+        # returns yes/no, reason, expiration
 
     def enabled(self):
         return True
@@ -32,9 +33,10 @@ class PasswordAuthenticator(Authenticator):
         self.Realm = realm
         self.DBHashed = self.DBInfo.get(self.Realm)
     
-    def authenticate(self, username, password):
+    def authenticate(self, user, password):
         # will accept both hashed and not hashed password
-        return password == self.DBHashed or self.password_hash(username, password) == self.DBHashed, None
+        username = user.Username
+        return password == self.DBHashed or self.password_hash(username, password) == self.DBHashed, None, None
 
     def password_hash(self, username, password):
         return password_digest_hash(self.Realm, username, password).hex().lower()
@@ -47,20 +49,22 @@ class PasswordAuthenticator(Authenticator):
         self.DBInfo[self.Realm] = self.DBHashed = hashed_password
         return self.DBInfo
 
+
 class LDAPAuthenticator(Authenticator):
     
-    def authenticate(self, username, password):
+    def authenticate(self, user, password):
+        username = user.Username
         import ldap
         config = self.Config
         if config is None or not "server_url" in config:
             #print("server not configured")
-            return False
+            return False, "LDAP not configured", None
         dn = self.Info             # LDAP DN
         if not dn and "dn_template" in self.Config:
             dn = self.Config["dn_template"] % (username,)
         if not dn:
             #print("no dn")
-            return False        # not allowed
+            return False, "LDAP not configured", None        # not allowed
 
         ld = ldap.initialize(config["server_url"])
         #print("ldap password:", password)
@@ -69,11 +73,61 @@ class LDAPAuthenticator(Authenticator):
             result = True
         except ldap.INVALID_CREDENTIALS:
             result = False
-        return result, None
+        return result, None, None
         
     def enabled(self):
         return self.Info is not None or "dn_template" in self.Config
 
+
+class SciTokenAuthenticator(Authenticator):
+    
+    def authenticate(self, user, encoded):
+        print("SciTokenAuthenticator.authenticate: token:", encoded)
+        import scitokens
+        issuers = self.Config
+        subject = issuer = expiration = None
+        try:
+            token = scitokens.SciToken.deserialize(encoded)
+            subject = token["sub"]
+            issuer = token["iss"]
+            expiration = token["exp"]
+        except Exception as e:
+            print("SciTokenAuthenticator.authenticate: error:", e)
+            subject = None
+        
+        print("SciTokenAuthenticator.authenticate:", subject, issuer)
+        
+        return (
+            subject and issuer
+                and issuer in issuers
+                and subject in (user.Username, user.AUID),
+            None, expiration
+        )
+
+class SignedTokenAuthenticator(Authenticator):
+    
+    def authenticate(self, user, encoded):
+        issuer = self.Config["issuer"]
+        secret = self.Config["secret"]
+        token = expiration = None
+        try:    
+            token = SignedToken.from_bytes(encoded)
+            token.verify(secret)
+            expiration = token.expiration
+        except (
+                    SignedTokenExpiredError, 
+                    SignedTokenImmatureError,
+                    SignedTokenUnacceptedAlgorithmError, 
+                    SignedTokenSignatureVerificationError
+                ):
+            token = None
+
+        return (
+            token is not None \
+                and token.get("iss") == issuer \
+                and token.get("sub") == user.Username, 
+            None, expiration
+        )
 
 class DN(object):
 
@@ -142,10 +196,9 @@ class DN(object):
         return ','.join(out)
 
 
-
 class X509Authenticator(Authenticator):
     
-    def authenticate(self, username, request_env):
+    def authenticate(self, user, request_env):
         known_dns = self.Info or []
         #log = open("/tmp/x509.log", "w")
         #print("known_dns:", known_dns, file=log)
@@ -153,7 +206,7 @@ class X509Authenticator(Authenticator):
         issuer = request_env.get("SSL_CLIENT_I_DN")
 
         if not subject or not issuer or not known_dns:
-            return False
+            return False, "SSL info not found", None
 
         subject = DN(subject)
         issuer = DN(issuer)
@@ -167,15 +220,18 @@ class X509Authenticator(Authenticator):
         return (
             any(subject == dn for dn in known_dns) or                     # cert
             any(issuer == dn for dn in known_dns) and issuer <= subject   # proxy
-        ), None
+        ), None, None
         
     def enabled(self):
         return not not self.Info
 
 def authenticator(method, config, user_info):
-    if method == "password":   a = PasswordAuthenticator(config, user_info)
-    elif method == "x509":     a = X509Authenticator(config, user_info)
-    elif method == "ldap":     a = LDAPAuthenticator(config, user_info)
+    print("authenticator(): method:", method)
+    if method == "password":        a = PasswordAuthenticator(config, user_info)
+    elif method == "x509":          a = X509Authenticator(config, user_info)
+    elif method == "ldap":          a = LDAPAuthenticator(config, user_info)
+    elif method == "scitoken":      a = SciTokenAuthenticator(config, user_info)
+    elif method == "jwttoken":      a = SignedTokenAuthenticator(config, user_info)
     else:
         raise ValueError(f"Unknown autenticator type {method}")
     return a

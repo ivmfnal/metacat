@@ -692,14 +692,7 @@ class DataHandler(MetaCatHandler):
         except MetaValidationError as e:
             return e.as_json(), METADATA_ERROR_CODE, "application/json"
         
-        out = [
-                    dict(
-                        namespace=f.Namespace,
-                        name=f.Name,
-                        fid=f.FID
-                    )
-                    for i, f in enumerate(files)
-        ]
+        out = [f.to_jsonable() for f in files]
         return json.dumps(out), "application/json"
         
     def __update_meta_bulk(self, db, user, new_meta, mode, names=None, ids=None):

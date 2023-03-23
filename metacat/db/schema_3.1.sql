@@ -4,7 +4,17 @@ create table users
     name        text,
     email       text,
     flags       text    default '',
-    auth_info   jsonb   default '{}'
+    auth_info   jsonb   default '{}',
+    auid        text                        -- anonymized user identificator
+);
+
+create table authenticators
+(
+    username    text references users(username),
+    type        text,
+    issuer      text,
+    primary key(username, type, issuer),
+    user_info   jsonb   default '{}'
 );
 
 create table roles

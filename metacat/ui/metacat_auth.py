@@ -117,12 +117,23 @@ class MyDNCommand(CLICommand):
 
 class LoginCommand(CLICommand):
     
-    Opts = "m:c:k: method= cert= key="
+    Opts = "m:c:k:t: token= method= cert= key="
     Usage = """[-m|--method <method>] <username>                   - request authentication token
-        methods are: password, x509
+
+        methods are: password, x509, token
+
         with x509, use:
             -c|--cert <cert or proxy file> [-k|--key <private key file>]
-            X509_USER_PROXY, X509_USER_CERT, X509_USER_KEY environment variables are supported.
+            X509_USER_PROXY, X509_USER_CERT, X509_USER_KEY environment variables are supported
+
+        with token, use
+            -t|--token <serilized token>
+            -t|--token @<file with serilized token>
+            otherwise, the folloowing environment variables will be used:
+            BEARER_TOKEN, BEARER_TOKEN_FILE, XDG_RUNTIME_DIR, ID (see SciTokens documentation)
+            will look for a token in:
+                $XDG_RUNTIME_DIR/bt_u$ID
+                /tmp/bt_u$ID
     """
     MinArgs = 1
 
@@ -135,6 +146,32 @@ class LoginCommand(CLICommand):
         elif mechanism == "x509":
             cert, key = get_x509_cert_key(opts)
             user, expiration = client.login_x509(username, cert, key=key)
+        elif mechanism == "token":
+            token = token_file = None
+            v = opts.get("-t") or opts.get("--token")
+            if v:
+                if v.startswith('@'):
+                    token_file = v[1:]
+                else:
+                    token = v
+            else:
+                token = os.environ.get("BEARER_TOKEN")
+                if not token:
+                    token_file = os.environ.get("BEARER_TOKEN_FILE")
+                    if not token_file:
+                        uid = os.environ.get("ID", str(os.geteuid()))
+                        token_dir = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
+                        token_file = token_dir + "/" + "bt_u" + uid
+            if not token:
+                if token_file:
+                    if not os.path.isfile(token_file):
+                        print("File not found:", token_file, file=sys.stderr)
+                        sys.exit(1)
+                    token = open(token_file, "r").read().strip()
+            if not token:
+                print("Token not found", file=sys.stderr)
+                sys.exit(1)
+            user, expiration = client.login_token(username, token)
         else:
             raise InvalidArguments(f"Unknown authentication mechanism {mechanism}")
         if not client.tokens_saved():

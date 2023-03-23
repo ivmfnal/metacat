@@ -30,7 +30,7 @@ class BaseApp(WPApp):
         self.AuthConfig = cfg.get("authentication")
         self.Realm = self.AuthConfig.get("realm", "metacat")           # realm used by the rfc2617 authentication
         self.Issuer = self.AuthConfig.get("issuer")
-        secret = self.AuthConfig.get("secret") 
+        secret = self.AuthConfig.get("secret")
         if secret is None:    
             raise ValueError("Authentication secret not found in the configuration")
             self.TokenSecret = secrets.token_bytes(128)     # used to sign tokens
@@ -38,11 +38,14 @@ class BaseApp(WPApp):
             h = hashlib.sha256()
             h.update(to_bytes(secret))      
             self.TokenSecret = h.digest()
+        self.SciTokenIssuers = self.AuthConfig.get("sci_token_issuers", [])
             
     def init(self):
         #print("ScriptHome:", self.ScriptHome)
         self.initJinjaEnvironment(tempdirs=[self.ScriptHome, self.ScriptHome + "/templates"])
-        
+
+    def accepted_sci_token_issuer(self, issuer):
+        return issuer in self.SciTokenIssuers
 
     def auth_config(self, method):
         return self.AuthConfig.get(method)
@@ -76,10 +79,11 @@ class BaseApp(WPApp):
         #print("server.user_from_request: encoded:", encoded)
         if not encoded: 
             return None, "Token not found"
+        return self.verify_token(encoded)
+            
+    def verify_token(self, encoded_token):
         try:    
             token = SignedToken.from_bytes(encoded)
-            #print("server.user_from_request: token:", token)
-            #print("                          secret:", self.TokenSecret)
             token.verify(self.TokenSecret)
         except SignedTokenExpiredError:
             return None, "Token expired"           
@@ -114,16 +118,20 @@ class BaseApp(WPApp):
         return token
 
     def generate_token(self, user, payload={}, expiration=None):
-        expiration = expiration or self.TokenExpiration
+        if expiration is None:
+            expiration = self.TokenExpiration
         token = SignedToken(payload, subject=user, expiration=expiration, issuer=self.Issuer)
         return token, token.encode(self.TokenSecret)
 
-    def response_with_auth_cookie(self, user, redirect, token=None):
+    def response_with_auth_cookie(self, user, redirect, token=None, expiration=None):
+        # expiration here is absolute time
         #print("response_with_auth_cookie: user:", user, "  redirect:", redirect)
+        if expiration is None:
+            expiration = self.TokenExpiration + time.time()
         if token is not None:
             encoded = token.encode()
         else:
-            _, encoded = self.generate_token(user, {"user": user})
+            _, encoded = self.generate_token(user, {"user": user}, expiration=expiration)
         #print("Server.App.response_with_auth_cookie: new token created:", token.TID)
         if redirect:
             resp = Response(status=302, headers={"Location": redirect})
@@ -131,7 +139,7 @@ class BaseApp(WPApp):
             resp = Response(status=200, content_type="text/plain")
         #print ("response:", resp, "  reditrect=", redirect)
         resp.headers["X-Authentication-Token"] = to_str(encoded)
-        resp.set_cookie("auth_token", encoded, max_age = int(self.TokenExpiration))
+        resp.set_cookie("auth_token", encoded, max_age = max(0, int(expiration - time.time())))
         return resp
 
     def response_with_unset_auth_cookie(self, redirect):

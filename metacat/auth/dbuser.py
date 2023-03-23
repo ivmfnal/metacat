@@ -2,15 +2,88 @@ from .authenticators import authenticator
 from .password_hash import password_digest_hash
 import json
 
-class BaseDBUser(object):
+def fetch_generator(c):
+    while True:
+        tup = c.fetchone()
+        if tup is None: break
+        yield tup
 
-    def __init__(self, db, username, name, email, flags=""):
+class DBObject(object):
+    
+    def __init__(self, db):
+        self.DB = db
+
+    @classmethod
+    def from_tuple(cls, db, dbtup):
+        h = cls(db, *dbtup)
+        return h
+    
+    @classmethod
+    def columns(cls, table_name=None, as_text=True, exclude=[]):
+        if isinstance(exclude, str):
+            exclude = [exclude]
+        clist = [c for c in cls.Columns if c not in exclude]
+        if table_name:
+            clist = [table_name+"."+cn for cn in clist]
+        if as_text:
+            return ",".join(clist)
+        else:
+            return clist
+
+    @classmethod
+    def get(cls, db, *pk_vals):
+        pk_cols_values = [f"{c} = %s" for c in cls.PK]
+        where = " and ".join(pk_cols_values)
+        cols = ",".join(cls.Columns)
+        c = db.cursor()
+        c.execute(f"select {cols} from {cls.Table} where {where}", pk_vals)
+        tup = c.fetchone()
+        if tup is None: return None
+        else:   return cls.from_tuple(db, tup)
+
+
+class DBAuthenticator(DBObject):
+    
+    Table = "authenticators"
+    Columns = ["username", "type", "issuer", "user_info"]
+    PK = ["username", "type", "issuer"]
+    
+    def __init__(self, db, username, type, issuer, info):
+        DBObject.__init__(self, db)
+        self.Username = username
+        self.Type = type
+        self.Issuer = issuer
+        self.Info = info
+
+    @staticmethod
+    def list(db, username=None, type=None, issuer=None):
+        table = DBAuthenticator.Table
+        c = db.cursor()
+        columns = DBAuthenticator.columns()
+        c.execute(f"""
+            select {columns}
+                from {table}
+                where (%(username)s is null or username=%(username)s)
+                    and (%(type)s is null or username=%(type)s)
+                    and (%(issuer)s is null or username=%(issuer)s)
+        """, dict(username=username, type=type, issuer=issuer))
+        return (DBAuthenticator.from_tuple(db, tup) for tup in fetch_generator(c))
+
+
+class BaseDBUser(DBObject):
+    
+    Table = "users"
+    Columns = "username,name,email,flags,auth_info,auid".split(",")
+    PK = ["username"]
+
+    def __init__(self, db, username, name, email, flags, auth_info, auid):
+        DBObject.__init__(self, db)
         self.Username = username
         self.Name = name
+        self.AUID = auid
         self.EMail = email
         self.Flags = flags
-        self.DB = db
-        self.AuthInfo = {}        # type -> [secret,...]        # DB representation
+        self.AuthInfo = auth_info or {}        # type -> [secret,...]        # DB representation
         self.RoleNames = None
         
     def __str__(self):
@@ -21,26 +94,27 @@ class BaseDBUser(object):
     def save(self, do_commit=True):
         c = self.DB.cursor()
         auth_info = json.dumps(self.AuthInfo)
-        c.execute("""
-            insert into users(username, name, email, flags, auth_info) values(%s, %s, %s, %s, %s)
+        columns = self.columns("u")
+        c.execute(f"""
+            insert into users({columns}) values(%s, %s, %s, %s, %s, %s)
                 on conflict(username) 
-                    do update set name=%s, email=%s, flags=%s, auth_info=%s;
+                    do update set name=%s, email=%s, flags=%s, auth_info=%s, auid=%s;
             """,
-            (self.Username, self.Name, self.EMail, self.Flags, auth_info,
-                            self.Name, self.EMail, self.Flags, auth_info
+            (self.Username, self.Name, self.EMail, self.Flags, auth_info, self.AUID,
+                            self.Name, self.EMail, self.Flags, auth_info, self.AUID
             ))
         
         if do_commit:
             c.execute("commit")
         return self
-        
+
     def authenticate(self, method, auth_config, presented):
         a = authenticator(method, auth_config, self.AuthInfo.get(method))
         if a is None or not a.enabled():
             return False
-        result, reason = a.authenticate(self.Username, presented)
+        result, reason, expiration = a.authenticate(self, presented)
         #print(f"BaseDBUser.authenticate({method}):", result)
-        return result
+        return result, reason, expiration
         
     def set_password(self, realm, password, hashed=False):
         auth_info = self.AuthInfo.get("password", {})
@@ -68,15 +142,15 @@ class BaseDBUser(object):
     @staticmethod
     def get(db, username):
         c = db.cursor()
-        c.execute("""select u.name, u.email, u.flags, u.auth_info, array(select ur.role_name from users_roles ur where ur.username=u.username)
+        columns = BaseDBUser.columns("u")
+        c.execute(f"""select {columns}, array(select ur.role_name from users_roles ur where ur.username=u.username)
                         from users u
                         where u.username=%s""",
                 (username,))
         tup = c.fetchone()
         if not tup: return None
-        (name, email, flags, auth_info, roles) = tup
-        u = BaseDBUser(db, username, name, email, flags)
-        u.AuthInfo = auth_info
+        (username, name, email, flags, auth_info, auid, roles) = tup
+        u = BaseDBUser(db, username, name, email, flags, auth_info, auid)
         u.RoleNames = roles
         return u
         
@@ -85,13 +159,14 @@ class BaseDBUser(object):
     
     @staticmethod 
     def list(db):
+        columns = self.columns("u")
         c = db.cursor()
-        c.execute("""select u.username, u.name, u.email, u.flags, array(select ur.role_name from users_roles ur where ur.username=u.username)
+        c.execute(f"""select {columns}, array(select ur.role_name from users_roles ur where ur.username=u.username)
             from users u
             order by u.username
         """)
-        for username, name, email, flags, roles in c.fetchall():
-            u = BaseDBUser(db, username, name, email, flags)
+        for username, name, email, flags, auth_info, auid, roles in c.fetchall():
+            u = BaseDBUser(db, username, name, email, flags, auth_info, auid)
             u.RoleNames = roles
             #print("DBUser.list: yielding:", u)
             yield u

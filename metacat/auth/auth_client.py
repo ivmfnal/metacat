@@ -142,6 +142,34 @@ class TokenAuthClientMixin(object):
         #print("logn_password:", user, exp)
         return user, exp
             
+    def login_token(self, username, encoded_token):
+        """Authenticate using a JWT or a SciToken.
+
+        Parameters
+        ----------
+        username : str
+        encoded_token : str or bytes
+
+        Returns
+        -------
+        str
+            username of the authenticated user (same as ``usernme`` argument)
+        numeric
+            authentication expiration timestamp
+        """
+        url = f"{self.AuthURL}/auth?method=token&username={username}"    
+        headers = {"Authorization": "bearer " + to_str(encoded_token)}
+        #print("HTTPClient.post_json: headers:", headers)
+        print("url:", url)
+        response = requests.post(url, verify=False, headers=headers)
+        if response.status_code != 200:
+            raise AuthenticationError(response.text)
+	
+        self.Token = token = SignedToken.decode(response.headers["X-Authentication-Token"])
+        if self.TokenLib is not None:
+            self.TokenLib[self.ServerURL] = token
+        return token.subject, token.expiration
+            
     def my_x509_dn(self, cert, key=None):
         auth_url = self.AuthURL
         url = f"{auth_url}/mydn"    
