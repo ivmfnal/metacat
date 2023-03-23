@@ -4,6 +4,7 @@ import psycopg2, getopt, sys, yaml, requests
 Usage = """
 python populate_auids.py [-v] <config file> <Ferry URL prefix> <VO>
     -v                                      - verbose output
+    -d                                      - dry run - do not do any changes
     -c <cert or proxy file>                 - if HTTPS is used
     -k <key file>                           - optional if using proxy
 """
@@ -16,6 +17,7 @@ if len(args) != 3:
     sys.exit(2)
 
 verbose = "-v" in opts
+dry_run = "-d" in opts
 
 config = yaml.load(open(args[0], "r"), Loader=yaml.SafeLoader)
 ferry_prefix, vo = args[1], args[2]
@@ -57,10 +59,12 @@ for username, ferry_user in ferry_users.items():
     if username not in db_users:
         auth_info = {} if not ldap_template else {"ldap": ldap_template % (username,)}
         u = BaseDBUser(db, username, ferry_user.get("fullname", ""), None, "", auth_info, ferry_user.get("uuid"))
-        #u.save()
         nmissing += 1
         if verbose:
-            print("Missing user created:", u, "  auth_info:", u.AuthInfo)
+            print("Missing user:", u, "  auth_info:", u.AuthInfo)
+        if not dry_run:
+            u.save()
+            print("- created")
 
 for username, db_user in db_users.items():
     ferry_user = ferry_users.get(username)
@@ -79,9 +83,11 @@ for username, db_user in db_users.items():
             update_reason += " name mismatch"
         if do_update:
             nupdated += 1
-            #db_user.save()
             if verbose:
-                print("User updated:", db_user, update_reason)
+                print("User needs to be updated:", db_user, update_reason)
+            if not dry_run:
+                db_user.save()
+                print("- updated")
     else:
         not_found += 1
         if verbose:
