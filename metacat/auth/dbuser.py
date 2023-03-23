@@ -159,7 +159,7 @@ class BaseDBUser(DBObject):
     
     @staticmethod 
     def list(db):
-        columns = self.columns("u")
+        columns = BaseDBUser.columns("u")
         c = db.cursor()
         c.execute(f"""select {columns}, array(select ur.role_name from users_roles ur where ur.username=u.username)
             from users u
