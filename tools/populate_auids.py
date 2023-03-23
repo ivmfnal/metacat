@@ -20,7 +20,7 @@ verbose = "-v" in opts
 dry_run = "-d" in opts
 
 if dry_run:
-    print("n\=== dry run ===\n")
+    print("\n=== dry run ===\n")
 
 config = yaml.load(open(args[0], "r"), Loader=yaml.SafeLoader)
 ferry_prefix, vo = args[1], args[2]
