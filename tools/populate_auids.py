@@ -66,19 +66,22 @@ for username, db_user in db_users.items():
     ferry_user = ferry_users.get(username)
     if ferry_user:
         do_update = False
+        update_reason = ""
         uuid = ferry_user.get("uuid")
         fullname = ferry_user.get("fullname")
         if uuid and uuid != db_user.AUID:
             db_user.AUID = uuid
             do_update = True
+            update_reason = " uuid mismatch"
         if fullname and db_user.Name != fullname:
             db_user.Name = fullname
             do_update = True
+            update_reason += " name mismatch"
         if do_update:
             nupdated += 1
             #db_user.save()
             if verbose:
-                print("User updated:", db_user)
+                print("User updated:", db_user, update_reason)
     else:
         not_found += 1
         if verbose:
