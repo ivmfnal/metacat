@@ -150,24 +150,24 @@ then adding the following DNs to the database has exactly the same effect:
 WLCG token authentication
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-MetaCat supports WLCG tokens authentication. MetaCat client will check the following locations for the token value:
+MetaCat supports WLCG tokens authentication. MetaCat client will for the token in the following standard locations:
 
-    #. BEARER_TOKEN environment variable value
-    #. contents of a file pointed to by the BEARER_TOKEN_FILE environment variable
-    #. if XDG_RUNTIME_DIR environment variable is defined:
+    #. ``BEARER_TOKEN`` environment variable value
+    #. contents of a file pointed to by the ``BEARER_TOKEN_FILE`` environment variable
+    #. if ``XDG_RUNTIME_DIR`` environment variable is defined:
 
-        #. if ID environment variable is defined, contents of the file $XDG_RUNTIME_DIR/bt_u$ID
+        #. if ID environment variable is defined, contents of the file ``$XDG_RUNTIME_DIR/bt_u$ID``
         #. if ID is not defined, contents of the file: 
         
-            $XDG_RUNTIME_DIR/bt_u<effective uid of the process>
+            ``$XDG_RUNTIME_DIR/bt_u<effective uid of the process>``
 
-To use a WLCG token stored in on of the locations above, use:
+To use a WLCG token stored in one of the standard locations, use:
 
 .. code-block:: shell
     
     $ metacat auth login -m token <username>
 
-Otherwise, the user can specify the token value or the location of the token file explicitly:
+Alternatively, you can specify the token value or the location of the token file explicitly:
 
 .. code-block:: shell
     
