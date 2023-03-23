@@ -1,4 +1,4 @@
-import sys, getopt, os, json, pickle, time
+import sys, getopt, os, json, pickle, time, os.path
 from urllib.request import urlopen, Request
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
@@ -128,7 +128,7 @@ class LoginCommand(CLICommand):
 
         with token, use
             -t|--token <serilized token>
-            -t|--token @<file with serilized token>
+            -t|--token <file with serilized token>
             otherwise, the folloowing environment variables will be used:
             BEARER_TOKEN, BEARER_TOKEN_FILE, XDG_RUNTIME_DIR, ID (see SciTokens documentation)
             will look for a token in:
@@ -150,7 +150,9 @@ class LoginCommand(CLICommand):
             token = token_file = None
             v = opts.get("-t") or opts.get("--token")
             if v:
-                if v.startswith('@'):
+                if os.path.isfile(v):
+                    token_file = v
+                elif v.startswith('@'):
                     token_file = v[1:]
                 else:
                     token = v

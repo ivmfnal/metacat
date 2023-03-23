@@ -172,7 +172,7 @@ Alternatively, you can specify the token value or the location of the token file
 .. code-block:: shell
     
     $ metacat auth login -m token (-t|--token) <serilized token> <username>
-    $ metacat auth login -m token (-t|--token) @<file with serilized token> <username>
+    $ metacat auth login -m token (-t|--token) <file with serilized token> <username>
 
 Listing available MetaCat authentication tokens
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
