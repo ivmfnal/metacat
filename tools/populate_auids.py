@@ -31,14 +31,14 @@ if ferry_prefix.lower().startswith("https:") and not cert_file:
 db_config = config["database"]
 connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % db_config
 db = psycopg2.connect(connstr)
-dbschema = db_config.get("schema")
-if dbschema:
-    conn.cursor().execute(f"set search_path to {schema}")
+schema = db_config.get("schema")
+if schema:
+    db.cursor().execute(f"set search_path to {schema}")
 
 url = f"{ferry_prefix}/getAffiliationMembersRoles?unitname={vo}"
     
-response = requests.get(url, verify=False, cert=(cert, key))
-data = response.json
+response = requests.get(url, verify=False, cert=(cert_file, key_file))
+data = response.json()
 
 status = data["ferry_status"]
 if status != "success":
@@ -47,7 +47,7 @@ if status != "success":
         print(line)
     sys.exit(1)
 
-ferry_users = {item["username"]: item} for item in data["ferry_output"]["vo"]}
+ferry_users = {item["username"]: item for item in data["ferry_output"][vo]}
 db_users = {user.Username: user for user in BaseDBUser.list(db)}
 
 ldap_template = config.get("authentication", {}).get("ldap", {}).get("dn_template")
