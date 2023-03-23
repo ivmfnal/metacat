@@ -87,7 +87,7 @@ class BaseDBUser(DBObject):
         self.RoleNames = None
         
     def __str__(self):
-        return "BaseDBUser(%s, %s, %s, %s)" % (self.Username, self.Name, self.EMail, self.Flags)
+        return "BaseDBUser(%s, %s, %s, %s, %s)" % (self.Username, self.Name, self.EMail, self.Flags, self.AUID)
         
     __repr__ = __str__
     
