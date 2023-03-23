@@ -33,7 +33,8 @@ RUN yum install -y httpd httpd-devel mod_ssl \
 
 RUN source /opt/conda/etc/profile.d/conda.sh && \
     conda activate && \
-    pip install jinja2 webpie pyyaml pyjwt requests mod_wsgi \
+    pip install --upgrade pip && \
+    pip install --upgrade pythreader jinja2 webpie pyyaml pyjwt requests mod_wsgi scitokens \
     && rm -rf ~/.chache/pip \
     && mod_wsgi-express module-config > /etc/httpd/conf.modules.d/10-wsgi.conf \
     && yum clean all \
@@ -42,8 +43,8 @@ RUN source /opt/conda/etc/profile.d/conda.sh && \
 RUN rm -f /etc/localtime && ln -s /usr/share/zoneinfo/US/Central /etc/localtime 
 
 WORKDIR /tmp
-RUN git clone http://cdcvs.fnal.gov/projects/rwsi-wsdbtools
-WORKDIR /tmp/rwsi-wsdbtools
+RUN git clone https://github.com/ivmfnal/wsdbtools.git
+WORKDIR /tmp/wsdbtools
 RUN make HOME=/tmp
 
 WORKDIR /tmp
@@ -62,6 +63,9 @@ COPY start.sh env.py /tmp/auth_server/
 EXPOSE 8443
 
 WORKDIR /tmp/auth_server
+
+RUN rm -rf /root/.cache && \
+	chmod go+rwx /root
 
 ENTRYPOINT /tmp/auth_server/start.sh
 
