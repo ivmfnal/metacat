@@ -9,7 +9,7 @@ python populate_auids.py [-v] <config file> <Ferry URL prefix> <VO>
     -k <key file>                           - optional if using proxy
 """
 
-opts, args = getopt.getopt(sys.argv[1:], "vc:k:")
+opts, args = getopt.getopt(sys.argv[1:], "vc:k:d")
 opts = dict(opts)
 
 if len(args) != 3:
@@ -18,6 +18,9 @@ if len(args) != 3:
 
 verbose = "-v" in opts
 dry_run = "-d" in opts
+
+if dry_run:
+    print("n\=== dry run ===\n")
 
 config = yaml.load(open(args[0], "r"), Loader=yaml.SafeLoader)
 ferry_prefix, vo = args[1], args[2]
