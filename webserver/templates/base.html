@@ -1,5 +1,10 @@
 {% set G_StaticRoot = GLOBAL_AppTopPath + "/static" %}
 
+{% macro copy_button(text) -%}
+    <!-- <a title="copy" href="javascript:copy('{{text}}')"><img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png"/></a> -->
+    <a title="copy" onclick="copy_event(event, '{{text}}')"><img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png"/></a>
+{%- endmacro %}
+
 <html>
 
 <head>
@@ -214,10 +219,48 @@
     td.nopadding {
         padding: 0;
     }
+
+    img.copy_button {
+        vertical-align:middle;
+        height: 13;
+        width: 13;
+        margin-left: 3px;
+        opacity: 0.5;
+    }
     
     </style>
     
     <script src="{{GLOBAL_AppTopPath}}/static/js/request.js"></script>
+    <script type="text/javascript">
+        function copy(text)
+        {
+            navigator.clipboard.writeText(text);
+        };
+        
+        function copy_event(event, text)
+        {
+            console.log(event);
+            console.log(text);
+            
+            const x = event.clientX, y = event.clientY;
+            var span = document.createElement("span");
+            span.style.position="fixed";
+            span.style.display="block";
+            span.style.top=y-20;
+            span.style.left=x+5;
+            span.style.padding = "3px 5px";
+            span.style.backgroundColor = "#EEE";
+            span.style.opacity = 0.9;
+            span.style.borderRadius = "3px";
+            span.style.border = "1px solid #888";
+            span.innerHTML='copied: ' + text;
+            var body = document.getElementsByTagName("body")[0];
+            body.appendChild(span);
+            setTimeout(function (){
+                body.removeChild(span);
+            }, 2000);
+        }
+    </script>
     
     {% block html_head %}{% endblock %}
 	

@@ -236,8 +236,10 @@
     <h3>Files</h3>
     <table class="file_metadata">
         {% for f in files %}
+            {% set did = f.Namespace + ':' + f.Name %}
+            {% set fid = f.FID %}
             <tr>
-                <td colspan=2 class="filename"><a href="./show_file?fid={{f.FID}}">{{f.Namespace}}:{{f.Name}}</a> ({{f.FID}})</td>
+                <td colspan=2 class="filename"><a href="./show_file?fid={{f.FID}}">{{did}}{{copy_button(did)}}</a> ({{fid}}{{copy_button(fid)}})</td>
             </tr>
             {% if attr_names and f.Metadata %}
                 {% if view_meta_as == "table" %}
