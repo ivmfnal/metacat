@@ -63,7 +63,7 @@ class CreateCommand(CLICommand):
         if u is not None:
             print("User already exists. Leaving users status unchanged. Use 'metacat admin add ...'")
             sys.exit(1)
-        u = DBUser(db, username, "Admin", "", flags="a")
+        u = DBUser(db, username, "Admin", "", "a", {}, None)
         u.set_password(self.Realm, password)
         u.save()
         print("Admin user %s created" % (username,))
