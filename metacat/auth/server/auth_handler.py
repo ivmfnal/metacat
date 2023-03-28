@@ -96,7 +96,7 @@ class AuthHandler(BaseHandler):
         #print("_auth_x509: u:", username, u, file=log)
         result, reason, expiration = u.authenticate("x509", None, request.environ)
         if result:
-            return self.App.response_with_auth_cookie(username, redirect, expiration=expiration)
+            return self.App.response_with_auth_cookie(username, redirect)
         else:
             return "Authentication failed\n", 401
         

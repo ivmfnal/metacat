@@ -1,4 +1,4 @@
-import hashlib, re
+import hashlib, re, traceback
 from .py3 import to_str, to_bytes
 from .password_hash import password_digest_hash
 from .signed_token_jwt import \
@@ -83,6 +83,7 @@ class SciTokenAuthenticator(Authenticator):
     def authenticate(self, user, encoded):
         #print("SciTokenAuthenticator.authenticate: token:", encoded)
         import scitokens
+        #scitokens.configure(cache_location="__memory__")
         issuers = self.Config
         subject = issuer = expiration = None
         
@@ -101,7 +102,8 @@ class SciTokenAuthenticator(Authenticator):
             issuer = token["iss"]
             expiration = token["exp"]
         except Exception as e:
-            #print("SciTokenAuthenticator.authenticate: error:", e, type(e))
+            print("SciTokenAuthenticator.authenticate: error:", e, type(e))
+            traceback.print_exc()
             subject = None
 
         #print("SciTokenAuthenticator.authenticate:", subject, issuer)
