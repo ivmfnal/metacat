@@ -35,7 +35,19 @@ copy (
 ) to stdout;
 
 copy (
+   select df.file_id, '${core_category}.start_time_utc_text', df.start_time at time zone 'utc'
+                from active_files df
+                where df.start_time is not null
+) to stdout;
+
+copy (
    select df.file_id, '${core_category}.end_time', extract(epoch from df.end_time)
+                from active_files df
+                where df.end_time is not null
+) to stdout;
+
+copy (
+   select df.file_id, '${core_category}.end_time_utc_text', df.end_time at time zone 'utc'
                 from active_files df
                 where df.end_time is not null
 ) to stdout;
