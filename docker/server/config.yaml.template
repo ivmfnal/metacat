@@ -1,0 +1,19 @@
+site_title: Development server
+templates:      $METACAT_SERVER_TEMPLATES_DIR
+port:           8989            # MetaCat server port
+
+filters:
+    standard_filters: yes
+
+authentication:
+    realm: metacat
+    issuer: metacat
+    secret: "some random string xy;'wgrnw;elkmgh"
+
+database:
+    port: 5432
+    host: dbhost.domain.org
+    user: dbuser
+    password: dbpassword                # can also be stored in ~/.pgpass
+    dbname: metacat_db                  
+    #schema: production                 # default: public

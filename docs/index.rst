@@ -16,3 +16,4 @@ MetaCat Documentation
    mql
    mql_syntax
    regexp
+   server_installation
