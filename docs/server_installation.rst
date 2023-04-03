@@ -65,3 +65,51 @@ Once an admin account is created, you can access MetaCat GUI at:
 
 Log in as the admin account you just created. The admin account can be used to create regular users and use other functions.
 
+Configuring LDAP Authentication
+-------------------------------
+
+To enable LDAP authenticartion, add the following parameters to the ``authentication`` section of the server configuration file:
+
+
+    .. code-block::
+
+        authentication:
+            ldap:
+                server_url: ldaps://ldaps.domain.org
+                dn_template: "cn=%s,ou=Users,dc=services,dc=domain,dc=org"
+
+
+the ``dn_template`` is a template defining the conversion from username to LDAP DN. MetaCat server will substitute ``%s`` with the username.
+
+
+Configuring WLCG Token Authentication
+-------------------------------------
+
+To enable WLCG token authentication, you need to add the list of trusted token issuers to the server configuration:
+
+    .. code-block::
+
+        authentication:
+            sci_token_issuers:
+                - https://cilogon.org/my_org
+                - https://issuer.com/group
+
+If the token issuer replaces username with some other user identifier, you will need to populate the database with the alternative
+user identifier. The ``users`` database table has ``auid`` column. When MetaCat server authenticates the user, it goes through
+the following steps:
+
+    #. Verify the integrity of the token and check its expiration time;
+
+    #. Get the user record from the ``users`` table of the MetaCat database by the username presented bu the client. If the user
+       record with the given username does not exist - retrun with error;
+    
+    #. Get the ``subject`` from the token
+    
+    #. Compare ``username`` to the ``subject`` from the token. If they match, return with success;
+    
+    #. Compare ``auid`` field from the user record from the database to the ``subject``. If they match, return with success
+    
+    #. Return an error
+
+Currently, there is a limitation that a user can have only one alternative user identifier.
+
