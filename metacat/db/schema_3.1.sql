@@ -104,26 +104,21 @@ create view files_with_provenance as
     where f.id = r.id
 ;
 
-create view ____files_with_provenance as                                                                                                                      
-    select f.*, coalesce(r.children, Array[]::text[]) as children, coalesce(r.parents, Array[]::text[]) as parents
-    from files f
-        left outer join file_provenance r on (f.id = r.id)
-;
-    
 create table datasets
 (
     namespace           text references namespaces(name),
     name                text,
-    frozen		boolean default 'false',
-    monotonic		boolean default 'false',
-    primary key (namespace, name),
+    frozen		        boolean default 'false',
+    monotonic		    boolean default 'false',
     metadata    jsonb   default '{}',
     required_metadata   text[],
-    creator        text references users(username),
+    creator             text references users(username),
     created_timestamp   timestamp with time zone     default now(),
     expiration          timestamp with time zone,
     description         text,
-    file_metadata_requirements  jsonb   default '{}'::jsonb
+    file_metadata_requirements  jsonb   default '{}'::jsonb,
+
+    primary key (namespace, name)
 );
 
 create index datasets_meta_index on datasets using gin (metadata);
