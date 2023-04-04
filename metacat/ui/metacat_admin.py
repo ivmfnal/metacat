@@ -43,12 +43,17 @@ class ListCommand(CLICommand):
             if u.is_admin():
                 print(u.Username, u.Name)
 
-class CreateCommand(CLICommand):
+class CreateAdminCommand(CLICommand):
 
+    Opts = "r:"
     MinArgs = 2
-    Usage = """<username> <password>                -- create new admin account"""
-
-    Realm = "metacat"
+    Usage = """<username> <password>                -- create new admin account
+        -r <realm>                  -- realm to be used for the digest authentication
+                                       can be also specified in the config file:
+                                    
+                                        authentication:
+                                            realm: ...
+    """
 
     def __call__(self, command, config, opts, args):
         from metacat.db import DBUser
@@ -64,7 +69,7 @@ class CreateCommand(CLICommand):
             print("User already exists. Leaving users status unchanged. Use 'metacat admin add ...'")
             sys.exit(1)
         u = DBUser(db, username, "Admin", "", "a", {}, None)
-        u.set_password(self.Realm, password)
+        u.set_password(realm, password)
         u.save()
         print("Admin user %s created" % (username,))
 
@@ -150,7 +155,56 @@ class GenerateCommand(CLICommand):
         else:
             key = secrets.token_urlsafe(length)
         print (key)
-        
+
+class InitDtabaseCommand(CLICommand):
+
+    Usage = """[options]                            -- initialize database
+        -r <owner role>     -- create database objects as owned by that role, default: same as the DB user from config
+        -s <schema>         -- DB schema (a.k.a. namespace), default: public    
+    """
+
+    def __call__(self, command, config, opts, args):
+        from metacat.db import drop_tables_sql, create_schema_sql
+
+        db = connect(config)        
+        c = db.cursor()
+
+        #
+        # set role
+        #
+        role = opts.get("-r")
+        if role:
+            print(f"settig owner to {role} ...")
+            c.execute(f"set role {role};")
+
+        #
+        # create schema if specified
+        #
+        schema = opts.get("-s")
+        if schema:
+            print(f"creating schema {schema}, if necessary ...")
+            c.execute(f"""
+                        create schema if not exists {schema};
+                        set seatch_path to {schema};
+            """)
+
+        # 
+        # drop tables and views
+        #
+        print(f"dropping existing objects ...")
+        c.execute(drop_tables_sql)
+
+        #
+        # create tables and views
+        #
+        print(f"creating database objects ...")
+        c.execute(create_schema_sql)
+
+        c.execute("commit")
+
+        print("database initialized")
+
+
 class AdminCLI(CLI):
 
     Opts = "c:"
@@ -164,9 +218,10 @@ class AdminCLI(CLI):
             sys.exit(2)
         cfg = yaml.load(open(opts["-c"], "r"), Loader=yaml.SafeLoader)
         return cfg
- 
+
 AdminCLI = AdminCLI(
-    "create",       CreateCommand(),
+    "init",         InitDtabaseCommand(),
+    "create",       CreateAdminCommand(),
     "add",          AddCommand(),
     "password",     PasswordCommand(),
     "list",         ListCommand(),

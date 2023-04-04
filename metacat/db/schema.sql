@@ -1,3 +1,4 @@
+
 create table users
 (
     username    text    primary key,
@@ -30,17 +31,6 @@ create table users_roles
     role_name        text    references roles(name),
     primary key(username, role_name)
 );
-
---create table authenticators
---(
---    username    text    references users(username) on delete cascade,
---    type        text
---        constraint authenticator_types check ( 
---            type in ('x509','password','ssh')
---            ),
---    secrets      text[],
---    primary key(username, type)
---);
 
 create table namespaces
 (
