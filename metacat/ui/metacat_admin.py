@@ -158,9 +158,9 @@ class GenerateCommand(CLICommand):
 
 class InitDtabaseCommand(CLICommand):
 
+    Opts = "o:"
     Usage = """[options]                            -- initialize database
-        -r <owner role>     -- create database objects as owned by that role, default: same as the DB user from config
-        -s <schema>         -- DB schema (a.k.a. namespace), default: public    
+        -o <owner role>     -- create database objects as owned by that role, default: same as the DB user from config
     """
 
     def __call__(self, command, config, opts, args):
@@ -172,7 +172,7 @@ class InitDtabaseCommand(CLICommand):
         #
         # set role
         #
-        role = opts.get("-r")
+        role = opts.get("-o")
         if role:
             print(f"settig owner to {role} ...")
             c.execute(f"set role {role};")
@@ -180,12 +180,12 @@ class InitDtabaseCommand(CLICommand):
         #
         # create schema if specified
         #
-        schema = opts.get("-s")
+        schema = config["database"].get("schema")
         if schema:
             print(f"creating schema {schema}, if necessary ...")
             c.execute(f"""
                         create schema if not exists {schema};
-                        set seatch_path to {schema};
+                        set search_path to {schema};
             """)
 
         # 

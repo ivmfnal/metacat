@@ -1,69 +1,74 @@
 Server Installation
 ===================
 
-Running in Docker Container
----------------------------
+Download and set up
+-------------------
 
-1. Clone MetaCat sources repository from github:
+1. Clone MetaCat sources repository from github and install the client:
 
     .. code-block:: shell
     
         $ git clone https://github.com/ivmfnal/metacat
         $ cd metacat
+        $ python setup.py install --user
 
-2. Start a Postgres server version 14 or later. Once the server is running, create MetaCat database tables:
+2. Start a Postgres server version 14 or later. Once the server is running, create MetaCat database using Postgres ``createdb`` command
+   or similar.
 
-    .. code-block:: shell
-
-        $ psql -h <database host> -p <port> -U <database user> -d <database name> -f metacat/db/schema_3.1.sql
-
-3. Build MetaCat server Docker image:
-
-    .. code-block:: shell
-
-        $ cd docker/server
-        $ ./build.sh
-        
-4. Create configuration directory and edit server configuration file:
+3. Create configuration directory and the server configuration file
 
     .. code-block:: shell
 
         $ mkdir /path/to/config
-        $ cp docker/server/config.yaml.template /path/to/config/config.yaml
+        $ cp <top of cloned MetaCat repository>/webserver/config.yaml.template /path/to/config/config.yaml
+        $ vi /path/to/config/config.yaml
+
+4. Initialize the MetaCat database
+
+    .. code-block:: shell
+
+        $ metacat admin -c /path/to/config/config.yaml [options] init
+        
+        Options:
+    
+            -o <owner role>     -- create database objects as owned by that role, default: same as the DB user from config
+    
+5. Create an admin user
+
+    .. code-block:: shell
+
+        $ metacat admin -c /path/to/config/config.yaml create <admin username> <admin password>
+        
+    Admin user is needed to create regular users. Also, the admin has privileges to manage various MetaCat objects.
+    Once the MetaCat server is running, log in to GUI as the admin user and go to Users tab.
+    In the future, you can add more admin users or make a regular user an admin.
+
+Running MetaCat server as a Docker Container
+--------------------------------------------
+
+1. Build MetaCat server Docker image:
+
+    .. code-block:: shell
+
+        $ cd <top of cloned MetaCat repository>/docker/server
+        $ ./build.sh
+        
+2. Create configuration directory and edit server configuration file or use the one you created earlier but make sure to place
+   it into a separate directory. This directory will have to be mounted into the Docker container.
+
+    .. code-block:: shell
+
+        $ mkdir /path/to/config
+        $ cp <top of cloned MetaCat repository>/docker/server/config.yaml.template /path/to/config/config.yaml
         $ vi /path/to/config/config.yaml
         
-5. Run MetaCat server
+3. Run MetaCat server
 
     .. code-block:: shell
 
-        $ cd docker/server
+        $ cd <top of cloned MetaCat repository>/docker/server
         $ ./run.sh -c /path/to/config -p <external TCP port>
 
-Initializing MetaCat Database
------------------------------
-
-After creating the database schema, there is one more step needed to complete the database initialization - create
-an admin user. This step is done by directly accessing the MetaCat database.
-
-1. Install MetaCat client
-
-    .. code-block:: shell
-
-        $ pip install --user metacat
-        
-2. Create admin account
-
-    .. code-block:: shell
-    
-        $ metacat admin -c /path/to/config/config.yaml create <username> <password>
-        
-Once an admin account is created, you can access MetaCat GUI at:  
-
-    .. code-block:: shell
-
-        http://host:<external TCP port>/gui/index
-
-Log in as the admin account you just created. The admin account can be used to create regular users and use other functions.
 
 Configuring LDAP Authentication
 -------------------------------
