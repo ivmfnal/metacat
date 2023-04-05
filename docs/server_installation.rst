@@ -12,7 +12,7 @@ Download and set up
         $ cd metacat
         $ python setup.py install --user
 
-2. Start a Postgres server version 14 or later. Once the server is running, create MetaCat database using Postgres ``createdb`` command
+2. Start a Postgres server version 12 or later. Once the server is running, create MetaCat database using Postgres ``createdb`` command
    or similar.
 
 3. Create configuration directory and the server configuration file
@@ -22,6 +22,18 @@ Download and set up
         $ mkdir /path/to/config
         $ cp <top of cloned MetaCat repository>/webserver/config.yaml.template /path/to/config/config.yaml
         $ vi /path/to/config/config.yaml
+
+   In particular, make sure the ``database`` section points to the database server created in step (2) above:
+   
+   .. code-block::
+   
+        database:
+            port: 5432
+            host: dbhost.domain.org
+            user: dbuser
+            password: dbpassword                # can also be stored in ~/.pgpass
+            dbname: metacat_db                  
+            #schema: production                 # default: public
 
 4. Initialize the MetaCat database
 
