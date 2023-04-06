@@ -2,7 +2,7 @@
 
 source ./config.sh
 
-$IN_DB_PSQL -q > ./data/file_types.csv << _EOF_
+$IN_DB_PSQL -q > ./data/retention_class.csv << _EOF_
 
 create temp view active_files as
         select * from active_files
