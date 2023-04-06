@@ -64,6 +64,7 @@ copy (
 	where df.process_id is not null
 ) to stdout;
 
+
 -- int attrs
 copy (
 	select f.file_id, pc.param_category || '.' || pt.param_type, param_value
@@ -102,6 +103,7 @@ copy (
                 where dt.data_type = 'string'
                     and pv.param_value is not null
 ) to stdout;
+
 
 
 _EOF_
