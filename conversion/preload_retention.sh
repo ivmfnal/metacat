@@ -36,11 +36,13 @@ copy (
         from active_files f, data_tiers dt, file_types ft, datastreams ds
 		where 
             f.stream_id = ds.stream_id and f.data_tier_id = dt.data_tier_id and f.file_type_id = ft.file_type_id
-        order by f.file_id
-    union
+) to stdout;
+
+copy (
     select f.file_id, 'retention.status', '"active"'
         from active_files f
 ) to stdout;
+
 
 _EOF_
 
