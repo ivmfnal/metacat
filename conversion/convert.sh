@@ -45,6 +45,10 @@ echo Starting parallel preloading at `date` ...
     echo -2- preload runs/subruns ...
     ./preload_runs_subruns.sh
 
+    echo
+    echo -2- preload retention policy/status ...
+    ./preload_retention.sh
+
     echo -2- DONE
 
 )&

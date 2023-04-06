@@ -20,11 +20,10 @@ url=$1
 psql -q $url > data/auth_info.csv << _EOF_
 set search_path to $schema;
 copy (
-    select username, auth_info-'ldap' 
+    select username, auth_info-'ldap', auid
         from users 
-        where auth_info-'ldap' != '{}'
+        where auth_info-'ldap' != '{}' or not auid is null
     ) to stdout;
 _EOF_
 
-echo --- non-LDAP authenticators saved
 
