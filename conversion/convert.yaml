@@ -6,6 +6,18 @@ steps:
         multiplicity: 10
         tasks:
 
+        -   title:      preloading text dimensions
+            command:    preload_dimensions_text.sh
+
+        -   title:      preloading int dimensions
+            command:    preload_dimensions_int.sh
+
+        -   title:      preloading float dimensions
+            command:    preload_dimensions_float.sh
+
+        -   title:      preloading attributes
+            command:    preload_attrs.sh
+
         -   title:      loading users
             command:    load_users.sh
 
@@ -14,9 +26,6 @@ steps:
 
         -   title:      loading raw files
             command:    load_files.sh
-
-        -   title:      preloading attributes
-            command:    preload_attrs.sh
 
         -   title:      preloading event numbers
             command:    preload_event_numbers.sh
