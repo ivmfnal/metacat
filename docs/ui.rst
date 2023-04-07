@@ -45,8 +45,6 @@ If you use your own Python installation, e.g. Anaconda or Miniconda, then you ca
 
       $ python setup.py install
 
-It is also possible to install MetaCat client from a tarball from https://cdcvs.fnal.gov/redmine/projects/metacat/files
-
 
 General CLI command syntax
 --------------------------
