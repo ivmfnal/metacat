@@ -3,9 +3,7 @@ env:
  
 steps:
     -   title:  load users
-        tasks:
-        -   title:  load users
-            command:    load_users.sh
+        command:    load_users.sh
 
     -   title:  parallel steps
         multiplicity: 10

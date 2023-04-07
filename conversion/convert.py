@@ -67,11 +67,10 @@ class Step(Primitive):
         Primitive.__init__(self)
         self.Env = env
         self.Title = config.get("title")
+        self.Queue = TaskQueue(config.get("multiplicity", 5), delegate=self)
         if "command" in config:
             self.Commands = [Command(config, env=env)]
-            self.Queue = None
         else:
-            self.Queue = TaskQueue(config.get("multiplicity", 5), delegate=self)
             self.Commands = [Command(task, env=env) for task in config["tasks"]]
         self.Failed = False
         
