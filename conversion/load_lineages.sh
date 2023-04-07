@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash -i
 
 
 source ./config.sh
