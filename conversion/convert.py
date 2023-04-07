@@ -109,7 +109,7 @@ class Step(Primitive):
         if out or err:
             if out:
                 print("  -- stdout: ------")
-                print(indent(out, "  ")
+                print(indent(out, "  "))
             if err:
                 print("  -- stderr: -------")
                 print(indent(err, "  "))
