@@ -31,8 +31,6 @@ create table parameter_categories
     definitions         jsonb
 );
 
-\echo imporing parameter categories ...
-
 \copy parameter_categories(path, owner_user, creator, definitions) from './data/param_categories.csv';
 
 insert into parameter_categories(path, owner_user, creator, definitions)
