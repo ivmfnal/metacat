@@ -97,7 +97,7 @@ class Step(Primitive):
         elif t > 60:
             return(f"{m}m {s}s")
         else:
-            return(f"{fs}s")
+            return("%.2fs" % (fs,))
             
     @synchronized
     def print_command_results(self, command, retcode, out, err):
