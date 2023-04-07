@@ -15,6 +15,9 @@ class Command(Task):
         self.Env = env
         self.Killed = True
         
+    def __str__(self):
+        return f"Task {self.Title} ({self.Command})"
+        
     def run(self):
         env = os.environ.copy()
         env.update(self.Env)
@@ -95,6 +98,7 @@ class Step(Primitive):
             print("Cancelling:", task.Title)
             self.Queue.cancel(task)
         for task in self.Queue.activeTasks():
+            print("active task:", task)
             if not task.Killed:
                 print("Killing:", task.Title)
                 task.kill()
