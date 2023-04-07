@@ -1,4 +1,4 @@
-import getopt, yaml, sys, traceback, os
+import getopt, yaml, sys, traceback, os, signal
 from pythreader import SubprocessAsync, Task, Primitive, synchronized, TaskQueue
 
 Usage = """
@@ -27,7 +27,7 @@ class Command(Task):
     def kill(self):
         process = self.Process
         if process is not None:
-            process.kill()
+            process.signal(signal.SIGHUP)
             self.Process = None
 
 class CommandTask(Task):
