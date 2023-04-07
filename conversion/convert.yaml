@@ -10,7 +10,7 @@ steps:
             command:    load_users.sh
 
         -   title:      saving authentication information
-            command:    save_authenticators.sh -s producton postgresql://ivm@ifdb04.fnal.gov:5432/dune_metadata
+            command:    save_authenticators.sh -s production postgresql://ivm@ifdb04.fnal.gov:5432/dune_metadata
 
         -   title:      loading raw files
             command:    load_files.sh
