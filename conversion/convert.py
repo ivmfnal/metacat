@@ -90,15 +90,16 @@ class Step(Primitive):
         out = out.strip()
         err = err.strip()
         if out or err:
-            print(f"  task {command.Title}:")
+            print(f"task {command.Title}:")
             if out:
-                print(indent("    ", out))
+                print(indent(">   ", out))
             if err:
-                print("  -- stderr -------")
-                print(indent("    ", err))
-            print(f"  end of task {command.Title}: {status}")
+                print("-- stderr -------")
+                print(indent(">   ", err))
+            print("----------------")
+            print(f"end of task {command.Title}: {status}")
         else:
-            print(f"  task {command.Title}: {status}")
+            print(f"task {command.Title}: {status}")
         print("")
 
     @synchronized
