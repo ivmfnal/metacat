@@ -25,11 +25,19 @@ Alternatively, it can be installed from github:
       $ cd metacat
       $ python setup.py install --user
       
-Make sure ~/.local/bin is in your PATH:
+When installing MetaCat client using ``pip`` or ``setup.py``, pay attention to messages like this:
 
   .. code-block:: shell
 
-      $ export PATH=${HOME}/.local/bin:$PATH
+    WARNING: The script metacat is installed in '/Users/user-local/Library/Python/3.10/bin' which is not on PATH.
+    Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+      
+      
+Make sure the location where the ``metacat`` command is installed is in your PATH:
+
+  .. code-block:: shell
+
+      $ export PATH=/Users/user-local/Library/Python/3.10/bin:$PATH
       
 If you use your own Python installation, e.g. Anaconda or Miniconda, then you can do this instead:
 
