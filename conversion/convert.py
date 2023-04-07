@@ -109,12 +109,13 @@ class Step(Primitive):
         err = err.strip()
         if out or err:
             if out:
-                print("  -- stdout: ------")
+                print("\n  -- stdout: ------")
                 print(indent(out, "  "))
+                print("  ------------------")
             if err:
-                print("  -- stderr: -------")
+                print("\n  -- stderr: -------")
                 print(indent(err, "  "))
-            print("  ----------------")
+                print("  ------------------")
         print("")
 
     @synchronized

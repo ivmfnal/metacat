@@ -2,9 +2,27 @@ env:
     PATH(prepend): .
  
 steps:
+    -   title:  load users
+        tasks:
+            
+        -   title:  load users
+            command:    load_users.sh
+            
     -   title:  parallel steps
         multiplicity: 10
         tasks:
+
+        -   title:      loading raw files
+            command:    load_files.sh
+
+        -   title:      loading param categories
+            command:    load_param_categories.sh
+
+        -   title:      preloading attributes 1
+            command:    preload_attrs_1.sh
+
+        -   title:      preloading attributes 2
+            command:    preload_attrs_2.sh
 
         -   title:      preloading text dimensions
             command:    preload_dimensions_text.sh
@@ -15,17 +33,8 @@ steps:
         -   title:      preloading float dimensions
             command:    preload_dimensions_float.sh
 
-        -   title:      preloading attributes
-            command:    preload_attrs.sh
-
-        -   title:      loading users
-            command:    load_users.sh
-
         -   title:      saving authentication information
             command:    save_authenticators.sh -s production postgresql://ivm@ifdb04.fnal.gov:5432/dune_metadata
-
-        -   title:      loading raw files
-            command:    load_files.sh
 
         -   title:      preloading event numbers
             command:    preload_event_numbers.sh
