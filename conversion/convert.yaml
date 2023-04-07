@@ -3,7 +3,7 @@ env:
  
 steps:
     -   title:  parallel steps
-        multiplicity: 5
+        multiplicity: 10
         tasks:
 
         -   title:      loading users

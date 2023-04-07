@@ -26,6 +26,7 @@ class Command(Task):
         return f"Task {self.Title} ({pid}: {self.Command})"
         
     def run(self):
+        print(f"starting {self.Title} ...\n")
         env = os.environ.copy()
         env.update(self.Env)
         self.Process = SubprocessAsync(self.Command, shell=True, env=env, process_group=0).start()
