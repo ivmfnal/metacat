@@ -84,23 +84,36 @@ class Step(Primitive):
             self.Failed = True
             if retcode != "killed":
                 self.shutdown()
-
+                
+    def pretty_time(t):
+        f = t - int(t)
+        t = int(t)
+        h = t//3600
+        m = (t % 3600) // 60
+        s = t % 60
+        if t > 3600:
+            return(f"{h}h {m}m")
+        elif t > 60:
+            return(f"{m}m {s}s")
+        else:
+            return(f"{s}.{f}s")
+            
     @synchronized
     def print_command_results(self, command, retcode, out, err):
         status = "succeeded" if retcode == 0 else f"failed with exit code {retcode}"
+        print("End of task", command.Title)
+        print("Status:", status)
+        print("Elapsed time:", self.pretty_time(command.Ended - command.Started))
         out = out.strip()
         err = err.strip()
         if out or err:
-            print(f"task {command.Title}:")
             if out:
-                print(indent(out, ">   "))
+                print("-- stdout: ------")
+                print(indent(out, "   ")
             if err:
-                print("-- stderr -------")
+                print("-- stderr: -------")
                 print(indent(err, ">   "))
             print("----------------")
-            print(f"end of task {command.Title}: {status}")
-        else:
-            print(f"task {command.Title}: {status}")
         print("")
 
     @synchronized
