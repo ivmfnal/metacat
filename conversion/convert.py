@@ -16,7 +16,9 @@ class Command(Task):
         self.Killed = False
         
     def __str__(self):
-        return f"Task {self.Title} ({self.Command})"
+        process = self.Process
+        pid = process.pid if process is not None else ""
+        return f"Task {self.Title} ({pid}: {self.Command})"
         
     def run(self):
         env = os.environ.copy()
@@ -101,7 +103,7 @@ class Step(Primitive):
         for task in self.Queue.activeTasks():
             #print("active task:", task)
             if not task.Killed:
-                print("Killing:", task.Title)
+                print("Killing:", task)
                 task.kill()
 
     def run(self):
