@@ -13,6 +13,7 @@ class Command(Task):
         self.Command = config["command"]
         self.Process = None
         self.Env = env
+        self.Killed = True
         
     def run(self):
         env = os.environ.copy()
@@ -21,14 +22,14 @@ class Command(Task):
         out, err = self.Process.wait()
         retcode = self.Process.returncode
         self.Process = None
+        if self.Killed: retcode = "killed"
         return retcode, out, err
 
     @synchronized
     def kill(self):
-        process = self.Process
-        if process is not None:
+        if not self.Killed:
             process.signal(signal.SIGHUP)
-            self.Process = None
+            self.Killed = True
 
 class CommandTask(Task):
     
@@ -94,8 +95,9 @@ class Step(Primitive):
             print("Cancelling:", task.Title)
             self.Queue.cancel(task)
         for task in self.Queue.activeTasks():
-            print("Killing:", task.Title)
-            task.kill()
+            if not task.Killed:
+                print("Killing:", task.Title)
+                task.kill()
 
     def run(self):
         print(f"====== STEP {self.Title} ...")
