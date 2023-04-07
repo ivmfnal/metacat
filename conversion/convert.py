@@ -136,7 +136,7 @@ class Step(Primitive):
 
     def run(self):
         t0 = time.time()
-        print(f"Step {self.Title} ...")
+        log(f"STEP {self.Title} ...")
         for command in self.Commands:
             self.Queue.append(command)
         self.Queue.join()
