@@ -8,7 +8,6 @@ drop table if exists
     queries
     ,files_datasets
     ,datasets
-    ,parameter_definitions
     ,namespaces
     cascade
 ;
@@ -57,33 +56,6 @@ create table queries
     creator             text references users(username),
     created_timestamp   timestamp with time zone     default now()
 );
-
-create table parameter_definitions
-(
-    category    text    references parameter_categories(path),
-    name        text,
-    type        text
-        constraint attribute_types check ( 
-            type in ('int','double','text','boolean',
-                    'int array','double array','text array','boolean array')
-            ),
-    int_values      bigint[],
-    int_min         bigint,
-    int_max         bigint,
-    double_values   double precision[],
-    double_min      double precision,
-    double_max      double precision,
-    text_values     text[],
-    text_pattern    text,
-    bollean_value   boolean,
-    required        boolean,
-    creator             text references users(username),
-    created_timestamp   timestamp with time zone        default now(),
-    primary key(category, name)
-);
-
-    
-
 
 _EOF_
 
