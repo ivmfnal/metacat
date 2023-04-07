@@ -87,6 +87,8 @@ class Step(Primitive):
     @synchronized
     def print_command_results(self, command, retcode, out, err):
         status = "succeeded" if retcode == 0 else f"failed with exit code {retcode}"
+        out = out.strip()
+        err = err.strip()
         if out or err:
             print(f"  task {command.Title}:")
             if out:
