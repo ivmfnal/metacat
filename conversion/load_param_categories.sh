@@ -12,7 +12,7 @@ copy (
 ) to stdout;
 _EOF_
 
-$OUT_DB_PSQL <<_EOF_
+$OUT_DB_PSQL -q <<_EOF_
 
 drop table if exists parameter_categories cascade;
 create table parameter_categories
