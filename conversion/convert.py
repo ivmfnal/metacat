@@ -11,7 +11,7 @@ python convery.py <script.yaml>
 """
 
 def log(*parts, **kv):
-    print("%s:" % (time.ctime(),), *parts, **kv)
+    print("\n%s:" % (time.ctime(),), *parts, **kv)
 
 class Command(Task):
     
@@ -29,7 +29,7 @@ class Command(Task):
         return f"Task {self.Title} ({pid}: {self.Command})"
         
     def run(self):
-        log(f"Starting task {self.Title} ...\n")
+        log(f"Starting task {self.Title} ...")
         env = os.environ.copy()
         env.update(self.Env)
         self.Process = SubprocessAsync(self.Command, shell=True, env=env, process_group=0).start()
