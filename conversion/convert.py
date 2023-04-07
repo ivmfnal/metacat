@@ -73,7 +73,8 @@ class Step(Primitive):
         self.print_command_results(command, retcode, out, err)
         if retcode:
             self.Failed = True
-            self.shutdown()
+            if retcode != "killed":
+                self.shutdown()
 
     @synchronized
     def print_command_results(self, command, retcode, out, err):
