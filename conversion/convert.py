@@ -101,19 +101,19 @@ class Step(Primitive):
     @synchronized
     def print_command_results(self, command, retcode, out, err):
         status = "succeeded" if retcode == 0 else f"failed with exit code {retcode}"
-        print("End of task", command.Title)
-        print("Status:", status)
-        print("Elapsed time:", self.pretty_time(command.Ended - command.Started))
+        print("\nEnd of task", command.Title)
+        print("  Status:", status)
+        print("  Elapsed time:", self.pretty_time(command.Ended - command.Started))
         out = out.strip()
         err = err.strip()
         if out or err:
             if out:
-                print("-- stdout: ------")
-                print(indent(out, "   ")
+                print("  -- stdout: ------")
+                print(indent(out, "  ")
             if err:
-                print("-- stderr: -------")
-                print(indent(err, ">   "))
-            print("----------------")
+                print("  -- stderr: -------")
+                print(indent(err, "  "))
+            print("  ----------------")
         print("")
 
     @synchronized
@@ -130,6 +130,7 @@ class Step(Primitive):
                 task.kill()
 
     def run(self):
+        t0 = time.time()
         print(f"Step {self.Title} ...")
         if len(self.Commands) == 1:
             command = self.Commands[0]
@@ -140,7 +141,10 @@ class Step(Primitive):
             for command in self.Commands:
                 self.Queue.append(command)
             self.Queue.join()
-        print(f"====== end of STEP {self.Title}: %s" % ("failed" if self.Failed else "succeeded",))
+        t1 = time.time()
+        print("\nEnd of STEP:", self.Title)
+        print("Status:", "failed" if self.Failed else "succeeded")
+        print("Elapsed time:", self.pretty_time(t1 - t0))
         print("\n")
         return not self.Failed
 
