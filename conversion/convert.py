@@ -1,6 +1,10 @@
 import getopt, yaml, sys, traceback, os, signal
 from pythreader import SubprocessAsync, Task, Primitive, synchronized, TaskQueue
 
+if sys.version_info[:2] < (3,11):
+    print("Pytbon version 3.11 or later is required", file=sys.stderr)
+    sys.exit(1)
+
 Usage = """
 python convery.py <script.yaml>
 """
@@ -23,7 +27,7 @@ class Command(Task):
     def run(self):
         env = os.environ.copy()
         env.update(self.Env)
-        self.Process = SubprocessAsync(self.Command, shell=True, env=env).start()
+        self.Process = SubprocessAsync(self.Command, shell=True, env=env, process_group=0).start()
         out, err = self.Process.wait()
         retcode = self.Process.returncode
         self.Process = None
