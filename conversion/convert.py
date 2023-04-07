@@ -10,6 +10,9 @@ Usage = """
 python convery.py <script.yaml>
 """
 
+def log(*parts, **kv):
+    print("%s:" % (time.ctime(),), *parts, **kv)
+
 class Command(Task):
     
     def __init__(self, config, env={}):
@@ -26,7 +29,7 @@ class Command(Task):
         return f"Task {self.Title} ({pid}: {self.Command})"
         
     def run(self):
-        print(f"starting {self.Title} ...\n")
+        log(f"Starting task {self.Title} ...\n")
         env = os.environ.copy()
         env.update(self.Env)
         self.Process = SubprocessAsync(self.Command, shell=True, env=env, process_group=0).start()
@@ -71,7 +74,7 @@ class Step(Primitive):
         
     @synchronized
     def taskFailed(self, queue, command, exc_type, exc_value, tb):
-        print(f"--- task {command.Title} exception: ---")
+        log(f"--- task {command.Title} exception: ---")
         traceback.print_exc(exc_type, exc_value, tb)
         self.Failed = True
         self.shutdown()
@@ -102,7 +105,7 @@ class Step(Primitive):
     @synchronized
     def print_command_results(self, command, retcode, out, err):
         status = "succeeded" if retcode == 0 else f"failed with exit code {retcode}"
-        print("\nEnd of task", command.Title)
+        log("\nEnd of task", command.Title)
         print("  Status:", status)
         print("  Elapsed time:", self.pretty_time(command.Ended - command.Started))
         out = out.strip()
@@ -120,7 +123,7 @@ class Step(Primitive):
 
     @synchronized
     def shutdown(self):
-        print("\nShutting down parallel step:", self.Title)
+        log("\nShutting down parallel step:", self.Title)
         self.Queue.hold()
         for task in self.Queue.waitingTasks():
             print("Cancelling:", task.Title)
@@ -138,7 +141,7 @@ class Step(Primitive):
             self.Queue.append(command)
         self.Queue.join()
         t1 = time.time()
-        print("\nEnd of STEP:", self.Title)
+        log("\nEnd of STEP:", self.Title)
         print("Status:", "failed" if self.Failed else "succeeded")
         print("Elapsed time:", self.pretty_time(t1 - t0))
         print("\n")
