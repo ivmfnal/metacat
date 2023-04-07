@@ -61,7 +61,8 @@ function preload_json_meta() {
     
     input=$1
     create_meta_table
-    echo loading `wc -l $input` lines of metadata from $input ... 
+    wc -l $input
+    #echo loading `wc -l $input` lines of metadata from $input ... 
     
     $OUT_DB_PSQL -q << _EOF_
 
