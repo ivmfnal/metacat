@@ -134,15 +134,9 @@ class Step(Primitive):
     def run(self):
         t0 = time.time()
         print(f"Step {self.Title} ...")
-        if len(self.Commands) == 1:
-            command = self.Commands[0]
-            retcode, out, err = command.run()
-            self.print_command_results(command, retcode, out, err)
-            self.Failed = retcode != 0
-        else:
-            for command in self.Commands:
-                self.Queue.append(command)
-            self.Queue.join()
+        for command in self.Commands:
+            self.Queue.append(command)
+        self.Queue.join()
         t1 = time.time()
         print("\nEnd of STEP:", self.Title)
         print("Status:", "failed" if self.Failed else "succeeded")
