@@ -13,7 +13,7 @@ class Command(Task):
         self.Command = config["command"]
         self.Process = None
         self.Env = env
-        self.Killed = True
+        self.Killed = False
         
     def __str__(self):
         return f"Task {self.Title} ({self.Command})"
