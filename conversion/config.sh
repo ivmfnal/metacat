@@ -6,7 +6,7 @@ origin_category="origin"
 default_namespace="dune"
 
 function create_meta_table () {
-    $OUT_DB_PSQL << _EOF_
+    $OUT_DB_PSQL -q << _EOF_
 
     create table if not exists meta (
         file_id text,
@@ -17,7 +17,7 @@ _EOF_
 }
 
 function drop_tables () {
-    $OUT_DB_PSQL << _EOF_
+    $OUT_DB_PSQL -q << _EOF_
     drop table if exists meta;
     drop table if exists raw_files;
     drop table if exists files cascade;
@@ -30,7 +30,7 @@ function preload_meta() {
     input=$1
     create_meta_table
 
-    $OUT_DB_PSQL << _EOF_
+    $OUT_DB_PSQL -q << _EOF_
 
     \echo imporing metadata from ${input} ...
 
@@ -61,9 +61,9 @@ function preload_json_meta() {
     
     input=$1
     create_meta_table
-    \echo loading JSON metadata from $input ... 
+    # echo loading JSON metadata from $input ... 
     
-    $OUT_DB_PSQL << _EOF_
+    $OUT_DB_PSQL -q << _EOF_
 
     \copy meta from '${input}';
 
