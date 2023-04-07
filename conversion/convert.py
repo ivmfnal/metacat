@@ -92,10 +92,10 @@ class Step(Primitive):
         if out or err:
             print(f"task {command.Title}:")
             if out:
-                print(indent(">   ", out))
+                print(indent(out, ">   "))
             if err:
                 print("-- stderr -------")
-                print(indent(">   ", err))
+                print(indent(err, ">   "))
             print("----------------")
             print(f"end of task {command.Title}: {status}")
         else:
