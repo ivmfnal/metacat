@@ -1,4 +1,4 @@
-import getopt, yaml, sys, traceback, os, signal
+import getopt, yaml, sys, traceback, os, signal, textwrap
 from pythreader import SubprocessAsync, Task, Primitive, synchronized, TaskQueue
 
 if sys.version_info[:2] < (3,11):
@@ -87,15 +87,15 @@ class Step(Primitive):
     def print_command_results(self, command, retcode, out, err):
         status = "succeeded" if retcode == 0 else f"failed with exit code {retcode}"
         if out or err:
-            print(f"--- task {command.Title}:")
+            print(f"  task {command.Title}:")
             if out:
-                print(out)
+                print(indent("    ", out))
             if err:
-                print("--- stderr -------")
-                print(err)
-            print(f"--- end of task {command.Title}: {status}")
+                print("  -- stderr -------")
+                print(indent("    ", err))
+            print(f"  end of task {command.Title}: {status}")
         else:
-            print(f"--- task {command.Title}: {status}")
+            print(f"  task {command.Title}: {status}")
         print("")
 
     @synchronized
@@ -112,7 +112,7 @@ class Step(Primitive):
                 task.kill()
 
     def run(self):
-        print(f"====== STEP {self.Title} ...")
+        print(f"Step {self.Title} ...")
         if len(self.Commands) == 1:
             command = self.Commands[0]
             retcode, out, err = command.run()
