@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 source ./config.sh
 
 $IN_DB_PSQL -q > ./data/files.csv << _EOF_
@@ -60,7 +59,7 @@ _EOF_
 
 wc -l data/files.csv
 
-$OUT_DB_PSQL << _EOF_
+exec $OUT_DB_PSQL << _EOF_
 
 drop table if exists raw_files cascade;
 

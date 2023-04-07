@@ -2,7 +2,7 @@
 
 source ./config.sh
 
-$OUT_DB_PSQL << _EOF_
+exec $OUT_DB_PSQL << _EOF_
 
 drop table if exists 
     files_datasets, datasets, datasets_parent_child

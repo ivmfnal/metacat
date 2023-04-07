@@ -30,7 +30,7 @@ function preload_meta() {
     input=$1
     create_meta_table
 
-    $OUT_DB_PSQL << _EOF_
+    exec $OUT_DB_PSQL << _EOF_
 
     \echo imporing metadata from ${input} ...
 

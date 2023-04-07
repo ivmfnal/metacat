@@ -17,7 +17,7 @@ fi
 
 url=$1
 
-psql -q $url > data/auth_info.csv << _EOF_
+exec psql -q $url > data/auth_info.csv << _EOF_
 set search_path to $schema;
 copy (
     select username, auth_info-'ldap', auid
