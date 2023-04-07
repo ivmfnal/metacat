@@ -1,0 +1,88 @@
+env:
+    PATH(prepend): .
+ 
+steps:
+    -   title:  parallel steps
+        multiplicity: 5
+        tasks:
+
+        -   title:      loading users
+            command:    load_users.sh
+
+        -   title:      saving authentication information
+            command:    save_authenticators.sh
+
+        -   title:      loading raw files
+            command:    load_files.sh
+
+        -   title:      preloading attributes
+            command:    preload_attrs.sh
+
+        -   title:      preloading event numbers
+            command:    preload_event_numbers.sh
+            
+        -   title:      preloading DUNE_data.detector_config values as JSON objects
+            command:    preload_detector_config.sh
+
+        -   title:      splitting lbne_data.detector_type values into lists
+            command:    preload_detector_type.sh
+
+        -   title:      preload runs/subruns
+            command:    preload_runs_subruns.sh
+    
+        -   title:      preload retention policy/status
+            command:    preload_retention.sh
+    
+        -   title:      preloading app families
+            command:    preload_app_families.sh
+    
+        -   title:      preloading data streams
+            command:    preload_data_streams.sh
+    
+        -   title:      preloading content status
+            command:    preload_content_status.sh
+    
+        -   title:      preloading file formats
+            command:    preload_formats.sh
+    
+        -   title:      preloading file types
+            command:    preload_file_types.sh
+    
+        -   title:      preloading run types
+            command:    preload_run_types.sh
+    
+        -   title:      preloading data tiers
+            command:    preload_data_tiers.sh
+
+
+    -   title:      merging metadata into the files table
+        command:    merge_meta.sh
+
+    -   title:  miscellaneous
+        tasks:
+        -   
+            title:      loading lineages
+            command:    load_lineages.sh
+        -   
+            title:      restoring authentication info
+            command:    restore_authenticators.sh
+        -   
+            title:      creating and populating datasets
+            command:    create_datasets.sh
+        -   
+            title:      creating other tables
+            command:    create_other_tables.sh
+
+    -   title:  building indexes
+        tasks:
+        -   title:      indexing metadata 1
+            command:    index_metadata_1.sh
+
+        -   title:      indexing metadata 2
+            command:    index_metadata_2.sh
+
+        -   title:      building other indexes
+            command:    build_indexes.sh
+
+    -   title:      foreign keys
+        command:    build_foreign_keys.sh
