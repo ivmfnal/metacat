@@ -87,17 +87,17 @@ class Step(Primitive):
     
     @staticmethod
     def pretty_time(t):
-        f = t - int(t)
+        fs = t - int(t/60)*60
         t = int(t)
         h = t//3600
         m = (t % 3600) // 60
-        s = t % 60
+        s = int(t % 60)
         if t > 3600:
             return(f"{h}h {m}m")
         elif t > 60:
             return(f"{m}m {s}s")
         else:
-            return(f"{s}.{f}s")
+            return(f"{fs}s")
             
     @synchronized
     def print_command_results(self, command, retcode, out, err):
