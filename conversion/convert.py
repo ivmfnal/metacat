@@ -22,11 +22,13 @@ class Command(Task):
         retcode = self.Process.returncode
         self.Process = None
         return retcode, out, err
-        
+
+    @synchronized
     def kill(self):
         process = self.Process
         if process is not None:
             process.kill()
+            self.Process = None
 
 class CommandTask(Task):
     
