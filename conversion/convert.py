@@ -10,8 +10,11 @@ Usage = """
 python convery.py <script.yaml>
 """
 
+LogLock = Primitive()
+
 def log(*parts, **kv):
-    print("\n%s:" % (time.ctime(),), *parts, **kv)
+    with LogLock:
+        print("\n%s:" % (time.ctime(),), *parts, **kv)
 
 class Command(Task):
     
@@ -110,15 +113,14 @@ class Step(Primitive):
         print("  Elapsed time:", self.pretty_time(command.Ended - command.Started))
         out = out.strip()
         err = err.strip()
-        if out or err:
-            if out:
-                print("\n  -- stdout: ------")
-                print(indent(out, "  "))
-                print("  ------------------")
-            if err:
-                print("\n  -- stderr: -------")
-                print(indent(err, "  "))
-                print("  ------------------")
+        if out:
+            print("\n  -- stdout: ------")
+            print(indent(out, "  "))
+            print("  ------------------")
+        if retcode and err:
+            print("\n  -- stderr: -------")
+            print(indent(err, "  "))
+            print("  ------------------")
         print("")
 
     @synchronized
