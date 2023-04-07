@@ -14,7 +14,8 @@ _EOF_
 
 $OUT_DB_PSQL -q <<_EOF_
 
-drop table if exists parameter_categories cascade;
+drop table if exists parameter_categories;
+
 create table parameter_categories
 (
     path        text    primary key,
