@@ -99,7 +99,7 @@ class Step(Primitive):
             print("Cancelling:", task.Title)
             self.Queue.cancel(task)
         for task in self.Queue.activeTasks():
-            print("active task:", task)
+            #print("active task:", task)
             if not task.Killed:
                 print("Killing:", task.Title)
                 task.kill()
