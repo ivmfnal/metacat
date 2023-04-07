@@ -84,7 +84,8 @@ class Step(Primitive):
             self.Failed = True
             if retcode != "killed":
                 self.shutdown()
-                
+    
+    @staticmethod
     def pretty_time(t):
         f = t - int(t)
         t = int(t)
