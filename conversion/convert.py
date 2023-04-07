@@ -30,8 +30,8 @@ class Command(Task):
 
     @synchronized
     def kill(self):
-        if not self.Killed:
-            process.signal(signal.SIGHUP)
+        if not self.Killed and self.Process is not None:
+            self.Process.signal(signal.SIGHUP)
             self.Killed = True
 
 class CommandTask(Task):
