@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 source config.sh
 
 if [ -z "$1" ]; then
