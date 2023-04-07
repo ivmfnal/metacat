@@ -74,7 +74,7 @@ class Step(Primitive):
         
     @synchronized
     def taskFailed(self, queue, command, exc_type, exc_value, tb):
-        log(f"--- task {command.Title} exception: ---")
+        log(f"Task {command.Title} exception: ---")
         traceback.print_exc(exc_type, exc_value, tb)
         self.Failed = True
         self.shutdown()
@@ -105,7 +105,7 @@ class Step(Primitive):
     @synchronized
     def print_command_results(self, command, retcode, out, err):
         status = "succeeded" if retcode == 0 else f"failed with exit code {retcode}"
-        log("\nEnd of task", command.Title)
+        log("End of task", command.Title)
         print("  Status:", status)
         print("  Elapsed time:", self.pretty_time(command.Ended - command.Started))
         out = out.strip()
@@ -123,7 +123,7 @@ class Step(Primitive):
 
     @synchronized
     def shutdown(self):
-        log("\nShutting down parallel step:", self.Title)
+        log("Shutting down parallel step:", self.Title)
         self.Queue.hold()
         for task in self.Queue.waitingTasks():
             print("Cancelling:", task.Title)
@@ -141,7 +141,7 @@ class Step(Primitive):
             self.Queue.append(command)
         self.Queue.join()
         t1 = time.time()
-        log("\nEnd of STEP:", self.Title)
+        log("End of STEP:", self.Title)
         print("Status:", "failed" if self.Failed else "succeeded")
         print("Elapsed time:", self.pretty_time(t1 - t0))
         print("\n")
