@@ -19,7 +19,7 @@ url=$1
 
 echo URL: $url
 
-exec psql -q $url << _EOF_
+psql -q $url << _EOF_
 set search_path to $schema;
 create temp table temp_auth( username text, auth_info jsonb, auid text );
 

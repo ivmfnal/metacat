@@ -2,7 +2,7 @@
 
 source ./config.sh
 
-exec $OUT_DB_PSQL << _EOF_
+$OUT_DB_PSQL << _EOF_
 
 \echo ... building files namespace:name index ...
 create unique index files_names on files(namespace, name);

@@ -2,7 +2,8 @@
 
 source ./config.sh
 
-exec $OUT_DB_PSQL << _EOF_
+$OUT_DB_PSQL << _EOF_
+
 alter table parent_child add foreign key (parent_id) references files(id);
 alter table parent_child add foreign key (child_id) references files(id);
 

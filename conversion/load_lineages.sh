@@ -16,7 +16,7 @@ copy (	select distinct l.file_id_source, l.file_id_dest
 _EOF_
 
 
-exec $OUT_DB_PSQL << _EOF_
+$OUT_DB_PSQL << _EOF_
 
 drop view if exists file_provenance, files_with_provenance;
 

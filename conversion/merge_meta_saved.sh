@@ -2,7 +2,7 @@
 
 source ./config.sh
 
-exec $OUT_DB_PSQL << _EOF_
+$OUT_DB_PSQL << _EOF_
 
 \echo merging metadata ...
 

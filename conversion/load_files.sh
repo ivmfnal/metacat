@@ -59,7 +59,7 @@ _EOF_
 
 wc -l data/files.csv
 
-exec $OUT_DB_PSQL << _EOF_
+$OUT_DB_PSQL << _EOF_
 
 drop table if exists raw_files cascade;
 

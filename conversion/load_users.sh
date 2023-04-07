@@ -29,7 +29,7 @@ _EOF_
 
 wc -l ./data/users_roles.csv
 
-exec $OUT_DB_PSQL << _EOF_
+$OUT_DB_PSQL << _EOF_
 
 drop table if exists users cascade;
 drop table if exists roles cascade;
