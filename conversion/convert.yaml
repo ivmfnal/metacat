@@ -2,6 +2,9 @@ env:
     PATH(prepend): .
  
 steps:
+    -   title:  init
+        command:    init.sh
+
     -   title:  load users
         command:    load_users.sh
 

@@ -48,7 +48,4 @@ insert into files(id, namespace, name, creator, created_timestamp, updated_by, u
 
 alter table files add primary key(id);
 
-drop table meta;
-
-
 _EOF_
