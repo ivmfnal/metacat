@@ -39,6 +39,8 @@ create temp view file_checksums as
     group by df.file_id
 ;
 
+\echo exporting raw files
+
 copy (	
     select df.file_id, coalesce(s.scope, '${default_namespace}'), df.file_name, 
                 extract(epoch from df.create_date), pc.username, 
