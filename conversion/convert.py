@@ -116,7 +116,7 @@ class Step(Primitive):
             print("\n  -- stdout: ------")
             print(indent(out, "  "))
             print("  ------------------")
-        if retcode and err:
+        if err:
             print("\n  -- stderr: -------")
             print(indent(err, "  "))
             print("  ------------------")
