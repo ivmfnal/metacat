@@ -5,41 +5,44 @@ steps:
     -   title:  load users
         command:    load_users.sh
 
+    -   title:      save authentication information
+        command:    save_authenticators.sh -s production postgresql://ivm@ifdb04.fnal.gov:5432/dune_metadata
+
+    -   title:      restore authentication info
+        command:    restore_authenticators.sh -s production postgresql://ivm@ifdbprod.fnal.gov:5463/dune_metadata_prd
+
     -   title:  parallel steps
         multiplicity: 10
         tasks:
 
-        -   title:      loading raw files
+        -   title:      load raw files
             command:    load_files.sh
 
-        -   title:      loading param categories
+        -   title:      load param categories
             command:    load_param_categories.sh
 
-        -   title:      preloading attributes 1
+        -   title:      preload attributes 1
             command:    preload_attrs_1.sh
 
-        -   title:      preloading attributes 2
+        -   title:      preload attributes 2
             command:    preload_attrs_2.sh
 
-        -   title:      preloading text dimensions
+        -   title:      preload text dimensions
             command:    preload_dimensions_text.sh
 
-        -   title:      preloading int dimensions
+        -   title:      preload int dimensions
             command:    preload_dimensions_int.sh
 
-        -   title:      preloading float dimensions
+        -   title:      preload float dimensions
             command:    preload_dimensions_float.sh
 
-        -   title:      saving authentication information
-            command:    save_authenticators.sh -s production postgresql://ivm@ifdb04.fnal.gov:5432/dune_metadata
-
-        -   title:      preloading event numbers
+        -   title:      preload event numbers
             command:    preload_event_numbers.sh
             
-        -   title:      preloading DUNE_data.detector_config values as JSON objects
+        -   title:      preload DUNE_data.detector_config values as JSON objects
             command:    preload_detector_config.sh
 
-        -   title:      splitting lbne_data.detector_type values into lists
+        -   title:      split lbne_data.detector_type values into lists
             command:    preload_detector_type.sh
 
         -   title:      preload runs/subruns
@@ -48,55 +51,53 @@ steps:
         -   title:      preload retention policy/status
             command:    preload_retention.sh
     
-        -   title:      preloading app families
+        -   title:      preload app families
             command:    preload_app_families.sh
     
-        -   title:      preloading data streams
+        -   title:      preload data streams
             command:    preload_data_streams.sh
     
-        -   title:      preloading content status
+        -   title:      preload content status
             command:    preload_content_status.sh
     
-        -   title:      preloading file formats
+        -   title:      preload file formats
             command:    preload_formats.sh
     
-        -   title:      preloading file types
+        -   title:      preload file types
             command:    preload_file_types.sh
     
-        -   title:      preloading run types
+        -   title:      preload run types
             command:    preload_run_types.sh
     
-        -   title:      preloading data tiers
+        -   title:      preload data tiers
             command:    preload_data_tiers.sh
 
-    -   title:      merging metadata into the files table
+        -   title:      load lineages
+            command:    load_lineages.sh
+
+    -   title:      merge metadata into the files table
         command:    merge_meta.sh
 
     -   title:  miscellaneous
         tasks:
         -   
-            title:      indexing metadata 1
+            title:      index file metadata 1
             command:    index_metadata_1.sh
         -   
-            title:      indexing metadata 2
+            title:      index file metadata 2
             command:    index_metadata_2.sh
         -   
-            title:      loading lineages
-            command:    load_lineages.sh
-        -   
-            title:      restoring authentication info
-            command:    restore_authenticators.sh -s production postgresql://ivm@ifdbprod.fnal.gov:5463/dune_metadata_prd
-        -   
-            title:      creating and populating datasets
+            title:      create and populating datasets
             command:    create_datasets.sh
         -   
-            title:      creating other tables
+            title:      create other tables
             command:    create_other_tables.sh
+        -   
+            title:      index file attributes
+            command:    index_files.sh
 
-    -   title:  building indexes
+    -   title:  build indexes
         tasks:
-        -   title:      building other indexes
-            command:    build_indexes.sh
 
-        -   title:      foreign keys
+        -   title:      add foreign keys
             command:    build_foreign_keys.sh
