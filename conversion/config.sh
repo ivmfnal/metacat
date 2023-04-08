@@ -17,7 +17,7 @@ _EOF_
 }
 
 function drop_tables () {
-    $OUT_DB_PSQL -q << _EOF_
+    $OUT_DB_PSQL << _EOF_
     drop table if exists meta;
     drop table if exists raw_files;
     drop table if exists files cascade;

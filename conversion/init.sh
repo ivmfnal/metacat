@@ -2,5 +2,5 @@
 
 source ./config.sh
 
-rm  data/*.csv
+rm data/*.csv
 drop_tables
