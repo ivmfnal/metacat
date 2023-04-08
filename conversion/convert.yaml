@@ -96,8 +96,5 @@ steps:
             title:      index file attributes
             command:    index_files.sh
 
-    -   title:  build indexes
-        tasks:
-
-        -   title:      add foreign keys
-            command:    build_foreign_keys.sh
+    -   title:      build foreign keys
+        command:    build_foreign_keys.sh

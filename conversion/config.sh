@@ -30,7 +30,7 @@ function preload_meta() {
     input=$1
     create_meta_table
 
-    $OUT_DB_PSQL -q << _EOF_
+    $OUT_DB_PSQL << _EOF_
 
     \echo imporing metadata from ${input} ...
 
@@ -64,7 +64,7 @@ function preload_json_meta() {
     wc -l $input
     #echo loading `wc -l $input` lines of metadata from $input ... 
     
-    $OUT_DB_PSQL -q << _EOF_
+    $OUT_DB_PSQL << _EOF_
 
     \copy meta from '${input}';
 
