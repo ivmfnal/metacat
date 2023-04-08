@@ -69,18 +69,23 @@ steps:
         -   title:      preloading data tiers
             command:    preload_data_tiers.sh
 
-
     -   title:      merging metadata into the files table
         command:    merge_meta.sh
 
     -   title:  miscellaneous
         tasks:
         -   
+            title:      indexing metadata 1
+            command:    index_metadata_1.sh
+        -   
+            title:      indexing metadata 2
+            command:    index_metadata_2.sh
+        -   
             title:      loading lineages
             command:    load_lineages.sh
         -   
             title:      restoring authentication info
-            command:    restore_authenticators.sh
+            command:    restore_authenticators.sh -s production postgresql://ivm@ifdbprod.fnal.gov:5463/dune_metadata_prd
         -   
             title:      creating and populating datasets
             command:    create_datasets.sh
@@ -90,14 +95,8 @@ steps:
 
     -   title:  building indexes
         tasks:
-        -   title:      indexing metadata 1
-            command:    index_metadata_1.sh
-
-        -   title:      indexing metadata 2
-            command:    index_metadata_2.sh
-
         -   title:      building other indexes
             command:    build_indexes.sh
 
-    -   title:      foreign keys
-        command:    build_foreign_keys.sh
+        -   title:      foreign keys
+            command:    build_foreign_keys.sh
