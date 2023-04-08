@@ -6,6 +6,8 @@ $OUT_DB_PSQL << _EOF_
 
 \echo merging metadata ...
 
+create index if not exists meta_file_id_index on meta (file_id) include (name, value);
+
 drop table if exists files cascade;
 
 create table files          -- without any references at this time
@@ -32,6 +34,8 @@ create temp view combined_meta as
 		group by file_id
 ;
 
+
+
 insert into files(id, namespace, name, creator, created_timestamp, updated_by, updated_timestamp, size, checksums, metadata)
 (
 	select r.file_id, r.namespace, r.name, 
@@ -46,7 +50,7 @@ insert into files(id, namespace, name, creator, created_timestamp, updated_by, u
 
 alter table files add primary key(id);
 
-
+drop table meta;
 
 
 _EOF_
