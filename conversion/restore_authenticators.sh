@@ -23,7 +23,7 @@ psql -q $url << _EOF_
 set search_path to $schema;
 create temp table temp_auth( username text, auth_info jsonb, auid text );
 
-\copy temp_auth(username, auth_info) from 'data/auth_info.csv'
+\copy temp_auth(username, auth_info, auid) from 'data/auth_info.csv'
 
 update users u
     set auth_info=coalesce(u.auth_info, '{}'::jsonb) || coalesce(t.auth_info, '{}'::jsonb),
