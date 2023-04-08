@@ -6,8 +6,6 @@ $OUT_DB_PSQL << _EOF_
 
 \echo merging metadata ...
 
-create index if not exists meta_file_id_index on meta (file_id) include (name, value);
-
 drop table if exists files cascade;
 
 create table files          -- without any references at this time

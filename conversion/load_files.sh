@@ -2,7 +2,7 @@
 
 source ./config.sh
 
-$IN_DB_PSQL -q > ./data/files.csv << _EOF_
+$IN_DB_PSQL << _EOF_
 
 create temp view active_files as
         select * from data_files
@@ -39,9 +39,7 @@ create temp view file_checksums as
     group by df.file_id
 ;
 
-\echo exporting raw files
-
-copy (	
+\copy (	
     select df.file_id, coalesce(s.scope, '${default_namespace}'), df.file_name, 
                 extract(epoch from df.create_date), pc.username, 
                 extract(epoch from df.update_date), pu.username, 
@@ -52,7 +50,7 @@ copy (
                 left outer join persons pu on pu.person_id = df.update_user_id
                 left outer join file_rucio_scopes s on s.file_id = df.file_id
                 left outer join file_checksums fck on fck.file_id = df.file_id
-) to stdout
+) to './data/files.csv'
 
 _EOF_
 
