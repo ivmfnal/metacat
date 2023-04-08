@@ -29,7 +29,7 @@ _EOF_
 
 wc -l ./data/users_roles.csv
 
-$OUT_DB_PSQL -q << _EOF_
+$OUT_DB_PSQL << _EOF_
 
 drop table if exists users_roles cascade;
 drop table if exists users cascade;
@@ -75,6 +75,7 @@ update users
 
 insert into users(username, name, flags)
 	values('admin','Admin user', 'a');
+
 insert into users_roles(username, role_name) values ('admin','admin_role');
 
 
