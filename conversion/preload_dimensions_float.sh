@@ -20,6 +20,7 @@ copy (
                 inner join param_categories pc on pc.param_category_id = pt.param_category_id
                 where dt.data_type_id = 6
                     and param_value is not null
+    odrer by f.file_id
 ) to stdout;
 
 

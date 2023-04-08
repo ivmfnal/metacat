@@ -18,9 +18,9 @@ copy (
                 inner join param_types pt on pt.param_type_id = dfv.param_type_id
                 inner join data_types dt on dt.data_type_id = pt.data_type_id
                 inner join param_categories pc on pc.param_category_id = pt.param_category_id
-                where dt.data_type_id = 5
+        where dt.data_type_id = 5
                     and param_value is not null
-
+        odrer by f.file_id
 ) to stdout;
 
 
