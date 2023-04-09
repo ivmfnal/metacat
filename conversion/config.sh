@@ -21,7 +21,7 @@ function drop_tables () {
     drop table if exists meta;
     drop table if exists raw_files;
     drop table if exists files cascade;
-    drop table if exists files_datasets, parameter_definitions, parent_child, datasets_parent_child cascade, users_roles;
+    drop table if exists files_datasets, parameter_definitions, parent_child, datasets_parent_child, users_roles cascade;
     drop table if exists namespaces, parameter_categories, queries cascade;
     drop table if exists files, datasets cascade;
     drop table if exists users, roles cascade;    
