@@ -1,5 +1,5 @@
 SRC_URL="postgresql://samread@sampgsdb03.fnal.gov:5435/sam_dune_prd"
-DST_URL="postgresql://ivm@ifdbprod.fnal.gov.fnal.gov:5463/dune_metadata_prd"
+DST_URL="postgresql://ivm@ifdbprod.fnal.gov:5463/dune_metadata_prd"
 
 SRC_SCHEMA=""
 DST_SCHEMA=""
@@ -36,6 +36,7 @@ _EOF_
 }
 
 function init_destination () {
+    echo $OUT_DB_PSQL
     $OUT_DB_PSQL << _EOF_
         drop table if exists meta;
         drop table if exists raw_files;
