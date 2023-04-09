@@ -14,7 +14,7 @@ LogLock = Primitive()
 
 def log(*parts, **kv):
     with LogLock:
-        print("\n%s:" % (time.ctime(),), *parts, **kv)
+        print("%s:" % (time.ctime(),), *parts, **kv)
 
 class Command(Task):
     
@@ -143,8 +143,8 @@ class Step(Primitive):
         self.Queue.join()
         t1 = time.time()
         log("End of STEP:", self.Title)
-        print("Status:", "failed" if self.Failed else "succeeded")
-        print("Elapsed time:", self.pretty_time(t1 - t0))
+        print("  status:", "failed" if self.Failed else "succeeded")
+        print("  elapsed time:", self.pretty_time(t1 - t0))
         print("\n")
         return not self.Failed
 

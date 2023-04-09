@@ -75,14 +75,14 @@ steps:
         -   title:      preload data tiers
             command:    preload_data_tiers.sh
 
-        -   title:      load lineages
-            command:    load_lineages.sh
-
     -   title:      merge metadata into the files table
         command:    merge_meta.sh
 
     -   title:  miscellaneous
         tasks:
+
+        -   title:      load lineages
+            command:    load_lineages.sh
         -   
             title:      index file metadata 1
             command:    index_metadata_1.sh
