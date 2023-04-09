@@ -1,12 +1,35 @@
-IN_DB_PSQL="psql -h sampgsdb03.fnal.gov -p 5435 -U samread -d sam_dune_prd"
-OUT_DB_PSQL="psql -h ifdbprod.fnal.gov -p 5463 -d dune_metadata_prd"
+SRC_URL="postgresql://samread@sampgsdb03.fnal.gov:5435/sam_dune_prd"
+DST_URL="postgresql://ivm@sifdbprod.fnal.gov.fnal.gov:5463/dune_metadata_prd"
+
+SRC_SCHEMA=""
+DST_SCHEMA=""
+
+if [ ! -z "$SRC_SCHEMA" ]; then
+    SRC_URL="${SRC_URL}?options=-c%20search_path%3d${SRC_SCHEMA}"
+fi
+
+if [ ! -z "$DST_SCHEMA" ]; then
+    DST_URL="${DST_URL}?options=-c%20search_path%3d${DST_SCHEMA}"
+fi
+
+#IN_DB_PSQL="psql -h sampgsdb03.fnal.gov -p 5435 -U samread -d sam_dune_prd"
+#OUT_DB_PSQL="psql -h ifdbprod.fnal.gov -p 5463 -d dune_metadata_prd"
+
+IN_DB_PSQL="psql -v on_error_stop=on \"${SRC_URL}\""
+OUT_DB_PSQL="psql -v on_error_stop=on \"${DST_URL}\""
 
 core_category="core"
 origin_category="origin"
 default_namespace="dune"
 
+function src_sql () {
+    
+}
+
 function create_meta_table () {
     $OUT_DB_PSQL -q << _EOF_
+
+    \set on_error_stop on
 
     create table if not exists meta (
         file_id text,
@@ -18,13 +41,14 @@ _EOF_
 
 function drop_tables () {
     $OUT_DB_PSQL << _EOF_
-    drop table if exists meta;
-    drop table if exists raw_files;
-    drop table if exists files cascade;
-    drop table if exists files_datasets, parameter_definitions, parent_child, datasets_parent_child cascade, users_roles;
-    drop table if exists namespaces, parameter_categories, queries cascade;
-    drop table if exists files, datasets cascade;
-    drop table if exists users, roles cascade;    
+        \set on_error_stop on
+        drop table if exists meta;
+        drop table if exists raw_files;
+        drop table if exists files cascade;
+        drop table if exists files_datasets, parameter_definitions, parent_child, datasets_parent_child cascade, users_roles;
+        drop table if exists namespaces, parameter_categories, queries cascade;
+        drop table if exists files, datasets cascade;
+        drop table if exists users, roles cascade;    
 _EOF_
 }
 
@@ -36,6 +60,7 @@ function preload_meta() {
 
     $OUT_DB_PSQL << _EOF_
 
+    \set on_error_stop on
     \echo imporing metadata from ${input} ...
 
     create temp table meta_columns (
@@ -70,6 +95,7 @@ function preload_json_meta() {
     
     $OUT_DB_PSQL << _EOF_
 
+    \set on_error_stop on
     \copy meta from '${input}';
 
 _EOF_

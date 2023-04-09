@@ -17,6 +17,7 @@ copy (	select work_grp_name from working_groups) to stdout;
 _EOF_
 
 $IN_DB_PSQL -q > ./data/users_roles.csv << _EOF_
+\set on_error_stop on
 
 copy (
     select p.username, wg.work_grp_name

@@ -3,6 +3,7 @@
 source ./config.sh
 
 $OUT_DB_PSQL << _EOF_
+\set on_error_stop on
 
 drop table if exists 
     files_datasets, datasets, datasets_parent_child
