@@ -77,11 +77,17 @@ steps:
 
     -   title:      merge metadata into the files table
         command:    merge_meta.sh
+        
+    -   title:      create namespaces
+        command:    create_namespaces.sh
 
     -   title:  miscellaneous
         tasks:
-
-        -   title:      load lineages
+        -   
+            title:      create other tables
+            command:    create_other_tables.sh
+        -   
+            title:      load lineages
             command:    load_lineages.sh
         -   
             title:      index file metadata 1
@@ -92,9 +98,6 @@ steps:
         -   
             title:      create and populating datasets
             command:    create_datasets.sh
-        -   
-            title:      create other tables
-            command:    create_other_tables.sh
         -   
             title:      index file attributes
             command:    index_files.sh
