@@ -22,10 +22,6 @@ core_category="core"
 origin_category="origin"
 default_namespace="dune"
 
-function src_sql () {
-    
-}
-
 function create_meta_table () {
     $OUT_DB_PSQL -q << _EOF_
 
@@ -39,7 +35,7 @@ function create_meta_table () {
 _EOF_
 }
 
-function drop_tables () {
+function init_destination () {
     $OUT_DB_PSQL << _EOF_
         drop table if exists meta;
         drop table if exists raw_files;
