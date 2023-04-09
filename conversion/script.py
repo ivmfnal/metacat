@@ -15,68 +15,115 @@ LogLock = Primitive()
 def log(*parts, **kv):
     with LogLock:
         print("%s:" % (time.ctime(),), *parts, **kv)
+        
+class BaseTask(Task):
 
-class Command(Task):
+    def __init__(self, config, env):
+        self.Title = config.get("title")
+        Task.__init__(self, name=self.Title)
+        self.Killed = False
+        self.Env = env.copy()
+        self.Env.update(config.get("env", {}))
+        self.Exception = None
+    
+    def run(self):
+        raise NotImplementedError()
+        return True             # success/failure
+        
+    def kill(self):
+        raise NotImplementedError()
+        
+    def killed(self):
+        self.Killed = True
+        
+    def exception(self, exc_type, exc_value, tb):
+        self.Exception = (exc_type, exc_value, tb)
+        
+    def print_status(self, indent=""):
+        raise NotImplementedError()
+
+    @property
+    def is_killed(self):
+        return self.Killed
+
+class Command(BaseTask, QTask):
     
     def __init__(self, config, env={}):
         Task.__init__(self)
-        self.Title = config.get("title")
+        Group.__init__(self, config, env)
         self.Command = config["command"]
         self.Process = None
-        self.Env = env
-        self.Killed = False
-        
+        self.Out = None
+        self.Err = None
+        self.Retcode = None
+
     def __str__(self):
         process = self.Process
         pid = process.pid if process is not None else ""
         return f"Task {self.Title} ({pid}: {self.Command})"
         
     def run(self):
-        log(f"Starting task {self.Title} ...")
-        env = os.environ.copy()
-        env.update(self.Env)
-        self.Process = SubprocessAsync(self.Command, shell=True, env=env, process_group=0).start()
-        out, err = self.Process.wait()
-        retcode = self.Process.returncode
-        self.Process = None
-        if self.Killed: retcode = "killed"
-        return retcode, out, err
+        retcode = None
+        try:
+            log(f"Starting task {self.Title} ...")
+            env = os.environ.copy()
+            env.update(self.Env)
+            self.Process = SubprocessAsync(self.Command, shell=True, env=env, process_group=0).start()
+            out, err = self.Process.wait()
+            self.Out = out
+            self.Err = err
+            self.Retcode = self.Process.returncode
+            self.Process = None
+            if self.is_killed: self.Retcode = "killed"
+        except:
+            self.Retcode = "exception"
+            self.Exception = sys.exc_info()
+        return not retcode and not self.Exception and not self.Killed
+        
+    def print_status(self, add_timestamp=True, indent=""):
+        headline = time.ctime(time.time())+': ' if add_timestamp else "") + self.Title
+        print(indent + headline)
+        status = "succeeded" if retcode == 0 else f"failed with exit code {self.Retcode}"
+        print(indent + "  Status:", status)
+        print(indent + "  Elapsed time:", self.pretty_time(command.Ended - command.Started))
+        if self.Exception:
+            print(indent + "  Exception:")
+            for line in traceback.format_exception(*self.Exception):
+                print(indent + "  " + line)
+        out = out.strip()
+        err = err.strip()
+        if out:
+            print("")
+            print(indent + "  -- stdout: ------")
+            print(indent(out, indent + "  "))
+            print(indent + "  ------------------")
+        if err:
+            print("")
+            print(indent + "  -- stderr: -------")
+            print(indent(err, indent + "  "))
+            print(indent + "  ------------------")
 
     @synchronized
     def kill(self):
         if not self.Killed and self.Process is not None:
             self.Process.killpg()
             #self.Process.kill(signal.SIGHUP)
-            self.Killed = True
+            self.killed()
 
-class CommandTask(Task):
-    
-    def __init__(self, config):
-        self.Title = config.get("title")
-        self.Command = Command(config)
-        
-    def run(self):
-        return self.Command.run()
-        
-    def kill(self):
-        self.Command.kill()
-        
-class Step(Primitive):
+class ParallelTask(Primitive, Group):
     
     def __init__(self, config, env={}):
         Primitive.__init__(self)
-        self.Env = env
-        self.Title = config.get("title")
+        Group.__init__(self, config)
+        self.Env = env.copy()
+        self.Env.update(config.get("env", {}))
         self.Queue = TaskQueue(config.get("multiplicity", 5), delegate=self)
-        if "command" in config:
-            self.Commands = [Command(config, env=env)]
-        else:
-            self.Commands = [Command(task, env=env) for task in config["tasks"]]
+        self.Groups = [Command(task, env=env) for task in config["groups"]]
         self.Failed = False
         
     @synchronized
-    def taskFailed(self, queue, command, exc_type, exc_value, tb):
-        log(f"Task {command.Title} exception: ---")
+    def taskFailed(self, queue, task, exc_type, exc_value, tb):
+        log(f"Task {task.Title} exception: ---")
         traceback.print_exc(exc_type, exc_value, tb)
         self.Failed = True
         self.shutdown()

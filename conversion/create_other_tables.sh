@@ -40,12 +40,14 @@ create table namespaces
     created_timestamp   timestamp with time zone        default now()
 );
 
+insert into namespaces(name, owner_role, creator) values('${default_namespace}', 'admin_role', 'admin')
+on conflict(name) do nothing;
+
 insert into namespaces(name, owner_role, creator)
 (
     select distinct namespace, 'admin_role', 'admin' from files
-);
-
-insert into namespaces(name, owner_role, creator) values('dune', 'admin_role', 'admin');
+)
+on conflict(name) do nothing;
 
 create table queries
 (
