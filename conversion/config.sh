@@ -15,8 +15,8 @@ fi
 #IN_DB_PSQL="psql -h sampgsdb03.fnal.gov -p 5435 -U samread -d sam_dune_prd"
 #OUT_DB_PSQL="psql -h ifdbprod.fnal.gov -p 5463 -d dune_metadata_prd"
 
-IN_DB_PSQL="psql -v on_error_stop=on \"${SRC_URL}\""
-OUT_DB_PSQL="psql -v on_error_stop=on \"${DST_URL}\""
+IN_DB_PSQL="psql -v on_error_stop=on ${SRC_URL}"
+OUT_DB_PSQL="psql -v on_error_stop=on ${DST_URL}"
 
 core_category="core"
 origin_category="origin"
