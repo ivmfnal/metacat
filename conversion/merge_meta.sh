@@ -3,9 +3,6 @@
 source ./config.sh
 
 $OUT_DB_PSQL << _EOF_
-
-\echo merging metadata ...
-
 drop table if exists files cascade;
 
 create table files          -- without any references at this time
@@ -43,8 +40,6 @@ insert into files(id, namespace, name, creator, created_timestamp, updated_by, u
 		from raw_files r
 			left outer join combined_meta m on (m.file_id = r.file_id)
 );
-
-\echo ... creating primary key ...
 
 alter table files add primary key(id);
 

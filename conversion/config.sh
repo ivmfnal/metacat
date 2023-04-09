@@ -1,5 +1,5 @@
 SRC_URL="postgresql://samread@sampgsdb03.fnal.gov:5435/sam_dune_prd"
-DST_URL="postgresql://ivm@sifdbprod.fnal.gov.fnal.gov:5463/dune_metadata_prd"
+DST_URL="postgresql://ivm@ifdbprod.fnal.gov.fnal.gov:5463/dune_metadata_prd"
 
 SRC_SCHEMA=""
 DST_SCHEMA=""
