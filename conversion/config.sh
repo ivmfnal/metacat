@@ -41,7 +41,6 @@ _EOF_
 
 function drop_tables () {
     $OUT_DB_PSQL << _EOF_
-        \set on_error_stop on
         drop table if exists meta;
         drop table if exists raw_files;
         drop table if exists files cascade;

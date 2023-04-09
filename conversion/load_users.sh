@@ -42,7 +42,8 @@ create table users
     name        text,
     email       text,
     flags       text    default '',
-    auth_info   jsonb   default '{}'
+    auth_info   jsonb   default '{}',
+    auid        text
 );
 
 create table roles

@@ -12,7 +12,7 @@ steps:
         command:    save_authenticators.sh -s production postgresql://ivm@ifdb04.fnal.gov:5432/dune_metadata
 
     -   title:      restore authentication info
-        command:    restore_authenticators.sh -s production postgresql://ivm@ifdbprod.fnal.gov:5463/dune_metadata_prd
+        command:    restore_authenticators.sh postgresql://ivm@ifdbprod.fnal.gov:5463/dune_metadata_prd
 
     -   title:  parallel steps
         multiplicity: 10
