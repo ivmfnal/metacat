@@ -35,7 +35,8 @@ class Command(Task):
         log(f"Starting task {self.Title} ...")
         env = os.environ.copy()
         env.update(self.Env)
-        self.Process = SubprocessAsync(self.Command, shell=True, env=env, process_group=0).start()
+        self.Process = SubprocessAsync(self.Command, shell=True, env=env, 
+            stdin=os.devnull, process_group=0).start()
         out, err = self.Process.wait()
         retcode = self.Process.returncode
         self.Process = None

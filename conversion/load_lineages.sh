@@ -39,8 +39,8 @@ insert into parent_child(parent_id, child_id)
 (
     select distinct t.parent_id, t.child_id
     from parent_child_temp t
-    inner join files f1 on f1.file_id = t.parent_id
-    inner join files f2 on f2.file_id = t.child_id
+    inner join files f1 on f1.id = t.parent_id
+    inner join files f2 on f2.id = t.child_id
 );
 
 alter table parent_child add primary key(parent_id, child_id);
