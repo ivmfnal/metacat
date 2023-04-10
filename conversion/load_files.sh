@@ -1,9 +1,9 @@
-#!/bin/sh
-
+#!/bin/bash
 
 source ./config.sh
 
-$IN_DB_PSQL -q > ./data/files.csv << _EOF_
+$IN_DB_PSQL -q > data/files.csv << _EOF_
+\set on_error_stop on
 
 create temp view active_files as
         select * from data_files
@@ -15,21 +15,18 @@ create temp view active_files as
 -- index to make sure there is never more than 1 scope for a file
 --
 
-create temp table file_rucio_scopes 
-(
-    file_id bigint,
-    scope   text
-);
+--
+-- Rucio scopes
+--
 
-insert into file_rucio_scopes
-(
-    select dfl.file_id, dsl.path
+create temp view file_rucio_scopes as
+    select dfl.file_id as file_id, dsl.path as scope
         from data_storage_locations dsl
         inner join data_file_locations dfl on dfl.location_id = dsl.location_id
         where dsl.location_type='rucio'
-);
-
-create unique index file_rucio_scopes_unique on file_rucio_scopes(file_id, scope);
+;
+        
+-- create unique index file_rucio_scopes_unique on file_rucio_scopes(file_id, scope);
 
 --
 -- checksums
@@ -54,11 +51,9 @@ copy (
                 left outer join persons pu on pu.person_id = df.update_user_id
                 left outer join file_rucio_scopes s on s.file_id = df.file_id
                 left outer join file_checksums fck on fck.file_id = df.file_id
-) to stdout
+) to stdout;
 
 _EOF_
-
-wc -l data/files.csv
 
 $OUT_DB_PSQL << _EOF_
 
@@ -81,7 +76,6 @@ create table raw_files
 
 \copy raw_files(file_id, namespace, name, create_timestamp, create_user, update_timestamp, update_user, size, checksums) from 'data/files.csv';
 
-\echo creating files index
-create index raw_file_id on raw_files(file_id);
+-- create index raw_file_id on raw_files(file_id);
 
 _EOF_

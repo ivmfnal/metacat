@@ -1,10 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 source ./config.sh
 
 $IN_DB_PSQL -q \
 	> ./data/detector_config.csv \
 	<< _EOF_
+\set on_error_stop on
 
 create temp view active_files as
         select * from data_files

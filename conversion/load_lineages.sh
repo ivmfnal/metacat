@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 
 source ./config.sh
@@ -33,23 +33,19 @@ create temp table parent_child_temp
     like parent_child
 );
 
-\echo ... loading ...
-
 \copy parent_child_temp(parent_id, child_id) from 'data/lineages.csv';
 
 insert into parent_child(parent_id, child_id)
 (
     select distinct t.parent_id, t.child_id
     from parent_child_temp t
-    inner join raw_files f1 on f1.file_id = t.parent_id
-    inner join raw_files f2 on f2.file_id = t.child_id
+    inner join files f1 on f1.id = t.parent_id
+    inner join files f2 on f2.id = t.child_id
 );
 
-\echo ... creating primary key ...
-
-
-
 alter table parent_child add primary key(parent_id, child_id);
+
+create index parent_child_child on parent_child(child_id);
 
 
 create view file_provenance as
@@ -64,7 +60,5 @@ create view files_with_provenance as
     from files f, file_provenance r
     where f.id = r.id
 ;
-
-
 
 _EOF_

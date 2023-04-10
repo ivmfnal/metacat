@@ -1,0 +1,110 @@
+env:
+    PATH(prepend): .
+ 
+steps:
+    -   title:  init
+        command:    init.sh
+
+    -   title:  load users
+        command:    load_users.sh
+
+    -   title:      save authentication information
+        command:    save_authenticators.sh -s production postgresql://ivm@ifdb04.fnal.gov:5432/dune_metadata
+
+    -   title:      restore authentication info
+        command:    restore_authenticators.sh postgresql://ivm@ifdbprod.fnal.gov:5463/dune_metadata_prd
+
+    -   title:  parallel steps
+        multiplicity: 10
+        tasks:
+
+        -   title:      load raw files
+            command:    load_files.sh
+
+        -   title:      load param categories
+            command:    load_param_categories.sh
+
+        -   title:      preload attributes 1
+            command:    preload_attrs_1.sh
+
+        -   title:      preload attributes 2
+            command:    preload_attrs_2.sh
+
+        -   title:      preload text dimensions
+            command:    preload_dimensions_text.sh
+
+        -   title:      preload int dimensions
+            command:    preload_dimensions_int.sh
+
+        -   title:      preload float dimensions
+            command:    preload_dimensions_float.sh
+
+        -   title:      preload event numbers
+            command:    preload_event_numbers.sh
+            
+        -   title:      preload DUNE_data.detector_config values as JSON objects
+            command:    preload_detector_config.sh
+
+        -   title:      split lbne_data.detector_type values into lists
+            command:    preload_detector_type.sh
+
+        -   title:      preload runs/subruns
+            command:    preload_runs_subruns.sh
+    
+        -   title:      preload retention policy/status
+            command:    preload_retention.sh
+    
+        -   title:      preload app families
+            command:    preload_app_families.sh
+    
+        -   title:      preload data streams
+            command:    preload_data_streams.sh
+    
+        -   title:      preload content status
+            command:    preload_content_status.sh
+    
+        -   title:      preload file formats
+            command:    preload_formats.sh
+    
+        -   title:      preload file types
+            command:    preload_file_types.sh
+    
+        -   title:      preload run types
+            command:    preload_run_types.sh
+    
+        -   title:      preload data tiers
+            command:    preload_data_tiers.sh
+
+    -   title:      merge metadata into the files table
+        command:    merge_meta.sh
+        
+    -   title:      create namespaces
+        command:    create_namespaces.sh
+
+    -   title:  miscellaneous
+        tasks:
+        -   
+            title:      create other tables
+            command:    create_other_tables.sh
+        -   
+            title:      load lineages
+            command:    load_lineages.sh
+        -   
+            title:      index file metadata 1
+            command:    index_metadata_1.sh
+        -   
+            title:      index file metadata 2
+            command:    index_metadata_2.sh
+        -   
+            title:      create and populating datasets
+            command:    create_datasets.sh
+        -   
+            title:      index file attributes
+            command:    index_files.sh
+
+    -   title:      build foreign keys
+        command:    build_foreign_keys.sh
+        
+    -   title:      finalize
+        command:    finalize.sh
+    

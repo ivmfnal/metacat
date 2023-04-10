@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 source ./config.sh
 
@@ -17,6 +17,7 @@ copy (	select work_grp_name from working_groups) to stdout;
 _EOF_
 
 $IN_DB_PSQL -q > ./data/users_roles.csv << _EOF_
+\set on_error_stop on
 
 copy (
     select p.username, wg.work_grp_name
@@ -31,9 +32,9 @@ wc -l ./data/users_roles.csv
 
 $OUT_DB_PSQL << _EOF_
 
+drop table if exists users_roles cascade;
 drop table if exists users cascade;
 drop table if exists roles cascade;
-drop table if exists users_roles cascade;
 
 create table users
 (
@@ -41,7 +42,8 @@ create table users
     name        text,
     email       text,
     flags       text    default '',
-    auth_info   jsonb   default '{}'
+    auth_info   jsonb   default '{}',
+    auid        text
 );
 
 create table roles
@@ -75,6 +77,7 @@ update users
 
 insert into users(username, name, flags)
 	values('admin','Admin user', 'a');
+
 insert into users_roles(username, role_name) values ('admin','admin_role');
 
 
