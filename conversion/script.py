@@ -18,13 +18,23 @@ def log(*parts, **kv):
         
 class BaseTask(Task):
 
-    def __init__(self, config, env):
+    def __init__(self, config, external_env):
         self.Title = config.get("title")
         Task.__init__(self, name=self.Title)
         self.Killed = False
-        self.Env = env.copy()
-        self.Env.update(config.get("env", {}))
+        self.Env = external_env.copy()
+        self.Env.update(self.parse_env(config))
         self.Status = None
+        self.Level = level
+    
+    @staticmethod
+    def from_config(config, external_env):
+        if config.get("type") == "parallel":
+            return ParallelGroup.from_config(config, external_env)
+        elif config.get("command"):
+            return Command.from_config(config, external_env)
+        else:
+            return SequentialGroup.from_config(config, external_env)
     
     def run(self):
         raise NotImplementedError()
@@ -54,23 +64,35 @@ class BaseTask(Task):
                 value = value.replace("$" + name, v) 
             env[name] = value
         return env
+        
+    def indent(self, text, extra_indent = ""):
+        return indent(text, ("  " * self.Level) + extra_indent)
+        
+    def log(self, *parts, **kv):
+        print("%s:" % (time.ctime(),), *parts, **kv)
 
 class Command(BaseTask):
     
-    def __init__(self, config, env={}):
-        BaseTask.__init__(self, config, env)
+    def __init__(self, config, external_env={}):
+        BaseTask.__init__(self, config, external_env)
         self.Command = config["command"]
         self.Process = None
         self.Out = None
         self.Err = None
         self.Retcode = None
+        
+    @classmethod
+    def from_config(cls, config, external_env):
+        cmd = cls(config, external_env)
+        cmd.Title = cmd.Title or cmd.Command
 
     def __str__(self):
         process = self.Process
         pid = process.pid if process is not None else ""
-        return f"Task {self.Title} ({pid}: {self.Command})"
+        return f"Command {self.Title}"
         
     def run(self):
+        log("STARTED: command", self.Title)
         self.Process = SubprocessAsync(self.Command, shell=True, env=env, process_group=0).start()
         out, err = self.Process.wait()
         self.Out = out
@@ -82,6 +104,27 @@ class Command(BaseTask):
         elif self.Retcode:
             status = "error"
         self.Status = status
+
+        log("ENDED: command", self.Title)
+        print("  Status:", self.Status)
+        print("  Elapsed time:", self.pretty_time(command.Ended - command.Started))
+        if self.Exception:
+            print(indent + "  Exception:")
+            for line in traceback.format_exception(*self.Exception):
+                print(indent + "  " + line)
+        out = out.strip()
+        err = err.strip()
+        if out:
+            print("")
+            print("  -- stdout: ------")
+            print(indent(out, "  "))
+            print("  ------------------")
+        if err:
+            print("")
+            print("  -- stderr: -------")
+            print(indent(err, "  "))
+            print("  ------------------")
+
         return self.Status
         
     def print_status(self, add_timestamp=True, indent=""):
@@ -109,20 +152,28 @@ class Command(BaseTask):
     @synchronized
     def kill(self):
         if not self.Killed and self.Process is not None:
+            log("KILLING: command", self.Title)
             self.Process.killpg()
             self.killed()
 
 class ParallelGroup(BaseTask):
     
-    def __init__(self, config, tasks, env={}):
-        BaseTask.__init__(self, config, env)
+    def __init__(self, config, external_env={}, tasks=[]):
+        BaseTask.__init__(self, config, external_env)
         self.Queue = TaskQueue(config.get("multiplicity", 5), delegate=self)
-        self.Tasks = tasks
+        self.Steps = tasks
         
+    @classmethod
+    def from_config(cls, config, external_env={}):
+        group = cls(config, external_env)
+        steps = [BaseTask.from_config(cfg, external_env=group.Env) for cfg in config.get("steps", [])]
+        group.Steps = steps
+
     @synchronized
     def taskFailed(self, queue, task, exc_type, exc_value, tb):
-        log(f"Task {task.Title} exception: ---")
+        log(f"EXCEPTION in {task.Title}:")
         traceback.print_exc(exc_type, exc_value, tb)
+        print("")
         self.Failed = True
         self.shutdown()
     
@@ -169,26 +220,26 @@ class ParallelGroup(BaseTask):
 
     @synchronized
     def shutdown(self):
-        log("Shutting down parallel step:", self.Title)
+        log("STOPPING: parallel group", self.Title)
         self.Queue.hold()
         for task in self.Queue.waitingTasks():
-            print("Cancelling:", task.Title)
+            print("  Cancelling:", task.Title)
             self.Queue.cancel(task)
         for task in self.Queue.activeTasks():
             #print("active task:", task)
             if not task.Killed:
-                print("Killing:", task)
+                print("  Killing:", task)
                 task.kill()
         self.killed()
 
     def run(self):
+        log("STARTED: parallel group", self.Title)
         t0 = time.time()
-        log(f"Parallel group {self.Title} ...")
         for task in self.Tasks:
             self.Queue.append(task)
         self.Queue.join()
         t1 = time.time()
-        log("End of group:", self.Title)
+        log("ENDED parallel group:", self.Title)
         print("  Status:", self.Status)
         print("  Elapsed time:", self.pretty_time(t1 - t0))
         print("\n")
@@ -196,13 +247,19 @@ class ParallelGroup(BaseTask):
 
 class SequentialGroup(BaseTask):
     
-    def __init__(self, config, tasks, env={}):
+    def __init__(self, config, external_env, steps = []):
         BaseTask.__init__(self, config, env)
-        self.Tasks = tasks
+        self.Steps = tasks
+
+    @classmethod
+    def from_config(cls, config, external_env={}):
+        group = cls(config, external_env)
+        steps = [BaseTask.from_config(cfg, external_env=group.Env) for cfg in config.get("steps", [])]
+        group.Steps = steps
 
     def run(self):
+        log("STARTED: sequential group", self.Title)
         t0 = time.time()
-        log(f"Sequential group {self.Title} ...")
         for task in tasks:
             if self.Status is None:
                 status = task.run()
@@ -212,35 +269,21 @@ class SequentialGroup(BaseTask):
                 task.cancel()
         if self.Status is None:
             self.Status = "ok"
-        log("End of group:", self.Title)
+        log("ENDED parallel group:", self.Title)
         print("  Status:", self.Status)
         print("  Elapsed time:", self.pretty_time(t1 - t0))
         print("\n")
 
 
-class Script(object):
+class Script(BaseTask):
 
     def __init__(self, config):
-        self.Env = {}
-        for name, value in config.get("env", {}).items():
-            mode = ""
-            if name.endswith("(append)"):
-                name = name[:-len("(append)")]
-                mode = "append"
-            elif name.endswith("(prepend)"):
-                name = name[:-len("(prepend)")]
-                mode = "prepend"
-            v = os.environ.get(name)
-            if v and mode == "append":
-                v = v + ":" + value
-            elif v and mode == "prepend":
-                v = value + ":" + v
-            else:
-                v = value
-            self.Env[name] = v
-        self.Steps = [Step(step, env=self.Env) for step in config["steps"]]
+        self.Env = self.parse_env(config)
+        
+        self.Steps = [Step(step, env=self.Env) for step in config["script"]]
 
     def run(self):
+        t0 = time.time()
         for step in self.Steps:
             if not step.run():
                 return False
