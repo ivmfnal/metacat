@@ -111,7 +111,7 @@ class BaseDBUser(DBObject):
     def authenticate(self, method, auth_config, presented):
         a = authenticator(method, auth_config, self.AuthInfo.get(method))
         if a is None or not a.enabled():
-            return False
+            return False, "Authenticated method disabled", None
         result, reason, expiration = a.authenticate(self, presented)
         #print(f"BaseDBUser.authenticate({method}):", result)
         return result, reason, expiration
