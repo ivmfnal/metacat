@@ -24,11 +24,11 @@ class BaseTask(Task):
         self.Killed = False
         self.Env = env.copy()
         self.Env.update(config.get("env", {}))
-        self.Exception = None
+        self.Status = None
     
     def run(self):
         raise NotImplementedError()
-        return True             # success/failure
+        return status             # "ok" or "error" or "killed" or "cancelled"
         
     def kill(self):
         raise NotImplementedError()
@@ -45,12 +45,20 @@ class BaseTask(Task):
     @property
     def is_killed(self):
         return self.Killed
+        
+    def parse_env(self, config):
+        env = {}
+        for name, value in config.get("env", {}).items():
+            v = os.environ.get(name, "")
+            while "$" + name in value:
+                value = value.replace("$" + name, v) 
+            env[name] = value
+        return env
 
-class Command(BaseTask, QTask):
+class Command(BaseTask):
     
     def __init__(self, config, env={}):
-        Task.__init__(self)
-        Group.__init__(self, config, env)
+        BaseTask.__init__(self, config, env)
         self.Command = config["command"]
         self.Process = None
         self.Out = None
@@ -63,28 +71,23 @@ class Command(BaseTask, QTask):
         return f"Task {self.Title} ({pid}: {self.Command})"
         
     def run(self):
-        retcode = None
-        try:
-            log(f"Starting task {self.Title} ...")
-            env = os.environ.copy()
-            env.update(self.Env)
-            self.Process = SubprocessAsync(self.Command, shell=True, env=env, process_group=0).start()
-            out, err = self.Process.wait()
-            self.Out = out
-            self.Err = err
-            self.Retcode = self.Process.returncode
-            self.Process = None
-            if self.is_killed: self.Retcode = "killed"
-        except:
-            self.Retcode = "exception"
-            self.Exception = sys.exc_info()
-        return not retcode and not self.Exception and not self.Killed
+        self.Process = SubprocessAsync(self.Command, shell=True, env=env, process_group=0).start()
+        out, err = self.Process.wait()
+        self.Out = out
+        self.Err = err
+        self.Retcode = self.Process.returncode
+        status = "ok"
+        if self.is_killed:
+            status = "killed"
+        elif self.Retcode:
+            status = "error"
+        self.Status = status
+        return self.Status
         
     def print_status(self, add_timestamp=True, indent=""):
         headline = time.ctime(time.time())+': ' if add_timestamp else "") + self.Title
         print(indent + headline)
-        status = "succeeded" if retcode == 0 else f"failed with exit code {self.Retcode}"
-        print(indent + "  Status:", status)
+        print(indent + "  Status:", self.Status)
         print(indent + "  Elapsed time:", self.pretty_time(command.Ended - command.Started))
         if self.Exception:
             print(indent + "  Exception:")
@@ -107,19 +110,14 @@ class Command(BaseTask, QTask):
     def kill(self):
         if not self.Killed and self.Process is not None:
             self.Process.killpg()
-            #self.Process.kill(signal.SIGHUP)
             self.killed()
 
-class ParallelTask(Primitive, Group):
+class ParallelGroup(BaseTask):
     
-    def __init__(self, config, env={}):
-        Primitive.__init__(self)
-        Group.__init__(self, config)
-        self.Env = env.copy()
-        self.Env.update(config.get("env", {}))
+    def __init__(self, config, tasks, env={}):
+        BaseTask.__init__(self, config, env)
         self.Queue = TaskQueue(config.get("multiplicity", 5), delegate=self)
-        self.Groups = [Command(task, env=env) for task in config["groups"]]
-        self.Failed = False
+        self.Tasks = tasks
         
     @synchronized
     def taskFailed(self, queue, task, exc_type, exc_value, tb):
@@ -152,7 +150,7 @@ class ParallelTask(Primitive, Group):
             return("%.2fs" % (fs,))
             
     @synchronized
-    def print_command_results(self, command, retcode, out, err):
+    def print_status(self, command, retcode, out, err):
         status = "succeeded" if retcode == 0 else f"failed with exit code {retcode}"
         log("End of task", command.Title)
         print("  Status:", status)
@@ -181,19 +179,44 @@ class ParallelTask(Primitive, Group):
             if not task.Killed:
                 print("Killing:", task)
                 task.kill()
+        self.killed()
 
     def run(self):
         t0 = time.time()
-        log(f"STEP {self.Title} ...")
-        for command in self.Commands:
-            self.Queue.append(command)
+        log(f"Parallel group {self.Title} ...")
+        for task in self.Tasks:
+            self.Queue.append(task)
         self.Queue.join()
         t1 = time.time()
-        log("End of STEP:", self.Title)
-        print("  Status:", "failed" if self.Failed else "succeeded")
+        log("End of group:", self.Title)
+        print("  Status:", self.Status)
         print("  Elapsed time:", self.pretty_time(t1 - t0))
         print("\n")
-        return not self.Failed
+        return self.Status
+
+class SequentialGroup(BaseTask):
+    
+    def __init__(self, config, tasks, env={}):
+        BaseTask.__init__(self, config, env)
+        self.Tasks = tasks
+
+    def run(self):
+        t0 = time.time()
+        log(f"Sequential group {self.Title} ...")
+        for task in tasks:
+            if self.Status is None:
+                status = task.run()
+                if status != "ok":
+                    self.Status = "killed"
+            else:
+                task.cancel()
+        if self.Status is None:
+            self.Status = "ok"
+        log("End of group:", self.Title)
+        print("  Status:", self.Status)
+        print("  Elapsed time:", self.pretty_time(t1 - t0))
+        print("\n")
+
 
 class Script(object):
 

@@ -3,6 +3,7 @@ DST_URL="postgresql://ivm@ifdbprod.fnal.gov:5463/dune_metadata_prd"
 
 SRC_SCHEMA=""
 DST_SCHEMA=production
+WEB_USER=dune_web
 
 if [ ! -z "$SRC_SCHEMA" ]; then
     SRC_URL="${SRC_URL}?options=-c%20search_path%3d${SRC_SCHEMA}"
@@ -40,9 +41,9 @@ function init_destination () {
     echo "Source database URL:      $SRC_URL"
     echo "Destination database URL: $DST_URL"
 
-
     $OUT_DB_PSQL << _EOF_
         create schema if not exists ${DST_SCHEMA};
+        
         drop table if exists meta;
         drop table if exists raw_files;
         drop table if exists files cascade;
@@ -50,6 +51,16 @@ function init_destination () {
         drop table if exists namespaces, parameter_categories, queries cascade;
         drop table if exists files, datasets cascade;
         drop table if exists users, roles cascade;    
+_EOF_
+}
+
+function finalize () {
+    $OUT_DB_PSQL << _EOF_
+        grant all on schema ${DST_SCHEMA} to ${WEB_USER};
+        grant all on all tables in schema ${DST_SCHEMA} to ${WEB_USER};
+        \echo
+        \echo Finalized
+        \echo
 _EOF_
 }
 

@@ -104,3 +104,7 @@ steps:
 
     -   title:      build foreign keys
         command:    build_foreign_keys.sh
+        
+    -   title:      finalize
+        command:    finalize.sh
+    
