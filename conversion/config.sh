@@ -2,7 +2,7 @@ SRC_URL="postgresql://samread@sampgsdb03.fnal.gov:5435/sam_dune_prd"
 DST_URL="postgresql://ivm@ifdbprod.fnal.gov:5463/dune_metadata_prd"
 
 SRC_SCHEMA=""
-DST_SCHEMA=""
+DST_SCHEMA=production
 
 if [ ! -z "$SRC_SCHEMA" ]; then
     SRC_URL="${SRC_URL}?options=-c%20search_path%3d${SRC_SCHEMA}"
@@ -36,7 +36,13 @@ _EOF_
 }
 
 function init_destination () {
+
+    echo "Source database URL:      $SRC_URL"
+    echo "Destination database URL: $DST_URL"
+
+
     $OUT_DB_PSQL << _EOF_
+        create schema if not exists ${DST_SCHEMA};
         drop table if exists meta;
         drop table if exists raw_files;
         drop table if exists files cascade;
