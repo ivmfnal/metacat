@@ -33,9 +33,10 @@ copy (
                 else 'other'
             end
         || '"'
-        from active_files f, data_tiers dt, file_types ft, datastreams ds
-		where 
-            f.stream_id = ds.stream_id and f.data_tier_id = dt.data_tier_id and f.file_type_id = ft.file_type_id
+        from active_files f 
+            left outer join data_tiers dt on (f.data_tier_id = dt.data_tier_id)
+            left outer join file_types ft on (f.file_type_id = ft.file_type_id)
+            left outer join datastreams ds on (f.stream_id = ds.stream_id)
 ) to stdout;
 
 copy (
