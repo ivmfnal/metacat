@@ -64,13 +64,13 @@ create table files
     retired_by  text references users(username)
 );
 
-create unique index file_names_unique on files(namespace, name);
+create unique index file_names_unique on files(namespace, name) include (id);
 create index files_meta_path_ops_index on files using gin (metadata jsonb_path_ops);
 
 create index files_creator on files(creator);
 create index files_created_timestamp on files(created_timestamp);
 create index files_size on files(size);
-create index files_name on files(name);
+create index files_name on files(name) include (namespace, id);
 
 create table parent_child
 (

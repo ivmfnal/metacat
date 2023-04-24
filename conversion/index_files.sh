@@ -8,8 +8,8 @@ drop index if exists files_names, files_name, files_size,
     files_creator, files_created_timestamp, files_size;
 
 \echo ... building files namespace:name index ...
-create unique index files_names on files(namespace, name);
-create index files_name on files(name);
+create unique index files_names on files(namespace, name) include (id);
+create index files_name on files(name) include (namespace, id);
 create index files_size on files(size);
 
 
