@@ -5,7 +5,7 @@ FILTERSFILES = __init__.py filters.py
 MODULEDIR=$(LIBDIR)/metacat
 
 build:
-	mkdir -p $(MODULEDIR) $(MODULEDIR)/db $(MODULEDIR)/mql $(MODULEDIR)/util $(MODULEDIR)/webapi $(MODULEDIR)/filters $(MODULEDIR)/common
+	mkdir -p $(MODULEDIR) $(MODULEDIR)/db $(MODULEDIR)/mql $(MODULEDIR)/util $(MODULEDIR)/webapi $(MODULEDIR)/filters $(MODULEDIR)/common $(MODULEDIR)/logs
 	cp $(FILES) $(MODULEDIR)
 	cd db; cp $(DBFILES) $(MODULEDIR)/db
 	cd ui; make LIBDIR=$(MODULEDIR)/ui BINDIR=$(BINDIR) build
@@ -14,5 +14,6 @@ build:
 	cd mql; make MQLDIR=$(MODULEDIR)/mql build
 	cp -R auth common $(MODULEDIR)
 	cp util/*.py $(MODULEDIR)/util
+	cp logs/*.py $(MODULEDIR)/logs
 	
 	
