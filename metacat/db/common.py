@@ -1,5 +1,5 @@
+import itertools, io, csv, json
 from psycopg2 import IntegrityError
-import itertools, io, csv
 
 Debug = False
 
@@ -93,6 +93,9 @@ class DBObject(object):
         c.execute(sql)
         tup = c.fetchone()
         return None if tup is None else cls.from_tuple(db, tup)
+        
+    def to_json(self):
+        return json.dumps(self.to_jsonable())
 
 def make_list_if_short(iterable, limit):
     # convert iterable to list if it is short. otherwise return another iterable with the same elements

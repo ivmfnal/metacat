@@ -979,18 +979,51 @@ class DataHandler(MetaCatHandler):
             data = ( d.to_jsonable(with_relatives=with_provenance) for d in results )
         return self.json_stream(data), "application/json-seq"
         
+    @sanitized
     def named_queries(self, request, relpath, namespace=None, **args):
         db = self.App.connect()
         queries = list(DBNamedQuery.list(db, namespace))
-        data = ["%s:%s" % (q.Namespace, q.Name) for q in queries]
+        data = [q.to_jsonable() for q in queries]
         return json.dumps(data), "application/json"
 
+    @sanitized
     def named_query(self, request, relpath, namespace=None, name=None, **args):
         db = self.App.connect()
         q = DBNamedQuery.get(db, namespace, name)
         if q is None:
             return 404, ""
-        return q.Source, "text/plain"
+        return q.to_json(), "application/json"
+    
+    @sanitized
+    def create_named_query(self, request, relpath, update="no", **agrs):
+        update = update == "yes"
+        user, error = self.authenticated_user()
+        if user is None:
+            return "Authentication required", 401
+        data = json.loads(request.body)
+        db = self.App.connect()
+        namespace = data["namespace"]
+        name = data["name"]
+        try:
+            if not self._namespace_authorized(db, namespace, user):
+                return "Permission denied", 403
+        except KeyError:
+            return f"Namespace {namespace} does not exist", 404
+        existing = DBNamedQuery.get(db, namespace, name)
+        if existing is not None:
+            if not update:
+                return 409, "Query already exists"
+            existing.Source = data["source"]
+            existing.Parameters = data.get("parameters", [])
+            existing.Creator = user.Username
+            existing.CreatedTimestamp = datetime.now()
+            existing.save()
+            q = existing
+        else:
+            q = DBNamedQuery(db, namespace, name, data["source"], data.get("parameters", []))
+            q.Creator = user.Username
+            q.create()
+        return 200, q.to_json(), "application/json"
 
     #
     # Parameter categories

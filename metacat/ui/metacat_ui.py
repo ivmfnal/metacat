@@ -10,6 +10,7 @@ from .metacat_auth import AuthCLI
 from .metacat_admin import AdminCLI
 from .metacat_query import QueryInterpreter
 from .metacat_category import CategoryCLI
+from .metacat_named_query import NamedQueriesCLI
 from metacat.util import validate_metadata
 
 import warnings
@@ -158,6 +159,7 @@ def main():
         "category", CategoryCLI,
         "file", FileCLI,
         "query", QueryInterpreter,
+        "named_query", NamedQueriesCLI,
         "version", VersionCommand(),
         "503", Simulate503Command(),
         "validate", ValidateMetadataCommand()

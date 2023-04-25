@@ -1193,7 +1193,43 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     # Named queries
     #
     def get_named_query(self, namespace, name):
-        try:    text = self.get_text(f"data/named_query?namespace={namespace}&name={name}")
+        """Get named query
+        
+        Parameters
+        ----------
+        namespace : str
+        name : str
+        
+        Returns
+        -------
+        dict or None
+            A dictionary with information about the named query or None if the named query does not exist.
+        """
+        try:    data = self.get_json(f"data/named_query?namespace={namespace}&name={name}")
         except NotFoundError:
             return None
-        return text
+        return data
+
+    def list_named_queries(self, namespace=None):
+        """Get multiple named queries
+        
+        Parameters
+        ----------
+        namespace : str
+            optional, if specified the list will include all named queries in the namespace. Orherwise all named queries will be returned
+        
+        Returns
+        -------
+        list
+            List of dictionaries with information about the named queries.
+        """
+        url = "data/named_queries"
+        if namespace is not None:
+            url += f"?namespace={namespace}"
+        return self.get_json(url)
+
+    def create_named_query(self, namespace, name, source, parameters=[], update=False):
+        data = dict(namespace=namespace, name=name, source=source, parameters=parameters)
+        url = "data/create_named_query"
+        if update: url += "?update=yes"
+        return self.post_json(url, data)

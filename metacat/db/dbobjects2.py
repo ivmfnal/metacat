@@ -1271,9 +1271,6 @@ class DBDataset(DBObject):
         return out
     
     
-    def to_json(self):
-        return json.dumps(self.to_jsonable())
-        
     def delete(self, do_commit=True):
         c = self.DB.cursor()
         c.execute("""
@@ -1600,7 +1597,17 @@ class DBNamedQuery(DBObject):
         self.Parameters = parameters
         self.Creator = None
         self.CreatedTimestamp = None
-    
+        
+    def to_jsonable(self):
+        return dict(
+            namespace = self.Namespace,
+            name = self.Name,
+            source = self.Source,
+            creator = self.Creator,
+            created_timestamp = epoch(self.CreatedTimestamp),
+            parameters = self.Parameters
+        )
+
     @staticmethod
     def from_tuple(db, tup):
         namespace, name, parameters, source, creator, created_timespamp = tup
@@ -1625,11 +1632,11 @@ class DBNamedQuery(DBObject):
     def save(self):
         self.DB.cursor().execute("""
             update queries 
-                set source=%s, parameters=%s
+                set source=%s, parameters=%s, creator=%s, created_timestamp=%s
                 where namespace=%s and name=%s;
             commit
             """,
-            (self.Source, self.Parameters, self.Namespace, self.Name)
+            (self.Source, self.Parameters, self.Creator, self.CreatedTimestamp, self.Namespace, self.Name)
         )
         return self
             
@@ -1653,19 +1660,7 @@ class DBNamedQuery(DBObject):
             )
         return (DBNamedQuery.from_tuple(db, tup) for tup in fetch_generator(c))
 
-"""DBBaseUser:
-        class DBUser(object):
 
-    def __init__(self, db, username, name, email, flags=""):
-        self.Username = username
-        self.Name = name
-        self.EMail = email
-        self.Flags = flags
-        self.DB = db
-        self.AuthInfo = {}        # type -> [secret,...]        # DB representation
-        self.RoleNames = None
-"""
-        
 class DBUser(BaseDBUser):
 
     @staticmethod

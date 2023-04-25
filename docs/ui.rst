@@ -649,7 +649,7 @@ Retrieving single file metadata
 
 .. code-block:: shell
 
-        metacat file show [options] (-i <file id>|<namespace>:<name>)
+        metacat file show [<options>] (-i <file id>|<namespace>:<name>)
           -m|--meta-only            - print file metadata only
           -n|--name-only            - print file namespace, name only
           -d|--id-only              - print file id only
@@ -685,8 +685,8 @@ MetaCat queries are written in :doc:`Metadata Query Language <mql>`.
 
 .. code-block:: shell
 
-    metacat query <options> "<MQL query>"
-    metacat query <options> -f <MQL query file>
+    metacat query [<options>] "<MQL query>"
+    metacat query [<options>] -f <MQL query file>
 
     Options:
         -j|--json                           - print raw JSON output
@@ -705,5 +705,86 @@ MetaCat queries are written in :doc:`Metadata Query Language <mql>`.
         
 
     
+Named Queries
+-------------
 
+``MetaCat`` allows to store a query in the database under some namespace/name and then reuse the same query as part of another query.
+For example, one can save a query like this:
+
+.. code-block::
+
+    files from production:data_2021
+        where data.format = "hd5"
+        
+Let's say they saved it as ``joeuser:hd5_files``. Then they can run the query by name as is:
+
+.. code-block::
+
+    query joeuser:hd5_files
+    
+    
+or as part of a more complex query:
+
+.. code-block::
+
+    query joeuser:hd5_files where app.version in ("2.3", "2.3")
+    
+.. code-block::
+
+    union (
+        query joeuser:hd5_files,
+        files from mc:mc_2021 where data.format = "hd5"
+    )
+    
+``MetaCat`` provides basic named query management commands:
+
+To create a named query:
+
+.. code-block:: shell
+
+    $ metacat create [options] <namespace>:<name> <MQL query>         - inline query
+    $ metacat create [options] -q|--file <file> <namespace>:<name>    - read query from file
+    $ metacat create [options] <namespace>:<name>                     - read query from stdin
+    
+    Options:
+        -u|--update                -- update if the named query if exists
+
+To list existing named queries:
+
+.. code-block:: shell
+
+    $ metacat named_queries list [<options>]
+    
+    Options:
+        -n|--namespace                          - include queries from the namespace only
+        -j|--json                               - as JSON
+
+To show a named query:
+
+.. code-block:: shell
+
+    $ metacat named_queries show [<options>] <namespace>:<name>
+
+    Options:
+        -j|--json                               - as JSON
+        -v|--verbose                            - verbose outout. Otherwise - query source only
+
+    
+    
+    
+    
+    
+
+
+
+        
+
+
+
+
+
+
+ 
+
+      
         

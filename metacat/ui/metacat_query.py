@@ -5,39 +5,19 @@ from metacat.util import to_bytes, to_str
 from metacat.webapi import MetaCatClient, MCServerError, MCWebAPIError, MCError
 from metacat.ui.cli import CLICommand, InvalidArguments, InvalidOptions
 
-Usage = """
-Usage: --
-    metacat query <options> "<MQL query>"
-    metacat query <options> -f <MQL query file>
-
-    Options:
-        -j|--json                           - print raw JSON output
-        -p|--pretty                         - pretty-print metadata
-        -l|--line                           - print all metadata on single line (good for grepping, ignored with -j and -p)
-        -i|--ids                            - print file ids instead of names
-        -s|--summary                        - print only summary information
-        -m|--metadata=[<field>,...]         - print metadata fields
-                                              overrides --summary
-        -m|--metadata=all                   - print all metadata fields
-                                              overrides --summary
-        -P|--with-provenance                - include provenance information
-        -N|--namespace=<default namespace>  - default namespace for the query
-        -S|--save-as=<namespace>:<name>     - save files as a new datset
-        -A|--add-to=<namespace>:<name>      - add files to an existing dataset
-"""
-
 class QueryCommand(CLICommand):
 
     GNUStyle = False    
     Opts = (
-        "jism:N:pq:S:A:lPxr", 
+        "jism:N:pq:S:A:lPxrL:U:S:R:Q:", 
         ["line", "json", "ids", "summary", "metadata=", "namespace=", "pretty",
-            "with-provenance", "save-as=", "add-to=", "explain", "include-retired-files"
+            "with-provenance", "save-as=", "add-to=", "explain", "include-retired-files",
+            "list=", "source=", "create=", "update=", "run="
         ]
     )
     Usage = """[<options>] (-q <MQL query file>|"<MQL query>")
 
-        options:
+        Options:
             -j|--json                           - print raw JSON output
             -p|--pretty                         - pretty-print metadata
             -l|--line                           - print all metadata on single line (good for grepping, ignored with -j and -p)
@@ -66,8 +46,7 @@ class QueryCommand(CLICommand):
         save_as = opts.get("-S") or opts.get("--saves-as")
         add_to = opts.get("-A") or opts.get("--add-to")
         include_retired = "-r" in opts or "--include-retired-files" in opts
-
-        #print("url:", url)
+        
         if args:
             query_text = " ".join(args)
         else:

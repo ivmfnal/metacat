@@ -30,8 +30,9 @@ class ShiftTZ(tzinfo):
 def epoch(t):
     if t is None:   return None
     if isinstance(t, (int, float)):    return t
-    delta = t - datetime(1970,1,1,tzinfo=UTC())
-    return delta.days * 3600 * 24 + delta.seconds + float(delta.microseconds)/1000000.0;
+    return t.timestamp()
+    #delta = t - datetime(1970,1,1,tzinfo=UTC())
+    #return delta.days * 3600 * 24 + delta.seconds + float(delta.microseconds)/1000000.0;
 
 def text2datetime(t):
     if t == None:
