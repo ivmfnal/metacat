@@ -5,6 +5,7 @@ LIBDIR=$(BUILD_DIR)/lib
 MODULEDIR=$(LIBDIR)/metacat
 SERVER_DIR=$(BUILD_DIR)/server
 DOCSDIR=$(BUILD_DIR)/docs
+DAEMONDIR=$(BUILD_DIR)/daemon
 DOCSREL=$(BUILD_DIR)/docs
 UI_DIR=$(BUILD_DIR)/ui
 DEPS_DIR=$(BUILD_DIR)/dependencies
@@ -28,7 +29,7 @@ dune_with_version_defined:	clean dune_specifics tars
 generic_with_version_defined:	clean tars
 
 tars:  build $(TARDIR)
-	cd $(BUILD_DIR); tar cf $(SERVER_TAR) lib server
+	cd $(BUILD_DIR); tar cf $(SERVER_TAR) lib server daemon
 	@echo \|
 	@echo \| Server tarfile is created: $(SERVER_TAR)
 	@echo \|
@@ -54,6 +55,7 @@ dune_specifics:
 
 build:  $(BUILD_DIR) 
 	cd src; make LIBDIR=$(LIBDIR) VERSION=$(VERSION) build
+	cd daemon; make DAEMONDIR=$(DAEMONDIR) VERSION=$(VERSION) build
 	cd metacat; make LIBDIR=$(LIBDIR) VERSION=$(VERSION) BINDIR=$(UI_DIR) build
 	cd webserver; make SERVER_DIR=$(SERVER_DIR) LIBDIR=$(LIBDIR) VERSION=$(VERSION) build
 	#cd docs; make SERVER_DIR=$(SERVER_DIR) DOCSDIR=$(DOCSDIR) -f Makefile-product build
