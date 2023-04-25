@@ -84,18 +84,22 @@ class MetaCatDaemon(Logged):
         db.close()
 
 Usage = """
-daemon.py -c <config.yaml> [-l <log path>]
+daemon.py -c <config.yaml> [-d] [-l <log path>]
 """
         
 def main():
     import sys, getopt, yaml, time
 
-    opts, args = getopt.getopt(sys.argv[1:], "l:c:")
+    opts, args = getopt.getopt(sys.argv[1:], "l:c:dh?", ["help"])
     opts = dict(opts)
+    
+    if "-c" not in options or "-?" in opts or "-h" in opts or "--help" in opts:
+        print Usage
+        sys.exit(2)
     
     config = yaml.load(open(opts["-c"], "r"), Loader=yaml.SafeLoader)
     log_file = opts.get("-l", "-")
-    init_logs(log_file, error_out=log_file, debug_out=log_file, debug_enabled=True)
+    init_logs(log_file, error_out=log_file, debug_out=log_file, debug_enabled="-d" in opts)
     
     daemon = MetaCatDaemon(config)
     while True:
