@@ -1,4 +1,4 @@
-import json, requests
+import json, requests, time, psycopg2
 from pythreader import TaskQueue
 from metacat.db import DBUser
 from metacat.logs import Logged, init as init_logs
@@ -26,13 +26,19 @@ class MetaCatDaemon(Logged):
             self.DBConnect += " password=%(password)s" % db_config
 
         self.Queue = TaskQueue(5, delegate=self)
-        self.Queue.append(self.ferry_update, interval=self.FerryUpdateInterval)
+        self.Queue.append(self.ferry_update, interval=self.FerryUpdateInterval, after=time.time())
+        self.debug("task enqueued")
         
     def ferry_update(self):
+        self.debug("ferry_update...")
         url = f"{self.FerryURL}/getAffiliationMembersRoles?unitname={self.VO}"
+
+
     
+        self.debug("ferry URL:", url)
         response = requests.get(url, verify=False, cert=(self.CertFile, self.KeyFile))
         data = response.json()
+        self.debug("data received")
 
         status = data["ferry_status"]
         if status != "success":
@@ -50,7 +56,7 @@ class MetaCatDaemon(Logged):
         ncreated = nupdated = 0
         updated = []
         created = []
-        for username, ferry_user in ferry_users:
+        for username, ferry_user in ferry_users.items():
             db_user = db_users.get(username)
             if db_user is None:
                 new_user = DBUser(db, username, ferry_user.get("fullname", ""), None, "", None, ferry_user.get("uuid"))
@@ -87,7 +93,7 @@ def main():
     
     config = yaml.load(open(opts["-c"], "r"), Loader=yaml.SafeLoader)
     log_file = opts.get("-l", "-")
-    init_logs(log_file, error_out=log_file)
+    init_logs(log_file, error_out=log_file, debug_out=log_file, debug_enabled=True)
     
     daemon = MetaCatDaemon(config)
     while True:
