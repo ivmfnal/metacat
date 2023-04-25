@@ -24,6 +24,7 @@ class MetaCatDaemon(Logged):
         self.DBConnect = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s" % db_config
         if "password" in db_config:
             self.DBConnect += " password=%(password)s" % db_config
+        self.Schema = db_config.get("schema")
 
         self.Queue = TaskQueue(5, delegate=self)
         self.Queue.append(self.ferry_update, interval=self.FerryUpdateInterval, after=time.time())
@@ -33,8 +34,6 @@ class MetaCatDaemon(Logged):
         self.debug("ferry_update...")
         url = f"{self.FerryURL}/getAffiliationMembersRoles?unitname={self.VO}"
 
-
-    
         self.debug("ferry URL:", url)
         response = requests.get(url, verify=False, cert=(self.CertFile, self.KeyFile))
         data = response.json()
@@ -51,6 +50,8 @@ class MetaCatDaemon(Logged):
         self.log("Loaded", len(ferry_users), "users from Ferry")
 
         db = psycopg2.connect(self.DBConnect)
+        if self.Schema:
+            db.cursor().execute(f"set search_path to {self.Schema}")
         db_users = {u.Username: u for u in DBUser.list(db)}
         
         ncreated = nupdated = 0
