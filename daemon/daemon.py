@@ -81,6 +81,7 @@ class MetaCatDaemon(Logged):
 
         self.log("created:", len(created), "" if not created else ",".join(created))
         self.log("updated:", len(updated), "" if not updated else ",".join(updated))
+        db.close()
 
 Usage = """
 daemon.py -c <config.yaml> [-l <log path>]
