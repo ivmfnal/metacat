@@ -747,7 +747,7 @@ To create a named query:
     $ metacat create [options] <namespace>:<name>                     - read query from stdin
     
     Options:
-        -u|--update                -- update if the named query if exists
+        -u|--update                -- update if the named query exists
 
 To list existing named queries:
 
@@ -767,7 +767,7 @@ To show a named query:
 
     Options:
         -j|--json                               - as JSON
-        -v|--verbose                            - verbose outout. Otherwise - query source only
+        -v|--verbose                            - verbose outout. Otherwise - print query source only
 
     
     
