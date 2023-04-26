@@ -66,10 +66,10 @@ class ShowNamedQueryCommand(CLICommand):
 
 class CreateNamedQueryCommand(CLICommand):
 
-    Opts = "q:u update file="
+    Opts = "f:u update file="
     Usage = """                                                -- create named query
         create [options] <namespace>:<name> <MQL query>         - inline query
-        create [options] -q|--file <file> <namespace>:<name>    - read query from file
+        create [options] -f|--file <file> <namespace>:<name>    - read query from file
         create [options] <namespace>:<name>                     - read query from stdin
         
         Options:
@@ -84,7 +84,7 @@ class CreateNamedQueryCommand(CLICommand):
         if len(args) > 1:
             query_text = " ".join(args[1:])
         else:
-            input_file = opts.get("-q", opts.get("--file", "-"))
+            input_file = opts.get("-f", opts.get("--file", "-"))
             if input_file == "-":
                 query_text = sys.stdin.read()
             else:

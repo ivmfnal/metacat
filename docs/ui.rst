@@ -743,7 +743,7 @@ To create a named query:
 .. code-block:: shell
 
     $ metacat create [options] <namespace>:<name> <MQL query>         - inline query
-    $ metacat create [options] -q|--file <file> <namespace>:<name>    - read query from file
+    $ metacat create [options] -f|--file <file> <namespace>:<name>    - read query from file
     $ metacat create [options] <namespace>:<name>                     - read query from stdin
     
     Options:
