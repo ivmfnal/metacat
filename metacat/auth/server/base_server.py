@@ -79,9 +79,9 @@ class BaseApp(WPApp):
         #print("server.user_from_request: encoded:", encoded)
         if not encoded: 
             return None, "Token not found"
-        out = self.verify_token(encoded)
+        token, error = self.verify_token(encoded)
         #print("user_from_request: out:", out)
-        return out
+        return token and token.subject, error
             
     def verify_token(self, encoded_token):
         try:    
@@ -98,12 +98,12 @@ class BaseApp(WPApp):
         except SignedTokenUnacceptedAlgorithmError:
             return None, "Invalid token algorithm"           
         except SignedTokenSignatureVerificationError:
-            return None, "Invalid token"           
+            return None, "Token verification failed"           
         except Exception as e:
             return None, str(e)
         else:
             #print("verify_token: token:", token, "  subject:", token.subject)
-            return token.subject, None
+            return token, None
 
     def encoded_token_from_request(self, request):
         token = self.token_from_request(request)
@@ -161,14 +161,6 @@ class BaseApp(WPApp):
         except: pass
         return resp
 
-    def ___verify_token(self, encoded):
-        try:
-            token = SignedToken.decode(encoded)
-            token.verify(self.TokenSecret)
-        except Exception as e:
-            return None, e
-        return token, None
-        
 class BaseHandler(WPHandler):
     
     def connect(self):

@@ -66,7 +66,7 @@ class LDAPAuthenticator(Authenticator):
             #print("no dn")
             return False, "LDAP not configured", None        # not allowed
         ld = ldap.initialize(config["server_url"])
-        #print("ldap password:", password)
+        print("ldap dn:", dn, "  password:", password)
         try:
             ld.simple_bind_s(dn, password)
             result = True

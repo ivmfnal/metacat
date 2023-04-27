@@ -3,7 +3,7 @@ from .base_server import BaseHandler
 from metacat.auth import BaseDBUser as DBUser, digest_server, SignedToken
 from metacat.util import to_str, to_bytes
 
-import time, os, yaml, json
+import time, os, yaml, json, traceback
 from datetime import datetime
 from urllib.parse import quote_plus, unquote_plus
 
@@ -102,16 +102,20 @@ class AuthHandler(BaseHandler):
         
     def auth(self, request, relpath, redirect=None, method="password", username=None, **args):
         #print("method:", method)
-        if method == "x509":
-            return self._auth_x509(request, redirect, username)
-        elif method == "digest":
-            return self._auth_digest(request.environ, redirect)
-        elif method == "ldap":
-            return self._auth_ldap(request, redirect, username)
-        elif method == "token":
-            return self._auth_token(request, redirect, username)
-        else:
-            return "Unknown authentication method\n", 400
+        try:
+            if method == "x509":
+                return self._auth_x509(request, redirect, username)
+            elif method == "digest":
+                return self._auth_digest(request.environ, redirect)
+            elif method == "ldap":
+                return self._auth_ldap(request, redirect, username)
+            elif method == "token":
+                return self._auth_token(request, redirect, username)
+            else:
+                return "Unknown authentication method\n", 400
+        except:
+            traceback.print_exc()
+            raise
             
     def mydn(self, request, relpath):
         ssl = request.environ.get("HTTPS") == "on" or request.environ.get("REQUEST_SCHEME") == "https"
@@ -145,37 +149,40 @@ class AuthHandler(BaseHandler):
         username = request.POST["username"]
         hashed_password = request.POST.get("hashed_password")
         password = request.POST.get("password")
-        token_text = request.POST.get("token_text")
+        token_text = request.POST.get("token")
         redirect = request.POST.get("redirect")
-        
-        #print("do_login: POST:", list(request.POST.items()))
-        #print("redirect:", redirect)
-        db = self.App.user_db()
-        u = DBUser.get(db, username)
-
         relogin_url = "./login"
         if redirect:
             relogin_url += "?redirect=%s&" % (quote_plus(redirect),)
         else:
             relogin_url += "?"
-
+        token = None
+        
+        db = self.App.user_db()
+        if token_text:
+            token, error = self.App.verify_token(token_text)
+            subject = token and token.subject
+            if not subject:
+                self.redirect("%serror=%s" % (relogin_url, quote_plus(error)))
+            username = subject
+            
+        if not username:
+            self.redirect("%serror=%s" % (relogin_url, quote_plus("Need username or token")))
+            
+        u = DBUser.get(db, username)
         if not u:
             #print("authentication error")
             self.redirect("%serror=User+%s+not+found" % (relogin_url, username))
-
-        token = None
-        if token_text:
-            token, error = self.App.verify_token(token_text)
-            if not token or token.subject != username:
-                self.redirect("%serror=%s" % (relogin_url, quote_plus("Authentication error")))
-        elif password or hashed_password:
-            ok, _, expiration = u.authenticate("password", self.App.Realm, hashed_password or password)
-            if not ok and password:
-                ok, _, expiration = u.authenticate("ldap", self.App.auth_config("ldap"), password)
-            if not ok:
-                self.redirect("%serror=%s" % (relogin_url, quote_plus("Authentication error")))
-        else:
-            self.redirect("%serror=%s" % (relogin_url, quote_plus("Authentication error")))
+        
+        if not token:
+            if (password or hashed_password) and username:
+                ok, _, expiration = u.authenticate("password", self.App.Realm, hashed_password or password)
+                if not ok and password:
+                    ok, _, expiration = u.authenticate("ldap", self.App.auth_config("ldap"), password)
+                if not ok:
+                    self.redirect("%serror=%s" % (relogin_url, quote_plus("Authentication error")))
+            else:
+                self.redirect(relogin_url)
 
         #print("authenticated as", username)
         return self.App.response_with_auth_cookie(username, redirect, token=token)

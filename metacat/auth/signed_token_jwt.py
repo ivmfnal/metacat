@@ -102,7 +102,8 @@ class SignedToken(object):
                     options = options
                 )
         except Exception as e:
-            print("SignedToken.verify():", e)
+            #print("SignedToken.verify():", e)
+            raise
     
     
     #
