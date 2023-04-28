@@ -1,6 +1,6 @@
 import json, requests, time, psycopg2
 from pythreader import TaskQueue
-from metacat.db import DBUser
+from metacat.db import DBUser, DBNamespace, DBDataset
 from metacat.logs import Logged, init as init_logs
 
 class MetaCatDaemon(Logged):
@@ -18,6 +18,7 @@ class MetaCatDaemon(Logged):
             raise ValueError("X.509 cert and key files are not in the conficuration")
         
         self.FerryUpdateInterval = daemon_config.get("ferry_update_interval", 3600)
+        self.CountsUpdateInterval = daemon_config.get("counts_update_interval", 3600)
         self.VO = daemon_config["vo"]
 
         db_config = config["database"]
@@ -28,8 +29,30 @@ class MetaCatDaemon(Logged):
 
         self.Queue = TaskQueue(5, delegate=self)
         self.Queue.append(self.ferry_update, interval=self.FerryUpdateInterval, after=time.time())
-        self.debug("task enqueued")
+        self.Queue.append(self.update_dataset_file_counts, interval=self.CountsUpdateInterval, after=0) #self.CountsUpdateInterval//3)
+        self.Queue.append(self.update_namespace_file_counts, interval=self.CountsUpdateInterval, after=0) #2*self.CountsUpdateInterval//3)
+        self.debug("tasks enqueued")
         
+    def db(self):
+        db = psycopg2.connect(self.DBConnect)
+        if self.Schema:
+            db.cursor().execute(f"set search_path to {self.Schema}")
+        return db
+        
+    def update_dataset_file_counts(self):
+        db = self.db()
+        for ds in DBDataset.list(db):
+            ds.FileCount = ds.nfiles(True)
+            ds.save()
+        self.log("Dataset file counts updated")
+
+    def update_namespace_file_counts(self):
+        db = self.db()
+        for ns in DBNamespace.list(db):
+            ns.FileCount = ns.file_count()
+            ns.save()
+        self.log("Namespace file counts updated")
+
     def ferry_update(self):
         self.debug("ferry_update...")
         url = f"{self.FerryURL}/getAffiliationMembersRoles?unitname={self.VO}"
@@ -49,9 +72,7 @@ class MetaCatDaemon(Logged):
         ferry_users = {item["username"]: item for item in data["ferry_output"][self.VO]}
         self.log("Loaded", len(ferry_users), "users from Ferry")
 
-        db = psycopg2.connect(self.DBConnect)
-        if self.Schema:
-            db.cursor().execute(f"set search_path to {self.Schema}")
+        db = self.db()
         db_users = {u.Username: u for u in DBUser.list(db)}
         
         ncreated = nupdated = 0
@@ -93,8 +114,8 @@ def main():
     opts, args = getopt.getopt(sys.argv[1:], "l:c:dh?", ["help"])
     opts = dict(opts)
     
-    if "-c" not in options or "-?" in opts or "-h" in opts or "--help" in opts:
-        print Usage
+    if "-c" not in opts or "-?" in opts or "-h" in opts or "--help" in opts:
+        print(Usage)
         sys.exit(2)
     
     config = yaml.load(open(opts["-c"], "r"), Loader=yaml.SafeLoader)
