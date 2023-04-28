@@ -25,7 +25,8 @@ create table datasets
     created_timestamp   timestamp with time zone     default now(),
     expiration          timestamp with time zone,
     description         text,
-    file_metadata_requirements  jsonb   default '{}'::jsonb
+    file_metadata_requirements  jsonb   default '{}'::jsonb,
+    file_count  bigint  default 0
 );
 
 create index dataset_specs on datasets((namespace || ':' || name));

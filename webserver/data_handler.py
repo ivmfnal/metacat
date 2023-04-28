@@ -159,7 +159,7 @@ class DataHandler(MetaCatHandler):
         } 
         
     def datasets(self, request, relpath, with_file_counts="no", **args):
-        with_file_counts = with_file_counts == "yes"
+        with_file_counts = with_file_counts == "yes" or exact_file_counts == "yes"
         #print("data_server.datasets: with_file_counts:", with_file_counts)
         db = self.App.connect()
         datasets = DBDataset.list(db)
@@ -167,7 +167,7 @@ class DataHandler(MetaCatHandler):
         for ds in datasets:
             dct = ds.to_jsonable()
             if with_file_counts:
-                dct["file_count"] = ds.nfiles
+                dct["file_count"] = ds.nfiles()
             out.append(dct)
         return json.dumps(out), "application/json"
         
@@ -185,7 +185,7 @@ class DataHandler(MetaCatHandler):
         return self.json_stream((f.to_jsonable(with_metadata=with_metadata) for f in files)), "application/json-seq"
         
     @sanitized
-    def dataset(self, request, relpath, dataset=None, **args):
+    def dataset(self, request, relpath, dataset=None, exact_file_count="no", **args):
         db = self.App.connect()
         namespace, name = (dataset or relpath).split(":", 1)
         self.sanitize(namespace, name)
@@ -193,31 +193,30 @@ class DataHandler(MetaCatHandler):
         if dataset is None:
             return 404, "Dataset not found"
         dct = dataset.to_jsonable()
-        dct["file_count"] = dataset.nfiles
+        dct["file_count"] = dataset.nfiles(exact_file_count == "yes")
         return json.dumps(dct), "application/json"
             
     @sanitized
-    def dataset_count(self, request, relpath, dataset=None, **args):
+    def dataset_count(self, request, relpath, dataset=None, exact_file_count="yes", **args):
         namespace, name = dataset.split(":", 1)
         self.sanitize(namespace, name)
         db = self.App.connect()
-        nfiles = DBDataset(db, namespace, name).nfiles
+        nfiles = DBDataset(db, namespace, name).nfiles(exact_file_count == "yes")
         return '{"file_count":%d}\n' % (nfiles,), {"Content-Type":"application/json",
             "Access-Control-Allow-Origin":"*"
         } 
 
     @sanitized
-    def dataset_counts(self, request, relpath, dataset=None, **args):
+    def dataset_counts(self, request, relpath, dataset=None, exact_file_count="yes", **args):
         namespace, name = dataset.split(":", 1)
         self.sanitize(namespace, name)
         db = self.App.connect()
         ds = DBDataset(db, namespace, name)
         
         #nfiles = self.App.dataset_file_count(namespace, name)
-        nfiles = DBDataset(db, namespace, name).nfiles
         data = {
             "dataset":      namespace + ":" + name,
-            "file_count":   ds.nfiles,
+            "file_count":   ds.nfiles(exact_file_count == "yes"),
             "parent_count": ds.parent_count(),
             "child_count":  ds.child_count(),
             "superset_count":  ds.ancestor_count(),

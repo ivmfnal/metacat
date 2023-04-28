@@ -97,14 +97,14 @@ class App(BaseApp, Primitive):
         self.Filters.update(self.StandardFilters)
         self.Filters.update(self.CustomFilters)
 
-        self.DatasetCounts = {}         # {name -> {counts}}
+        self.________DatasetCounts = {}         # {name -> {counts}}
         #schedule_task(self.update_file_counts, interval=30*60, after=0)
 
-    def get_dataset_counts(self, dataset):
+    def _____get_dataset_counts(self, dataset):
         if dataset is None:
             return None
         counts = {
-                "file_count":   dataset.nfiles,
+                "file_count":   dataset.nfiles(),
                 "parent_count": dataset.parent_count(),
                 "child_count":  dataset.child_count(),
                 "superset_count":  dataset.ancestor_count(),
@@ -119,7 +119,7 @@ class App(BaseApp, Primitive):
             self.DatasetCounts[(dataset.Namespace, dataset.Name)] = self.get_dataset_counts(dataset)
 
     @synchronized
-    def dataset_file_counts(self, namespace, name):
+    def ______dataset_file_counts(self, namespace, name):
         counts = self.DatasetCounts.get((namespace, name))
         if counts is None:
             db = self.connect()

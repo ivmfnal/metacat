@@ -897,13 +897,13 @@ class _DatasetParentToChild(_DBManyToMany):
                     
 class DBDataset(DBObject):
     
-    ColumnsText = "namespace,name,frozen,monotonic,metadata,creator,created_timestamp,description,file_metadata_requirements"
+    ColumnsText = "namespace,name,frozen,monotonic,metadata,creator,created_timestamp,description,file_metadata_requirements,file_count"
     Columns = ColumnsText.split(",")
     Table = "datasets"
     
 
     def __init__(self, db, namespace, name, frozen=False, monotonic=False, metadata={}, file_meta_requirements=None, creator=None,
-            description = None):
+            description = None, file_count = 0):
         assert namespace is not None and name is not None
         self.DB = db
         self.Namespace = namespace
@@ -916,9 +916,24 @@ class DBDataset(DBObject):
         self.Metadata = metadata
         self.Description = description
         self.FileMetaRequirements = file_meta_requirements
+        self.FileCount = file_count
     
     def __str__(self):
         return "DBDataset(%s:%s)" % (self.Namespace, self.Name)
+        
+    def did(self):
+        return "%s:%s" % (self.Namespace, self.Name)
+        
+    @staticmethod
+    def from_tuple(db, tup):
+        namespace, name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements, file_count = tup
+        dataset = DBDataset(db, namespace, name, 
+            frozen=frozen, monotonic=monotonic, metadata=metadata, file_meta_requirements=file_metadata_requirements,
+            file_count = file_count)
+        dataset.Creator = creator
+        dataset.CreatedTimestamp = created_timestamp
+        dataset.Description = description
+        return dataset
         
     def create(self, do_commit = True):
         c = self.DB.cursor()
@@ -949,10 +964,10 @@ class DBDataset(DBObject):
         column_names = self.columns()
         c.execute(f"""
             update datasets 
-                set frozen=%s, monotonic=%s, metadata=%s, description=%s, file_metadata_requirements=%s
+                set frozen=%s, monotonic=%s, metadata=%s, description=%s, file_metadata_requirements=%s, file_count=%s
                 where namespace=%s and name=%s
             """,
-            (   self.Frozen, self.Monotonic, meta, self.Description, file_meta_requirements, 
+            (   self.Frozen, self.Monotonic, meta, self.Description, file_meta_requirements, self.FileCount,
                 namespace, self.Name
             )
         )
@@ -1108,6 +1123,7 @@ class DBDataset(DBObject):
         try:
             c.execute(f"create temp table if not exists {temp_table} (fid text, namespace text, name text)")
             c.execute(f"truncate table {temp_table}")
+            nfiles = 0
             for chunk in chunked(files, 1000):
                 if validate_meta:
                     for f in chunk:
@@ -1118,17 +1134,23 @@ class DBDataset(DBObject):
 
                 csv = "\n".join(["%s\t%s\t%s" % (f.FID, f.Namespace, f.Name) for f in chunk])
                 c.copy_from(io.StringIO(csv), temp_table, columns = ["fid", "namespace", "name"])
+                nfiles += len(chunk)
 
             if meta_errors:
                 raise MetaValidationError("File metadata validation errors", meta_errors)
 
             c.execute(f"""
                 insert into files_datasets(file_id, dataset_namespace, dataset_name) 
-                    select distinct f.id, '{self.Namespace}', '{self.Name}' 
+                    select distinct f.id, %s, %s 
                         from {temp_table} tt, files f
                         where tt.fid = f.id or tt.namespace = f.namespace and tt.name = f.name
-                    on conflict do nothing""")
+                    on conflict do nothing""", (self.Namespace, self.Name))
             c.execute(f"drop table {temp_table}")
+            c.execute(f"""
+                update datasets
+                    set file_count = file_count += nfiles
+                    where namespace = %s and name = %s
+            """, (self.Namespace, self.Name))
             c.execute("commit")
         except:
             c.execute("rollback")
@@ -1184,16 +1206,6 @@ class DBDataset(DBObject):
         return (DBDataset.from_tuple(db, tup) for tup in fetch_generator(c))
 
     @staticmethod
-    def from_tuple(db, tup):
-        namespace, name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements = tup
-        dataset = DBDataset(db, namespace, name, 
-            frozen=frozen, monotonic=monotonic, metadata=metadata, file_meta_requirements=file_metadata_requirements)
-        dataset.Creator = creator
-        dataset.CreatedTimestamp = created_timestamp
-        dataset.Description = description
-        return dataset
-        
-    @staticmethod
     def exists(db, namespace, name):
         return DBDataset.get(db, namespace, name) is not None
 
@@ -1238,15 +1250,20 @@ class DBDataset(DBObject):
             #print(tup)
             yield DBDataset.from_tuple(db, tup)
 
-    @property
-    def nfiles(self):
+    def nfiles(self, exact=False):
         c = self.DB.cursor()
-        c.execute("""select count(*) 
-                        from files_datasets fd, files f
-                        where fd.dataset_namespace=%s and fd.dataset_name=%s
-                            and fd.file_id = f.id
-                            and not f.retired
-                        """, (self.Namespace, self.Name))
+        if exact:
+            c.execute("""select count(*) 
+                            from files_datasets fd, files f
+                            where fd.dataset_namespace=%s and fd.dataset_name=%s
+                                and fd.file_id = f.id
+                                and not f.retired
+                            """, (self.Namespace, self.Name))
+        else:
+            c.execute(f"""
+                select file_count from {self.Table}
+                    where namespace = %s and name = %s
+            """, (self.Namespace, self.Name))
         return c.fetchone()[0]     
     
     def to_jsonable(self, with_relatives=False):
@@ -1305,36 +1322,6 @@ class DBDataset(DBObject):
         if with_children:
             specs = subsets_rec(c, specs, set(), level=None if recursively else 0)
         return DBDataset.get_many(db, [spec.split(":",1) for spec in specs])    
-
-    @staticmethod    
-    def _______expand_dataset_selector(db, dataset_selector, limit):
-        patterns = dataset_selector.Patterns
-        with_children = dataset_selector.WithChildren
-        recursively = dataset_selector.Recursively
-        datasets = DBDataset.list_datasets(db, patterns, with_children, recursively)
-        return limited(dataset_selector.filter_by_having(datasets), limit)
-
-    @staticmethod
-    def _____datasets_for_bdq(db, bdq, limit=None):
-        #print("datasets_for_bdq: bdq:", bdq)
-        if not (bdq.Namespace and bdq.Name):
-            name_or_pattern = bdq.Name
-            raise ValueError(f"Dataset specification error: {selector.Namespace}:{name_or_pattern}")
-        if bdq.is_explicit():
-            debug("datasets_for_bdq: bdq is explicit:", bdq.Namespace, bdq.Name)
-            ds = DBDataset.get(db, bdq.Namespace, bdq.Name)
-            debug("         ds:", ds)
-            if ds is None:
-                out = []
-            else:
-                out = [ds]
-        else:
-            sql = DBDataset.sql_for_basic_dataset_query(bdq)
-            debug("datasets_for_bdq: sql: " + sql)
-            c = db.cursor()
-            c.execute(sql)
-            out = limited((DBDataset.from_tuple(db, tup) for tup in fetch_generator(c)), limit)
-        return out
 
     @staticmethod
     def datasets_for_bdq(db, bdq, limit=None):
@@ -1693,17 +1680,29 @@ class DBUser(BaseDBUser):
     def remove_role(self, role):
         self.roles.remove(role.Name if isinstance(role, DBRole) else role)
 
-class DBNamespace(object):
+class DBNamespace(DBObject):
 
-    def __init__(self, db, name, owner_user=None, owner_role=None, description=None):
+    Columns = "name,owner_user,owner_role,description,creator,created_timestamp,file_count".split(",")
+    Table = "namespaces"
+    PK = ["name"]
+
+    def __init__(self, db, name, owner_user=None, owner_role=None, description=None, 
+                creator=None, created_timestamp=None, file_count=0):
+        self.DB = db
         self.Name = name
         assert None in (owner_user, owner_role)
         self.OwnerUser = owner_user
         self.OwnerRole = owner_role
         self.Description = description
-        self.DB = db
-        self.Creator = None
-        self.CreatedTimestamp = None
+        self.Creator = creator
+        self.CreatedTimestamp = created_timestamp
+        self.FileCount = file_count
+        
+    @staticmethod
+    def from_tuple(db, tup):
+        name, owner_user, owner_role, description, creator, created_timestamp, file_count = tup
+        ns = DBNamespace(db, name, owner_user, owner_role, description, creator, created_timestamp, file_count)
+        return ns
         
     def to_jsonable(self):
         return dict(
@@ -1717,12 +1716,14 @@ class DBNamespace(object):
         
     def save(self, do_commit=True):
         c = self.DB.cursor()
-        c.execute("""
-            insert into namespaces(name, owner_user, owner_role, description) values(%s, %s, %s, %s)
-                on conflict(name) 
-                    do update set owner_user=%s, owner_role=%s, description=%s;
+        c.execute(f"""
+            update {self.Table}
+                set owner_user=%s, owner_role=%s, description=%s, file_count=%s
+                where name=%s
             """,
-            (self.Name, self.OwnerUser, self.OwnerRole, self.Description, self.OwnerUser, self.OwnerRole, self.Description))
+            (self.OwnerUser, self.OwnerRole, self.Description, self.FileCount,
+                self.Name)
+        )
         if do_commit:
             c.execute("commit")
         return self
@@ -1740,74 +1741,51 @@ class DBNamespace(object):
         return self
         
     @staticmethod
-    def get(db, name):
-        #print("DBNamespace.get: name:", name)
-        c = db.cursor()
-        c.execute("""select owner_user, owner_role, description, creator, created_timestamp 
-                from namespaces where name=%s""", (name,))
-        tup = c.fetchone()
-        if not tup: return None
-        owner_user, owner_role, description, creator, created_timestamp = tup
-        ns = DBNamespace(db, name, owner_user, owner_role, description)
-        ns.Creator = creator
-        ns.CreatedTimestamp = created_timestamp
-        return ns
-        
-    @staticmethod
     def get_many(db, names):
         #print("DBNamespace.get: name:", name)
         c = db.cursor()
-        c.execute("""select name, owner_user, owner_role, description, creator, created_timestamp 
-                from namespaces where name=any(%s)""", (list(names),))
-        for name, owner_user, owner_role, description, creator, created_timestamp in c.fetchall():
-            ns = DBNamespace(db, name, owner_user, owner_role, description)
-            ns.Creator = creator
-            ns.CreatedTimestamp = created_timestamp
-            yield ns
-            
-    @staticmethod
-    def exists(db, name):
-        return DBNamespace.get(db, name) != None
-        
+        columns = self.columns()
+        c.execute(f"""select {columns}
+                from {self.Table} where name=any(%s)""", (list(names),))
+        return DBNamespace.from_tuples(db, fetch_generator(c))
+
     @staticmethod
     def list(db, owned_by_user=None, owned_by_role=None, directly=False):
         c = db.cursor()
+        columns = DBNamespace.columns("ns")
+        table = DBNamespace.Table
         if isinstance(owned_by_user, DBUser):   owned_by_user = owned_by_user.Username
         if isinstance(owned_by_role, DBRole):   owned_by_role = owned_by_role.Name
         if owned_by_user is not None:
-            sql = """
-                select name, owner_user, owner_role, description, creator, created_timestamp 
-                        from namespaces
-                        where owner_user=%s
+            sql = f"""
+                select {columns}
+                        from {table} ns
+                        where ns.owner_user=%s
             """
             args = (owned_by_user,)
             if not directly:
-                sql += """
+                sql += f"""
                     union
-                    select name, owner_user, owner_role, description, creator, created_timestamp 
-                            from namespaces ns, users_roles ur
+                    select {columns}
+                            from {table} ns, users_roles ur
                             where ur.username = %s and ur.role_name = ns.owner_role
                 """
                 args = args + (owned_by_user,)
         elif owned_by_role is not None:
-            sql = """select name, owner_user, owner_role, description, creator, created_timestamp 
-                        from namespaces
-                        where owner_role=%s
+            sql = f"""select {columns}
+                        from {table} ns
+                        where ns.owner_role=%s
                         order by name
             """
             args = (owned_by_role,)
         else:
-            sql = """select name, owner_user, owner_role, description, creator, created_timestamp 
-                        from namespaces
+            sql = f"""select {columns}
+                        from {table} ns
                         order by name
             """
             args = ()
         c.execute(sql, args)
-        for name, owner_user, owner_role, description, creator, created_timestamp in c.fetchall():
-            ns = DBNamespace(db, name, owner_user, owner_role, description)
-            ns.Creator = creator
-            ns.CreatedTimestamp = created_timestamp
-            yield ns
+        return DBNamespace.from_tuples(db, fetch_generator(c))
 
     def owners(self, directly=False):
         if self.OwnerUser is not None:

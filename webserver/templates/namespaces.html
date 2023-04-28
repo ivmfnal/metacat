@@ -14,6 +14,14 @@
     </p>
 {% endif %}
 
+<script type="text/javascript">
+    var request_queue = new RequestQueue(5);
+    window.onbeforeunload = function() {
+        request_queue.cancel();
+    }
+</script>
+
+
 <table class="data">
 	<tr>
 		<th>Name</th>
@@ -32,7 +40,7 @@
                         <a href="./role?name={{ns.OwnerRole}}">{{ns.OwnerRole}}</a>
                     {% endif %}
                 </td>
-				<td id="file_count:{{ns.Name}}"></td>
+				<td id="file_count:{{ns.Name}}">{{ns.FileCount}}</td>
 				<td id="dataset_count:{{ns.Name}}">{{ns.dataset_count()}}</td>
 				<td id="query_count:{{ns.Name}}">{{ns.query_count()}}</td>
                 <td>{{ns.Description or ""}}</td>
@@ -40,7 +48,7 @@
             <script>
 		        var out = document.getElementById("file_count:{{ns.Name}}");
 		        out.data_received = function(data, param) { this.innerHTML = "" + data.nfiles; };
-                HTTPRequest("{{GLOBAL_AppTopPath}}/data/namespace_counts?name={{ns.Name}}", 
+                request_queue.push("{{GLOBAL_AppTopPath}}/data/namespace_counts?name={{ns.Name}}", 
 			        out, null, "json");
             </script>
 	{% endfor %}

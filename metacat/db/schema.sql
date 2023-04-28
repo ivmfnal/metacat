@@ -44,7 +44,8 @@ create table namespaces
     check ( (owner_user is null ) != (owner_role is null) ),
     
     creator        text references users(username),
-    created_timestamp   timestamp with time zone        default now()
+    created_timestamp   timestamp with time zone        default now(),
+    file_count  bigint          default 0
 );
 
 create table files
@@ -98,6 +99,8 @@ create table datasets
 (
     namespace           text references namespaces(name),
     name                text,
+    primary key (namespace, name),
+
     frozen		        boolean default 'false',
     monotonic		    boolean default 'false',
     metadata    jsonb   default '{}',
@@ -107,8 +110,7 @@ create table datasets
     expiration          timestamp with time zone,
     description         text,
     file_metadata_requirements  jsonb   default '{}'::jsonb,
-
-    primary key (namespace, name)
+    file_count  bigint          default 0
 );
 
 create index datasets_meta_index on datasets using gin (metadata);

@@ -82,7 +82,7 @@ class DBObject(object):
     @classmethod
     def get(cls, db, *pkvalues):
         assert len(pkvalues) == len(cls.PK)
-        wheres = " and ".join([f"{pkc} = '{pkv}'" for pkc, pkv in zip(cls.PK, pkvalues)])
+        wheres = " and ".join([f"{pkc} = %s" for pkc in cls.PK])
         columns = cls.columns()
         sql = f"""
             select {columns}
@@ -90,9 +90,18 @@ class DBObject(object):
                 where {wheres}
         """
         c = db.cursor()
-        c.execute(sql)
+        c.execute(sql, pkvalues)
         tup = c.fetchone()
         return None if tup is None else cls.from_tuple(db, tup)
+        
+    @classmethod
+    def exists(cls, db, *pkvalues):
+        return cls.get(db, *pkvalues) is not None
+        
+    @classmethod
+    def from_tuples(cls, db, tuples):
+        for tup in tuples:
+            yield cls.from_tuple(db, tup)
         
     def to_json(self):
         return json.dumps(self.to_jsonable())

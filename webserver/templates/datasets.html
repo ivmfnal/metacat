@@ -36,6 +36,13 @@
 
 {% if datasets %}
 
+    <script type="text/javascript">
+        var request_queue = new RequestQueue(5);
+        window.onbeforeunload = function() {
+            request_queue.cancel();
+        }
+    </script>
+
     <table class="data">
     	<tr>
             <th>Namespace</th>
@@ -67,7 +74,7 @@
                     </td>
                 {% endif %}
                 <td>{{'frozen' if ds.Frozen}} {{'monotonic' if ds.Monotonic}}</td>
-                <td id="{{did}}_file_count" class="right"></td>
+                <td id="{{did}}_file_count" class="right">{{ds.FileCount}}</td>
                 <td id="{{did}}_child_count" class="right"></td>
                 <td id="{{did}}_subset_count" class="right"></td>
                 <td id="{{did}}_parent_count" class="right"></td>
@@ -93,8 +100,10 @@
                         document.getElementById(ds + "_subset_count").innerHTML = "" + data.subset_count;
                         document.getElementById(ds + "_superset_count").innerHTML = "" + data.superset_count;
                     };
-                    HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_counts?dataset={{ds.Namespace}}:{{ds.Name}}", 
-    			        out, "{{did}}", "json");
+                    request_queue.push("{{GLOBAL_AppTopPath}}/data/dataset_counts?dataset={{did}}", 
+                        out, "{{did}}", "json");
+                    //HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_counts?dataset={{ds.Namespace}}:{{ds.Name}}", 
+    			    //    out, "{{did}}", "json");
                 </script>
 
             </tr>

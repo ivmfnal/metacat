@@ -18,7 +18,8 @@ create table namespaces
     check ( (owner_user is null ) != (owner_role is null) ),
 
     creator        text,
-    created_timestamp   timestamp with time zone        default now()
+    created_timestamp   timestamp with time zone        default now(),
+    file_count  bigint  default 0
 );
 
 insert into namespaces(name, owner_role, creator) values('${default_namespace}', 'admin_role', 'admin')

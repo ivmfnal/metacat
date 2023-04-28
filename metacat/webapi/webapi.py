@@ -359,7 +359,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             print("get_dataset_counts: None")
             return None
 
-    def get_dataset(self, did=None, namespace=None, name=None):
+    def get_dataset(self, did=None, namespace=None, name=None, exact_file_count=False):
         """Gets single dataset
         
         Parameters
@@ -377,7 +377,10 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         spec = ObjectSpec(did, namespace=namespace, name=name).did()
 
         try:
-            return self.get_json(f"data/dataset?dataset={spec}")
+            url = f"data/dataset?dataset={spec}"
+            if exact_file_count:
+                url += "&exact_file_count=yes"
+            return self.get_json(url)
         except NotFoundError:
             return None
 

@@ -34,35 +34,11 @@ function HTTPRequest(url, callback_object, param, format="")
 	return http_request;
 }    
 
-function simple_request(url, callback, format)
-{
-    return HTTPRequest(url, 
-        {
-            data_received: function(data, param)
-            {   
-                callback(data, null);  
-            }
-        }, null, format
-    );
-}
-
-function request_inner_html(url, object_id)
-{
-    return HTTPRequest(url, 
-        {
-            data_received: function(data, param)
-            {   
-                object.innerHTML=data;
-            }
-        }, null, document.getElementById(object_id)
-    );
-}
-
 class RequestQueue
 {
 	constructor(max_active)
 	{
-		this.MaxActive = max_active == null ? 3 : max_active;
+		this.MaxActive = max_active;
 		this.Active = [];
 		this.Pending = [];
 		this.I = 0;
@@ -82,7 +58,7 @@ class RequestQueue
 				i++;
 	}
 	
-	push(url, callback_object, param, format="")
+	submit(url, callback_object, param, format="")
 	{
 		const rid = ++this.I
 		this.Pending.push({ url:url, rid:rid, format:format, callback:callback_object, param:param });
@@ -118,8 +94,6 @@ class RequestQueue
 	
 	cancel()
 	{
-        while( this.Active.length )
-            this.Active.shift().request.abort();
 		this.Active = this.Pending = [];
 	}
 }
