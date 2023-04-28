@@ -687,6 +687,7 @@ class GUIHandler(MetaCatHandler):
         edit = False
         me, auth_error = self.authenticated_user()
         admin = False
+        users = None
         if me is not None:
             admin = me.is_admin()
             edit = admin or ns.owned_by_user(me)
