@@ -44,12 +44,6 @@ class BaseApp(WPApp):
         #print("ScriptHome:", self.ScriptHome)
         self.initJinjaEnvironment(tempdirs=[self.ScriptHome, self.ScriptHome + "/templates"])
 
-    def accepted_sci_token_issuer(self, issuer):
-        return issuer in self.SciTokenIssuers
-
-    def auth_config(self, method):
-        return self.AuthConfig.get(method)
-                
     def connect(self):
         conn = self.DB.connect()
         #print("conn: %x" % (id(conn),), "   idle connections:", ",".join("%x" % (id(c),) for c in self.DB.IdleConnections))
@@ -59,7 +53,8 @@ class BaseApp(WPApp):
         
     db = connect        # for compatibility
     
-    def user_db(self):
+    def user_db(self, group=None):
+        # group is ignored, can be used by a subclass
         conn = self.UserDB.connect()
         if self.UserDBSchema:
             conn.cursor().execute(f"set search_path to {self.UserDBSchema}")
@@ -83,54 +78,6 @@ class BaseApp(WPApp):
         #print("user_from_request: out:", out)
         return token and token.subject, error
             
-    def verify_token(self, encoded_token):
-        try:    
-            token = SignedToken.from_bytes(encoded_token)
-            #print("verify_token: token:", token.Payload)
-            t = time.time()
-            #print("   time:", t, "  t-iat:", t-token["iat"], "  t-nbf:", t-token["nbf"])
-            token.verify(self.TokenSecret)
-            #print("verify_token: verified. subject:", token.subject)
-        except SignedTokenExpiredError:
-            return None, "Token expired"           
-        except SignedTokenImmatureError:
-            return None, "Token immature"           
-        except SignedTokenUnacceptedAlgorithmError:
-            return None, "Invalid token algorithm"           
-        except SignedTokenSignatureVerificationError:
-            return None, "Token verification failed"           
-        except Exception as e:
-            return None, str(e)
-        else:
-            #print("verify_token: token:", token, "  subject:", token.subject)
-            return token, None
-
-    def encoded_token_from_request(self, request):
-        token = self.token_from_request(request)
-        if token is not None:
-            return token.encode()
-        else:
-            return None
-
-    def token_from_request(self, request):
-        encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
-        if not encoded: return None
-        try:
-            #print("token_from_request: encoded:", encoded)
-            token = SignedToken.decode(encoded)
-            token.verify(key=self.TokenSecret)
-        except Exception as e:
-            #print("token_from_request: Exception in verify:", e, traceback.format_exc())
-            return None             # invalid token
-        return token
-
-    def generate_token(self, user, payload={}, expiration=None):
-        if expiration is None:
-            expiration = self.TokenExpiration
-        token = SignedToken(payload, subject=user, expiration=expiration, issuer=self.Issuer)
-        #print("generate_token: payload:", token.Payload)
-        return token, token.encode(self.TokenSecret)
-
     def response_with_auth_cookie(self, user, redirect, token=None, expiration=None):
         # expiration here is absolute time
         #print("response_with_auth_cookie: user:", user, "  redirect:", redirect)

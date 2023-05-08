@@ -10,113 +10,50 @@ from urllib.parse import quote_plus, unquote_plus
 #print("auth_handler importing")
 
 class AuthHandler(BaseHandler):
-
+    
+    def __init__(self, request, app, group=None):
+        #
+        # group will be used by an app, which can do authentication for multiple groups
+        # standard BaseApp ignores it
+        BaseHandler.__init__(self, request, app)
+        self.Group = group
+        self.AuthCore = self.App.auth_core(self.Group)
+    
     def whoami(self, request, relpath, **args):
-        user, error = self.App.user_from_request(request)
+        user, error = self.App.user_from_request(request, group)
         return user or "", "text/plain"
         
-    def token(self, request, relpath, **args):
-        return self.App.encoded_token_from_request(request)+"\n"
-        
-    def _auth_digest(self, request_env, redirect):
-        # give them cookie with the signed token
-        
-        ok, data = digest_server(self.App.Realm, request_env, self.App.get_digest_password)
-        if ok:
-            #print("AuthHandler.auth: digest_server ok")
-            resp = self.App.response_with_auth_cookie(data, redirect)
-            return resp
-        elif data:
-            return 401, "Authorization required", {
-                'WWW-Authenticate': data
-            }
+    def user_from_request(self, request):
+        encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
+        #print("server.user_from_request: encoded:", encoded)
+        if not encoded: 
+            return None, "Token not found"
+        token, error = self.AuthCore.verify_token(encoded)
+        #print("user_from_request: out:", out)
+        return token and token.subject, error
 
+    def encoded_token_from_request(self, request):
+        token = self.token_from_request(request)
+        if token is not None:
+            return token.encode()
         else:
-            return "Authentication failed\n", 401
+            return None
 
-    def _auth_ldap(self, request, redirect, username):
-        if username:
-            password = to_str(request.body.strip())
-        else:
-            username, password = request.body.split(b":",1)
-            username = to_str(username)
-            password = to_str(password)
-        db = self.App.user_db()
-        u = DBUser.get(db, username)
-        config = self.App.auth_config("ldap")
-        result, reason, expiration = u.authenticate("ldap", config, password)
-        if result:
-            #print("ldap authentication succeeded")
-            return self.App.response_with_auth_cookie(username, redirect)
-        else:
-            return "Authentication failed\n", 401
-
-    def _auth_token(self, request, redirect, username):
-        db = self.App.user_db()
-        u = DBUser.get(db, username)
-        if u is None:
-            return 401, "Authentication failed\n"
-
-        encoded = None
-        headers = request.headers
-        authorization = headers.get("Authorization")
-        if authorization:
-            try:
-                encoded = authorization.split(None, 1)[-1]      # ignore "type", e.g. bearer
-            except:
-                pass
-
-        if not encoded:
-            encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
-        if not encoded:
-            return "Authentication failed. Token not found\n", 401
-
-        result, reason, expiration = u.authenticate("scitoken", self.App.SciTokenIssuers, encoded)
-        if not result:
-            result, reason, expiration = u.authenticate("jwttoken", 
-                    {
-                        "issuer": self.App.Issuer,
-                        "secret": self.App.TokenSecret
-                    }, encoded)
-        if result:
-            return self.App.response_with_auth_cookie(username, redirect, expiration=expiration)
-        else:
-            return "Authentication failed\n", 401
-
-    def _auth_x509(self, request, redirect, username):
-        #log = open("/tmp/_auth_x509.log", "w")
-        #print("request.environ:", file=log)
-        #for k, v in sorted(request.environ.items()):
-        #    print(f"{k}={v}", file=log)
-        if request.environ.get("REQUEST_SCHEME") != "https":
-            return "HTTPS scheme required\n", 401
-            
-        db = self.App.user_db()
-        u = DBUser.get(db, username)
-        #print("_auth_x509: u:", username, u, file=log)
-        result, reason, expiration = u.authenticate("x509", None, request.environ)
-        if result:
-            return self.App.response_with_auth_cookie(username, redirect)
-        else:
-            return "Authentication failed\n", 401
-        
-    def auth(self, request, relpath, redirect=None, method="password", username=None, **args):
-        #print("method:", method)
+    def token_from_request(self, request):
+        encoded = request.cookies.get("auth_token") or request.headers.get("X-Authentication-Token")
+        if not encoded: return None
         try:
-            if method == "x509":
-                return self._auth_x509(request, redirect, username)
-            elif method == "digest":
-                return self._auth_digest(request.environ, redirect)
-            elif method == "ldap":
-                return self._auth_ldap(request, redirect, username)
-            elif method == "token":
-                return self._auth_token(request, redirect, username)
-            else:
-                return "Unknown authentication method\n", 400
-        except:
-            traceback.print_exc()
-            raise
-            
+            #print("token_from_request: encoded:", encoded)
+            token = SignedToken.decode(encoded)
+            token.verify(key=self.TokenSecret)
+        except Exception as e:
+            #print("token_from_request: Exception in verify:", e, traceback.format_exc())
+            return None             # invalid token
+        return token
+
+    def token(self, request, relpath, **args):
+        return self.App.encoded_token_from_request(request, group)+"\n"
+      
     def mydn(self, request, relpath):
         ssl = request.environ.get("HTTPS") == "on" or request.environ.get("REQUEST_SCHEME") == "https"
         if not ssl:
@@ -158,7 +95,7 @@ class AuthHandler(BaseHandler):
             relogin_url += "?"
         token = None
         
-        db = self.App.user_db()
+        db = self.App.user_db(self.Group)
         if token_text:
             token, error = self.App.verify_token(token_text)
             subject = token and token.subject
