@@ -10,7 +10,7 @@ if [ -f /etc/httpd/conf.d/zgridsite.conf ]; then
 	mv /etc/httpd/conf.d/zgridsite.conf /etc/httpd/conf.d/zgridsite.conf-hide
 fi
 
-export AUTH_SERVER_CFG=`pwd`/config/config.yaml
+export AUTH_SERVER_CFG=`pwd`/config/mg_config.yaml
 export OPENSSL_ALLOW_PROXY_CERTS=1
 httpd -D FOREGROUND
 
