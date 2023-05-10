@@ -7,4 +7,5 @@ from .token_box import TokenBox
 from .token_lib import TokenLib
 from .authenticators import authenticator
 from .auth_client import TokenAuthClientMixin, AuthenticationError
+from .auth_core import AuthenticationCore
 

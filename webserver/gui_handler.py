@@ -574,16 +574,6 @@ class GUIHandler(MetaCatHandler):
             admin=me.is_admin()
         )
             
-    def my_token(self, request, relpath, **args):
-        token = self.App.encoded_token_from_request(request)
-        if not token:
-            return "Token not found", 404
-        else:
-            return token, {
-                "Content-Type":"text/plain"
-                , "Content-Disposition":"attachment"
-            }
-        
     @sanitize()
     def create_user(self, request, relpath, error="", **args):
         db = self.App.connect()

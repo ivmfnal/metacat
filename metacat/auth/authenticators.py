@@ -66,7 +66,7 @@ class LDAPAuthenticator(Authenticator):
             #print("no dn")
             return False, "LDAP not configured", None        # not allowed
         ld = ldap.initialize(config["server_url"])
-        print("ldap dn:", dn, "  password:", password)
+        #print("ldap dn:", dn, "  password:", password)
         try:
             ld.simple_bind_s(dn, password)
             result = True
@@ -102,7 +102,7 @@ class SciTokenAuthenticator(Authenticator):
             issuer = token["iss"]
             expiration = token["exp"]
         except Exception as e:
-            print("SciTokenAuthenticator.authenticate: error:", e, type(e))
+            #print("SciTokenAuthenticator.authenticate: error:", e, type(e))
             traceback.print_exc()
             subject = None
 
@@ -215,7 +215,7 @@ class X509Authenticator(Authenticator):
         #print("known_dns:", known_dns, file=log)
         subject = request_env.get("SSL_CLIENT_S_DN")
         issuer = request_env.get("SSL_CLIENT_I_DN")
-
+        
         if not subject or not issuer or not known_dns:
             return False, "SSL info not found", None
 
@@ -223,8 +223,8 @@ class X509Authenticator(Authenticator):
         issuer = DN(issuer)
         known_dns = [DN(dn) for dn in known_dns]
 
-        #print("subject:", subject, file=log)
-        #print("issuer:", issuer, file=log)
+        #print("subject:", subject)
+        #print("issuer:", issuer)
         #print("subject in known_dns:", subject in known_dns, file=log)
         #print("issuer in known_dns:", issuer in known_dns, file=log)
         #print("issuer in subject:", issuer in subject, file=log)

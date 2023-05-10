@@ -148,5 +148,3 @@ class MetaCatHandler(BaseHandler):
             text = message
             content_type = "text/plain"
         return code, text, content_type
-
-

@@ -15,11 +15,6 @@
 
 {% block content %}
 
-{#
-    {% if its_me %}<p>my <a href="./my_token">token</a></p>
-    {% endif %}
-#}
-
 <form method=POST action="./save_user" id="the_form">
     
 <input type="hidden" name="new_user" value="{{'yes' if mode=='create' else 'no'}}"/>

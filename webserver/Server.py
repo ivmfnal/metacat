@@ -20,7 +20,7 @@ from wsdbtools import ConnectionPool
 
 from gui_handler import GUIHandler
 from data_handler import DataHandler
-from metacat.auth.server import AuthHandler, BaseApp
+from metacat.auth.server import GUIAuthHandler, BaseApp
             
 class RootHandler(WPHandler):
     
@@ -29,7 +29,7 @@ class RootHandler(WPHandler):
         self.data = DataHandler(*params, **args)
         self.gui = GUIHandler(*params, **args)
         self.static = WPStaticHandler(*params, root=self.App.StaticLocation)
-        self.auth = AuthHandler(*params, **args)
+        self.auth = GUIAuthHandler(*params, **args)
 
     def index(self, req, relpath, **args):
         return self.redirect("./gui/index")
@@ -89,29 +89,14 @@ class App(BaseApp, Primitive):
         for mod_spec in filters_config.get("modules", []):
             name = mod_spec["name"]
             env = mod_spec.get("env")
-            cfg = mod_spec.get("config")
-            filters_from_module = load_filters_module(name, env, cfg)
+            filter_cfg = mod_spec.get("config")
+            filters_from_module = load_filters_module(name, env, filter_cfg)
             self.CustomFilters.update(filters_from_module)
 
         self.Filters = {}
         self.Filters.update(self.StandardFilters)
         self.Filters.update(self.CustomFilters)
-
-        self.________DatasetCounts = {}         # {name -> {counts}}
-        #schedule_task(self.update_file_counts, interval=30*60, after=0)
-
-    def _____get_dataset_counts(self, dataset):
-        if dataset is None:
-            return None
-        counts = {
-                "file_count":   dataset.nfiles(),
-                "parent_count": dataset.parent_count(),
-                "child_count":  dataset.child_count(),
-                "superset_count":  dataset.ancestor_count(),
-                "subset_count":  dataset.subset_count()
-            }
-        print(dataset.Namespace, dataset.Name, counts)
-        return counts
+        self.init_auth_core(cfg)
 
     def update_file_counts(self):
         db = self.connect()
@@ -176,7 +161,7 @@ if __name__ == "__main__":
         print("Config file must be specified with -c or METACAT_SERVER_CFG")
         sys.exit(1)
     config_file = yaml.load(open(config_file, "r"), Loader=yaml.SafeLoader)
-
+    #print("main: config:", config_file)
     port = int(opts.get("-p", config_file.get("port", 8080)))
     prefix = config_file.get("prefix")
     print(f"Starting the server on port {port} ...")   
