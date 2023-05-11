@@ -208,7 +208,8 @@ class InitDtabaseCommand(CLICommand):
         if "-a" in opts:
             roles = opts.get("-a")
             c.execute("grant all on all tables in schema %s to %s" % (schema or "public", roles))
-            print("granting privileges to:", roles)
+            c.execute("grant usage on schema %s to %s" % (schema or "public", roles))
+            print("granted privileges to user(s)", roles)
 
         print("database initialized")
 
