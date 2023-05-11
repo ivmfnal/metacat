@@ -221,6 +221,7 @@ class CreateDatasetCommand(CLICommand):
         -f|--file-query @<file_with_query>          - run the query and add files to the dataset
         -r|--meta-requirements '<JSON expression>'  - add metadata requirements
         -r|--meta-requirements @<JSON file>         - add metadata requirements
+        -j|--json                                   - print dataset information as JSON
         """
     MinArgs = 1
     
@@ -252,7 +253,8 @@ class CreateDatasetCommand(CLICommand):
             print(e)
             sys.exit(1)
         else:
-            print(out)
+            if "-j" in opts or "--json" in opts:
+                print(json.dumps(out, indent=4, sort_keys=True))
 
 class UpdateDatasetCommand(CLICommand):
 

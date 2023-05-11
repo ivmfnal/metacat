@@ -1148,9 +1148,9 @@ class DBDataset(DBObject):
             c.execute(f"drop table {temp_table}")
             c.execute(f"""
                 update datasets
-                    set file_count = file_count += nfiles
+                    set file_count = file_count + %s
                     where namespace = %s and name = %s
-            """, (self.Namespace, self.Name))
+            """, (nfiles, self.Namespace, self.Name))
             c.execute("commit")
         except:
             c.execute("rollback")
