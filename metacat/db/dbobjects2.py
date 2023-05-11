@@ -944,7 +944,7 @@ class DBDataset(DBObject):
         column_names = self.columns(exclude="created_timestamp")        # use DB default for creation
         c.execute(f"""
             insert into datasets({column_names}) 
-                values(%s, %s, %s, %s, %s, %s, %s, %s)
+                values(%s, %s, %s, %s, %s, %s, %s, %s, 0)
                 returning created_timestamp
             """,
             (namespace, self.Name, self.Frozen, self.Monotonic, meta, self.Creator, 

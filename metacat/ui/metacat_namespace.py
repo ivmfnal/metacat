@@ -86,8 +86,6 @@ class CreateCommand(CLICommand):
 
         if "-j" in opts or "--json" in opts:
             print(json.dumps(data, indent=4, sort_keys=True))
-        else:
-            pprint.pprint(data)
     
 NamespaceCLI = CLI(
     "create",   CreateCommand(),
