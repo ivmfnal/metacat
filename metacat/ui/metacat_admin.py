@@ -24,7 +24,9 @@ Requires direct access to the database. The YAML config file must include:
 def connect(config):
     import psycopg2
     dbcfg = config["database"]
-    connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % dbcfg
+    connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s" % dbcfg
+    if "password" in dbcfg:
+        connstr += " password=%(password)s" % dbcfg
     conn = psycopg2.connect(connstr)
     schema = dbcfg.get("schema")
     if schema:
