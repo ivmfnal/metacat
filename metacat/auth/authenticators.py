@@ -29,6 +29,7 @@ class PasswordAuthenticator(Authenticator):
     #
     
     def __init__(self, realm, db_info):
+        #print("PasswordAuthenticator.__init__: realm:", realm)
         self.DBInfo = (db_info or {}).copy()
         self.Realm = realm
         self.DBHashed = self.DBInfo.get(self.Realm)
@@ -39,7 +40,9 @@ class PasswordAuthenticator(Authenticator):
         return password == self.DBHashed or self.password_hash(username, password) == self.DBHashed, None, None
 
     def password_hash(self, username, password):
-        return password_digest_hash(self.Realm, username, password).hex().lower()
+        hashed = password_digest_hash(self.Realm, username, password).hex().lower()
+        #print("PasswordAuthenticator: realm:", self.Realm, "   hashed:", hashed)
+        return hashed
         
     def enabled(self):
         return self.DBHashed is not None
@@ -53,8 +56,8 @@ class PasswordAuthenticator(Authenticator):
 class LDAPAuthenticator(Authenticator):
     
     def authenticate(self, user, password):
-        username = user.Username
         import ldap
+        username = user.Username
         config = self.Config
         if config is None or not "server_url" in config:
             #print("server not configured")

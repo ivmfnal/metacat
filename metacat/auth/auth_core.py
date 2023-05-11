@@ -100,6 +100,9 @@ class AuthenticationCore(object):
             return "reject", "Authentication failed"
 
     def _auth_ldap(self, request, redirect, username):
+        ldap_config = self.AuthConfig.get("ldap")
+        if not ldap_config:
+            return "reject", "LDAP is not configured"
         if username:
             password = to_str(request.body.strip())
         else:

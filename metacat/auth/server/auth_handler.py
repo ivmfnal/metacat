@@ -132,7 +132,9 @@ class GUIAuthHandler(AuthHandler):
         
         if not token:
             if (password or hashed_password) and username:
-                ok, _, expiration = u.authenticate("password", self.App.Realm, hashed_password or password)
+                #print("GUIAuthHandler: password:", password,"  hashed_password:", hashed_password)
+                ok, reason, expiration = u.authenticate("password", self.App.Realm, hashed_password or password)
+                #print("GUIAuthHandler: ok, reason:", ok, reason)
                 if not ok and password:
                     ok, _, expiration = u.authenticate("ldap", self.AuthCore.auth_config("ldap"), password)
                 if not ok:

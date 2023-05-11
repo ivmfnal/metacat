@@ -56,6 +56,9 @@ class BaseApp(WPApp):
         if self.UserDBSchema:
             conn.cursor().execute(f"set search_path to {self.UserDBSchema}")
         return conn
+        
+    def auth_config(self, method, group=None):
+        return self.auth_core(group).auth_config(method)
 
     # overridable
     def auth_core(self, group = None):
