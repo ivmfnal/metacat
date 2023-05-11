@@ -3,7 +3,7 @@
 #
 
 from metacat.auth.server import BaseApp, AuthHandler
-from metacat.auth import AuthenticationCore
+from metacat.auth.auth_core import AuthenticationCore
 from webpie import Response, WPApp, WPHandler
 
 import time, os, yaml, os.path

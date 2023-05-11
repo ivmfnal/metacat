@@ -3,8 +3,9 @@
 from webpie import WPApp, Response, WPHandler
 from wsdbtools import ConnectionPool
 from metacat.util import to_str, to_bytes
-from metacat.auth import BaseDBUser, AuthenticationCore, \
+from metacat.auth import BaseDBUser, \
     SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
+from metacat.auth.auth_core import AuthenticationCore
 import psycopg2, json, time, secrets, traceback, hashlib, pprint, os, yaml
 from urllib.parse import quote_plus, unquote_plus
 
