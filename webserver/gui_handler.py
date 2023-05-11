@@ -293,6 +293,7 @@ class GUIHandler(MetaCatHandler):
         for f in files:
             for n, v in f.Metadata.items():
                 if isinstance(v, (dict, list)): v = repr(v)
+                elif v is None: v = "null"
                 n_dict = stats.setdefault(n, {})
                 try:
                     count = n_dict.setdefault(v, 0)
@@ -306,7 +307,7 @@ class GUIHandler(MetaCatHandler):
             for v, c in counts.items():
                 if isinstance(v, tuple):    v = list(v)
                 clist.append((v, c))
-            out.append((name, sorted(clist, key=lambda vc: (-vc[1], vc[0]))))
+            out.append((name, sorted(clist, key=lambda vc: (-vc[1], str(vc[0])))))
         return sorted(out)
         
     def filters(self, request, relpath, **args):
