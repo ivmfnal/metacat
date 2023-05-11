@@ -49,9 +49,9 @@
 			{% if mode == "create" %}
 				<input type="text" name="auid" size="40"/>
 			{% elif mode == "edit" %}
-				<input type="text" name="auid" value="{{user.AUID}}" size="40" style="font-family: monospace"/>
+				<input type="text" name="auid" value="{{user.AUID or ''}}" size="40" style="font-family: monospace"/>
             {% else %}
-                {{user.AUID}}
+                {{user.AUID or ""}}
 			{% endif %}
 		</td>
 	</tr>
@@ -86,7 +86,7 @@
     {% if mode == "create" or mode == "edit" %}
         <tr>
             <th>Password</th>
-            <td><input type="hidden" id="hashed_password" name="hashed_password"/>
+            <td><input type="hidden" id="hashed_password" name="hashed_password" value=""/>
                 <input type="password" id="password1" size="40"/>
             </td>
             <td id="error" class="error" style="visibility:hidden; display:none"></td>
@@ -190,9 +190,12 @@
                 }
                 else
                 {
-                    var h = digest_hash("{{digest_realm}}", username, password1);
-                    e = document.getElementById("hashed_password");
-                    e.value = h;
+                    if( password1 != "" )
+                    {
+                        var h = digest_hash("{{digest_realm}}", username, password1);
+                        e = document.getElementById("hashed_password");
+                        e.value = h;
+                    }
                     //console.log("hashed:"+h);
                     return true;
                 }

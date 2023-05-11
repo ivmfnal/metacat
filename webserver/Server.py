@@ -77,7 +77,6 @@ class App(BaseApp, Primitive):
         self.Title = cfg.get("site_title", "DEMO Metadata Catalog")
         
         self.StaticLocation = static_location
-        self.DefaultNamespace = "dune"
 
         self.StandardFilters = {}
         self.CustomFilters = {}
@@ -97,6 +96,7 @@ class App(BaseApp, Primitive):
         self.Filters.update(self.StandardFilters)
         self.Filters.update(self.CustomFilters)
         self.init_auth_core(cfg)
+        self.Realm = self.AuthCore.Realm
 
     def update_file_counts(self):
         db = self.connect()
