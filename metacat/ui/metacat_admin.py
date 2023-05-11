@@ -160,9 +160,10 @@ class GenerateCommand(CLICommand):
 
 class InitDtabaseCommand(CLICommand):
 
-    Opts = "o:"
+    Opts = "o:a:"
     Usage = """[options]                            -- initialize database
-        -o <owner role>     -- create database objects as owned by that role, default: same as the DB user from config
+        -o <owner user>         -- create database objects as owned by that user or role, default: same as the DB user from config
+        -a <access user>[,...]  -- grant read/write privileges to this database users or roles
     """
 
     def __call__(self, command, config, opts, args):
@@ -203,6 +204,11 @@ class InitDtabaseCommand(CLICommand):
         c.execute(create_schema_sql)
 
         c.execute("commit")
+        
+        if "-a" in opts:
+            roles = opts.get("-a")
+            c.execute("grant all on all tables in schema %s to %s" % (schema or "public", roles))
+            print("granting privileges to:", roles)
 
         print("database initialized")
 
