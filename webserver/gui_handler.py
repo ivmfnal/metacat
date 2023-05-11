@@ -812,7 +812,7 @@ class GUIHandler(MetaCatHandler):
         edit = False
         mode = "view"
         if user is not None:
-            ns = DBNamespace.get(db, name=dataset.Namespace)
+            ns = DBNamespace.get(db, dataset.Namespace)
             edit = ns.owned_by_user(user)
             if edit:
                 mode = "edit"
