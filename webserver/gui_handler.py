@@ -225,7 +225,7 @@ class GUIHandler(MetaCatHandler):
         
     @sanitize()
     def mql(self, request, relpath, **args):
-        namespace = request.POST.get("namespace") or self.App.DefaultNamespace
+        namespace = request.POST.get("namespace")
         query_text = request.POST.get("query")
         query = None
         parsed = assembled = optimized = with_sql = ""
