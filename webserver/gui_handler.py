@@ -323,8 +323,7 @@ class GUIHandler(MetaCatHandler):
             if DBNamespace.exists(db, user.Username):
                 user_namespace = user.Username
         namespace = namespace or request.POST.get("default_namespace") \
-            or user_namespace \
-            or self.App.DefaultNamespace
+            or user_namespace or None
         #print("namespace:", namespace)
         if query is not None:
             query_text = unquote_plus(query)
