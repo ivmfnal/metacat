@@ -314,7 +314,8 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("filters.html", standard=self.App.StandardFilters, custom=self.App.CustomFilters)
 
     @sanitize(exclude="query")
-    def query(self, request, relpath, query=None, namespace=None, run="no", with_meta="yes", **args):
+    def query(self, request, relpath, query="", namespace=None, action="show", 
+                    include_retired_files="off", view_meta_as="json", **args):
         
         db = self.App.connect()
         user, auth_error = self.authenticated_user()
@@ -325,38 +326,26 @@ class GUIHandler(MetaCatHandler):
         namespace = namespace or request.POST.get("default_namespace") \
             or user_namespace or None
         #print("namespace:", namespace)
-        if query is not None:
-            query_text = unquote_plus(query)
-        elif "query" in request.POST:
-            query_text = request.POST["query"]
-        else:
-            query_text = request.body_file.read()
-        query_text = to_str(query_text or "")
+        query_text = unquote(query)
         results = None
         url_query = None
         files = None
         datasets = None
         runtime = None
         meta_stats = None
-        
-        view_meta_as = request.POST.get("view_meta_as","table")
-        
-        save_as_dataset = "save_as_dataset" in request.POST
+        namespaces = None
         
         #print("query: method:", request.method)
         error = None
         message = None
         query_type = None
-        action = "show"     # just show the form
         
-        include_retired_files = request.POST.get("include_retired_files", "off") == "on"
+        include_retired_files = include_retired_files in ("on", "yes")
+        save_as_dataset = request.GET.get("save_as_dataset", "no") == "on"
+        with_meta = not not view_meta_as
 
-        if request.method == "GET" and run == "yes":
-            action = "run"
-            with_meta = with_meta == "yes"
-        elif request.method == "POST":
-            action = request.POST["action"]
-            with_meta = request.POST.get("with_meta", "off") == "on"
+        if not query:   action = "show"
+
         if action == "run":
             t0 = time.time()
             if query_text:
@@ -397,47 +386,36 @@ class GUIHandler(MetaCatHandler):
                 
             #print("query: results:", len(files))
             runtime = time.time() - t0
-        elif action == "load":
-            namespace, name = request.POST["query_to_load"].split(":",1)
-            query_text = DBNamedQuery.get(db, namespace, name).Source
-        elif action == "save" and query_text:
-            name = request.POST["save_name"]
-            namespace = request.POST["save_namespace"]
-            saved = DBNamedQuery(db, name=name, namespace=namespace, source=query_text).save()
-            message = "Query saved as %s:%s" % (namespace, name)
-                            
-        namespaces = None
-        if True:
-            #print("Server.query: namespace:", namespace)
-            queries = list(DBNamedQuery.list(db))
-            queries = sorted(queries, key=lambda q: (q.Namespace, q.Name))
-            if user:
-                namespaces = list(DBNamespace.list(db, owned_by_user=user))
-                
-                #print("query: namespaces:", [ns.Name for ns in namespaces])
-                
-            if files is not None and "save_as_dataset" in request.POST:
-                if user is None:
-                    error = "Unauthenticated user"
+
+        #print("Server.query: namespace:", namespace)
+        if user:
+            namespaces = list(DBNamespace.list(db, owned_by_user=user))
+            
+            #print("query: namespaces:", [ns.Name for ns in namespaces])
+        
+        
+        if files is not None and save_as_dataset:
+            if user is None:
+                error = "Unauthenticated user"
+            else:
+                dataset_namespace = request.GET["save_as_dataset_namespace"]
+                dataset_name = request.GET["save_as_dataset_name"]
+            
+                existing_dataset = DBDataset.get(db, dataset_namespace, dataset_name)
+                if existing_dataset != None:
+                    error = "Dataset %s:%s already exists" % (dataset_namespace, dataset_name)
                 else:
-                    dataset_namespace = request.POST["save_as_dataset_namespace"]
-                    dataset_name = request.POST["save_as_dataset_name"]
-                
-                    existing_dataset = DBDataset.get(db, dataset_namespace, dataset_name)
-                    if existing_dataset != None:
-                        error = "Dataset %s:%s already exists" % (dataset_namespace, dataset_name)
+                    ns = DBNamespace.get(db, dataset_namespace)
+                    if ns is None:
+                        error = "Namespace is not found"
+                    elif not ns.owned_by_user(user):
+                        error = "User not authorized to access the namespace %s" % (dataset_namespace,)
                     else:
-                        ns = DBNamespace.get(db, dataset_namespace)
-                        if ns is None:
-                            error = "Namespace is not found"
-                        elif not ns.owned_by_user(user):
-                            error = "User not authorized to access the namespace %s" % (dataset_namespace,)
-                        else:
-                            ds = DBDataset(db, dataset_namespace, dataset_name, creator=user.Username)
-                            ds.create()
-                            files = list(files)
-                            ds.add_files(files)
-                            message = "Dataset %s:%s with %d files created" % (dataset_namespace, dataset_name, len(files))
+                        ds = DBDataset(db, dataset_namespace, dataset_name, creator=user.Username)
+                        ds.create()
+                        files = list(files)
+                        ds.add_files(files)
+                        message = "Dataset %s:%s with %d files created" % (dataset_namespace, dataset_name, len(files))
                             
         attr_names = set()
         if files is not None:
@@ -463,7 +441,6 @@ class GUIHandler(MetaCatHandler):
             message = message, error = error,
             allow_save_as_dataset = user is not None, namespaces = namespaces,
             allow_save_query = user is not None and namespaces,
-            named_queries = queries,
             query=query_text, url_query=url_query,
             show_files=files is not None, files=files, 
             show_datasets=datasets is not None,datasets = datasets,

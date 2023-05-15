@@ -4,22 +4,30 @@
 
 {% block content %}
 
-<form method="post" action="">
+<script type="text/javascript">
+    function copy_query_url()
+    {
+        const query_text = document.getElementById("query_text").value;
+        const encoded = encodeURI(query_text);
+        var url = document.URL;
+        const search_part = (new URL(url)).search;
+        if( search_part != "" )
+            url = url.substring(0, url.indexOf(search_part));
+        url = url + "?query=" + encoded;
+        
+        
+        
+        navigator.clipboard.writeText(url);
+        var copied_message_display = document.getElementById("copied_message_display")
+        copied_message_display.innerHTML = "copied to clipboard";
+        setTimeout(function(){
+            copied_message_display.innerHTML = "";
+        }, 3000);
+    }
+</script>
+    
+<form method="GET" action="">
     <table class="form">
-		<tr>
-			<th>Load:</th>
-            <td>
-                {% if named_queries %}
-                    <select name="query_to_load">
-    				{% for q in named_queries %}
-    					<option value="{{q.Namespace}}:{{q.Name}}">{{q.Namespace}}:{{q.Name}}</option>
-    				{% endfor %}
-    				</select>&nbsp;&nbsp;<input type="submit" name="action" value="load"/></td>
-                {% else %}
-                    no saved queries
-                {% endif %}
-            <td></td>
-		</tr>
         <tr><td colspan=3>&nbsp;</td></tr>
         <tr>
             <th>Default namespace:</th><td><input type="text" name="default_namespace"
@@ -34,7 +42,7 @@
         <tr>
             <th>Query:</th>
             <td>
-                <textarea class="query_text" name="query" cols=80 rows=10>{{query}}</textarea>
+                <textarea class="query_text" name="query" cols=80 rows=10 id="query_text">{{query}}</textarea>
             </td>
             <td><p style="width:100%; text-align:right">
 					<!-- <a href="https://metadatadb.readthedocs.io/en/latest/query_language.html" target="_new">MQL documentation</a> -->
@@ -43,6 +51,15 @@
             </td>
 
         </tr>
+        <tr>
+            <td></td>
+            <td><img src="{{GLOBAL_AppTopPath}}/static/images/copy.png" class="copy_button" onclick="copy_query_url()"/>&nbsp;<a href="javascript:copy_query_url()">copy query URL</a>&nbsp;&nbsp;&nbsp;<span
+                    style="color:gray"
+                    id="copied_message_display">
+                    </span>
+            </td>
+        </tr>
+        {#
         {% if allow_save_query %}
 		    <tr>
 			    <th>Save query as:</th><td>Namespace:&nbsp;<select name="save_namespace">
@@ -57,11 +74,12 @@
                 <td></td>
 		    </tr>
         {% endif %}
+        #}
         <tr><td colspan=3>&nbsp;</td></tr>
         <tr>
-            <th>Include metadata:</th>
-            <td><input type="checkbox" name="with_meta" {% if with_meta %}checked="checked"{% endif %}>
-                &nbsp;&nbsp;&nbsp;view metadata as:&nbsp;<select name="view_meta_as">
+            <th>Show metadata as:</th>
+            <td><select name="view_meta_as">
+                            <option value="" {{'selected="selected"' if view_meta_as== ""}}>do not show</option>
                             <option value="json" {{'selected="selected"' if view_meta_as== "json"}}>JSON</option>
                             <option value="table" {{'selected="selected"' if view_meta_as== "table"}}>Table</option>
                             <option value="pprint" {{'selected="selected"' if view_meta_as== "pprint"}}>Python pprint</option>
@@ -69,13 +87,22 @@
             </td>
         </tr>
         {% if allow_save_as_dataset %}
+            <script type="text/javascript">
+                function save_as_changed()
+                {
+                    var checkbox = document.getElementById("save_as_dataset");
+                    document.getElementById("save_as_dataset_name").disabled = !checkbox.checked;
+                    document.getElementById("save_as_dataset_namespace").disabled = !checkbox.checked;
+                }
+            </script>
             <tr>
                 <th>{{"Run" if not show_files else "Re-run"}} and save results as dataset:</th>
-                <td><input type=checkbox name="save_as_dataset"/>&nbsp;&nbsp;&nbsp;Namespace:&nbsp;<select name="save_as_dataset_namespace">
+                <td><input type=checkbox name="save_as_dataset" id="save_as_dataset" onchange="save_as_changed()"/>&nbsp;&nbsp;&nbsp;Namespace:&nbsp;<select name="save_as_dataset_namespace" id="save_as_dataset_namespace" disabled>
+                                    <option value=""></option>
                                     {% for ns in namespaces %}
                                         <option value="{{ns.Name}}">{{ns.Name}}</option>
                                     {% endfor %}
-                                </select>&nbsp;&nbsp;&nbsp;Name:&nbsp;<input type=text name="save_as_dataset_name"/></td>
+                                </select>&nbsp;&nbsp;&nbsp;Name:&nbsp;<input type=text name="save_as_dataset_name" id="save_as_dataset_name" disabled/></td>
                 </td>
             </tr>
         {% endif %}
