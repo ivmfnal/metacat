@@ -5,20 +5,21 @@ from metacat.filters import MetaCatFilter
 
 class RunsDBinConDB(MetaCatFilter):
     """
-    Inputs:
+    Inputs: Single file set
 
     Positional parameters: none
 
-    Keyword parameters:
+    Keyword parameters: none
 
-    Description:
+    Description: Uses core.runs[0], if present, to get the run number and then retrieves the runs history data from ConDB for the run and
+        attaches the data to the file metadata under configured category. Database timestamps are converted to floating point timestamps.
+        If the file does not have a run number associated with it (core.runs[] is missing from the file metadata) or there is no data
+        for the run in the runs history database, then the file metadata is unchanged and will not contain the runs history fields.
 
     Configuration:
-        host =
-        port =
-        dbname =
-        user =
-        password =
+        connectio: Runs history Posrgres connection string "host=... port=... user=... dbname=..."
+        folder: ConDB folder name as "name" or "namespace.name"
+        meta_prefix: Metadata category prefix to use when appending the Runs history data to the MetaCat file metadata. Default "runs_history"
     """
 
     def __init__ (self, config):
