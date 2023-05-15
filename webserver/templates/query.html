@@ -237,7 +237,11 @@
     <table class="file_metadata">
         {% for f in files %}
             <tr>
-                <td colspan=2 class="filename"><a href="./show_file?fid={{f.FID}}">{{f.Namespace}}:{{f.Name}}</a> ({{f.FID}})</td>
+                <td class="filename"><a href="./show_file?fid={{f.FID}}">{{f.Namespace}}:{{f.Name}}</a>
+                    <img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>
+                </td>
+                <td>
+                     (&nbsp;fid = <span class=code>{{f.FID}}</span><img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>&nbsp;)</td>
             </tr>
             {% if attr_names and f.Metadata %}
                 {% if view_meta_as == "table" %}
@@ -251,7 +255,7 @@
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td class="meta_whole">
+                        <td class="meta_whole" colspan=2>
                             <pre class="metadata">
 {{f.meta_view}}
                             </pre>

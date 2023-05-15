@@ -239,19 +239,22 @@
     <h3>{{files|length}}/{{nfiles}} files</h3>
 
     <table class="file_metadata">
-        {#
-        <tr>
-            <th>File name</th>{% for a in attr_names %}<th>{{a}}</th>{% endfor %}
-        </tr>
-        #}
         {% for f in files|sort(attribute="Name") %}
             <tr>
-                <td class="filename"><a class="left" href="./show_file?fid={{f.FID}}">{{f.Namespace}}:{{f.Name}}</a></td>
-                    {#
-                        {% for n in attr_names %}
-                        <td class="attr_value">{{f.Metadata[n]}}</td>
-                        {% endfor %}
-                    #}
+                <td class="filename"><a class="left" href="./show_file?fid={{f.FID}}">{{f.Namespace}}:{{f.Name}}</a>
+                    <img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>
+                    <!-- 
+                    <button class="copy_button" onclick="copy(event, '{{f.Namespace}}:{{f.Name}}')"><img
+                                                        src="{{GLOBAL_AppTopPath}}/static/images/copy.png"/>
+                    </button>
+                    -->
+                    <!--
+                    <a title="copy" class="copy_button" 
+                        onclick="copy(event, '{{f.Namespace}}:{{f.Name}}')"
+                        href="javasctipt:null"><img
+                                                        src="{{GLOBAL_AppTopPath}}/static/images/copy.png"/></a>
+                    -->
+                </td>
             </tr>
         {% endfor %}
     </table>

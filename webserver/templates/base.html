@@ -140,7 +140,7 @@
 	}
 
     .code {
-        font: 12px
+        font: 12px;
         font-family: source_code, monospace;
         }
         
@@ -215,9 +215,79 @@
         padding: 0;
     }
     
+    .copy_button {
+        border: none;
+        background-color: rgba(0,0,0,0);
+        vertical-align: top;
+        
+        d-isplay: flex;
+        a-lign-self: center;
+    }
+    
+    .copy_button img, img.copy_button {
+        vertical-align: top;
+        height: 13;
+        width: 13;
+        opacity: 0.5;
+    }
+    
+    .copied_message {
+        display: block;
+        position: fixed;
+        background-color: rgba(200, 200, 200, 0.9);
+        padding: 2px 6px;
+        border: none;
+        border-radius: 5px;
+        opacity: 0.9;
+    }
+    
+    
     </style>
     
     <script src="{{GLOBAL_AppTopPath}}/static/js/request.js"></script>
+    <script type="text/javascript">
+        function fade(params)
+        {
+            var opacity = params.opacity;
+            if (opacity < 0)    opacity = 0;
+            const element = params.element;
+            element.style.opacity = opacity;
+            if( opacity <= 0 )
+                element.remove();
+            else
+                setTimeout(fade, 20, {element:element, opacity:opacity-0.02});
+        }
+
+        function copy(event, text_or_id)
+        {
+            var text = null;
+            if( text_or_id == null )
+            {
+                var sibling;
+                for( sibling = event.target.previousSibling; sibling != null && text == null; sibling = sibling.previousSibling )
+                {
+                    text = sibling.innerHTML;
+                    if( text != null )
+                        text = text.trim();
+                }
+            }
+            else if( document.getElementById(text_or_id) != null )
+                text = document.getElementById(text_or_id).innerHTML.trim();
+            else
+                text = text_or_id;
+            console.log("text: " + text);
+            navigator.clipboard.writeText(text);
+            const x = event.clientX,
+                y = event.clientY;
+            var display = document.createElement("div");
+            display.className = "copied_message";    
+            display.style.top = y-7;    
+            display.style.left = x+10;    
+            display.innerHTML = "copied";
+            document.body.appendChild(display);
+            setTimeout(fade, 1000, {element:display, opacity:0.9});            
+        };
+    </script>
     
     {% block html_head %}{% endblock %}
 	
