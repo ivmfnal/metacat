@@ -1,5 +1,7 @@
-from metacat.filters import MetaCatFilter
 import re
+from wsdbtools import ConnectionPool
+from condb import ConDB
+from metacat.filters import MetaCatFilter
 
 class RunsDBinConDB(MetaCatFilter):
     """
@@ -20,7 +22,6 @@ class RunsDBinConDB(MetaCatFilter):
     """
 
     def __init__ (self, config):
-        from wsdbtools import ConnectionPool
         self.Config = config
         show_config = config.copy()
         show_config["connection"] = self.hide(show_config["connection"], "user", "password")
@@ -52,7 +53,6 @@ class RunsDBinConDB(MetaCatFilter):
             return None
 
     def filter(self, inputs, **ignore):
-        from condb import ConDB
 
         # Conect to db via condb python API
         db = ConDB(self.ConnPool)
