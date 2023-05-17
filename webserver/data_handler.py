@@ -888,7 +888,6 @@ class DataHandler(MetaCatHandler):
                     **args):
         with_meta = with_meta == "yes"
         with_provenance = with_provenance == "yes"
-        namespace = namespace or self.App.DefaultNamespace
         include_retired_files = include_retired_files == "yes"
 
         self.sanitize(namespace=namespace)
