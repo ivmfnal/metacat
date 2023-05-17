@@ -32,7 +32,7 @@ class BaseApp(WPApp):
 
         self.Realm = None
         self.Group = None
-        self.AuthCore = None                # to be initialized by the subclass
+        self.AuthCore = None
             
     def init(self):
         #print("ScriptHome:", self.ScriptHome)
@@ -40,6 +40,7 @@ class BaseApp(WPApp):
         
     def init_auth_core(self, config):
         self.AuthCore = AuthenticationCore(config)
+        return self.AuthCore
 
     def connect(self):
         conn = self.DB.connect()

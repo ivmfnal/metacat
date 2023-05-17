@@ -431,9 +431,6 @@ class GUIHandler(MetaCatHandler):
                         for n in f.Metadata.keys():
                             attr_names.add(n)
                             
-        #print("Server.query: file list generated")
-        
-        
         resp = self.render_to_response("query.html", 
             view_meta_as = view_meta_as,
             query_type = query_type,

@@ -1,8 +1,15 @@
 {% extends "base.html" %}
 
+{% block html_head %}
+<link rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/color-brewer.min.css">
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+{% endblock %}
+
 {% block headline %}Metadata Query{% endblock %}
 
 {% block content %}
+
 
 <script type="text/javascript">
     function copy_query_url()
@@ -260,6 +267,14 @@
         
     {% endif %}
 
+    {% set highlight_language_class = "" %}
+    {% if view_meta_as == "pprint" %}
+        {% set highlight_language_class = "language-python" %}
+    {% elif view_meta_as == "json" %}
+        {% set highlight_language_class = "language-json" %}
+    {% endif %}
+    
+
     <h3>Files</h3>
     <table class="file_metadata">
         {% for f in files %}
@@ -282,7 +297,7 @@
                 {% else %}
                     <tr>
                         <td class="meta_whole" colspan=2>
-                            <pre class="metadata">
+                            <pre class="metadata {{highlight_language_class}}">
 {{f.meta_view}}
                             </pre>
                         </td>
@@ -291,6 +306,15 @@
             {% endif %}
         {% endfor %}
     </table>
+    
+    {% if highlight_language_class %}
+        <script>
+            document.querySelectorAll('pre.metadata').forEach(el => {
+              // then highlight each
+              hljs.highlightElement(el);
+            });
+        </script>
+    {% endif %}
 {% endif %}
 
     
