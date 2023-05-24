@@ -830,13 +830,13 @@ To select datasets by metadata:
 .. code-block:: sql
 
     datasets matching test:*
-        having type="mc" and detector="near"
+        having data.type="mc" and detector.id="near"
         
-Dataset queries can be combined in the same way as the file queries:
+Dataset query can combine multiple dataset selections separated with comma:
 
 .. code-block:: sql
 
-        datasets mathcing prod:XYZ%_3 having type=mc and detector="near",
+        datasets mathcing prod:XYZ%_3 having data.type=mc,
                 matching mc:XYZ%_4
     
 To add immediate dataset children:
@@ -844,8 +844,8 @@ To add immediate dataset children:
 .. code-block:: sql
 
     datasets matching test:*
-        with children
-        having type="mc" and detector="near"
+        with subsets
+        having data.type="mc"
 
 This will find all the datasets mathiching the namespace:name pattern, add their immediate children and then filter the resulting set of
 datasets by their metadata.
@@ -854,8 +854,8 @@ To get all subsets, recursively:
 
 .. code-block:: sql
 
-    datasets test:a with children recursively,
-            test:c with children,
+    datasets test:a with subsets recursively,
+            test:c with subsets,
             matching test:x*
 
 Dataset name patterns in the above examples use POSIX pattern syntax. They can include eiher '*' to match any substring or '?'
@@ -878,9 +878,10 @@ Dataset and file metadata filtering can be mixed together:
 
 .. code-block:: sql
 
-    files from mc:"%" 
-        having type="nc" and detector="near"            # dataset selection
-        where beam="on" and version>3                   # files selection
+    files from 
+        datasets matching production:% 
+            having data.type="mc" and detector.id="near"    # dataset selection
+        where beam.status="on" and reco.version > "3.0"     # files selection
         
     
 
