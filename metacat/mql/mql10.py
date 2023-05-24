@@ -80,7 +80,7 @@ class DatasetQuery(object):
         self.Tree = tree
         self.Compiled = None
 
-    def compile(self):
+    def compile(self, with_meta=False, with_provenance=False):
         self.Compiled = self.Compiled or _DatasetQueryCompiler()(self.Tree)
         return self.Compiled
 
@@ -792,6 +792,7 @@ class QueryConverter(Converter):
         if args:
             #print(args[0].pretty())
             assert len(args) == 1, "Expected 0 or 1 dataset selector list. Got: "+str(args)
+            #print("Converter.basic_file_query: args[0].T:", args[0].T)
             assert args[0].T == "dataset_query_list"
             return Node("basic_file_query", query=BasicFileQuery([a["query"] for a in args[0].C]))
         else:
@@ -1234,7 +1235,7 @@ class QueryConverter(Converter):
     # Datasets
     #
     
-    def did_pattern(self, args):
+    def _______did_pattern(self, args):
         assert len(args) in (1,2)
         namespace = self.DefaultNamespace
         if len(args) == 1:
@@ -1281,10 +1282,6 @@ class QueryConverter(Converter):
         query = BasicDatasetQuery(namespace, name, pattern=pattern, regexp=regexp)
         return Node("basic_dataset_query", query=query)
         
-    def all_datasets(self, args):
-        query = BasicDatasetQuery(namespace, name, pattern="*:*", regexp=regexp)
-        return Node("basic_dataset_query", query=query)
-        
     def dataset_add_where(self, children):
         assert len(children) == 2
         bdq, where = children
@@ -1293,7 +1290,7 @@ class QueryConverter(Converter):
         q.setWhere(children[1])
         return Node("basic_dataset_query", query=q)
 
-    def add_subsets(self, children):
+    def dataset_add_subsets(self, children):
         assert len(children) == 2
         bdq, subsets = children
         q = bdq["query"]

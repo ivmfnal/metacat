@@ -1379,11 +1379,13 @@ class DBDataset(DBObject):
             if bdq.is_explicit():
                 a = alias("exp")
                 columns = ",".join([f"{a}.{c}" for c in columns])
-                return dedent(f"""\
-                    select {columns} 
-                        from {table} {a} 
-                        where namespace='{namespace}' and name='{name}'
-                """)
+                sql = f"""\
+                        select {columns} 
+                            from {table} {a}
+                            where {a}.namespace = '{namespace}' and {a}.name = '{name}'
+                """
+                print("was explicit. SQL:", sql)
+                return dedent(sql)
 
             pattern = bdq.Pattern
             regexp = bdq.RegExp
@@ -1487,9 +1489,9 @@ class DBDataset(DBObject):
                     from {table} {a}
                     where ({a}.namespace, {a}.name) in ({pairs})
             """
-            sql = f"""\
-                values {pairs}
-            """
+            #sql = f"""\
+            #    values {pairs}
+            #"""
             parts.append(sql)
         parts.extend([DBDataset.sql_for_bdq(q, names_only) for q in others])
         return"\nunion\n".join(dedent(p) for p in parts)

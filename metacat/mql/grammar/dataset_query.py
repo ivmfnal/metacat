@@ -1,17 +1,18 @@
 DatasetQuery = """
 
-top_dataset_query       :    "datasets" dataset_query
+top_dataset_query       :    "datasets" dataset_query_list
+
+dataset_query_list: dataset_query ("," dataset_query)*            -> dataset_query_list
 
 ?dataset_query   :    dataset_query_with_subsets
-    | dataset_query_with_subsets "having" meta_exp
+    | dataset_query_with_subsets "having" meta_exp          -> dataset_add_where
     
 ?dataset_query_with_subsets : dataset_spec
-    | dataset_spec dataset_provenance_op
+    | dataset_spec dataset_provenance_op                    -> dataset_add_subsets
 
-!dataset_provenance_op: "with" "children" "recursively"?
+!dataset_provenance_op: "with" "subsets" "recursively"?
 
-!dataset_spec:                  // empty = all datasets
-    | qualified_name
+!dataset_spec:  qualified_name
     | "matching" "regexp" regexp_pattern
     | "matching" sql_pattern
 
