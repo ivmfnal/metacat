@@ -260,11 +260,16 @@ class DataHandler(MetaCatHandler):
                 return 400, f"Invalid file query: {file_query}"
             files = query.run(db, filters=self.App.filters(), with_meta=True, with_provenance=False)
 
+        metadata = params.get("metadata") or {}
+        for k in metadata.keys():
+            if '.' not in k:
+                return 400, f"Metadata parameter without a category: {k}"
+
         dataset = DBDataset(db, namespace, name,
             frozen = params.get("frozen", False), monotonic = params.get("monotonic", False),
             creator = creator, description = params.get("description", ""),
             file_meta_requirements = params.get("file_meta_requirements"),
-            metadata = params.get("metadata") or {}
+            metadata = metadata
         )
         dataset.create()
 
@@ -307,7 +312,11 @@ class DataHandler(MetaCatHandler):
                 ds.Metadata.update(meta)
             else:
                 ds.Metadata = meta
-        
+
+            for name in ds.Metadata:
+                if '.' not in name:
+                    return 400, f"Metadata parameter without a category: {name}"
+
         if "monotonic" in request_data: ds.Monotonic = request_data["monotonic"]
         if "frozen" in request_data: ds.Frozen = request_data["frozen"]
         if "description" in request_data: ds.Description = request_data["description"]
@@ -572,6 +581,13 @@ class DataHandler(MetaCatHandler):
                     continue
 
             meta = file_item.get("metadata", {})
+            
+            for k in meta.keys():
+                if '.' not in k:
+                    errors.append({
+                        "index": inx,
+                        "message":f"Metadata parameter without a category: {k}"
+                    })
 
             ds_validation_errors = ds.validate_file_metadata(meta)
             if ds_validation_errors:
@@ -748,6 +764,10 @@ class DataHandler(MetaCatHandler):
                     meta = {}
                     meta.update(f.Metadata)   # to make a copy
                     meta.update(new_meta)
+
+                for k in meta.keys():
+                    if '.' not in k:
+                        return 400, f"Metadata parameter without a category: {k}"
 
                 f.Metadata = meta
 
