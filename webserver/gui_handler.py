@@ -314,8 +314,12 @@ class GUIHandler(MetaCatHandler):
         return self.render_to_response("filters.html", standard=self.App.StandardFilters, custom=self.App.CustomFilters)
 
     @sanitize(exclude="query")
-    def query(self, request, relpath, query="", namespace=None, action="show", 
+    def query(self, request, relpath, query="", namespace=None, action="show", summary="off",
                     include_retired_files="off", view_meta_as="json", **args):
+                    
+        #
+        # summary is not yet implemented
+        #
         
         db = self.App.connect()
         user, auth_error = self.authenticated_user()
@@ -334,6 +338,8 @@ class GUIHandler(MetaCatHandler):
         runtime = None
         meta_stats = None
         namespaces = None
+        summary_only = summary in ("yes", "on")        
+        file_count = None
         
         #print("query: method:", request.method)
         error = None
@@ -364,7 +370,7 @@ class GUIHandler(MetaCatHandler):
                 #print("Server.query: with_meta:", with_meta)
                 try:
                     results = parsed.run(db, filters=self.App.filters(),
-                        limit=1000 if not save_as_dataset else None, 
+                        limit=1000 if not (save_as_dataset or summary_only) else None, 
                         with_meta=with_meta)
                 except MQLError as e:
                     error = str(e)
@@ -416,10 +422,16 @@ class GUIHandler(MetaCatHandler):
                         files = list(files)
                         ds.add_files(files)
                         message = "Dataset %s:%s with %d files created" % (dataset_namespace, dataset_name, len(files))
-                            
+
+        file_count = None
+        if summary_only:
+            file_count = len(list(files))
+            files = None
+
         attr_names = set()
         if files is not None:
             files = files[:1000]
+            file_count = len(files)
             #print("GUI server.query(): files[:10]:", files[:10])
             if with_meta:
                 for f in files:
@@ -439,7 +451,8 @@ class GUIHandler(MetaCatHandler):
             allow_save_as_dataset = user is not None, namespaces = namespaces,
             allow_save_query = user is not None and namespaces,
             query=query_text, url_query=url_query,
-            show_files=files is not None, files=files, 
+            summary_only = summary_only,
+            show_files=files is not None, files=files, file_count = file_count,
             show_datasets=datasets is not None,datasets = datasets,
             runtime = runtime, meta_stats = meta_stats, with_meta = with_meta,
             include_retired_files = include_retired_files,

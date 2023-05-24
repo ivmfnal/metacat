@@ -21,20 +21,32 @@ from .common import (
 
 class DBFileSet(object):
     
-    def __init__(self, db, files=[]):
+    def __init__(self, db, files=[], count=None):
         self.DB = db
         self.Files = files
         self.SQL = None
+        if hasattr(files, "__len__"):
+            count = len(files)
+        self.Count = count
+        
+    def __len__(self):
+        return self.Count
 
     def limit(self, n):
-        return DBFileSet(self.DB, limited(self.Files, n))
+        return DBFileSet(self.DB, limited(self.Files, n), 
+            count = None if self.Count is None else min(n, self.Count))
         
     def skip(self, n):
         if n == 0:  return self
-        return DBFileSet(self.DB, skipped(self.Files, n))
+        return DBFileSet(self.DB, skipped(self.Files, n),
+            count = None if self.Count is None else max(0, self.Count - n))
+        )
         
     def stride(self, n, i=0):
-        return DBFileSet(self.DB, strided(self.Files, n, i))
+        count = None
+        if self.Count is not None:
+            count = (self.Count + i)//n
+        return DBFileSet(self.DB, strided(self.Files, n, i), count = count)
         
     def chunked(self, chunk_size=1000):
         return chunked(self.Files, chunk_size)
@@ -44,12 +56,15 @@ class DBFileSet(object):
         yield from files
 
     @staticmethod
-    def from_tuples(db, g):
+    def from_tuples(db, g, count=None):
         # must be in sync with DBFile.all_columns()
+        if isinstance(g, (list, tuple, set)):
+            count = len(g)
         return DBFileSet(db, 
             (
                 DBFile.from_tuple(db, t) for t in g
-            )
+            ),
+            count = count
         )
         
     @staticmethod
@@ -60,7 +75,7 @@ class DBFileSet(object):
             select {columns}
                 from   files
                 where id = any(%s)""", (list(lst),))
-        return DBFileSet.from_tuples(db, fetch_generator(c))
+        return DBFileSet.from_tuples(db, fetch_generator(c), count=c.rowcount)
     
     @staticmethod
     def from_name_list(db, names, default_namespace=None):
@@ -75,7 +90,7 @@ class DBFileSet(object):
         selected = ((fid, namespace, name, metadata) 
                     for (fid, namespace, name, metadata) in fetch_generator(c)
                     if "%s:%s" % (namespace, name) in joined)
-        return DBFileSet.from_tuples(db, selected)
+        return DBFileSet.from_tuples(db, selected, count=c.rowcount)
         
     @staticmethod
     def from_namespace_name_specs(db, specs, default_namespace=None):
@@ -92,10 +107,10 @@ class DBFileSet(object):
         selected = ((fid, namespace, name, metadata) 
                     for (fid, namespace, name, metadata) in fetch_generator(c)
                     if "%s:%s" % (namespace, name) in dids)
-        return DBFileSet.from_tuples(db, selected)
+        return DBFileSet.from_tuples(db, selected, count=c.rowcount)
         
     def __iter__(self):
-        if isinstance(self.Files, list):
+        if isinstance(self.Files, (list, set, tuple)):
             return (f for f in self.Files)
         else:
             return self.Files
@@ -132,7 +147,7 @@ class DBFileSet(object):
                     where {join}
                     """
         c.execute(sql, (file_ids,))
-        return DBFileSet.from_tuples(self.DB, fetch_generator(c))
+        return DBFileSet.from_tuples(self.DB, fetch_generator(c), count=c.rowcount)
 
     @staticmethod
     def join(db, file_sets):
@@ -144,7 +159,7 @@ class DBFileSet(object):
         for another in file_sets[1:]:
             another_ids = set(f.FID for f in another)
             file_ids &= another_ids
-        return DBFileSet(db, (f for f in file_list if f.FID in file_ids))
+        return DBFileSet(db, (f for f in file_list if f.FID in file_ids), count=len(file_ids))
 
     @staticmethod
     def union(db, file_sets):
@@ -393,7 +408,7 @@ class DBFileSet(object):
         debug("DBFileSet.from_sql: executing sql:", sql)
         c.execute(sql)
         debug("DBFileSet.from_sql: return from execute()")
-        fs = DBFileSet.from_tuples(db, fetch_generator(c))
+        fs = DBFileSet.from_tuples(db, fetch_generator(c), count=c.rowcount)
         fs.SQL = sql
         return fs
         
