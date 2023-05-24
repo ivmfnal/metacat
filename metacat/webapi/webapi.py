@@ -326,7 +326,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             else:
                 # fetch counts asynchronously
                 did = namespace + ":" + name
-                promises.append(self.async_queue.add(self.get_dataset_counts, did, promise_data = item))
+                promises.append(self.async_queue.add(self.get_dataset_counts, did, promise_data = item).promise)
 
         for promise in promises:
             counts = promise.wait()
@@ -1051,7 +1051,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             See notes below for more on how to use this method.
         """
         
-        return self.async_queue.add_lambda(self.query, query, promise_data=data, **args)
+        return self.async_queue.add(self.query, query, promise_data=data, **args).promise
 
     def wait_queries(self):
         """

@@ -37,6 +37,6 @@ params_list : constant_list         // convert date, datetime to floats
 file_query_list: file_query ("," file_query)*     
 
 // file attributes
-FILE_ATTR_NAME: ("id" | "namespace" | "name" | "creator" | "updated_by" | "created_timestamp" | "updated_timestamp")
+FILE_ATTR_NAME: ("id" | "namespace" | "name" | "creator" | "updated_by" | "created_timestamp" | "updated_timestamp" | "retired" | "retired_by" | "retired_timestamp" )
 
 """

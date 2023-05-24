@@ -216,6 +216,8 @@ class DBParamCategory(DBObject):
                         ok, error = category.validate_parameter(vname, value)
                         if not ok:
                             item_errors.append({"name": name, "reason": error, "value": value})
+                else:
+                    item_errors.append({"name": name, "reason": "Parameter name without a category", "value": value})
             if item_errors:
                 errors.append((index, item_errors))
         return errors

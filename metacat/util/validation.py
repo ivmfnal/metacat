@@ -41,7 +41,7 @@ def validate_metadata(definitions, restricted, metadata={}, name=None, value=Non
 
     errors = []
     for name, value in metadata.items():
-
+        
         definition = definitions.get(name)
         if definition is None:    
             if restricted:

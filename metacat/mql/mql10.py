@@ -1281,6 +1281,10 @@ class QueryConverter(Converter):
         query = BasicDatasetQuery(namespace, name, pattern=pattern, regexp=regexp)
         return Node("basic_dataset_query", query=query)
         
+    def all_datasets(self, args):
+        query = BasicDatasetQuery(namespace, name, pattern="*:*", regexp=regexp)
+        return Node("basic_dataset_query", query=query)
+        
     def dataset_add_where(self, children):
         assert len(children) == 2
         bdq, where = children

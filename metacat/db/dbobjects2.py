@@ -34,18 +34,19 @@ class DBFileSet(object):
 
     def limit(self, n):
         return DBFileSet(self.DB, limited(self.Files, n), 
-            count = None if self.Count is None else min(n, self.Count))
+            count = None if self.Count is None else min(n, self.Count)
+        )
         
     def skip(self, n):
         if n == 0:  return self
         return DBFileSet(self.DB, skipped(self.Files, n),
-            count = None if self.Count is None else max(0, self.Count - n))
+            count = None if self.Count is None else max(0, self.Count - n)
         )
         
     def stride(self, n, i=0):
         count = None
         if self.Count is not None:
-            count = (self.Count + i)//n
+            count = (self.Count + i + n-1)//n
         return DBFileSet(self.DB, strided(self.Files, n, i), count = count)
         
     def chunked(self, chunk_size=1000):

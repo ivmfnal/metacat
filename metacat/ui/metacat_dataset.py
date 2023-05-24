@@ -71,8 +71,8 @@ class ListDatasetsCommand(CLICommand):
     
     Opts = ("lc", ["--long", "--file-counts"])
     Usage = """ [<options>] [<namespace pattern>:<name pattern>]      -- list datasets
-            -l|--long           - detailed output
-            -c|--file-counts    - include file counts if detailed output
+            -l|--long               - detailed output
+                -c|--file-counts    - if detailed output, include file counts
             """
     
     def __call__(self, command, client, opts, args):
@@ -211,7 +211,7 @@ def load_metadata(opts):
     
 class CreateDatasetCommand(CLICommand):
 
-    Opts = ("MFm:f:d:r:", ["monotonic", "frozen", "metadata=", "dataset-query=", "file-query=", "meta-requirements="])
+    Opts = ("MFm:f:d:r:j", ["monotonic", "frozen", "metadata=", "dataset-query=", "file-query=", "meta-requirements=", "json"])
     Usage = """[<options>] <namespace>:<name> [<description>]           -- create dataset
         -M|--monotonic
         -F|--frozen
@@ -258,13 +258,14 @@ class CreateDatasetCommand(CLICommand):
 
 class UpdateDatasetCommand(CLICommand):
 
-    Opts = ("MFm:r", ["replace", "monotonic", "frozen", "metadata="])
+    Opts = ("MFm:rj", ["replace", "monotonic", "frozen", "metadata=", "json"])
     Usage = """<options> <namespace>:<name> [<description>]             -- modify dataset info
             -M|--monotonic (yes|no) - set/reset monotonic flag
             -F|--frozen (yes|no)    - set/reset monotonic flag
             -r|--replace            - replace metadata, otherwise update
             -m|--metadata @<JSON file with metadata> 
-            -m|--metadata '<JSON expression>' 
+            -m|--metadata '<JSON expression>'
+            -j|--json               - print updated dataset information as JSON
     """
     MinArgs = 1
 
@@ -301,7 +302,8 @@ class UpdateDatasetCommand(CLICommand):
             print(e)
             sys.exit(1)
         else:
-            print(response)
+            if "-j" in opts or "--json" in opts:
+                print(json.dumps(response, indent=4, sort_keys=True))
 
 class AddFilesCommand(CLICommand):
     
