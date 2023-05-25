@@ -29,9 +29,6 @@ class DBFileSet(object):
             count = len(files)
         self.Count = count
         
-    def __len__(self):
-        return self.Count
-
     def limit(self, n):
         return DBFileSet(self.DB, limited(self.Files, n), 
             count = None if self.Count is None else min(n, self.Count)
