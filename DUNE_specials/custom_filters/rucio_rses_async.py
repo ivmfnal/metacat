@@ -1,5 +1,7 @@
 import os
+from pythreader import TaskQueue, Task
 from metacat.filters import MetaCatFilter
+
 
 class RucioReplicas(MetaCatFilter):
     """
@@ -16,6 +18,16 @@ class RucioReplicas(MetaCatFilter):
     def __init__(self, config):
         MetaCatFilter.__init__(self, config)
         self.RucioConfig = config.get("rucio_config")
+        self.TaskQueue = TaskQueue(10)
+
+    def list_replicas(self, client, chunk):
+        chunk = list(chunk)
+        dids = [{"scope":f.Namespace, "name":f.Name} for f in chunk]
+        replicas = client.list_replicas(dids, all_states=False, ignore_availability=False, resolve_archives=False)
+        rses_by_did = {"%(scope)s:%(name)s" % r : list(r["rses"].keys()) for r in replicas}
+        for f in chunk:
+            f["rucio.rses"] = rses_by_did.get(f.did(), [])
+        return chunk
 
     def filter(self, inputs, *params, **ignore):
 
@@ -24,21 +36,10 @@ class RucioReplicas(MetaCatFilter):
             os.environ["RUCIO_CONFIG"] = self.RucioConfig
         client = ReplicaClient()
 
-        for chunk in inputs[0].chunked(chunk_size=10000):
-            chunk_files = {f.did(): f for f in chunk}
-            dids = [{"scope":f.Namespace, "name":f.Name} for f in chunk]
-            for f in chunk_files.values():
-                f.Metadata["rucio.rses"] = []
-
-            replicas = client.list_replicas(dids, all_states=False, ignore_availability=False,
-                resolve_archives=False)
-
-            for r in replicas:
-                did = "%(scope)s:%(name)s" % r
-                f = chunk_files[did]
-                f.Metadata["rucio.rses"] = list(r["rses"].keys())
-
-            yield from chunk_files.values()
+        promises = [self.TaskQueue.add(self.list_replicas, client, chunk).promise for chunk in inputs[0].chunked(chunk_size=10000)]
+        for promise in promises:
+            chunk = promise.wait()
+            yield from chunk
 
 def create_filters(config):
     return {
