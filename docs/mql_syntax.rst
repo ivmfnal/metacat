@@ -6,7 +6,7 @@ File queries
 
 .. code-block::
 
-        <file query>: files [from [dataset|datasets] <dataset selector list> [,...]]
+        <file query>: files [from [datasets] <dataset selector list> [,...]]
                 | <file query> where <metadata expression>]
                 | <file query> skip <integer>
                 | <file query> limit <integer>
@@ -31,7 +31,7 @@ Dataset queries
                 
         <dataset selector with provenance and meta expression>: <dataset selector with provenance> [having <metadata expression>]
                 
-        <dataset selector with provenance>: <dataset name selector> [with children [recursively]]
+        <dataset selector with provenance>: <dataset name selector> [with subsets [recursively]]
                 
         <dataset name selector>: <namespace>:<name>
                 | matching <namespace>:<name pattern SQL style>                         # % - match any substring, _ - match any single character
@@ -80,7 +80,7 @@ Metadata expressions
                 | false
                 | null
                 
-        <attribute name>: <name>                                                # fixed file attributes (namespace, name, creator, size, ...)
+        <field name>: <name>                                                    # fixed file attributes (namespace, name, creator, size, ...)
                 | <category>.<name>                                             # category can have subcategory: <category>.<subcategory>...<name>
         
         <category>: <name>
