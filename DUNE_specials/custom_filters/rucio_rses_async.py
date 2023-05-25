@@ -36,7 +36,7 @@ class RucioReplicas(MetaCatFilter):
             os.environ["RUCIO_CONFIG"] = self.RucioConfig
         client = ReplicaClient()
 
-        promises = [self.TaskQueue.add(self.list_replicas, client, chunk).promise for chunk in inputs[0].chunked(chunk_size=10000)]
+        promises = [self.TaskQueue.add(self.list_replicas, client, chunk).promise for chunk in inputs[0].chunked(chunk_size=1000)]
         for promise in promises:
             chunk = promise.wait()
             yield from chunk

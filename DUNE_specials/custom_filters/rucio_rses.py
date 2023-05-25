@@ -24,14 +24,13 @@ class RucioReplicas(MetaCatFilter):
             os.environ["RUCIO_CONFIG"] = self.RucioConfig
         client = ReplicaClient()
 
-        for chunk in inputs[0].chunked(chunk_size=10000):
+        for chunk in inputs[0].chunked(chunk_size=1000):
             chunk_files = {f.did(): f for f in chunk}
             dids = [{"scope":f.Namespace, "name":f.Name} for f in chunk]
             for f in chunk_files.values():
                 f.Metadata["rucio.rses"] = []
 
-            replicas = client.list_replicas(dids, all_states=False, ignore_availability=False,
-                resolve_archives=False)
+            replicas = client.list_replicas(dids, all_states=False, ignore_availability=False, resolve_archives=False)
 
             for r in replicas:
                 did = "%(scope)s:%(name)s" % r

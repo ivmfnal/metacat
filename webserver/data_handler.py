@@ -994,9 +994,7 @@ class DataHandler(MetaCatHandler):
             data = ( f.to_jsonable(with_metadata=with_meta, with_provenance=with_provenance) for f in results)
 
         else:
-            print("query: results:", results)
             results = list(results)
-            print("query: results:", results)
             data = ( d.to_jsonable(with_relatives=with_provenance) for d in results )
         return self.json_stream(data), "application/json-seq"
         
