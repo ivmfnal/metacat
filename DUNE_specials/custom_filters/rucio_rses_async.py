@@ -26,7 +26,7 @@ class RucioReplicas(MetaCatFilter):
         replicas = client.list_replicas(dids, all_states=False, ignore_availability=False, resolve_archives=False)
         rses_by_did = {"%(scope)s:%(name)s" % r : list(r["rses"].keys()) for r in replicas}
         for f in chunk:
-            f["rucio.rses"] = rses_by_did.get(f.did(), [])
+            f.Metadata["rucio.rses"] = rses_by_did.get(f.did(), [])
         return chunk
 
     def filter(self, inputs, *params, **ignore):
