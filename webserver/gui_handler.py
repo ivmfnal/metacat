@@ -285,7 +285,7 @@ class GUIHandler(MetaCatHandler):
     def find_file(self, request, relpath, **args):
         self.redirect("./show_file?show_form=yes")
 
-    def _meta_stats(self, files):
+    def _meta_stats(self, files):       # should work for datasets too
         #
         # returns [ (meta_name, [(value, count), ...]) ... ]
         #
@@ -387,7 +387,6 @@ class GUIHandler(MetaCatHandler):
                 files = results
             
             #print("files:", type(files), files)
-            meta_stats = None if (not with_meta or parsed.Type=="dataset") else self._meta_stats(files)
             #print("meta_stats:", meta_stats, "    with_meta:", with_meta, request.POST.get("with_meta"))
                 
             #print("query: results:", len(files))
@@ -423,37 +422,44 @@ class GUIHandler(MetaCatHandler):
                         ds.add_files(files)
                         message = "Dataset %s:%s with %d files created" % (dataset_namespace, dataset_name, len(files))
 
-        file_count = None
-        if summary_only:
-            file_count = len(list(files))
-            files = None
-
         attr_names = set()
+        items = None
+        results_count = 0
         if files is not None:
             files = files[:1000]
-            file_count = len(files)
+            items = files
+        elif datasets is not None:
+            datasets = datasets[:1000]
+            items = datasets
+        
+        if items is not None:
+            results_count = len(items)
             #print("GUI server.query(): files[:10]:", files[:10])
             if with_meta:
-                for f in files:
-                    if f.Metadata:
+                for item in items:
+                    if item.Metadata:
                         if view_meta_as == "json":
-                            f.meta_view = json.dumps(f.Metadata, indent="  ", sort_keys = True) 
+                            item.meta_view = json.dumps(item.Metadata, indent="  ", sort_keys = True) 
                         elif view_meta_as == "pprint":
-                            f.meta_view = pprint.pformat(f.Metadata, compact=True, width=180)
-                        for n in f.Metadata.keys():
-                            attr_names.add(n)
-                            
+                            item.meta_view = pprint.pformat(item.Metadata, compact=True, width=180)
+                        attr_names.update(item.Metadata.keys())
+            
+            meta_stats = None if (not with_meta or parsed.Type=="dataset") else self._meta_stats(items)
+        
+        attr_names = sorted(attr_names)
+        
         resp = self.render_to_response("query.html", 
             view_meta_as = view_meta_as,
             query_type = query_type,
-            attr_names = sorted(list(attr_names)),
+            attr_names = attr_names,
             message = message, error = error,
             allow_save_as_dataset = user is not None, namespaces = namespaces,
             allow_save_query = user is not None and namespaces,
             query=query_text, url_query=url_query,
-            summary_only = summary_only,
-            show_files=files is not None, files=files, file_count = file_count,
-            show_datasets=datasets is not None,datasets = datasets,
+            # not implemented yet summary_only = summary_only,
+            results_count = results_count,
+            show_files=files is not None, files=files, 
+            show_datasets=datasets is not None, datasets = datasets,
             runtime = runtime, meta_stats = meta_stats, with_meta = with_meta,
             include_retired_files = include_retired_files,
             namespace=namespace or "")

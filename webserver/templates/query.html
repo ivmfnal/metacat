@@ -120,6 +120,17 @@
     </table>
 </form>
 
+{# 
+#    settings for highlight.js 
+#}
+
+{% set highlight_language_class = "" %}
+{% if view_meta_as == "pprint" %}
+    {% set highlight_language_class = "language-python" %}
+{% elif view_meta_as == "json" %}
+    {% set highlight_language_class = "language-json" %}
+{% endif %}
+
 {% if show_datasets %}
     <div class=headline>Query results</div>
     <p>Runtime: {{"%.3f"|format(runtime)}} seconds<br/>
@@ -129,27 +140,33 @@
     </p>
 
     <h3>Datasets</h3>
-    <table class="data">
-        <tr>
-            <th>Dataset</th>{% if attr_names %}<th>Metadata</th>{% endif %}
-        </tr>
+    
+    <table class="file_metadata">
         {% for d in datasets|sort(attribute="Name") %}
             <tr>
-                <td>{{d.Namespace}}:{{d.Name}}</a></td>
-                {#
-					{% if attr_names %}
-                    <td>
-                        {% if f.Metadata %}
-                            {% for n in attr_names %}
-                                {% if f.Metadata[n] is not none %}
-                                    {{n}}:&nbsp;{{f.Metadata[n]}}<br/>
-                                {% endif %}
-                            {% endfor %}
-                        {% endif %}
-                    </td>
-                	{% endif %}
-				#}
+                <td class="filename"><a href="./dataset?namespace={{d.Namespace}}&name={{d.Name}}">{{d.Namespace}}:{{d.Name}}</a>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>
+                </td>
             </tr>
+            {% if d.Metadata %}
+                {% if view_meta_as == "table" %}
+                    {% for n in attr_names %}
+                        {% if n in d.Metadata -%}
+                            <tr>
+                                <td class="attr_name">{{n}}</td>
+                                <td class="attr_value">{{d.Metadata[n]|json}}</td>
+                            </tr>
+                        {%- endif %}
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td class="meta_whole" colspan=2>
+                            <pre class="metadata {{highlight_language_class}}">
+{{d.meta_view}}
+                            </pre>
+                        </td>
+                    </tr>
+                {% endif %}
+            {% endif %}
         {% endfor %}
     </table>
     
@@ -265,15 +282,8 @@
                 
                     
         
-    {% endif %}
+    {% endif %}     {# meta_stats #}
 
-    {% set highlight_language_class = "" %}
-    {% if view_meta_as == "pprint" %}
-        {% set highlight_language_class = "language-python" %}
-    {% elif view_meta_as == "json" %}
-        {% set highlight_language_class = "language-json" %}
-    {% endif %}
-    
 
     <h3>Files</h3>
     <table class="file_metadata">
@@ -284,7 +294,7 @@
                 <td>
                      (&nbsp;fid = <span class=code>{{f.FID}}</span><img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>&nbsp;)</td>
             </tr>
-            {% if attr_names and f.Metadata %}
+            {% if f.Metadata %}
                 {% if view_meta_as == "table" %}
                     {% for n in attr_names %}
                         {% if n in f.Metadata -%}
@@ -307,20 +317,40 @@
         {% endfor %}
     </table>
     
-    {% if highlight_language_class %}
-        <script>
-            document.querySelectorAll('pre.metadata').forEach(el => {
-              // then highlight each
-              hljs.highlightElement(el);
-            });
-        </script>
-    {% endif %}
 {% endif %}
 
     
+{% if highlight_language_class %}
+    <script>
+        document.querySelectorAll('pre.metadata').forEach(el => {
+          // then highlight each
+          hljs.highlightElement(el);
+        });
+    </script>
+{% endif %}
     
 
         
 
 {% endblock %}
+
+
+
+    {# 
+    old ---------------------
+    
+    <table class="data">
+        <tr>
+            <th>Dataset</th>{% if attr_names %}<th>Metadata</th>{% endif %}
+        </tr>
+        {% for d in datasets|sort(attribute="Name") %}
+            <tr>
+                <td>{{d.Namespace}}:{{d.Name}}</a></td>
+            </tr>
+        {% endfor %}
+    </table>
+    
+    ---------------------- old 
+    #}
+    
 

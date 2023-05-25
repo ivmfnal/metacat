@@ -35,23 +35,23 @@
                 <h3>File Information</h3>
                 <table class=tabular>
                     <tr>
-    	                <th>File ID</th><td class="filename">{{f.FID}}</td>
+    	                <th>File ID</th><td><span>{{f.FID}}</span>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/></td>
                     </tr>
                     <tr>
-    	                <th>Namespace</th><td><a href="./namespace?name={{f.Namespace}}">{{f.Namespace}}</a></td>
+    	                <th>Namespace</th><td class="filename"><a href="./namespace?name={{f.Namespace}}">{{f.Namespace}}</a>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/></td>
                     </tr>
                     <tr>
-    	                <th>Name</th><td class="filename">{{f.Name}}</td>
+    	                <th>Name</th><td><span class="filename">{{f.Name}}</span>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/></td>
                     </tr>
                     <tr>
-    	                <th>DID</th><td class="filename">{{f.Namespace}}:{{f.Name}}</td>
+    	                <th>DID</th><td><span class="filename">{{f.Namespace}}:{{f.Name}}</span>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/></td>
                     </tr>
                     <tr>
     	                <th>Size</th><td>{{f.Size}} {% if f.Size %}({{"%.3f" % (f.Size/1024.0/1024.0,)}} MB){% endif %}</td>
                     </tr>
                     <tr>
-                        <th>Created</th><td>{{f.CreatedTimestamp or ""}} by 
-                            {% if f.Creator %}<a href="./user?username={{f.Creator}}">{{f.Creator}}</a>{% endif %}</td>
+                        <th>Created</th><td>{{f.CreatedTimestamp or ""}} 
+                            {%- if f.Creator %} by <a href="./user?username={{f.Creator}}">{{f.Creator}}</a>{% endif %}</td>
                     </tr>
                     <tr>
                         <th>Updated</th>
@@ -80,7 +80,7 @@
     	                <th>Parents</th>
                         <td>
     		                {% for p in f.parents(as_files=True) -%}
-    		                    <a href="./show_file?fid={{p.FID}}">{{p.Namespace}}:{{p.Name}}</a><br/>
+    		                    <a href="./show_file?fid={{p.FID}}" class="filename">{{p.Namespace}}:{{p.Name}}</a>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/><br/>
     		                {%- endfor %}
     	                </td>
                     </tr>
@@ -88,7 +88,7 @@
     	                <th>Children</th>
                         <td>
     		                {% for p in f.children(as_files=True) -%}
-    		                    <a href="./show_file?fid={{p.FID}}">{{p.Namespace}}:{{p.Name}}</a><br/>
+    		                    <a href="./show_file?fid={{p.FID}}" class="filename">{{p.Namespace}}:{{p.Name}}</a>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/><br/>
     		                {%- endfor %}
     	                </td>
                     </tr>
@@ -97,7 +97,7 @@
             <td>
                 <h3>Datasets</h3>
                 {% for ns, n in f.datasets %}
-                    <a href="./dataset?namespace={{ns}}&name={{n}}">{{ns}}:{{n}}</a><br/>
+                    <a class="filename" href="./dataset?namespace={{ns}}&name={{n}}">{{ns}}:{{n}}</a>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/><br/>
                 {% endfor %}
             </td>
         </tr>

@@ -30,6 +30,8 @@ create table datasets
 );
 
 create index dataset_specs on datasets((namespace || ':' || name));
+create index datasets_meta_index on datasets using gin (metadata);
+create index datasets_meta_path_ops_index on datasets using gin (metadata jsonb_path_ops);
 
 insert into datasets(namespace, name, creator, description)
 	values('dune','all','admin','All files imported during conversion from SAM');

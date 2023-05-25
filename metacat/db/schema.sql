@@ -67,6 +67,7 @@ create table files
 
 create unique index file_names_unique on files(namespace, name) include (id);
 create index files_meta_path_ops_index on files using gin (metadata jsonb_path_ops);
+create index files_meta_index on files using gin (metadata);
 
 create index files_creator on files(creator);
 create index files_created_timestamp on files(created_timestamp);
@@ -114,6 +115,7 @@ create table datasets
 );
 
 create index datasets_meta_index on datasets using gin (metadata);
+create index datasets_meta_path_ops_index on datasets using gin (metadata jsonb_path_ops);
 create index datasets_spec on datasets( (namespace || ':' || name ));
 
 create table datasets_parent_child
