@@ -17,7 +17,7 @@ class AuthenticationCore(object):
     def __init__(self, cfg, group=None):
         self.Cfg = cfg
         db_config = cfg.get("user_database") or cfg["database"]
-        connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % db_config
+        connstr = self.connstr(db_config)
         self.UserDB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=20)
         self.UserDBSchema = db_config.get("schema")
 
@@ -35,6 +35,12 @@ class AuthenticationCore(object):
             h.update(to_bytes(secret))      
             self.TokenSecret = h.digest()
         self.TokenExpiration = self.DefaultTokenExpiration
+
+    def connstr(self, cfg):
+        cs = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s" % cfg
+        if cfg.get("password"):
+            cs += " password=%(password)s" % cfg
+        return cs
 
     def auth_config(self, method):
         # configuration for particular authentication mechanism
