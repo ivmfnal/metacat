@@ -18,12 +18,12 @@ class BaseApp(WPApp):
         self.DB = self.DBSchema = None
         if "database" in cfg:
             db_config = cfg["database"]
-            connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % db_config
+            connstr = self.connstr(db_config)
             self.DB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=20)
             self.DBSchema = db_config.get("schema")
 
         if "user_database" in cfg:
-            connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % cfg["user_database"]
+            connstr = self.connstr(cfg["user_database"])
             self.UserDB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=20)
             self.UserDBSchema = cfg["user_database"].get("schema")
         elif self.DB is not None:
@@ -33,6 +33,13 @@ class BaseApp(WPApp):
         self.Realm = None
         self.Group = None
         self.AuthCore = None
+        
+    def connstr(self, cfg):
+        cs = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s" % cfg
+        if cfg.get("password"):
+            cs += " password=%(password)s" % cfg
+        return cs
+        
             
     def init(self):
         #print("ScriptHome:", self.ScriptHome)
