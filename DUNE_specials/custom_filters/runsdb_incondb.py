@@ -38,8 +38,7 @@ class RunsDBinConDB(MetaCatFilter):
         
         db = ConDB(self.ConnPool)
         folder = db.openFolder(self.FolderName)
-        folder_columns = folder.data_column_types()
-        self.ColumnTypes = folder.data_column_types()
+        self.ColumnTypes = folder.data_column_types() if folder is not None else None
 
     def hide(self, conn, *fields):
         for f in fields:

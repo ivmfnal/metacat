@@ -26,8 +26,7 @@
 			{% if mode=="create" %}
 				<input type="text" name="username" id="username" size="40"/>
 			{% else %}
-				<input type="hidden" name="username" value="{{user.Username}}" id="username"/>
-				{{user.Username}}
+				<span>{{user.Username}}</span>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>
 			{% endif %}
 		</td>
 	</tr>
@@ -37,9 +36,9 @@
 			{% if mode == "create" %}
 				<input type="text" name="name" size="40"/>
 			{% elif mode == "edit" %}
-				<input type="text" name="name" value="{{user.Name}}" size="40"/>
+				<input type="text" name="name" value="{{user.Name}}" size="40"/>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>
             {% else %}
-                {{user.Name}}
+                <span>{{user.Name}}</span>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>
 			{% endif %}
 		</td>
 	</tr>
@@ -49,9 +48,9 @@
 			{% if mode == "create" %}
 				<input type="text" name="auid" size="40"/>
 			{% elif mode == "edit" %}
-				<input type="text" name="auid" value="{{user.AUID or ''}}" size="40" style="font-family: monospace"/>
+				<input type="text" name="auid" value="{{user.AUID or ''}}" size="36" style="font-family: monospace"/>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>
             {% else %}
-                {{user.AUID or ""}}
+                <span style="font-family: monospace">{{user.AUID or ""}}</span>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>
 			{% endif %}
 		</td>
 	</tr>
@@ -61,9 +60,9 @@
 			{% if mode == "create" %}
 				<input type="text" name="email" size="40"/>
 			{% elif mode == "edit" %}
-				<input type="text" name="email" value="{{user.EMail}}" size="40"/>
+				<input type="text" name="email" value="{{user.EMail}}" size="40"/>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>
             {% else %}
-                {{user.EMail}}
+                <span>{{user.EMail}}</span>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>
 			{% endif %}
 		</td>
 	</tr>

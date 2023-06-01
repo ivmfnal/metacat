@@ -225,7 +225,7 @@
     }
     
     .copy_button img, img.copy_button {
-        vertical-align: top;
+        vertical-align: middle;
         height: 13;
         width: 13;
         opacity: 0.5;
@@ -267,15 +267,19 @@
                 for( sibling = event.target.previousSibling; sibling != null && text == null; sibling = sibling.previousSibling )
                 {
                     text = sibling.innerHTML;
+                    if( text == null || text == "" )
+                        text = sibling.value;
                     if( text != null )
                         text = text.trim();
+                    if( text == "" )
+                        text = null;
                 }
             }
             else if( document.getElementById(text_or_id) != null )
                 text = document.getElementById(text_or_id).innerHTML.trim();
             else
                 text = text_or_id;
-            console.log("text: " + text);
+            //console.log("text: " + text);
             navigator.clipboard.writeText(text);
             const x = event.clientX,
                 y = event.clientY;
