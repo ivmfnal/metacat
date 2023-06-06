@@ -9,10 +9,10 @@ class QueryCommand(CLICommand):
 
     GNUStyle = False    
     Opts = (
-        "jism:N:pq:S:A:lPxrL:U:S:R:Q:", 
+        "jism:N:pq:S:A:lPxrL:U:S:R:Q:2", 
         ["line", "json", "ids", "summary", "metadata=", "namespace=", "pretty",
             "with-provenance", "save-as=", "add-to=", "explain", "include-retired-files",
-            "list=", "source=", "create=", "update=", "run="
+            "list=", "source=", "create=", "update=", "run=", "--1024"
         ]
     )
     Usage = """[<options>] (-q <MQL query file>|"<MQL query>")
@@ -23,6 +23,7 @@ class QueryCommand(CLICommand):
             -l|--line                           - print all metadata on single line (good for grepping, ignored with -j and -p)
             -i|--ids                            - print file ids instead of names
             -s|--summary                        - print only summary information
+                 -2|--1024                      - print sizes in summary in KiB, GiB, ... instead of powers of 1000 (KB, GB, ...)
             -m|--metadata [<field>,...]         - print metadata fields
                                                   overrides --summary
             -m|--metadata all                   - print all metadata fields
@@ -104,18 +105,20 @@ class QueryCommand(CLICommand):
                     nfiles += 1
                     total_size += f.get("size", 0)
                 print("Files:       ", nfiles)
-                if total_size >= 1024*1024*1024*1024:
-                    unit = "TB"
-                    n = total_size / (1024*1024*1024*1024)
-                elif total_size >= 1024*1024*1024:
-                    unit = "GB"
-                    n = total_size / (1024*1024*1024)
-                elif total_size >= 1024*1024:
-                    unit = "MB"
-                    n = total_size / (1024*1024)
-                elif total_size >= 1024:
-                    unit = "KB"
-                    n = total_size / 1024
+                K = 1024 if "-2" in opts else 1000
+                U = "iB" if "-2" in opts else "B"
+                if total_size >= K*K*K*K:
+                    unit = "T" + U
+                    n = total_size / (K*K*K*K)
+                elif total_size >= K*K*K:
+                    unit = "G" + U
+                    n = total_size / (K*K*K)
+                elif total_size >= K*K:
+                    unit = "M" + U
+                    n = total_size / (K*K)
+                elif total_size >= K:
+                    unit = "K" + U
+                    n = total_size / K
                 else:
                     unit = "B"
                     n = total_size
