@@ -28,7 +28,7 @@ class RootHandler(WPHandler):
         WPHandler.__init__(self, *params, **args)
         self.data = DataHandler(*params, **args)
         self.gui = GUIHandler(*params, **args)
-        self.static = WPStaticHandler(*params, root=self.App.StaticLocation)
+        self.static = WPStaticHandler(*params, root=self.App.StaticLocation, cache_ttl=3600)
         self.auth = GUIAuthHandler(*params, **args)
 
     def index(self, req, relpath, **args):
@@ -36,6 +36,15 @@ class RootHandler(WPHandler):
         
     def version(self, req, relpath, **args):
         return Version
+
+    def probe(self, req, relpath, **args):
+        try:    db = self.App.connect()
+        except Exception as e:
+            return 500, str(e)
+        c = db.cursor()
+        c.execute("select 1")
+        return "OK" if c.fetchone()[0] == 1 else 500
+
 
 def as_dt_utc(t):
     # datetim in UTC
