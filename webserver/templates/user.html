@@ -27,6 +27,7 @@
 				<input type="text" name="username" id="username" size="40"/>
 			{% else %}
 				<span>{{user.Username}}</span>&nbsp;<img class="copy_button" src="{{GLOBAL_AppTopPath}}/static/images/copy.png" onclick="copy(event)"/>
+                <input type="hidden" name="username" value="{{user.Username}}"/>
 			{% endif %}
 		</td>
 	</tr>
