@@ -30,9 +30,9 @@ class BaseApp(WPApp):
             self.UserDB = self.DB
             self.UserDBSchema = self.DBSchema
 
-        self.Realm = None
-        self.Group = None
-        self.AuthCore = None
+        auth_config = cfg.get("authentication", {})
+        self.Realm = auth_config.get("realm", "metacat")
+        self.AuthCore = AuthenticationCore(cfg)
         
     def connstr(self, cfg):
         cs = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s" % cfg
@@ -69,11 +69,7 @@ class BaseApp(WPApp):
         return self.auth_core(group).auth_config(method)
 
     # overridable
-    def auth_core(self, group = None):
-        if group is None:
-            group = self.Realm
-        if group != self.Realm:
-            raise KeyError("Can not find authentication core for group %s" % (group,))
+    def auth_core(self, realm = None):
         return self.AuthCore
 
     def get_digest_password(self, realm, username):

@@ -8,7 +8,7 @@ from datetime import datetime
 from urllib.parse import quote_plus, unquote_plus
 from webpie import Response
 
-#print("auth_handler importing")
+print("auth_handler importing")
 
 class AuthHandler(BaseHandler):
     
@@ -57,7 +57,7 @@ class AuthHandler(BaseHandler):
 
     def auth(self, request, relpath, redirect=None, method="password", username=None, **args):
         status, extra = self.AuthCore.authenticate(method, username, request, redirect)
-        #print("AuthHandler.auth:", status, extra)
+        #print("AuthHandler.auth:", method, status, extra)
         if status == "continue":
             return extra
         elif status == "reject":

@@ -1,6 +1,6 @@
 import uuid, json, hashlib, re, time, io, traceback, base64
 from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty, validate_metadata, insert_sql
-from metacat.auth import BaseDBUser
+from metacat.auth import BaseDBUser, BaseDBRole as DBRole
 from metacat.common import MetaExpressionDNF
 from psycopg2 import IntegrityError
 from textwrap import dedent
@@ -1698,6 +1698,7 @@ class DBUser(BaseDBUser):
     def remove_role(self, role):
         self.roles.remove(role.Name if isinstance(role, DBRole) else role)
 
+
 class DBNamespace(DBObject):
 
     Columns = "name,owner_user,owner_role,description,creator,created_timestamp,file_count".split(",")
@@ -1844,83 +1845,4 @@ class DBNamespace(DBObject):
         tup = c.fetchone()
         if not tup: return 0
         else:       return tup[0]
-
-class DBRole(object):
-
-    def __init__(self, db, name, description=None, users=[]):
-        self.Name = name
-        self.Description = description
-        self.DB = db
-            
-    def __str__(self):
-        return "[DBRole %s %s]" % (self.Name, self.Description)
-        
-    __repr__ = __str__
-
-    @property
-    def members(self):
-        return _DBManyToMany(self.DB, "users_roles", "username", role_name=self.Name)
-        
-    def save(self, do_commit=True):
-        c = self.DB.cursor()
-        c.execute("""
-            insert into roles(name, description) values(%s, %s)
-                on conflict(name) 
-                    do update set description=%s
-            """,
-            (self.Name, self.Description, self.Description))
-        if do_commit:   c.execute("commit")
-        return self
-        
-    @staticmethod
-    def get(db, name):
-        c = db.cursor()
-        c.execute("""select r.description
-                        from roles r
-                        where r.name=%s
-        """, (name,))
-        tup = c.fetchone()
-        if not tup: return None
-        (desc,) = tup
-        return DBRole(db, name, desc)
-        
-    @staticmethod 
-    def list(db, user=None):
-        c = db.cursor()
-        if isinstance(user, DBUser):    user = user.Username
-        if user:
-            c.execute("""select r.name, r.description
-                        from roles r
-                            inner join users_roles ur on ur.role_name=r.name
-                    where ur.username = %s
-                    order by r.name
-            """, (user,))
-        else:
-            c.execute("""select r.name, r.description
-                            from roles r
-                            order by r.name""")
-        
-        out = [DBRole(db, name, description) for  name, description in fetch_generator(c)]
-        #print("DBRole.list:", out)
-        return out
-        
-    def add_member(self, user):
-        self.members.add(user)
-        return self
-        
-    def remove_member(self, user):
-        self.members.remove(user)
-        return self
-        
-    def set_members(self, users):
-        self.members.set(users)
-        return self
-        
-    def __contains__(self, user):
-        if isinstance(user, DBUser):
-            user = user.Username
-        return user in self.members
-        
-    def __iter__(self):
-        return self.members.__iter__()
 

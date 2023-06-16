@@ -48,6 +48,7 @@ if __name__ == "__main__":
         
     application = create_application(config_file)
     
+    print(f"Starting server on port {port}")
     server = HTTPServer(port, application, certfile=cert, keyfile=key, verify="optional", ca_file=ca_file)
     server.run()
 else:
