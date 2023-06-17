@@ -14,21 +14,14 @@ class BaseApp(WPApp):
     def __init__(self, cfg, root_handler, **args):
         WPApp.__init__(self, root_handler, **args)
         self.Cfg = cfg
-
-        self.DB = self.DBSchema = None
-        if "database" in cfg:
-            db_config = cfg["database"]
-            connstr = self.connstr(db_config)
-            self.DB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=20)
-            self.DBSchema = db_config.get("schema")
+        
+        db_config = cfg["database"]
+        self.DB = ConnectionPool(postgres=db_config, max_idle_connections=1, idle_timeout=5)
 
         if "user_database" in cfg:
-            connstr = self.connstr(cfg["user_database"])
-            self.UserDB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=20)
-            self.UserDBSchema = cfg["user_database"].get("schema")
-        elif self.DB is not None:
+            self.UserDB = ConnectionPool(postgres=cfg["user_database"], max_idle_connections=1, idle_timeout=5)
+        else:
             self.UserDB = self.DB
-            self.UserDBSchema = self.DBSchema
 
         auth_config = cfg.get("authentication", {})
         self.Realm = auth_config.get("realm", "metacat")
@@ -50,20 +43,12 @@ class BaseApp(WPApp):
         return self.AuthCore
 
     def connect(self):
-        conn = self.DB.connect()
-        #print("conn: %x" % (id(conn),), "   idle connections:", ",".join("%x" % (id(c),) for c in self.DB.IdleConnections))
-        if self.DBSchema:
-            conn.cursor().execute(f"set search_path to {self.DBSchema}")
-        return conn
+        return self.DB.connect()
         
     db = connect        # for compatibility
     
-    def user_db(self, group=None):
-        # group is ignored, can be used by a subclass
-        conn = self.UserDB.connect()
-        if self.UserDBSchema:
-            conn.cursor().execute(f"set search_path to {self.UserDBSchema}")
-        return conn
+    def user_db(self):
+        return self.UserDB.connect()
         
     def auth_config(self, method, group=None):
         return self.auth_core(group).auth_config(method)
