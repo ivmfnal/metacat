@@ -15,17 +15,12 @@ class BaseApp(WPApp):
         self.Cfg = cfg
         
         db_config = cfg["database"]
-        connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % db_config
-        self.DB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=5)
-        self.DBSchema = db_config.get("schema")
+        self.DB = ConnectionPool(postgres=db_config, max_idle_connections=1, idle_timeout=5)
 
         if "user_database" in cfg:
-            connstr = "host=%(host)s port=%(port)s dbname=%(dbname)s user=%(user)s password=%(password)s" % cfg["user_database"]
-            self.UserDB = ConnectionPool(postgres=connstr, max_idle_connections=1, idle_timeout=5)
-            self.UserDBSchema = cfg["user_database"].get("schema")
+            self.UserDB = ConnectionPool(postgres=cfg["user_database"], max_idle_connections=1, idle_timeout=5)
         else:
             self.UserDB = self.DB
-            self.UserDBSchema = self.DBSchema
 
         self.AuthConfig = cfg.get("authentication")
         self.Realm = self.AuthConfig.get("realm", "metacat")           # realm used by the rfc2617 authentication
@@ -48,19 +43,12 @@ class BaseApp(WPApp):
         return self.AuthConfig.get(method)
                 
     def connect(self):
-        conn = self.DB.connect()
-        #print("conn: %x" % (id(conn),), "   idle connections:", ",".join("%x" % (id(c),) for c in self.DB.IdleConnections))
-        if self.DBSchema:
-            conn.cursor().execute(f"set search_path to {self.DBSchema}")
-        return conn
+        return self.DB.connect()
         
     db = connect        # for compatibility
     
     def user_db(self):
-        conn = self.UserDB.connect()
-        if self.UserDBSchema:
-            conn.cursor().execute(f"set search_path to {self.UserDBSchema}")
-        return conn
+        return self.UserDB.connect()
         
     def get_digest_password(self, realm, username):
         db = self.connect()
