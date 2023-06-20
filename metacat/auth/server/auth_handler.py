@@ -114,7 +114,7 @@ class GUIAuthHandler(AuthHandler):
             relogin_url += "?"
         token = None
         
-        db = self.App.user_db(self.Group)
+        db = self.App.user_db()
         if token_text:
             token, error = self.AuthCore.verify_token(token_text)
             subject = token and token.subject
