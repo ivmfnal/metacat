@@ -51,6 +51,9 @@ Dataset
 In MetaCat, *Dataset* is a relatively static collection of files. "Relatively static" means that files are added to and removed from
 a dataset explicitly. There is no such thing as a "dynamic" dataset, which automatically contains files matching certain criteria.
 
+A dataset can be set to *monotonic* or *frozen*. If the dataset is frozen, no files can be added to or removed from it.
+If the dataset is monotonic, files only can be added to it, but not removed. The dataset owner can change these flags at any time.
+
 A file can be added to multiple datasets.
 
 Like file, dataset metadata has *attributes* and flexible *metadata*.
@@ -65,7 +68,6 @@ Dataset attributes are:
 * Creation time
 * Zero or more children datasets
 * Flags: *monotonic* and *frozen*
-
 
 Dataset metadata restrictions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
