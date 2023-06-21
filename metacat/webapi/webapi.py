@@ -722,8 +722,13 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         out = self.post_json(url, lst)
         return out
         
-    def update_file_attributes(self, did=None, namespace=None, name=None, fid=None,
-                size=None, checksums=None, parents=None, children=None):
+    def update_file(self, did=None, namespace=None, name=None, fid=None,
+                size=None, 
+                checksums=None, checksums_mode="update",
+                parents=None, parents_mode="add",
+                children=None, children_mode="add",
+                metadata=None, metadata_mode="update"
+        ):
         """
         Arguments
         ---------
@@ -739,10 +744,24 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             file size, optional
         checksums : dict
             checksum values, optional
+        checksums_mode : str
+            either "update" (keep old values, add new values, replace existing values) or
+            "replace" (discard old checksums values and replace with the new dictionary)
         parents : list
             list of parent file ids, optional
+        parents_mode : str
+            either "add" (keep old parents, add new parents) or
+            "replace" (discard old parents list and replace with the new list)
         children : list
             list of child file ids, optional
+        children_mode : str
+            either "add" (keep old children, add new children) or
+            "replace" (discard old children list and replace with the new list)
+        metadata : dict
+            dictionary with metadata to update or replace
+        metadata_mode : str
+            either "update" (add new values, replace existing values, keep old values) or
+            "replace" (discard old metadata and replace with the new dictionary)
 
         Returns
         -------
@@ -759,23 +778,39 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             assert namespace and name
             data["namespace"] = namespace
             data["name"] = name
+            
         if size is not None:
             assert isinstance(size, int) and size >= 0
             data["size"] = size
+            
         if checksums is not None:
             assert isinstance(checksums, dict)
+            assert checksums_mode in ("update", "replace")
             data["checksums"] = checksums
+            data["checksums_mode"] = checksums_mode
+            
         if parents is not None:
             assert isinstance(parents, list)
+            assert parents_mode in ("add", "replace")
             data["parents"] = parents
+            data["parents_mode"] = parents_mode
+            
         if children is not None:
             assert isinstance(children, list)
+            assert children_mode in ("add", "replace")
             data["children"] = children
+            data["children_mode"] = children_mode
+            
+        if metadata is not None:
+            assert isinstance(metadata, dict)
+            assert metadata_mode in ("update", "replace")
+            data["metadata"] = metadata
+            data["metadata_mode"] = metadata_mode
 
-        return self.post_json("data/update_file_attributes", data)
+        return self.post_json("data/update_file", data)
 
     def delete_file(self, did=None, namespace=None, name=None, fid=None):
-        """Delete an existing file
+        """Delete an existing file. The file will be removed from all datasets and the database and its name and file id can be reused.
         
         Arguments
         ---------
@@ -799,11 +834,13 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             assert namespace and name
             data["namespace"] = namespace
             data["name"] = name
-        #print("API.retire: sending:", data)
+        #print("API.delete: sending:", data)
         return self.post_json("data/delete_file", data)
 
     def update_file_meta(self, metadata, files=None, names=None, fids=None, namespace=None, dids=None, mode="update"):
         """Updates metadata for existing files. Requires client authentication.
+        
+        **DEPRECATED** *update_file() should be used instead*
         
         Arguments
         ---------

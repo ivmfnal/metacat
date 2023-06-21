@@ -783,6 +783,120 @@ class DataHandler(MetaCatHandler):
             DBFile.update_many(db, file_set, do_commit=True)
 
         return json.dumps(out), "application/json"
+
+    @sanitized
+    def delete_file(self, request, relpath, **args):
+        # mode can be "update" - add/pdate metadata with new values
+        #             "replace" - discard old metadata and update with new values
+        # 
+        # Update existing file information
+        #
+        user, error = self.authenticated_user()
+        if user is None:
+            return "Authentication required", 403
+        db = self.App.connect()
+        #print("request.body:", request.body)
+        data = json.loads(request.body)
+        if not isinstance(data, dict):
+            return 400, "Unsupported request data format"
+
+        data = json.loads(request.body)
+        
+        spec = ObjectSpec.from_dict(data)
+
+        if spec.FID:
+            self.sanitize(fid = spec.FID)
+            f = DBFile.get(db, fid=spec.FID, with_metadata=True)
+        else:
+            self.sanitize(namespace=spec.Namespace, name=spec.Name)
+            f = DBFile.get(db, namespace=spec.Namespace, name=spec.Name, with_metadata=True)
+        if f is None:
+            return 404, "File not found"
+
+        if not self._namespace_authorized(db, f.Namespace, user):
+            return 403, "Not authtorized"
+            
+        f.delete()
+        return '{"fid":"%s"}' % (f.FID,)
+
+
+    @sanitized
+    def update_file(self, request, relpath, **args):
+        # mode can be "update" - add/pdate metadata with new values
+        #             "replace" - discard old metadata and update with new values
+        # 
+        # Update existing file information
+        #
+        user, error = self.authenticated_user()
+        if user is None:
+            return "Authentication required", 403
+        db = self.App.connect()
+        data = json.loads(request.body)
+        if not isinstance(data, dict):
+            return 400, "Unsupported request data format"
+
+        data = json.loads(request.body)
+        
+        spec = ObjectSpec.from_dict(data)
+
+        if spec.FID:
+            self.sanitize(fid = spec.FID)
+            f = DBFile.get(db, fid=spec.FID, with_metadata=True)
+        else:
+            self.sanitize(namespace=spec.Namespace, name=spec.Name)
+            f = DBFile.get(db, namespace=spec.Namespace, name=spec.Name, with_metadata=True)
+
+        if not f:
+            return 404, "File not found"
+        
+        if not self._namespace_authorized(db, f.Namespace, user):
+            return 403, "Not authtorized"
+
+        new_metadata = f.Metadata.copy()
+        if "metadata" in data:
+            if data.get("metadata_mode", "update") == "update":
+                new_metadata.update(data["metadata"])
+            else:
+                new_metadata = data["metadata"]
+
+            # validate new metadata against file datasets
+            errors = []
+            for ds_ns, ds_n in f.datasets:
+                ds = DBDataset(db, ds_ns, ds_n)
+                if ds is None:
+                    return 500, f"Can not load dataset {ds_ns}:{ds_n}"
+                errors += ds.validate_file_metadata(new_metadata)
+            if errors:
+                return json.dumps({
+                    "message":"Metadata validation errors",
+                    "metadata_errors":errors
+                }), METADATA_ERROR_CODE, "application/json"
+            f.Metadata = new_metadata
+
+        if "checksums" in data:
+            new_checksums = (f.Checksums or {}).copy()
+            if data.get("checksums_mode", "update") == "update":
+                new_checksums.update(data["checksums"])
+            else:
+                new_checksums = data["checksums"]
+            f.Checksums = new_checksums
+
+        if "parents" in data:
+            if data.get("parents_mode", "add") == "add":
+                f.add_parents(data["parents"])
+            else:
+                f.set_parents(data["parents"])
+
+        if "children" in data:
+            if data.get("children_mode", "add") == "add":
+                f.add_children(data["children"])
+            else:
+                f.set_children(data["children"])
+        
+        f.Size = data.get("size", f.Size) or 0
+
+        f.update(user)
+        return f.to_json(with_metadata=True, with_provenance=True), "application/json"
                 
     @sanitized
     def update_file_meta(self, request, relpath, **args):

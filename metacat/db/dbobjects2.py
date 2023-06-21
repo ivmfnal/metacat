@@ -483,6 +483,22 @@ class DBFile(object):
             return ','.join(f"{alias}.{c}" for c in DBFile.AttrColumnNames)
         else:
             return ','.join(DBFile.AttrColumnNames)
+            
+    def delete(self, do_commit=True):
+        # delete the file from the DB
+        c = self.DB.cursor()
+        try:
+            c.execute("""
+                delete from parent_child where parent_id = %s;
+                delete from parent_child where child_id = %s;
+                delete from files_datasets where file_id = %s;
+                delete from files where id = %s;
+            """, (self.FID, self.FID, self.FID, self.FID))
+            if do_commit:
+                c.execute("commit")
+        except:
+            c.execute("rollback")
+            raise
 
     def create(self, creator=None, do_commit = True):
         from psycopg2 import IntegrityError
@@ -554,13 +570,15 @@ class DBFile(object):
 
         
     def update(self, user, do_commit = True):
+        if isinstance(user, DBUser):
+            user = user.Username
         from psycopg2 import IntegrityError
         c = self.DB.cursor()
         meta = json.dumps(self.Metadata or {})
         checksums = json.dumps(self.Checksums or {})
         try:
             c.execute("""
-                update files set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s 
+                update files set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s,
                     updated_by=%s, updated_timestamp = now()
                     where id = %s
                 """, (self.Namespace, self.Name, meta, self.Size, checksums, user,
@@ -864,22 +882,46 @@ class DBFile(object):
         c = self.DB.cursor()
         c.executemany(f"""
             insert into parent_child(parent_id, child_id)
-                values(%s, '{self.FID}')        
+                values(%s, %s)        
                 on conflict(parent_id, child_id) do nothing;
-            """, parent_fids
+            """, [(fid, self.FID) for fid in parent_fids]
         )
         if do_commit:   c.execute("commit")
         
-    def set_parents(self, parents, do_commit=True):
-        parent_fids = [(p if isinstance(p, str) else p.FID,) for p in parents]
+    def add_children(self, children, do_commit=True):
+        child_fids = [(p if isinstance(p, str) else p.FID,) for p in children]
         c = self.DB.cursor()
-        #print("set_parents: fids:", parent_fids)
-        c.execute(f"delete from parent_child where child_id='{self.FID}'")
         c.executemany(f"""
             insert into parent_child(parent_id, child_id)
-                values(%s, '{self.FID}')        
+                values(%s, %s)
                 on conflict(parent_id, child_id) do nothing;
-            """, parent_fids
+            """, [(self.FID, fid) for fid in child_fids]
+        )
+        if do_commit:   c.execute("commit")
+        
+    def set_parents(self, fids_or_files, do_commit=True):
+        parent_fids = [(p if isinstance(p, str) else p.FID,) for p in fids_or_files]
+        c = self.DB.cursor()
+        #print("set_parents: fids:", parent_fids)
+        c.execute(f"delete from parent_child where child_id=%s", (self.FID,))
+        c.executemany(f"""
+            insert into parent_child(parent_id, child_id)
+                values(%s, %s)        
+                on conflict(parent_id, child_id) do nothing;
+            """, [(fid, self.FID) for fid in parent_fids]
+        )
+        if do_commit:   c.execute("commit")
+        
+    def set_children(self, fids_or_files, do_commit=True):
+        child_fids = [(p if isinstance(p, str) else p.FID,) for p in fids_or_files]
+        c = self.DB.cursor()
+        #print("set_parents: fids:", parent_fids)
+        c.execute("delete from parent_child where parent_id=%s", (self.FID,))
+        c.executemany(f"""
+            insert into parent_child(parent_id, child_id)
+                values(%s, %s)        
+                on conflict(parent_id, child_id) do nothing;
+            """, [(self.FID, fid) for fid in child_fids]
         )
         if do_commit:   c.execute("commit")
         
