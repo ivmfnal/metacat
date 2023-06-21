@@ -438,16 +438,24 @@ then decalre the file specifying file attributes as part of the command line:
 .. code-block:: shell
 
       $ metacat file declare [options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset name>
-          -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
-          -j|--json                           - print results as JSON
-          -s|--size <size>                    - file size
-          -c|--checksums <type>:<value>[,...] - checksums
-          -N|--namespace <default namespace>
-          -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
-                                                if the item contains colon ':', it is interpreted as DID
-          -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
-          -a|--auto-name [[<namespace>:]<auto-name pattern>]   - generate file name automatically
-          -v|--verbose                        - verbose output
+
+            -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
+            -N|--namespace <default namespace>
+            -f|--file-description <JSON file>   - JSON file with description, including file attributes and metadata
+
+            The following options can be used to override the values coming from the file description (-f)
+            
+            -s|--size <size>                    - file size
+            -c|--checksums <type>:<value>[,...] - checksums
+            -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
+                                                  if the item contains colon ':', it is interpreted as DID
+            -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
+            -a|--auto-name [[<namespace>:]<pattern>]   - generate file name automatically
+
+            -j|--json                           - print results as JSON
+            -v|--verbose                        - verbose output
+
+            --sample                            - print JSON file description sample
 
 An alternative way to declare a file is to create a JSON *file description* - a file metadata *and* file attributes like this:
 
