@@ -423,7 +423,9 @@ For example, the pattern ``file_$uuid8_$clock6.dat`` may generate file name like
 Declare single file
 ~~~~~~~~~~~~~~~~~~~
 
-Create JSON file with file metadata, *without* any file attributes such as namespace, name, size, etc. e.g.:
+When declaring a new file, the file has to be added to an existing dataset.
+
+To declare a file, create a JSON file with file metadata, *without* any file attributes such as namespace, name, size, etc. e.g.:
 
 .. code-block:: json
 
@@ -433,29 +435,14 @@ Create JSON file with file metadata, *without* any file attributes such as names
         "processing.version": "1.3.5"
     }
 
-then decalre the file specifying file attributes as part of the command line:
+then decalre the file specifying file attributes and the metadata as part of the command line:
 
 .. code-block:: shell
 
-      $ metacat file declare [options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset name>
-
-            -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
-            -N|--namespace <default namespace>
-            -f|--file-description <JSON file>   - JSON file with description, including file attributes and metadata
-
-            The following options can be used to override the values coming from the file description (-f)
-            
-            -s|--size <size>                    - file size
-            -c|--checksums <type>:<value>[,...] - checksums
-            -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
-                                                  if the item contains colon ':', it is interpreted as DID
-            -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
-            -a|--auto-name [[<namespace>:]<pattern>]   - generate file name automatically
-
-            -j|--json                           - print results as JSON
-            -v|--verbose                        - verbose output
-
-            --sample                            - print JSON file description sample
+      $ metacat file declare -m metadata.json \
+          --size 2048 \                             
+          test:file_123_test.data \                 # file namespace, name
+          test:dataset_a                            # dataset namespace, name
 
 An alternative way to declare a file is to create a JSON *file description* - a file metadata *and* file attributes like this:
 
@@ -533,6 +520,32 @@ those attributes specified, e.g:
       $ metacat file declare -f my_file.json \
           --size 2048 \                             # file size will be set to 2048 instead of 1024
           test:dataset_a                            # file namespace/name will be taken from the file description
+
+
+Complete set of options for this command is:
+
+.. code-block:: shell
+
+      $ metacat file declare [options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset name>
+
+            -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
+            -N|--namespace <default namespace>
+            -f|--file-description <JSON file>   - JSON file with description, including file attributes and metadata
+
+            The following options can be used to override the values coming from the file description (-f)
+            
+            -s|--size <size>                    - file size
+            -c|--checksums <type>:<value>[,...] - checksums
+            -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
+                                                  if the item contains colon ':', it is interpreted as DID
+            -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
+            -a|--auto-name [[<namespace>:]<pattern>]   - generate file name automatically
+
+            -j|--json                           - print results as JSON
+            -v|--verbose                        - verbose output
+
+            --sample                            - print JSON file description sample
+
 
 Declare multiple files
 ~~~~~~~~~~~~~~~~~~~~~~
