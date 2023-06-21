@@ -8,8 +8,6 @@ from datetime import datetime
 from urllib.parse import quote_plus, unquote_plus
 from webpie import Response
 
-print("auth_handler importing")
-
 class AuthHandler(BaseHandler):
     
     def __init__(self, request, app, group=None):

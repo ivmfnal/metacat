@@ -237,8 +237,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         """Initializes the MetaCatClient object
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         server_url : str
             The server endpoint URL, defult = from METACAT_SERVER_URL environment variable 
         auth_server_url : str
@@ -302,8 +302,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         """Gets the list of datasets with namespace/name matching the templates. The templates are
         Python ``fnmatch`` module style templates where ``'*'`` matches any substring and ``'?'`` matches a single character.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         namespace_pattern : str
         name_pattern : str
         with_file_counts : boolean
@@ -341,8 +341,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def get_dataset_counts(self, did=None, namespace=None, name=None):
         """Gets single dataset files, subsets, supersets, etc. counts
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         did : str - "namespace:name"
         namespace : str
         name : str
@@ -365,8 +365,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def get_dataset(self, did=None, namespace=None, name=None, exact_file_count=False):
         """Gets single dataset
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         did : str - "namespace:name"
         namespace : str
         name : str
@@ -390,8 +390,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def get_dataset_files(self, did, namespace=None, name=None, with_metadata=False, include_retired_files=False):
         """Gets single dataset
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         did : str - "namespace:name"
         namespace : str
         name : str
@@ -419,8 +419,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         """Creates new dataset. Requires client authentication.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         did : str
             "namespace:name"
         frozen : bool
@@ -460,8 +460,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def add_child_dataset(self, parent_spec, child_spec):
         """Adds a child dataset to a dataset.
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         parent_spec : str
             Parent namespace, name ("namespace:name")
         child_spec : str
@@ -473,8 +473,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def add_files(self, dataset, file_list=None, namespace=None, query=None):
         """Add existing files to an existing dataset. Requires client authentication.
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         dataset : str
             "namespace:name" or "name", if namespace argument is given
         query : str
@@ -547,8 +547,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                      dry_run=False):
         """Declare new file and add it to the dataset. Requires client authentication.
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         did : str
             file "namespace:name"
         namespace : str
@@ -634,8 +634,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def declare_files(self, dataset, files, namespace=None, dry_run=False):
         """Declare new files and add them to an existing dataset. Requires client authentication.
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         dataset : str
             "namespace:name"
         files : list or dict
@@ -724,12 +724,101 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         if dry_run: url += "&dry_run=yes"
         out = self.post_json(url, lst)
         return out
+        
+    def update_file(self, did=None, namespace=None, name=None, fid=None,
+                size=None, 
+                checksums=None, checksums_mode="update",
+                parents=None, parents_mode="add",
+                children=None, children_mode="add",
+                metadata=None, metadata_mode="update"
+        ):
+        """
+        Arguments
+        ---------
+        did : str
+            file "namespace:name"
+        fid : str
+            file id
+        namespace : str
+            file namespace
+        name : str
+            file name
+        size : int >= 0
+            file size, optional
+        checksums : dict
+            checksum values, optional
+        checksums_mode : str
+            either "update" (keep old values, add new values, replace existing values) or
+            "replace" (discard old checksums values and replace with the new dictionary)
+        parents : list
+            list of parent file ids, optional
+        parents_mode : str
+            either "add" (keep old parents, add new parents) or
+            "replace" (discard old parents list and replace with the new list)
+        children : list
+            list of child file ids, optional
+        children_mode : str
+            either "add" (keep old children, add new children) or
+            "replace" (discard old children list and replace with the new list)
+        metadata : dict
+            dictionary with metadata to update or replace
+        metadata_mode : str
+            either "update" (add new values, replace existing values, keep old values) or
+            "replace" (discard old metadata and replace with the new dictionary)
+
+        Returns
+        -------
+        dict
+            Dictionary with updated file information
+        """
+
+        data = {}
+        if fid:
+            data["fid"] = fid
+        else:
+            if did:
+                namespace, name = did.split(':', 1)
+            assert namespace and name
+            data["namespace"] = namespace
+            data["name"] = name
+            
+        if size is not None:
+            assert isinstance(size, int) and size >= 0
+            data["size"] = size
+            
+        if checksums is not None:
+            assert isinstance(checksums, dict)
+            assert checksums_mode in ("update", "replace")
+            data["checksums"] = checksums
+            data["checksums_mode"] = checksums_mode
+            
+        if parents is not None:
+            assert isinstance(parents, list)
+            assert parents_mode in ("add", "replace")
+            data["parents"] = parents
+            data["parents_mode"] = parents_mode
+            
+        if children is not None:
+            assert isinstance(children, list)
+            assert children_mode in ("add", "replace")
+            data["children"] = children
+            data["children_mode"] = children_mode
+            
+        if metadata is not None:
+            assert isinstance(metadata, dict)
+            assert metadata_mode in ("update", "replace")
+            data["metadata"] = metadata
+            data["metadata_mode"] = metadata_mode
+
+        return self.post_json("data/update_file", data)
 
     def update_file_meta(self, metadata, files=None, names=None, fids=None, namespace=None, dids=None, mode="update"):
         """Updates metadata for existing files. Requires client authentication.
         
-        Parameters
-        ----------
+        **DEPRECATED** *update_file() should be used instead*
+        
+        Arguments
+        ---------
         metadata : dict
             see Notes
         files : list of dicts
@@ -804,11 +893,42 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         return out
 
-    def retire_file(self, did=None, namespace=None, name=None, fid=None, retire=True):
-        """Modify retired status of the file
+    def delete_file(self, did=None, namespace=None, name=None, fid=None):
+        """Delete an existing file. The file will be removed from all datasets and the database and its name and file id can be reused.
         
-        Parameters
-        ----------
+        Arguments
+        ---------
+        did : str
+            file "namespace:name"
+        fid : str
+            file id
+        namespace : str
+            file namespace
+        name : str
+            file name
+        retire : bool
+            whether the file should be retired
+        """
+        data = {}
+        if fid:
+            data["fid"] = fid
+        else:
+            if did:
+                namespace, name = did.split(':', 1)
+            assert namespace and name
+            data["namespace"] = namespace
+            data["name"] = name
+        #print("API.delete: sending:", data)
+        return self.post_json("data/delete_file", data)
+
+    def retire_file(self, did=None, namespace=None, name=None, fid=None, retire=True):
+        """Modify retired status of the file. Retured file remains in the database, "occupies" the name in the namespace, but
+        id not visible to normal queries. Retired file can be brought back to normal using this method too.
+        
+        If you need to completely remove the file, use `delete_file` method.
+        
+        Arguments
+        ---------
         did : str
             file "namespace:name"
         fid : str
@@ -842,8 +962,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def update_dataset(self, dataset, metadata=None, mode="update", frozen=None, monotonic=None, description=None):   
         """Update dataset. Requires client authentication.
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         dataset : str
            "namespace:name"
         metadata : dict or None
@@ -878,8 +998,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def get_files(self, lookup_list, with_metadata = True, with_provenance=True):
         """Get many file records
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         lookup_list : list
             List of dictionaries, one dictionary per file. Each dictionary must have either
                 "did":"namespace:name", or
@@ -922,8 +1042,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def get_file(self, name=None, namespace=None, fid=None, did=None, with_metadata = True, with_provenance=True, with_datasets=False):
         """Get one file record
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         fid : str, optional
             File id
         name : str, optional
@@ -993,8 +1113,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
                         include_retired_files=False):
         """Run file query. Requires client authentication if save_as or add_to are used.
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         query : str
             Query in MQL
         namespace : str
@@ -1036,8 +1156,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def async_query(self, query, data=None, **args):
         """Run the query asynchronously. Requires client authentication if save_as or add_to are used.
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         query : str
             Query in MQL
         data : anything
@@ -1065,8 +1185,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def create_namespace(self, name, owner_role=None, description=None):
         """Creates new namespace. Requires client authentication.
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         name : str
             Namespace name
         owner_role : str
@@ -1092,8 +1212,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def get_namespace(self, name):
         """Get information about a snamespace
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         name : str
             Namespace name
 
@@ -1111,8 +1231,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def get_namespaces(self, names):
         """Get information for multiple namespaces
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         names : list of str
             Namespace names
 
@@ -1127,8 +1247,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def list_namespaces(self, pattern=None, owner_user=None, owner_role=None, directly=False):
         """List namespaces
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         pattern : str
             Optional fnmatch style pattern to filter namespaces by name
         owner_user : str
@@ -1167,8 +1287,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def list_categories(self, root=None):
         """List namespaces
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         root : str
             Optional, if present, list only categories under the root
 
@@ -1201,8 +1321,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def get_named_query(self, namespace, name):
         """Get named query
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         namespace : str
         name : str
         
@@ -1219,8 +1339,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def list_named_queries(self, namespace=None):
         """Get multiple named queries
         
-        Parameters
-        ----------
+        Arguments
+        ---------
         namespace : str
             optional, if specified the list will include all named queries in the namespace. Orherwise all named queries will be returned
         
