@@ -121,8 +121,11 @@ class DeclareSingleCommand(CLICommand):
     Usage = """[options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset name>
     Declare signle file:
         declare [options] [[<file namespace>:]<filename>] [<dataset namespace>:]<dataset name>
-            -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
-            -j|--json                           - print results as JSON
+
+            -f|--file-description <JSON file>   - JSON file with description, including file attributes and metadata
+
+            The following options can be used to override the values coming from the file description (-f)
+            
             -s|--size <size>                    - file size
             -c|--checksums <type>:<value>[,...] - checksums
             -N|--namespace <default namespace>
@@ -130,8 +133,11 @@ class DeclareSingleCommand(CLICommand):
                                                   if the item contains colon ':', it is interpreted as DID
             -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
             -a|--auto-name [[<namespace>:]<pattern>]   - generate file name automatically
-            -f|--file-description <JSON file>   - JSON file with description, including file attributes and metadata
+
+            -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
+            -j|--json                           - print results as JSON
             -v|--verbose                        - verbose output
+
             --sample                            - print JSON file description sample
             
         Note that file attributes from command line override those from JSON file description. 
@@ -161,8 +167,8 @@ class DeclareSingleCommand(CLICommand):
             file_description = json.load(open(file_description, "r"))
         else:
             file_description = {}
-
-        size = int(opts.get("-s", opts.get("--size", 0)))
+        
+        size = int(opts.get("-s", opts.get("--size", 0))) or file_description.get("size", 0)
         if size < 0:
             raise InvalidArguments("File size must be non-negative integer")
         file_description["size"] = size
