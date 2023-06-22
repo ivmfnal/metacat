@@ -5,6 +5,7 @@
 from metacat.auth.server import BaseApp, AuthHandler
 from metacat.auth.auth_core import AuthenticationCore
 from webpie import Response, WPApp, WPHandler
+from metacat.util import to_str
 
 import time, os, yaml, os.path
 from urllib.parse import quote_plus, unquote_plus

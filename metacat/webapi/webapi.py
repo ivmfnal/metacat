@@ -1,8 +1,7 @@
 import requests, json, fnmatch, sys, os, random, time
 from metacat.util import to_str, to_bytes, ObjectSpec
-from metacat.common import SignedToken, TokenLib
+from metacat.common import SignedToken, TokenLib, TokenAuthClientMixin, AuthenticationError
 from urllib.parse import quote_plus, unquote_plus
-from metacat.auth import TokenAuthClientMixin, AuthenticationError
 
 INVALID_METADATA_ERROR_CODE = 488
 

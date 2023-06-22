@@ -1,4 +1,4 @@
-import re, hashlib, base64, time, secrets
+import re, hashlib, base64, time, secrets, requests
 
 def digest_client(url, username, password):
     from requests.auth import HTTPDigestAuth

@@ -8,3 +8,4 @@ from .signed_token_jwt import SignedToken, SignedTokenExpiredError, SignedTokenI
 from .token_lib import TokenLib
 from .dbbase import DBObject, DBManyToMany
 from .password_hash import password_hash, PasswordHashAlgorithm, password_digest_hash
+from .auth_client import TokenAuthClientMixin, AuthenticationError

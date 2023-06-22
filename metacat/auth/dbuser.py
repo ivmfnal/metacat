@@ -138,10 +138,10 @@ class BaseDBUser(DBObject):
         return DBManyToMany(self.DB, "users_roles", "role_name", username = self.Username)
         
     def add_role(self, role):
-        self.roles.add(role.Name if isinstance(role, DBRole) else role)
+        self.roles.add(role.Name if isinstance(role, BaseDBRole) else role)
 
     def remove_role(self, role):
-        self.roles.remove(role.Name if isinstance(role, DBRole) else role)
+        self.roles.remove(role.Name if isinstance(role, BaseDBRole) else role)
 
 
 class BaseDBRole(object):
