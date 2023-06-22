@@ -1,4 +1,5 @@
 from metacat.common import DBObject
+from metacat.db import DBRole, DBUser
 import json
 from metacat.util import epoch, validate_metadata, fetch_generator
 

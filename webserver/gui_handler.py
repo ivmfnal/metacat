@@ -203,9 +203,9 @@ class GUICategoryHandler(MetaCatHandler):
         cat = DBParamCategory.get(db, path)
         if cat is None:
             self.redirect("./index?error=%s" % (quote_plus(f"Category does not exist"),))
-        if not (me.is_admin() or me in cat.Owner):
+        if not (me.is_admin() or me in cat.owners()):
             self.redirect("./show?path=%s&error=%s" % (path, quote_plus(f"Permission denied"),))
-        defs = cat.definitions
+        defs = cat.Definitions
         
 class GUIHandler(MetaCatHandler):
     

@@ -1,3 +1,5 @@
+import json
+
 def to_bytes(x):
     if not isinstance(x, bytes):
         x = x.encode("utf-8")
@@ -7,10 +9,6 @@ def to_str(x):
     if isinstance(x, bytes):
         x = x.decode("utf-8")
     return x
-
-
-
-
 
 class MCError(Exception):
     pass
@@ -45,14 +43,16 @@ class WebAPIError(MCError):
     def json(self):
         return self.Data
 
-class ServerSideError(WebAPIError):
+"""old
+class _____ServerSideError(WebAPIError):
     Headline = "Server side application error"
 
     def __init__(self, url, status_code, type, value):
         message = type
         if value:
             message += ": " + value
-        HTTPError.__init__(self, url, status_code, message=message)
+        WebAPIError.__init__(self, url, status_code, message=message)
+"""
 
 class InvalidArgument(WebAPIError):
     Headline = "Invalid argument"

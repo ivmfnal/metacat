@@ -257,7 +257,7 @@ class DataHandler(MetaCatHandler):
         if files_query:
             query = MQLQuery.parse(files_query, default_namespace=namespace or None)
             if query.Type != "file":
-                return 400, f"Invalid file query: {file_query}"
+                return 400, f"Invalid file query: {files_query}"
             files = query.run(db, filters=self.App.filters(), with_meta=True, with_provenance=False)
 
         metadata = params.get("metadata") or {}
@@ -393,7 +393,7 @@ class DataHandler(MetaCatHandler):
             query = MQLQuery.parse(query_text)
             if query.Type != "file":
                 return 400, f"Invalid file query: {query_text}"
-            files = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False, default_namespace=namespace or None)
+            files = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False)
             files = list(files)
         elif file_list:
             files = []
@@ -726,7 +726,7 @@ class DataHandler(MetaCatHandler):
             file_sets.append(DBFileSet.from_namespace_name_specs(db, names))
 
         if file_sets:
-            file_set = list(DBFileSet.union(file_sets))
+            file_set = list(DBFileSet.union(db, file_sets))
             files_datasets = DBDataset.datasets_for_files(db, file_set)
             
             #
@@ -734,7 +734,7 @@ class DataHandler(MetaCatHandler):
             #
             all_datasets = {(ds.Namespace, ds.Name): ds for ds in files_datasets.values()}
             for ds in all_datasets.values():
-                errors = ds.validate_file_metadata(meta)
+                errors = ds.validate_file_metadata(new_meta)
                 if errors:
                     metadata_errors += errors
 

@@ -97,7 +97,7 @@ class DBFileSet(DBObject):
     def from_namespace_name_specs(db, specs, default_namespace=None):
         # specs: list of dicts {"name":..., "namespace":...} - namespace is optional
         specs = [(s.get("namespace", default_namespace), s["name"]) for s in specs]
-        assert all(s["namespace"] for s in specs), "Incomplete file specification: " + s["name"]
+        assert all(s["namespace"] for s in specs), "Incomplete file specification:"
         just_names = set(name for ns, name in specs)
         dids = set("%s:%s" % t for t in specs)
         c = db.cursor()
@@ -185,7 +185,7 @@ class DBFileSet(DBObject):
     
     def __add__(self, other):
         assert self.DB is other.DB
-        return DBFileSet.union([self, other])
+        return DBFileSet.union(self.DB, [self, other])
         
     @staticmethod
     def from_basic_query(db, basic_file_query, with_metadata, limit):
@@ -195,25 +195,28 @@ class DBFileSet(DBObject):
             limit = min(limit, basic_file_query.Limit)
             
         bdq = basic_file_query.DatasetSelector
+        assert bdq is not None
         datasets = None
         if bdq is not None:
             datasets = list(bdq.datasets(db))
             if not datasets:
                 return DBFileSet(db)      # empty File Set
 
-        if bdq is None:
-            return DBFileSet.all_files(db, dnf, with_metadata, limit)
+        #if bdq is None:
+        #    return DBFileSet.all_files(db, dnf, with_metadata, limit)
             
-        elif len(datasets) == 1:
+        if len(datasets) == 1:
             return datasets[0].list_files(with_metadata = with_metadata, condition=basic_file_query.Wheres, limit=limit,
                         relationship = basic_file_query.Relationship)
         else:
             return DBFileSet.union(
-                        ds.list_files(
-                            with_metadata = with_metadata, condition=basic_file_query.Wheres,
-                            relationship = basic_file_query.Relationship, limit=limit
+                db,
+                [   ds.list_files(
+                        with_metadata = with_metadata, condition=basic_file_query.Wheres,
+                        relationship = basic_file_query.Relationship, limit=limit
                         )
-                        for ds in datasets
+                    for ds in datasets
+                ]
             )
         
     @staticmethod
@@ -536,7 +539,7 @@ class DBFile(DBObject):
         parents_csv = []
         null = r"\N"
         for f in files:
-            f.FID = f.FID or self.generate_id()
+            f.FID = f.FID or DBFile.generate_id()
             files_csv.append("%s\t%s\t%s\t%s\t%s\t%s\t%s" % (
                 f.FID,
                 f.Namespace or null, 
@@ -1378,7 +1381,7 @@ class DBDataset(DBObject):
         #print("list_datasets: with_children:", with_children)
         specs = set(f"{namespace}:{name}" for namespace, name in datasets)
         if with_children:
-            specs = subsets_rec(c, specs, set(), level=None if recursively else 0)
+            specs = subsets_rec(c, specs, set(), level=None if recursively else 0)              # FIXME
         return DBDataset.get_many(db, [spec.split(":",1) for spec in specs])    
 
     @staticmethod
@@ -1386,11 +1389,11 @@ class DBDataset(DBObject):
         #print("datasets_for_bdq: bdq:", bdq)
         if not (bdq.Namespace and bdq.Name):
             name_or_pattern = bdq.Name
-            raise ValueError(f"Dataset specification error: {selector.Namespace}:{name_or_pattern}")
+            raise ValueError(f"Dataset specification error: {bdq.Namespace}:{name_or_pattern}")
         if bdq.is_explicit():
             out = [(bdq.Namespace, bdq.Name)]
         else:
-            sql = DBDataset.sql_for_basic_dataset_query(bdq)
+            sql = DBDataset.sql_for_bdq(bdq)
             debug("datasets_for_bdq: sql: " + sql)
             c = db.cursor()
             c.execute(sql)
@@ -1603,7 +1606,7 @@ class DBDataset(DBObject):
         dataset_map = {}       # { fid -> [DBDataset, ...]}
         datasets = {}       # {(ns,n) -> DBDataset}
         c = db.cursor()
-        ds_columns = self.columns("ds")
+        ds_columns = DBDataset.columns("ds")
         
         c.execute(f"""
             select distinct fd.file_id, {ds_columns}
@@ -1794,9 +1797,9 @@ class DBNamespace(DBObject):
     def get_many(db, names):
         #print("DBNamespace.get: name:", name)
         c = db.cursor()
-        columns = self.columns()
+        columns = DBNamespace.columns()
         c.execute(f"""select {columns}
-                from {self.Table} where name=any(%s)""", (list(names),))
+                from {DBNamespace.Table} where name=any(%s)""", (list(names),))
         return DBNamespace.from_tuples(db, fetch_generator(c))
 
     @staticmethod

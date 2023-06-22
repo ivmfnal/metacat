@@ -85,17 +85,13 @@ class MetaExpressionDNF(object):
 
         #print("MetaExpressionDNF: exp:", self.DNF)
         #self.validate_exp(meta_exp)
-        
-    def __str__(self):
-        return self.file_ids_sql()
-        
-    __repr__= __str__
     
     @staticmethod
     def regularize(exp):
         return _MetaRegularizer()(exp)
 
     def sql_and(self, and_terms, table_name, meta_column_name="metadata"):
+        from metacat.db import DBFile
 
         def sql_literal(v):
             if isinstance(v, str):       

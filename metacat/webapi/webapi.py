@@ -1,5 +1,5 @@
 import requests, json, fnmatch, sys, os, random, time
-from metacat.util import to_str, to_bytes, ObjectSpec
+from metacat.util import to_str, to_bytes, ObjectSpec, chunked
 from metacat.common import SignedToken, TokenLib, TokenAuthClientMixin, AuthenticationError
 from urllib.parse import quote_plus, unquote_plus
 
@@ -24,20 +24,24 @@ class WebAPIError(MCError):
     
     Headline = "MetaCat API error"
     
-    def __init__(self, url, response):
+    def __init__(self, url, response=None, message=None):
         self.URL = url
         self.StatusCode = response.status_code
-        self.Message = None
-        self.Body = to_str(response.text)
-        if response.headers.get("content-type") in ("text/json", "application/json"):
-            try:    
-                self.Data = json.loads(response.text)
-                if isinstance(self.Data, dict):
-                    self.Message = self.Data.get("message", "")
-            except:
-                self.Data = None
+        self.Data = None
+        self.Body = None
+        if message:
+            self.Message = self.Body = message
         else:
-            self.Message = to_str(response.text)
+            self.Body = to_str(response.text)
+            if response.headers.get("content-type") in ("text/json", "application/json"):
+                try:    
+                    self.Data = json.loads(response.text)
+                    if isinstance(self.Data, dict):
+                        self.Message = self.Data.get("message", "")
+                except:
+                    self.Data = None
+            else:
+                self.Message = to_str(response.text)
         
     def __str__(self):
         lines = []
@@ -54,11 +58,11 @@ class ServerReportedError(WebAPIError):
     Headline = "Server side application error"
 
     def __init__(self, url, status_code, type, value):
-        message = type
+        message = "Type:" + type + f"   Status code:{status_code}"
         if value:
             message += ": " + value
-        WebAPIError.__init__(self, url, status_code, message=message)
-
+        WebAPIError.__init__(self, url, message=message)
+        
 class InvalidArgument(WebAPIError):
     Headline = "Invalid argument"
         
@@ -159,11 +163,11 @@ class HTTPClient(object):
 
     def unpack_json(self, json_text):
         results = json.loads(json_text)
-        #if isinstance(results, dict):
-        #    if "results" in results:
-        #        results = results["results"]
-        #    elif "error" in results:
-        #        raise ServerReportedError(self.LastURL, self.LastStatusCode, results["error"]["type"], results["error"].get("value", ""))
+        if isinstance(results, dict):
+            if "results" in results:
+                results = results["results"]
+            elif "error" in results:
+                raise ServerReportedError(self.LastURL, self.LastStatusCode, results["error"]["type"], results["error"].get("value", ""))
         return results
 
     RS = b'\x1E'
@@ -206,14 +210,14 @@ class HTTPClient(object):
 
         response = self.retry_request("get", url, headers=headers, stream=True)
         if response.status_code == INVALID_METADATA_ERROR_CODE:
-            raise InvalidMetadataError(url, response.status_code, response.text)
+            raise InvalidMetadataError(url, response)
         if response.status_code == 404:
-            raise NotFoundError(url, response.status_code, response.text)
+            raise NotFoundError(url, response)
         elif response.status_code != 200:
-            raise WebAPIError(url, response.status_code, response.text)
+            raise WebAPIError(url, response)
         
         if response.headers.get("Content-Type") != "application/json-seq":
-            raise WebAPIError(url, 200, "Expected content type application/json-seq. Got %s instead." % (response.headers.get("Content-Type"),))
+            raise WebAPIError(url, response)
 
         for line in response.iter_lines():
             if line:    line = line.strip()
@@ -263,12 +267,12 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
     def sanitize(self, *words, **kw):
         for w in words:
             if "'" in words:
-                raise InvalidArgument("Invalid value: %s" % (w,))
+                raise InvalidArgument("", "Invalid value: %s" % (w,))
         for name, value in kw.items():
             if "'" in value:
-                raise InvalidArgument("Invalid value for %s: %s" % (name, value))
+                raise InvalidArgument("", "Invalid value for %s: %s" % (name, value))
             if "'" in name:
-                raise InvalidArgument("Invalid name for: %s" % (name,))
+                raise InvalidArgument("", "Invalid name for: %s" % (name,))
 
     @property
     def async_queue(self):
@@ -776,17 +780,17 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         def combined():
             for name in (names or []):
-                yield ObjectSpec(namespace, name).to_dict()
+                yield ObjectSpec(namespace, name).as_dict()
             for did in (dids or []):
                 spec = ObjectSpec(did)
                 spec.validate()             # will raise ValueError
-                yield spec.to_dict()
+                yield spec.as_dict()
             for fid in (fids or []):
-                yield ObjectSpec(fid=fid).to_dict()
+                yield ObjectSpec(fid=fid).as_dict()
             for item in (files or []):
                 spec = ObjectSpec.from_dict(item)
                 spec.validate()             # will raise ValueError
-                yield spec.to_dict()
+                yield spec.as_dict()
 
         url = f"data/update_file_meta"
         out = []

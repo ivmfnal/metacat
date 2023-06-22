@@ -1,5 +1,5 @@
 from lark import Lark
-from lark import Transformer, Tree, Token
+from lark import Transformer, Tree
 import pprint
 from textwrap import dedent
 

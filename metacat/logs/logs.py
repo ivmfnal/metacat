@@ -50,7 +50,7 @@ class Logger(AbstractLogger):
 
     def add_channel(self, name, path=None, print_label=False, timestamps=True, **params):
         if path:    
-            channel = LogChannel(log_out if path is None else log_writer(path, **params), 
+            channel = LogChannel(log_writer(path, **params), 
                 label = name if print_label else None,
                 timestamps = timestamps
                 )

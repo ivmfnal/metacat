@@ -1,6 +1,8 @@
 import requests, time, json, random
 from urllib.parse import quote_plus, unquote_plus
-from .exceptions import MCError, NotFoundError, ServerSideError, InvalidArgument, PermissionError, BadRequestError, WebAPIError
+from .exceptions import MCError, NotFoundError, InvalidArgument, PermissionError, BadRequestError, WebAPIError
+
+INVALID_METADATA_ERROR_CODE = 488
 
 def to_bytes(x):
     if not isinstance(x, bytes):
@@ -23,7 +25,8 @@ class HTTPClient(object):
         self.ServerURL = server_url
         self.Token = token
         self.Timeout = timeout or self.DefaultTimeout
-        self.LastResponse = self.LastURL = self.LastStatusCode = None
+        self.LastResponse = self.LastStatusCode = None
+        self.LastURL = ""
 
     def retry_request(self, method, url, timeout=None, **args):
         """
@@ -52,13 +55,13 @@ class HTTPClient(object):
         
     def raise_on_error(self, response):
         if response.status_code == 403:
-            raise PermissionError(url, response)
+            raise PermissionError(self.LastURL, response)
         elif response.status_code == 404:
-            raise NotFoundError(url, response)
+            raise NotFoundError(self.LastURL, response)
         elif response.status_code//100 == 4:
-            raise BadRequestError(url, response)
+            raise BadRequestError(self.LastURL, response)
         elif response.status_code//100 != 2:
-            raise WebAPIError(url, response)
+            raise WebAPIError(self.LastURL, response)
 
     def send_request(self, method, uri_suffix, headers=None, timeout=None, **args):
         self.LastURL = url = "%s/%s" % (self.ServerURL, uri_suffix)
@@ -123,32 +126,6 @@ class HTTPClient(object):
         }
         response = self.send_request("post", uri_suffix, data=data, headers=headers, stream=True)
         return self.unpack_json_data(response)
-
-    def get_json_stream(self, uri_suffix):
-        url = "%s/%s" % (self.ServerURL, uri_suffix)
-        headers = {"Accept": "application/json-seq"}
-        if self.Token is not None:
-            headers["X-Authentication-Token"] = self.Token.encode()
-
-        with self.retry_request("get", url, headers=headers, stream=True) as response:
-            if response.status_code == INVALID_METADATA_ERROR_CODE:
-                raise InvalidMetadataError(url, response.status_code, response.text)
-            if response.status_code == 404:
-                raise NotFoundError(url, response.status_code, response.text)
-            elif response.status_code != 200:
-                raise WebAPIError(url, response.status_code, response.text)
-            
-            if response.headers.get("Content-Type") != "application/json-seq":
-                raise WebAPIError(url, 200, "Expected content type application/json-seq. Got %s instead." % (response.headers.get("Content-Type"),))
-
-            for line in response.iter_lines():
-                if line:    line = line.strip()
-                while line.startswith(b'\x1E'):
-                    line = line[1:]
-                if line:
-                    #print(f"stream line:[{line}]")
-                    obj = json.loads(line)
-                    yield obj
 
     def interpret_json_stream(self, response):
         for line in response.iter_lines():
