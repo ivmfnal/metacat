@@ -67,6 +67,9 @@ class DBObject(object):
     PK = None
     Table = None
 
+    def __init__(self, db):
+        self.DB = db
+
     @classmethod
     def columns(cls, table_name=None, as_text=True, exclude=[]):
         if isinstance(exclude, str):

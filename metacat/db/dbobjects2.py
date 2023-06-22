@@ -19,10 +19,10 @@ from .common import (
     insert_bulk
 )
 
-class DBFileSet(object):
+class DBFileSet(DBObject):
     
     def __init__(self, db, files=[], count=None):
-        self.DB = db
+        DBObject.__init__(self, db)
         self.Files = files
         self.SQL = None
         if hasattr(files, "__len__"):
@@ -413,7 +413,7 @@ class DBFileSet(object):
         fs.SQL = sql
         return fs
         
-class DBFile(object):
+class DBFile(DBObject):
     
     ColumnAttributes=[      # column names which can be used in queries
         "creator", "created_timestamp", "name", "namespace", "size"
@@ -424,8 +424,8 @@ class DBFile(object):
                     retired = False, retired_timestamp = None, retired_by = None
                     ):
 
+        DBObject.__init__(self, db)
         assert (namespace is None) == (name is None)
-        self.DB = db
         self.FID = fid or self.generate_id()
         self.FixedFID = (fid is not None)
         self.Namespace = namespace
@@ -483,6 +483,22 @@ class DBFile(object):
             return ','.join(f"{alias}.{c}" for c in DBFile.AttrColumnNames)
         else:
             return ','.join(DBFile.AttrColumnNames)
+            
+    def delete(self, do_commit=True):
+        # delete the file from the DB
+        c = self.DB.cursor()
+        try:
+            c.execute("""
+                delete from parent_child where parent_id = %s;
+                delete from parent_child where child_id = %s;
+                delete from files_datasets where file_id = %s;
+                delete from files where id = %s;
+            """, (self.FID, self.FID, self.FID, self.FID))
+            if do_commit:
+                c.execute("commit")
+        except:
+            c.execute("rollback")
+            raise
 
     def create(self, creator=None, do_commit = True):
         from psycopg2 import IntegrityError
@@ -554,13 +570,15 @@ class DBFile(object):
 
         
     def update(self, user, do_commit = True):
+        if isinstance(user, DBUser):
+            user = user.Username
         from psycopg2 import IntegrityError
         c = self.DB.cursor()
         meta = json.dumps(self.Metadata or {})
         checksums = json.dumps(self.Checksums or {})
         try:
             c.execute("""
-                update files set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s 
+                update files set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s,
                     updated_by=%s, updated_timestamp = now()
                     where id = %s
                 """, (self.Namespace, self.Name, meta, self.Size, checksums, user,
@@ -864,22 +882,46 @@ class DBFile(object):
         c = self.DB.cursor()
         c.executemany(f"""
             insert into parent_child(parent_id, child_id)
-                values(%s, '{self.FID}')        
+                values(%s, %s)        
                 on conflict(parent_id, child_id) do nothing;
-            """, parent_fids
+            """, [(fid, self.FID) for fid in parent_fids]
         )
         if do_commit:   c.execute("commit")
         
-    def set_parents(self, parents, do_commit=True):
-        parent_fids = [(p if isinstance(p, str) else p.FID,) for p in parents]
+    def add_children(self, children, do_commit=True):
+        child_fids = [(p if isinstance(p, str) else p.FID,) for p in children]
         c = self.DB.cursor()
-        #print("set_parents: fids:", parent_fids)
-        c.execute(f"delete from parent_child where child_id='{self.FID}'")
         c.executemany(f"""
             insert into parent_child(parent_id, child_id)
-                values(%s, '{self.FID}')        
+                values(%s, %s)
                 on conflict(parent_id, child_id) do nothing;
-            """, parent_fids
+            """, [(self.FID, fid) for fid in child_fids]
+        )
+        if do_commit:   c.execute("commit")
+        
+    def set_parents(self, fids_or_files, do_commit=True):
+        parent_fids = [(p if isinstance(p, str) else p.FID,) for p in fids_or_files]
+        c = self.DB.cursor()
+        #print("set_parents: fids:", parent_fids)
+        c.execute(f"delete from parent_child where child_id=%s", (self.FID,))
+        c.executemany(f"""
+            insert into parent_child(parent_id, child_id)
+                values(%s, %s)        
+                on conflict(parent_id, child_id) do nothing;
+            """, [(fid, self.FID) for fid in parent_fids]
+        )
+        if do_commit:   c.execute("commit")
+        
+    def set_children(self, fids_or_files, do_commit=True):
+        child_fids = [(p if isinstance(p, str) else p.FID,) for p in fids_or_files]
+        c = self.DB.cursor()
+        #print("set_parents: fids:", parent_fids)
+        c.execute("delete from parent_child where parent_id=%s", (self.FID,))
+        c.executemany(f"""
+            insert into parent_child(parent_id, child_id)
+                values(%s, %s)        
+                on conflict(parent_id, child_id) do nothing;
+            """, [(self.FID, fid) for fid in child_fids]
         )
         if do_commit:   c.execute("commit")
         
@@ -920,8 +962,8 @@ class DBDataset(DBObject):
 
     def __init__(self, db, namespace, name, frozen=False, monotonic=False, metadata={}, file_meta_requirements=None, creator=None,
             description = None, file_count = 0):
+        DBObject.__init__(self, db)
         assert namespace is not None and name is not None
-        self.DB = db
         self.Namespace = namespace
         self.Name = name
         self.SQL = None
@@ -1594,8 +1636,8 @@ class DBNamedQuery(DBObject):
     PK = ["namespace", "name"]
 
     def __init__(self, db, namespace, name, source, parameters=[]):
+        DBObject.__init__(self, db)
         assert namespace is not None and name is not None
-        self.DB = db
         self.Namespace = namespace
         self.Name = name
         self.Source = source
@@ -1685,19 +1727,8 @@ class DBUser(BaseDBUser):
     def list(db):
         return (DBUser.from_base_user(u) for u in BaseDBUser.list(db))
 
-    @property
-    def roles(self):
-        return _DBManyToMany(self.DB, "users_roles", "role_name", username = self.Username)
-        
     def namespaces(self):
         return DBNamespace.list(self.DB, owned_by_user=self)        
-        
-    def add_role(self, role):
-        self.roles.add(role.Name if isinstance(role, DBRole) else role)
-
-    def remove_role(self, role):
-        self.roles.remove(role.Name if isinstance(role, DBRole) else role)
-
 
 class DBNamespace(DBObject):
 
@@ -1707,7 +1738,7 @@ class DBNamespace(DBObject):
 
     def __init__(self, db, name, owner_user=None, owner_role=None, description=None, 
                 creator=None, created_timestamp=None, file_count=0):
-        self.DB = db
+        DBObject.__init__(self, db)
         self.Name = name
         assert None in (owner_user, owner_role)
         self.OwnerUser = owner_user

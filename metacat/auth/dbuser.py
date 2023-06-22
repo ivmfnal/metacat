@@ -1,14 +1,17 @@
+import json
 from .authenticators import authenticator
 from .password_hash import password_digest_hash
-import json
+from metacat.db.common import fetch_generator, DBObject, _DBManyToMany
 
-def fetch_generator(c):
+
+def ___fetch_generator(c):
     while True:
         tup = c.fetchone()
         if tup is None: break
         yield tup
 
-class DBObject(object):
+
+class ___DBObject(object):
     
     def __init__(self, db):
         self.DB = db
@@ -172,6 +175,17 @@ class BaseDBUser(DBObject):
             #print("DBUser.list: yielding:", u)
             yield u
 
+    @property
+    def roles(self):
+        return _DBManyToMany(self.DB, "users_roles", "role_name", username = self.Username)
+        
+    def add_role(self, role):
+        self.roles.add(role.Name if isinstance(role, DBRole) else role)
+
+    def remove_role(self, role):
+        self.roles.remove(role.Name if isinstance(role, DBRole) else role)
+
+
 class BaseDBRole(object):
 
     Table = "roles"
@@ -254,4 +268,3 @@ class BaseDBRole(object):
         
     def __iter__(self):
         return self.members.__iter__()
-
