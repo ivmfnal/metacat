@@ -6,22 +6,6 @@ from metacat.util import strided, limited, skipped
 # Common filters
 #
 
-def limited(it, limit):
-    if limit is None or limit > 0:
-        for x in it:
-            yield x
-            if limit is not None:
-                limit -= 1
-                if limit <= 0:
-                    break
-                    
-def skip(it, n):
-    for x in it:
-        if n is not None and n > 0:
-            n -= 1
-        else:
-            yield n
-
 def implement_limit(filter):
     def decorated(self, inputs, params, limit=None, **args):
         unlimited = filter(self, inputs, params, limit=None, **args)

@@ -1,3 +1,5 @@
+import re
+
 def validate_metadata(definitions, restricted, metadata={}, name=None, value=None):
     """
     Validates metadata against a set of definitions. Can be used to validate category and dataset restrictions

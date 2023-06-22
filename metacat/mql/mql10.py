@@ -193,7 +193,7 @@ class _Assembler(Ascender):
             raise MQLCompilationError(f"Can not load named query {namespace}:{name}")
         assert parsed.Type == "file"
         tree = parsed.Tree
-        tree = _WithParamsApplier().walk(tree, {"namespace":namespace})
+        #tree = _WithParamsApplier().walk(tree, {"namespace":namespace})
         #print("_Assembler.named_query: returning:", tree.pretty())
         return tree
         
@@ -533,7 +533,7 @@ class BasicDatasetQuery(object):
         self.Where = where
         
     def datasets(self, db, limit=None):
-        return DBDataset.datasets_for_bdf(db, self, limit)
+        return DBDataset.datasets_for_bdq(db, self, limit)
         
     def apply_params(self, params):
         # apply params from "with ..."
@@ -618,7 +618,7 @@ class BasicFileQuery(object):
         self.add_skip_limit(0, limit)
 
     def addSkip(self, nskip):
-        self.add_skip_limit(skip, None)
+        self.add_skip_limit(nskip, None)
             
     def add_skip_limit(self, skip, limit):
         self.Skip, self.Limit = _merge_skip_limit(self.Skip, self.Limit, skip, limit)
@@ -680,9 +680,9 @@ class QueryConverter(Converter):
         return q
         
     def query(self, args):
-        if len(args) == 2:
+        if False and len(args) == 2:
             params, query = args
-            q = _WithParamsApplier().walk(query, params)
+            # ----  FIXME q = _WithParamsApplier().walk(query, params)
             #print("_Converter.query(): after applying params:", q.pretty())
         else:
             q = args[0]
@@ -717,7 +717,7 @@ class QueryConverter(Converter):
         return Node("limit", [child], limit = limit)
         #return Node("file_query", [args[0]], meta = {"limit":int(args[1].value)})
 
-    def make_ordered(self, node):
+    def ____make_ordered(self, node):
         if node.T in ("basic_file_query", "basic_dataset_query"):
             q = node["query"]
             q.Ordered = True
@@ -1098,7 +1098,7 @@ class QueryConverter(Converter):
                 ]
             )
         else:
-            return array_in
+            return array_not_in
         
     def in_range(self, args):
         assert len(args) == 3 and args[1].T in ("string", "int", "float", "date_constant") and args[2].T in ("string", "int", "float", "date_constant")
@@ -1350,38 +1350,3 @@ class MQLQuery(object):
         if q is None:
             raise ValueError("Named query %s:%s not found" % (namespace, name))
         return q.Source
-        
-if __name__ == "__main__":
-    import sys, traceback
-    import psycopg2
-    from filters import filters_map
-    
-    def interactive(db):
-        from filters import filters_map
-    
-        while True:
-            q = ""
-            prompt = "(parse|run) ... ;> "
-            while not ';' in q:
-                q += input(prompt)
-                prompt = "...> "
-            
-            cmd, rest = q.split(None, 1)
-            qtext = test.split(';', 1)[0]
-            print (f"--- query ---\n{qtext}\n-------------")
-            try:    q = MQLQuery.parse(qtext)
-            except Exception as e:
-                traceback.print_exc()
-            else:
-                if cmd == "parse":
-                    q.pprint()
-                else:
-                    results = q.run(db, with_meta=True, filters = filters_map)
-                    for r in results:
-                        print (r)
-            
-        
-    db = psycopg2.connect(sys.argv[2])
-
-    interactive(db)
-    

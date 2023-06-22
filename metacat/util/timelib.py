@@ -67,7 +67,7 @@ def text2datetime(t):
                             t = t.replace(tzinfo=tz)
                     except:
                         pass
-    if isinstance(t, (str, unicode)):
+    if isinstance(t, str):
         unit = 's'
         if t[-1] in 'dhms':
             unit = t[-1]

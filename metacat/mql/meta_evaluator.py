@@ -1,3 +1,5 @@
+import re
+
 class MetaEvaluator(object):
 
     BOOL_OPS = ("and", "or", "not")
@@ -159,7 +161,7 @@ class MetaEvaluator(object):
             assert len(rest) == 0
             return not ok
         else:
-            raise ValueError("Unrecognized boolean operation '%s'" % (op,))
+            raise ValueError("Unrecognized boolean operation '%s'" % (bool_op,))
     
     def do_cmp_op(self, x, op, y):
         if op == "<":          return x < y
@@ -184,5 +186,5 @@ class MetaEvaluator(object):
         
     @staticmethod
     def evaluate(meta, exp):
-        return _MetaEvaluator().evaluate_meta_expression(meta, exp)
+        return MetaEvaluator().evaluate_meta_expression(meta, exp)
     
