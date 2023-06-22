@@ -22,7 +22,7 @@ Usage:
 class ListCommand(CLICommand):
 
     GNUStyle = True
-    Opts = "dvu:r: verbose user: role: directly"
+    Opts = "dvu:r: verbose user= role= directly"
     Usage = """[options] [<pattern>]
         <pattern> is a UNIX shell style pattern (*?[]), optional
         -u|--user <username>        - list namespaces owned by the user
@@ -71,7 +71,7 @@ class ShowCommand(CLICommand):
 class CreateCommand(CLICommand):
 
     GNUStyle = True
-    Opts = "oj json owner"
+    Opts = "o:j json owner="
     MinArgs = 1
     Usage = """[options] <namespace> [<description>]
         -o <owner>|--owner <owner>              - namespace owner
