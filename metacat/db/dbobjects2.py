@@ -3,7 +3,7 @@ from metacat.util import (to_bytes, to_str, epoch, chunked, limited, strided,
     skipped, first_not_empty, validate_metadata, insert_sql, fetch_generator
 )
 from metacat.auth import BaseDBUser, BaseDBRole as DBRole
-from metacat.common import MetaExpressionDNF, DBObject, DBManyToMany
+from metacat.common import MetaExpressionDNF, DBObject, DBManyToMany, FileAttributes
 from psycopg2 import IntegrityError
 from textwrap import dedent
 from datetime import datetime, timezone
@@ -418,9 +418,8 @@ class DBFileSet(DBObject):
         
 class DBFile(DBObject):
     
-    ColumnAttributes=[      # column names which can be used in queries
-        "creator", "created_timestamp", "name", "namespace", "size"
-    ]  
+    ColumnAttributes = FileAttributes
+    
     def __init__(self, db, namespace = None, name = None, metadata = None, fid = None, size=None, checksums=None,
                     parents = None, children = None, creator = None, created_timestamp=None,
                     updated_timestamp = None, updated_by = None,

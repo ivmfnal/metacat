@@ -1,4 +1,5 @@
 from metacat.common.trees import Ascender, Node
+from metacat.common import FileAttributes
 
 class _MetaRegularizer(Ascender):
     # converts the meta expression into DNF form:
@@ -91,7 +92,6 @@ class MetaExpressionDNF(object):
         return _MetaRegularizer()(exp)
 
     def sql_and(self, and_terms, table_name, meta_column_name="metadata"):
-        from metacat.db import DBFile
 
         def sql_literal(v):
             if isinstance(v, str):       
@@ -129,14 +129,14 @@ class MetaExpressionDNF(object):
             if op == "present":
                 aname = exp["name"]
                 if not '.' in aname:
-                    term = "true" if aname in DBFile.ColumnAttributes else "false"
+                    term = "true" if aname in FileAttributes else "false"
                 else:
                     term = f"{table_name}.{meta_column_name} ? '{aname}'"
 
             elif op == "not_present":
                 aname = exp["name"]
                 if not '.' in aname:
-                    term = "false" if aname in DBFile.ColumnAttributes else "true"
+                    term = "false" if aname in FileAttributes else "true"
                 else:
                     term = f"{table_name}.{meta_column_name} ? '{aname}'"
             
