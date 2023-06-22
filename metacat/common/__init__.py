@@ -10,6 +10,3 @@ from .dbbase import DBObject, DBManyToMany
 from .password_hash import password_hash, PasswordHashAlgorithm, password_digest_hash
 from .auth_client import TokenAuthClientMixin, AuthenticationError
 
-FileAttributes = [      # file attributes which can be used in queries
-        "creator", "created_timestamp", "name", "namespace", "size"
-]  
