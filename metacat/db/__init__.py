@@ -4,7 +4,7 @@ from .dbobjects2 import (
 
 from .common import (
     AlreadyExistsError, NotFoundError, IntegrityError, MetaValidationError, DatasetCircularDependencyDetected,
-    parse_name, alias, make_list_if_short, insert_bulk, fetch_generator
+    parse_name, alias, make_list_if_short, insert_bulk
 )
 
 from .param_category import DBParamCategory

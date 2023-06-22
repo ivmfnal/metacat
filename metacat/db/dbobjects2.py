@@ -1,7 +1,9 @@
 import uuid, json, hashlib, re, time, io, traceback, base64
-from metacat.util import to_bytes, to_str, epoch, chunked, limited, strided, skipped, first_not_empty, validate_metadata, insert_sql
+from metacat.util import (to_bytes, to_str, epoch, chunked, limited, strided, 
+    skipped, first_not_empty, validate_metadata, insert_sql, fetch_generator
+)
 from metacat.auth import BaseDBUser, BaseDBRole as DBRole
-from metacat.common import MetaExpressionDNF
+from metacat.common import MetaExpressionDNF, DBObject, DBManyToMany
 from psycopg2 import IntegrityError
 from textwrap import dedent
 from datetime import datetime, timezone
@@ -13,10 +15,8 @@ def debug(*parts):
         print("[debug]", *parts)
 
 from .common import (
-    DBObject, _DBManyToMany,
     AlreadyExistsError, DatasetCircularDependencyDetected, NotFoundError, MetaValidationError,
-    parse_name, fetch_generator, alias, 
-    insert_bulk
+    parse_name, alias, insert_bulk
 )
 
 class DBFileSet(DBObject):
@@ -945,12 +945,12 @@ class DBFile(DBObject):
         
     @property
     def datasets(self):
-        return _DBManyToMany(self.DB, "files_datasets", "dataset_namespace", "dataset_name", file_id = self.FID)
+        return DBManyToMany(self.DB, "files_datasets", "dataset_namespace", "dataset_name", file_id = self.FID)
 
-class _DatasetParentToChild(_DBManyToMany):
+class _DatasetParentToChild(DBManyToMany):
     
     def __init__(self, db, parent):
-        _DBManyToMany.__init__(self, db, "datasets_parent_child", "child_namespace", "child_name", 
+        DBManyToMany.__init__(self, db, "datasets_parent_child", "child_namespace", "child_name", 
                     parent_namespace = parent.Namespace, parent_name = parent.Name)
                     
 class DBDataset(DBObject):

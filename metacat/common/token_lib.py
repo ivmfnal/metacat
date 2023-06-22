@@ -1,6 +1,6 @@
 import os, os.path, stat
 from .signed_token_jwt import SignedToken, SignedTokenExpiredError, SignedTokenImmatureError
-from .py3 import to_bytes, to_str
+from metacat.util import to_bytes, to_str
 
 class TokenLib(object):
 

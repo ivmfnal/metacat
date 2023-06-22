@@ -1,6 +1,6 @@
-from util import to_str, to_bytes, SignedToken, TokenLib
-import time
-import requests
+import time, requests
+from metacat.util import to_str, to_bytes
+from metacat.common import SignedToken, TokenLib
 
 class AuthenticationError(Exception):
     def __init__(self, message):

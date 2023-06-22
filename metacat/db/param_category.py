@@ -1,6 +1,6 @@
-from .common import DBObject, fetch_generator
+from metacat.common import DBObject
 import json
-from metacat.util import epoch, validate_metadata
+from metacat.util import epoch, validate_metadata, fetch_generator
 
 class DBParamCategory(DBObject):
     

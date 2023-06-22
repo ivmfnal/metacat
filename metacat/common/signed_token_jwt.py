@@ -1,5 +1,5 @@
 import time, uuid, sys
-from .py3 import to_bytes, to_str
+from metacat.util import to_bytes, to_str
 from datetime import timedelta
 import jwt
 

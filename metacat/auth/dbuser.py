@@ -1,49 +1,7 @@
 import json
 from .authenticators import authenticator
-from .password_hash import password_digest_hash
-from metacat.db.common import fetch_generator, DBObject, _DBManyToMany
-
-
-def ___fetch_generator(c):
-    while True:
-        tup = c.fetchone()
-        if tup is None: break
-        yield tup
-
-
-class ___DBObject(object):
-    
-    def __init__(self, db):
-        self.DB = db
-
-    @classmethod
-    def from_tuple(cls, db, dbtup):
-        h = cls(db, *dbtup)
-        return h
-    
-    @classmethod
-    def columns(cls, table_name=None, as_text=True, exclude=[]):
-        if isinstance(exclude, str):
-            exclude = [exclude]
-        clist = [c for c in cls.Columns if c not in exclude]
-        if table_name:
-            clist = [table_name+"."+cn for cn in clist]
-        if as_text:
-            return ",".join(clist)
-        else:
-            return clist
-
-    @classmethod
-    def get(cls, db, *pk_vals):
-        pk_cols_values = [f"{c} = %s" for c in cls.PK]
-        where = " and ".join(pk_cols_values)
-        cols = ",".join(cls.Columns)
-        c = db.cursor()
-        c.execute(f"select {cols} from {cls.Table} where {where}", pk_vals)
-        tup = c.fetchone()
-        if tup is None: return None
-        else:   return cls.from_tuple(db, tup)
-
+from metacat.common import DBObject, DBManyToMany, password_digest_hash
+from metacat.util import fetch_generator
 
 class DBAuthenticator(DBObject):
     
@@ -177,7 +135,7 @@ class BaseDBUser(DBObject):
 
     @property
     def roles(self):
-        return _DBManyToMany(self.DB, "users_roles", "role_name", username = self.Username)
+        return DBManyToMany(self.DB, "users_roles", "role_name", username = self.Username)
         
     def add_role(self, role):
         self.roles.add(role.Name if isinstance(role, DBRole) else role)
@@ -204,7 +162,7 @@ class BaseDBRole(object):
 
     @property
     def members(self):
-        return _DBManyToMany(self.DB, "users_roles", "username", role_name=self.Name)
+        return DBManyToMany(self.DB, "users_roles", "username", role_name=self.Name)
         
     def save(self, do_commit=True):
         c = self.DB.cursor()

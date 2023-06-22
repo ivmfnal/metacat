@@ -1,5 +1,5 @@
 import hashlib
-from .py3 import to_bytes
+from metacat.util import to_bytes
 
 PasswordHashAlgorithm = "sha1"
 

@@ -2,8 +2,12 @@
 
 from wsdbtools import ConnectionPool
 from metacat.util import to_str, to_bytes
-from metacat.auth import BaseDBUser as DBUser, digest_server, \
-    SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
+from metacat.common import (digest_server, 
+    SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, 
+    SignedTokenSignatureVerificationError
+)
+
+from metacat.auth import BaseDBUser as DBUser
 import psycopg2, json, time, secrets, traceback, hashlib, pprint, os, yaml
 
 class AuthenticationCore(object):

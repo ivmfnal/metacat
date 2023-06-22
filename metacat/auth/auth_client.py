@@ -1,6 +1,5 @@
-from .py3 import to_str, to_bytes
-from .signed_token_jwt import SignedToken
-from .token_lib import TokenLib
+from metacat.util import to_str, to_bytes
+from metacat.common import SignedToken, TokenLib
 import time, requests, json
 
 import urllib3      # disable "Unverified HTTPS request is being made..." warning

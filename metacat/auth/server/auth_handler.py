@@ -1,6 +1,6 @@
-from metacat.auth import SignedToken
+from metacat.common import SignedToken
 from .base_server import BaseHandler
-from metacat.auth import BaseDBUser as DBUser, SignedToken
+from metacat.auth import BaseDBUser as DBUser
 from metacat.util import to_str, to_bytes
 
 import time, os, yaml, json, traceback

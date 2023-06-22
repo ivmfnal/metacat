@@ -2,7 +2,7 @@ import sys, getopt, os, json, pickle, time, os.path
 from urllib.request import urlopen, Request
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
-from metacat.auth import SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, TokenLib
+from metacat.common import SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, TokenLib
 from metacat.webapi import MetaCatClient, AuthenticationError, MCError
 import getpass
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments

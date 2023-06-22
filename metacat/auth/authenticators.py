@@ -1,8 +1,9 @@
 import hashlib, re, traceback
-from .py3 import to_str, to_bytes
-from .password_hash import password_digest_hash
-from .signed_token_jwt import \
+from metacat.util import to_str, to_bytes
+from metacat.common import (
+    password_digest_hash, 
     SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, SignedTokenUnacceptedAlgorithmError, SignedTokenSignatureVerificationError
+)
 
 class Authenticator(object):
     

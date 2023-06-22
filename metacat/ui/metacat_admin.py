@@ -1,5 +1,5 @@
 import sys, getopt
-from metacat.auth import password_digest_hash
+from metacat.common import password_digest_hash
 from metacat.ui.cli import CLI, CLICommand
 
 Usage="""
