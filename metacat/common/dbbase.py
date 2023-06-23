@@ -1,9 +1,11 @@
 from metacat.util import fetch_generator
+import json
 
 class DBObject(object):
 
     PK = None
     Table = None
+    Columns = None
 
     def __init__(self, db):
         self.DB = db
@@ -19,6 +21,13 @@ class DBObject(object):
             return ",".join(clist)
         else:
             return clist
+
+    @classmethod
+    def list(cls, db):
+        c = db.cursor()
+        columns = cls.columns()
+        c.execute(f"select {columns} from {cls.Table}")
+        return (cls.from_tuple(db, tup) for tup in fetch_generator(c))
 
     @classmethod
     def get(cls, db, *pkvalues):
@@ -39,14 +48,18 @@ class DBObject(object):
     def exists(cls, db, *pkvalues):
         return cls.get(db, *pkvalues) is not None
         
+    def to_json(self):
+        return json.dumps(self.to_jsonable())
+
+    @classmethod
+    def from_tuple(cls, db, tup):
+        return cls(db, *tup)                # default implementstion
+
     @classmethod
     def from_tuples(cls, db, tuples):
         for tup in tuples:
             yield cls.from_tuple(db, tup)
         
-    def to_json(self):
-        return json.dumps(self.to_jsonable())
-
 class DBManyToMany(object):
     
     def __init__(self, db, table, *reference_columns, **lookup_values):

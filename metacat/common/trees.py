@@ -1,5 +1,4 @@
-from lark import Lark
-from lark import Transformer, Tree
+from lark import Lark, Transformer, Tree
 import pprint
 from textwrap import dedent
 
@@ -25,6 +24,7 @@ class Token(object):
     def _pretty(self, indent="", headline_indent=None):
         return 'token %s "%s"' % (self.T, self.V), []
 
+    """ obsolete
     def jsonable(self):
         return dict(T=self.T, V=self.V)
         
@@ -45,6 +45,7 @@ class Token(object):
     @staticmethod
     def from_json(text):
         return Token.from_jsonable(json.loads(text))
+    """
 
 class Node(object):
 
@@ -123,6 +124,7 @@ class Node(object):
         head, lines = self._pretty(indent)
         return indent + head + "\n" + "\n".join(lines)
         
+    """ obsolete
     def jsonable(self):
         d = dict(T=self.T, M=self.M, C=[c.jsonable() if isinstance(c, Node) else c
                         for c in self.C]
@@ -138,9 +140,7 @@ class Node(object):
     def from_jsonable(data):
         if isinstance(data, dict) and data.get("///class///") == Node.JSON_CLASS:
             typ = data["T"]
-            if typ == "DataSource":
-                return DataSource.from_jsonable(data)
-            elif typ == "MetaExp":
+            if typ == "MetaExp":
                 return MetaExp.from_jsonable(data)
             else:
                 return Node(data["T"],
@@ -153,6 +153,7 @@ class Node(object):
     @staticmethod
     def from_json(text):
         return Node.from_jsonable(json.loads(text))
+    """
         
     def find_all(self, node_type=None, predicate=None, top_down=True):
         def match(c):
