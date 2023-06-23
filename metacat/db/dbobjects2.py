@@ -3,7 +3,7 @@ from metacat.util import (to_bytes, to_str, epoch, chunked, limited, strided,
     skipped, first_not_empty, validate_metadata, insert_sql, fetch_generator
 )
 from metacat.auth import BaseDBUser, BaseDBRole as DBRole
-from metacat.common import MetaExpressionDNF, DBObject, DBManyToMany
+from metacat.common import MetaExpressionDNF, DBObject, DBManyToMany, transactioned, insert_many
 from psycopg2 import IntegrityError
 from textwrap import dedent
 from datetime import datetime, timezone
@@ -484,53 +484,41 @@ class DBFile(DBObject):
         else:
             return ','.join(DBFile.AttrColumnNames)
             
-    def delete(self, do_commit=True):
+    @transactioned
+    def delete(self, transaction=None):
         # delete the file from the DB
-        c = self.DB.cursor()
-        try:
-            c.execute("""
+        transactioned.execute("""
                 delete from parent_child where parent_id = %s;
                 delete from parent_child where child_id = %s;
                 delete from files_datasets where file_id = %s;
                 delete from files where id = %s;
             """, (self.FID, self.FID, self.FID, self.FID))
-            if do_commit:
-                c.execute("commit")
-        except:
-            c.execute("rollback")
-            raise
 
-    def create(self, creator=None, do_commit = True):
+    @transactioned
+    def create(self, creator=None, transaction=None):
         from psycopg2 import IntegrityError
-        c = self.DB.cursor()
-        try:
-            meta = json.dumps(self.Metadata or {})
-            checksums = json.dumps(self.Checksums or {})
-            c.execute("""
-                insert into files(id, namespace, name, metadata, size, checksums, creator) values(%s, %s, %s, %s, %s, %s, %s)
-                    returning created_timestamp
-                """,
-                (self.FID, self.Namespace, self.Name, meta, self.Size, checksums, creator))
-            self.CreatedTimestamp = c.fetchone()[0]
-            if self.Parents:
-                insert_bulk(
-                    c, 
-                    "parent_child", 
-                    ["parent_id", "child_id"], 
-                    ((p.FID if isinstance(p, DBFile) else p, self.FID) for p in self.Parents),
-                    do_commit = False
-                )
-            if do_commit:   c.execute("commit")
-        except:
-            c.execute("rollback")
-            raise
+        meta = json.dumps(self.Metadata or {})
+        checksums = json.dumps(self.Checksums or {})
+        transaction.execute("""
+            insert into files(id, namespace, name, metadata, size, checksums, creator) values(%s, %s, %s, %s, %s, %s, %s)
+                returning created_timestamp
+            """,
+            (self.FID, self.Namespace, self.Name, meta, self.Size, checksums, creator))
+        self.CreatedTimestamp = c.fetchone()[0]
+        if self.Parents:
+            insert_many(transaction,
+                "parent_child", 
+                ["parent_id", "child_id"], 
+                ((p.FID if isinstance(p, DBFile) else p, self.FID) for p in self.Parents),
+            )
         return self
 
     def did(self):
         return f"{self.Namespace}:{self.Name}"
 
     @staticmethod
-    def create_many(db, files, creator=None, do_commit=True):
+    @transactioned
+    def create_many(db, files, creator=None, transaction=None):
         files = list(files)
         files_csv = []
         parents_csv = []
@@ -551,72 +539,55 @@ class DBFile(DBObject):
                 parents_csv += ["%s\t%s" % (f.FID, p.FID if isinstance(p, DBFile) else p) for p in f.Parents]
             f.DB = db
         
-        c = db.cursor()
-        c.execute("begin")
-
-        try:
-            files_data = "\n".join(files_csv)
-            #open("/tmp/files.csv", "w").write(files_data)
-            c.copy_from(io.StringIO("\n".join(files_csv)), "files", 
-                    columns = ["id", "namespace", "name", "metadata", "size", "checksums","creator"])
-            c.copy_from(io.StringIO("\n".join(parents_csv)), "parent_child", 
-                    columns=["child_id", "parent_id"])
-            if do_commit:   c.execute("commit")
-        except Exception as e:
-            c.execute("rollback")
-            raise
+        files_data = "\n".join(files_csv)
+        #open("/tmp/files.csv", "w").write(files_data)
+        transaction.copy_from(io.StringIO(files_data), "files", 
+                columns = ["id", "namespace", "name", "metadata", "size", "checksums","creator"])
+        transaction.copy_from(io.StringIO("\n".join(parents_csv)), "parent_child", 
+                columns=["child_id", "parent_id"])
             
         return DBFileSet(db, files)
 
         
-    def update(self, user, do_commit = True):
+    @transactioned
+    def update(self, user, transaction=None):
         if isinstance(user, DBUser):
             user = user.Username
         from psycopg2 import IntegrityError
-        c = self.DB.cursor()
         meta = json.dumps(self.Metadata or {})
         checksums = json.dumps(self.Checksums or {})
-        try:
-            c.execute("""
+        transaction.execute("""
                 update files set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s,
                     updated_by=%s, updated_timestamp = now()
                     where id = %s
                 """, (self.Namespace, self.Name, meta, self.Size, checksums, user,
                         self.FID)
             )
-            if do_commit:   c.execute("commit")
-        except:
-            c.execute("rollback")
-            raise    
         return self
         
-    def set_retire(self, retire, user, do_commit=True):
+    @transactioned
+    def set_retire(self, retire, user, transaction=None):
         #print("set_retire:", retire, user)
         from psycopg2 import IntegrityError
         if retire != self.Retired:
-            c = self.DB.cursor()
-            try:
-                if retire:
-                    self.RetiredTimestamp = datetime.now(timezone.utc)
-                    self.RetiredBy = user
-                    c.execute("""
-                        update files set retired=true, retired_by=%s, retired_timestamp = %s
-                            where id = %s
-                        """, (self.RetiredBy, self.RetiredTimestamp, self.FID)
-                    )
-                else:
-                    self.UpdatedTimestamp = datetime.now(timezone.utc)
-                    self.UpdatedBy = user
-                    c.execute("""
-                        update files set retired=false, updated_by=%s, updated_timestamp = %s
-                            where id = %s
-                        """, (self.UpdatedBy, self.UpdatedTimestamp, self.FID)
-                    )
-                if do_commit:   c.execute("commit")
-            except:
-                c.execute("rollback")
-                raise
+            if retire:
+                self.RetiredTimestamp = datetime.now(timezone.utc)
+                self.RetiredBy = user
+                transaction.execute("""
+                    update files set retired=true, retired_by=%s, retired_timestamp = %s
+                        where id = %s
+                    """, (self.RetiredBy, self.RetiredTimestamp, self.FID)
+                )
+            else:
+                self.UpdatedTimestamp = datetime.now(timezone.utc)
+                self.UpdatedBy = user
+                transaction.execute("""
+                    update files set retired=false, updated_by=%s, updated_timestamp = %s
+                        where id = %s
+                    """, (self.UpdatedBy, self.UpdatedTimestamp, self.FID)
+                )
             self.Retired = retire
+        return self
 
     @staticmethod
     def from_tuple(db, tup):
@@ -659,29 +630,25 @@ class DBFile(DBObject):
         return f
 
     @staticmethod
-    def update_many(db, files, do_commit=True):
+    @transactioned
+    def update_many(db, files, transaction=None):
         from psycopg2 import IntegrityError
         tuples = [
             (f.Namespace, f.Name, json.dumps(f.Metadata or {}), f.Size, json.dumps(f.Checksums or {}), f.FID)
             for f in files
         ]
         #print("tuples:", tuples)
-        c = db.cursor()
-        try:
-            c.executemany("""
-                update files
-                    set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s
-                    where id=%s
-                """,
-                tuples)
-            if do_commit:   c.execute("commit")
-        except:
-            c.execute("rollback")
-            raise
+        transaction.executemany("""
+            update files
+                set namespace=%s, name=%s, metadata=%s, size=%s, checksums=%s
+                where id=%s
+            """,
+            tuples)
         for f in files: f.DB = db
     
     @staticmethod
-    def get_files(db, files):
+    @transactioned
+    def get_files(db, files, transaction=None):
         
         #
         # NOT really THREAD SAFE !!
@@ -693,7 +660,6 @@ class DBFile(DBObject):
         #print("DBFile.get_files: files:", files)
         suffix = int(time.time()*1000)
         temp_table = f"temp_files_{suffix}"
-        c = db.cursor()
         strio = io.StringIO()
         for f in files:
             ns = n = None
@@ -704,7 +670,7 @@ class DBFile(DBObject):
                 if ns is None or n is None:
                     raise ValueError("Invalid file specificication: " + str(f))
             strio.write("%s\t%s\t%s\n" % (fid or r'\N', ns or r'\N', n or r'\N'))
-        c.execute(f"""create temp table if not exists
+        transaction.execute(f"""create temp table if not exists
             {temp_table} (
                 id text,
                 namespace text,
@@ -712,7 +678,7 @@ class DBFile(DBObject):
             truncate table {temp_table};
                 """)
         cvs = strio.getvalue()
-        c.copy_from(io.StringIO(cvs), temp_table)
+        transaction.copy_from(io.StringIO(cvs), temp_table)
         #print("DBFile.get_files: strio:", strio.getvalue())
         
         columns = DBFile.all_columns("f")
@@ -723,19 +689,13 @@ class DBFile(DBObject):
                  where t.id = f.id or f.namespace = t.namespace and f.name = t.name
         """
         
-        #print("   sql:", sql)
-        
-        #c.execute(sql)
-        #for row in c.fetchall():
-        #    print(row)
-
         return DBFileSet.from_sql(db, sql)
         
     @staticmethod
-    def get(db, fid = None, namespace = None, name = None, with_metadata = False):
+    @transactioned
+    def get(db, fid = None, namespace = None, name = None, with_metadata = False, transaction=None):
         assert (namespace is None) == (name is None), "Both name and namespace must be specified or both omited"
         assert (fid is None) != (name is None), "Either FID or namespace/name must be specified, but not both"
-        c = db.cursor()
         fetch_meta = "metadata" if with_metadata else "null"
         attrs = DBFile.attr_columns()
         if fid is not None:
@@ -743,42 +703,42 @@ class DBFile(DBObject):
             #        from files
             #        where id = %s"""
             #print("sql:", sql)
-            c.execute(f"""select id, namespace, name, {fetch_meta}, {attrs} 
+            transaction.execute(f"""select id, namespace, name, {fetch_meta}, {attrs} 
                     from files
                     where id = %s""", (fid,))
         else:
-            c.execute(f"""select id, namespace, name, {fetch_meta}, {attrs} 
+            transaction.execute(f"""select id, namespace, name, {fetch_meta}, {attrs} 
                     from files
                     where namespace = %s and name=%s""", (namespace, name))
-        tup = c.fetchone()
+        tup = transaction.one()
         return DBFile.from_tuple(db, tup)
         
     @staticmethod
-    def exists(db, fid = None, namespace = None, name = None):
+    @transactioned
+    def exists(db, fid = None, namespace = None, name = None, transaction=None):
         #print("DBFile.exists:", fid, namespace, name)
         if fid is not None:
             assert (namespace is None) and (name is None),  "If FID is specified, namespace and name must be null"
         else:
             assert (namespace is not None) and (name is not None), "Both namespace and name must be specified"
-        c = db.cursor()
         if fid is not None:
-            c.execute("""select namespace, name 
+            transaction.execute("""select namespace, name 
                     from files
                     where id = %s""", (fid,))
         else:
-            c.execute("""select id 
+            transaction.execute("""select id 
                     from files
                     where namespace = %s and name=%s""", (namespace, name))
-        return c.fetchone() != None
+        return transaction.fetchone() != None
         
-    def fetch_metadata(self):
-        c = self.DB.cursor()
-        c.execute("""
+    @transactioned
+    def fetch_metadata(self, transaction=None):
+        transaction.execute("""
             select metadata
                 from files
                 where id=%s""", (self.FID,))
         meta = None
-        tup = c.fetchone()
+        tup = transaction.one()
         if tup is not None:
             meta = tup[0] or {}
         return meta
@@ -794,14 +754,11 @@ class DBFile(DBObject):
         return self.Metadata
         
     @staticmethod
-    def list(db, namespace=None):
-        c = db.cursor()
-        if namespace is None:
-            c.execute("""select id, namespace, name from files""")
-        else:
-            c.execute("""select id, namespace, name from files
-                where namespace=%s""", (namespace,))
-        return DBFileSet.from_tuples(db, fetch_generator(c))
+    @transactioned
+    def list(db, namespace=None, transaction=None):
+        transaction.execute("""select id, namespace, name from files
+                where %s is null or namespace=%s""", (namespace, namespace))
+        return DBFileSet.from_tuples(db, transaction.cursor_iterator())
 
     def has_attribute(self, attrname):
         return attrname in self.Metadata
@@ -842,106 +799,102 @@ class DBFile(DBObject):
     def to_json(self, with_metadata = False, with_datasets = False, with_provenance=False):
         return json.dumps(self.to_jsonable(with_metadata=with_metadata, with_provenance=with_provenance, with_datasets=with_datasets))
         
-    def parents(self, as_files=False, with_metadata = False):
+    @transactioned
+    def parents(self, as_files=False, with_metadata=False, transaction=None):
         if self.Parents is None:
-            c = self.DB.cursor()
-            c.execute(f"""
+            transaction.execute(f"""
                 select parent_id from parent_child where child_id = %s
             """, (self.FID,))
-            self.Parents = [fid for (fid,) in c.fetchall()]
+            self.Parents = [fid for (fid,) in transaction]
         if as_files:
             return self.get_files(self.DB, [{"fid":fid} for fid in self.Parents])
         else:
             return self.Parents
 
-    def children(self, as_files=False, with_metadata = False):
+    @transactioned
+    def children(self, as_files=False, with_metadata = False, transaction=None):
         if self.Children is None:
-            c = self.DB.cursor()
-            c.execute(f"""
+            transaction.execute(f"""
                 select child_id from parent_child where parent_id = %s
             """, (self.FID,))
-            self.Children = [fid for (fid,) in c.fetchall()]
+            self.Children = [fid for (fid,) in transaction]
         if as_files:
             return self.get_files(self.DB, [{"fid":fid} for fid in self.Children])
         else:
             return self.Children
 
-    def add_child(self, child, do_commit=True):
+    @transactioned
+    def add_child(self, child, transaction=None):
         child_fid = child if isinstance(child, str) else child.FID
-        c = self.DB.cursor()
-        c.execute("""
+        transaction.execute("""
             insert into parent_child(parent_id, child_id)
                 values(%s, %s)        
                 on conflict(parent_id, child_id) do nothing;
             """, (self.FID, child_fid)
         )
-        if do_commit:   c.execute("commit")
         
-    def add_parents(self, parents, do_commit=True):
+    @transactioned
+    def add_parents(self, parents, transaction=None):
         parent_fids = [(p if isinstance(p, str) else p.FID,) for p in parents]
-        c = self.DB.cursor()
-        c.executemany(f"""
+        transaction.executemany(f"""
             insert into parent_child(parent_id, child_id)
                 values(%s, %s)        
                 on conflict(parent_id, child_id) do nothing;
             """, [(fid, self.FID) for fid in parent_fids]
         )
-        if do_commit:   c.execute("commit")
         
-    def add_children(self, children, do_commit=True):
+    @transactioned
+    def add_children(self, children, transaction=None):
         child_fids = [(p if isinstance(p, str) else p.FID,) for p in children]
-        c = self.DB.cursor()
-        c.executemany(f"""
+        transaction.executemany(f"""
             insert into parent_child(parent_id, child_id)
                 values(%s, %s)
                 on conflict(parent_id, child_id) do nothing;
             """, [(self.FID, fid) for fid in child_fids]
         )
-        if do_commit:   c.execute("commit")
         
-    def set_parents(self, fids_or_files, do_commit=True):
+    @transactioned
+    def set_parents(self, fids_or_files, transaction=None):
         parent_fids = [(p if isinstance(p, str) else p.FID,) for p in fids_or_files]
-        c = self.DB.cursor()
         #print("set_parents: fids:", parent_fids)
-        c.execute(f"delete from parent_child where child_id=%s", (self.FID,))
-        c.executemany(f"""
+        transaction.execute(f"delete from parent_child where child_id=%s", (self.FID,))
+        transaction.executemany(f"""
             insert into parent_child(parent_id, child_id)
                 values(%s, %s)        
                 on conflict(parent_id, child_id) do nothing;
             """, [(fid, self.FID) for fid in parent_fids]
         )
-        if do_commit:   c.execute("commit")
         
-    def set_children(self, fids_or_files, do_commit=True):
+    @transactioned
+    def set_children(self, fids_or_files, transaction=None):
         child_fids = [(p if isinstance(p, str) else p.FID,) for p in fids_or_files]
-        c = self.DB.cursor()
         #print("set_parents: fids:", parent_fids)
-        c.execute("delete from parent_child where parent_id=%s", (self.FID,))
-        c.executemany(f"""
+        transaction.execute("delete from parent_child where parent_id=%s", (self.FID,))
+        transaction.executemany(f"""
             insert into parent_child(parent_id, child_id)
                 values(%s, %s)        
                 on conflict(parent_id, child_id) do nothing;
             """, [(self.FID, fid) for fid in child_fids]
         )
-        if do_commit:   c.execute("commit")
         
-    def remove_child(self, child, do_commit=True):
+    @transactioned
+    def remove_child(self, child, transaction=None):
         child_fid = child if isinstance(child, str) else child.FID
-        c = self.DB.cursor()
-        c.execute("""
+        transaction.execute("""
             delete from parent_child where
                 parent_id = %s and child_id = %s;
             """, (self.FID, child_fid)
         )
-        if do_commit:   c.execute("commit")
 
-    def add_parent(self, parent, do_commit=True):
+    @transactioned
+    def add_parent(self, parent, transaction=None):
         parent_fid = parent if isinstance(parent, str) else parent.FID
-        return DBFile(self.DB, fid=parent_fid).add_child(self, do_commit=do_commit)
+        return DBFile(self.DB, fid=parent_fid).add_child(self, transaction=transaction)
         
-    def remove_parent(self, parent, do_commit=True):
+    @transactioned
+    def remove_parent(self, parent, transaction=None):
         parent_fid = parent if isinstance(parent, str) else parent.FID
-        return DBFile(self.DB, fid=parent_fid).remove_child(self, do_commit=do_commit)
+        return DBFile(self.DB, fid=parent_fid).remove_child(self, transaction=transaction)
         
     @property
     def datasets(self):
@@ -993,14 +946,14 @@ class DBDataset(DBObject):
         dataset.Description = description
         return dataset
         
-    def create(self, do_commit = True):
-        c = self.DB.cursor()
+    @transactioned
+    def create(self, transaction=None):
         namespace = self.Namespace.Name if isinstance(self.Namespace, DBNamespace) else self.Namespace
         meta = json.dumps(self.Metadata or {})
         file_meta_requirements = json.dumps(self.FileMetaRequirements or {})
         #print("DBDataset.save: saving")
         column_names = self.columns(exclude="created_timestamp")        # use DB default for creation
-        c.execute(f"""
+        transaction.execute(f"""
             insert into datasets({column_names}) 
                 values(%s, %s, %s, %s, %s, %s, %s, %s, 0)
                 returning created_timestamp
@@ -1009,18 +962,17 @@ class DBDataset(DBObject):
                     self.Description, file_meta_requirements
             )
         )
-        self.CreatedTimestamp = c.fetchone()[0]
-        if do_commit:   c.execute("commit")
+        self.CreatedTimestamp = transaction.fetchone()[0]
         return self
         
-    def save(self, do_commit = True):
-        c = self.DB.cursor()
+    @transactioned
+    def save(self, transaction=None):
         namespace = self.Namespace.Name if isinstance(self.Namespace, DBNamespace) else self.Namespace
         meta = json.dumps(self.Metadata or {})
         file_meta_requirements = json.dumps(self.FileMetaRequirements or {})
         #print("DBDataset.save: saving")
         column_names = self.columns()
-        c.execute(f"""
+        transaction.execute(f"""
             update datasets 
                 set frozen=%s, monotonic=%s, metadata=%s, description=%s, file_metadata_requirements=%s, file_count=%s
                 where namespace=%s and name=%s
@@ -1029,17 +981,16 @@ class DBDataset(DBObject):
                 namespace, self.Name
             )
         )
-        if do_commit:   c.execute("commit")
         return self
 
-    def subsets(self, exclude_immediate=False, meta_filter=None):
+    @transactioned
+    def subsets(self, exclude_immediate=False, meta_filter=None, transaction=None):
         immediate = set()
         if exclude_immediate:
             immediate = set((c.Namespace, c.Name) for c in self.children())
-        cursor = self.DB.cursor()
         columns = self.columns("d")
         meta_condition = "and " + meta_filter.sql("d") if meta_filter is not None else ""
-        cursor.execute(f"""
+        transaction.execute(f"""
             with recursive subsets (namespace, name, path, loop) as 
             (
                 select pc.child_namespace, pc.child_name, array[pc.child_namespace || ':' || pc.child_name], false
@@ -1057,7 +1008,7 @@ class DBDataset(DBObject):
                     d.name = s.name
                     {meta_condition}
         """, (self.Namespace, self.Name))
-        out = (DBDataset.from_tuple(self.DB, tup) for tup in fetch_generator(cursor))
+        out = (DBDataset.from_tuple(self.DB, tup) for tup in transaction)
         if exclude_immediate:
             out = (ds for ds in out if (ds.Namespace, ds.Name) not in immediate)
         return out
@@ -1065,13 +1016,13 @@ class DBDataset(DBObject):
     def subset_count(self):
         return len(list(self.subsets()))
             
-    def ancestors(self, exclude_immediate=False):
+    @transactioned
+    def ancestors(self, exclude_immediate=False, transaction=None):
         immediate = set()
         if exclude_immediate:
             immediate = set((c.Namespace, c.Name) for c in self.parents())
-        cursor = self.DB.cursor()
         columns = self.columns("d")
-        cursor.execute(f"""
+        transaction.execute(f"""
             with recursive ancestors (namespace, name, path, loop) as 
             (
                 select pc.parent_namespace, pc.parent_name, array[pc.parent_namespace || ':' || pc.parent_name], false
@@ -1088,7 +1039,7 @@ class DBDataset(DBObject):
                 where d.namespace = a.namespace and
                     d.name = a.name
         """, (self.Namespace, self.Name))
-        out = (DBDataset.from_tuple(self.DB, tup) for tup in fetch_generator(cursor))
+        out = (DBDataset.from_tuple(self.DB, tup) for tup in transaction)
         if exclude_immediate:
             out = (ds for ds in out if (ds.Namespace, ds.Name) not in immediate)
         return out
@@ -1096,12 +1047,12 @@ class DBDataset(DBObject):
     def ancestor_count(self):
         return len(list(self.ancestors()))
 
-    def children(self, meta_filter=None):
+    @transactioned
+    def children(self, meta_filter=None, transaction=None):
         # immediate children as filled DBDataset objects
-        c = self.DB.cursor()
         columns = self.columns("c")
         meta_where_clause = "and " + meta_filter.sql("c") if meta_filter is not None else ""
-        c.execute(f"""select {columns}
+        transaction.execute(f"""select {columns}
                         from datasets c, datasets_parent_child pc
                         where pc.parent_namespace=%s and pc.parent_name=%s
                             and pc.child_namespace=c.namespace
@@ -1109,7 +1060,7 @@ class DBDataset(DBObject):
                             {meta_where_clause}
                         """, (self.Namespace, self.Name)
         )
-        return (DBDataset.from_tuple(self.DB, tup) for tup in fetch_generator(c))
+        return (DBDataset.from_tuple(self.DB, tup) for tup in transaction.results())
 
     def has_children(self):
         c = self.DB.cursor()
@@ -1167,52 +1118,47 @@ class DBDataset(DBObject):
     def remove_child(self, child):
         _DatasetParentToChild(self.DB, self).remove(child.Namespace, child.Name)
     
-    def add_file(self, f, **args):
-        return self.add_files([f], **args)
+    @transactioned
+    def add_file(self, f, transaction=None, **args):
+        return self.add_files([f], transaction=transaction, **args)
         
-    def add_files(self, files, do_commit=True, validate_meta=True):
+    @transactioned
+    def add_files(self, files, validate_meta=True, transaction=None):
         if isinstance(files, DBFile):
             files = [files]
         meta_errors = []
-        c = self.DB.cursor()
-        c.execute("begin")
         t = int(time.time()*1000) % 1000000
         temp_table = f"temp_{t}"
-        try:
-            c.execute(f"create temp table if not exists {temp_table} (fid text, namespace text, name text)")
-            c.execute(f"truncate table {temp_table}")
-            nfiles = 0
-            for chunk in chunked(files, 1000):
-                if validate_meta:
-                    for f in chunk:
-                        assert isinstance(f, DBFile)
-                        errors = self.validate_file_metadata(f.Metadata)
-                        if errors:
-                            meta_errors += errors
+        transaction.execute(f"create temp table if not exists {temp_table} (fid text, namespace text, name text)")
+        transaction.execute(f"truncate table {temp_table}")
+        nfiles = 0
+        for chunk in chunked(files, 1000):
+            if validate_meta:
+                for f in chunk:
+                    assert isinstance(f, DBFile)
+                    errors = self.validate_file_metadata(f.Metadata)
+                    if errors:
+                        meta_errors += errors
 
-                csv = "\n".join(["%s\t%s\t%s" % (f.FID, f.Namespace, f.Name) for f in chunk])
-                c.copy_from(io.StringIO(csv), temp_table, columns = ["fid", "namespace", "name"])
-                nfiles += len(chunk)
+            csv = "\n".join(["%s\t%s\t%s" % (f.FID, f.Namespace, f.Name) for f in chunk])
+            transaction.copy_from(io.StringIO(csv), temp_table, columns = ["fid", "namespace", "name"])
+            nfiles += len(chunk)
 
-            if meta_errors:
-                raise MetaValidationError("File metadata validation errors", meta_errors)
+        if meta_errors:
+            raise MetaValidationError("File metadata validation errors", meta_errors)
 
-            c.execute(f"""
-                insert into files_datasets(file_id, dataset_namespace, dataset_name) 
-                    select distinct f.id, %s, %s 
-                        from {temp_table} tt, files f
-                        where tt.fid = f.id or tt.namespace = f.namespace and tt.name = f.name
-                    on conflict do nothing""", (self.Namespace, self.Name))
-            c.execute(f"drop table {temp_table}")
-            c.execute(f"""
-                update datasets
-                    set file_count = file_count + %s
-                    where namespace = %s and name = %s
-            """, (nfiles, self.Namespace, self.Name))
-            c.execute("commit")
-        except:
-            c.execute("rollback")
-            raise
+        transaction.execute(f"""
+            insert into files_datasets(file_id, dataset_namespace, dataset_name) 
+                select distinct f.id, %s, %s 
+                    from {temp_table} tt, files f
+                    where tt.fid = f.id or tt.namespace = f.namespace and tt.name = f.name
+                on conflict do nothing""", (self.Namespace, self.Name))
+        transaction.execute(f"drop table {temp_table}")
+        transaction.execute(f"""
+            update datasets
+                set file_count = file_count + %s
+                where namespace = %s and name = %s
+        """, (nfiles, self.Namespace, self.Name))
         return self
 
     def list_files(self, with_metadata=False, limit=None, include_retired_files=False):
@@ -1237,38 +1183,40 @@ class DBDataset(DBObject):
             yield f
         
     @staticmethod
-    def get(db, namespace, name):
-        c = db.cursor()
+    @transactioned
+    def get(db, namespace, name, transaction=None):
         namespace = namespace.Name if isinstance(namespace, DBNamespace) else namespace
         #print(namespace, name)
         columns = DBDataset.columns()
-        c.execute(f"""select {columns}
+        transaction.execute(f"""select {columns}
                         from datasets
                         where namespace=%s and name=%s""",
                 (namespace, name))
-        tup = c.fetchone()
+        tup = transaction.fetchone()
         if tup is None: return None
         return DBDataset.from_tuple(db, tup)
 
     @staticmethod
-    def get_many(db, namespaces_names):
+    @transactioned
+    def get_many(db, namespaces_names, transaction=None):
         # namespaces_names is list of tuples [(namespace, name), ...]
-        c = db.cursor()
         specs = list(set(f"{namespace}:{name}" for namespace, name in namespaces_names))
         columns = DBDataset.columns()
-        c.execute(f"""select {columns}
+        transaction.execute(f"""select {columns}
                         from datasets
                         where (namespace || ':' || name) = any(%s) """,
                 (specs,)
         )
-        return (DBDataset.from_tuple(db, tup) for tup in fetch_generator(c))
+        return (DBDataset.from_tuple(db, tup) for tup in transaction.results())
 
     @staticmethod
-    def exists(db, namespace, name):
-        return DBDataset.get(db, namespace, name) is not None
+    @transactioned
+    def exists(db, namespace, name, transaction=None):
+        return DBDataset.get(db, namespace, name, transaction=transaction) is not None
 
     @staticmethod
-    def list(db, namespace=None, parent_namespace=None, parent_name=None, creator=None, namespaces=None):
+    @transactioned
+    def list(db, namespace=None, parent_namespace=None, parent_name=None, creator=None, namespaces=None, transaction=None):
         namespace = namespace.Name if isinstance(namespace, DBNamespace) else namespace
         parent_namespace = parent_namespace.Name if isinstance(parent_namespace, DBNamespace) else parent_namespace
         creator = creator.Username if isinstance(creator, DBUser) else creator
@@ -1280,7 +1228,6 @@ class DBDataset(DBObject):
             creator=creator,
             namespace_names=namespaces or [] 
         )
-        c=db.cursor()
         columns = DBDataset.columns("ds")
         
         if parent_namespace or parent_name:
@@ -1303,10 +1250,8 @@ class DBDataset(DBObject):
             sql += " and ds.namespace=any(%(namespace_names)s)"
 
         #print(sql % params)
-        c.execute(sql, params) 
-        for tup in fetch_generator(c):
-            #print(tup)
-            yield DBDataset.from_tuple(db, tup)
+        transaction.execute(sql, params)
+        return (DBDataset.from_tuple(db, tup) for tup in transaction.results())
 
     def nfiles(self, exact=False):
         c = self.DB.cursor()
@@ -1346,12 +1291,11 @@ class DBDataset(DBObject):
         return out
     
     
-    def delete(self, do_commit=True):
-        c = self.DB.cursor()
-        c.execute("""
+    @transactioned
+    def delete(self, transaction=None):
+        transaction.execute("""
             delete from datasets where namespace=%s and name=%s
         """, (self.Namespace, self.Name))
-        if do_commit:   c.execute("commit")
         
     @staticmethod
     def list_datasets(db, patterns, with_children, recursively, limit=None):

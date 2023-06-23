@@ -1,6 +1,60 @@
 from metacat.util import fetch_generator
 import json
 
+def transactioned(method):
+    def decorated(first, *params, transaction=None, **args):
+
+        if transaction is not None:
+            return method(first, *params, transaction=transaction, **args)
+
+        if isinstance(first, HasDB):
+            transaction = first.DB.transaction()
+        elif isinstance(first, type):
+            # class method -- DB is second argument
+            transaction = params[0].transaction()
+        else:
+            transaction = first.transaction()       # static method
+
+        with transaction:
+            return method(first, *params, transaction=transaction, **args)
+
+    return decorated
+
+def insert_many(transaction, table, column_names, tuples, copy_threshold = 100):
+
+    # if the tuples list or iterable is short enough, do it as multiple inserts
+    tuples_lst, tuples = make_list_if_short(tuples, copy_threshold)
+    if tuples_lst is not None and len(tuples_lst) <= copy_threshold:
+        columns = ",". join(column_names)
+        placeholders = ",".join(["%s"]*len(column_names))
+        try:
+            transaction.executemany(f"""
+                insert into parent_child({columns}) values({placeholders})
+            """, tuples_lst)
+            if do_commit:   cursor.execute("commit")
+        except Exception as e:
+            cursor.execute("rollback")
+            raise
+    else:
+        
+        csv_file = io.StringIO()
+        writer = csv.writer(csv_file, delimiter='\t', quoting=csv.QUOTE_MINIMAL)
+
+        for tup in tuples:
+            assert len(tup) == len(column_names)
+            tup = ["\\N" if x is None else x for x in tup]
+            writer.writerow(tup)
+        csv_file.seek(0,0)
+        try:
+            cursor.copy_from(csv_file, table, columns = column_names)
+            if do_commit:   cursor.execute("commit")
+        except Exception as e:
+            cursor.execute("rollback")
+            raise
+        
+
+
+
 class DBObject(object):
 
     PK = None

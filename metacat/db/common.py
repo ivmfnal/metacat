@@ -104,4 +104,3 @@ def insert_bulk(cursor, table, column_names, tuples, do_commit=True, copy_thresh
             cursor.execute("rollback")
             raise
         
-
