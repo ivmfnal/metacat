@@ -34,6 +34,8 @@
     </table>
 </form>
 
+{% set logged_in = not user is none %}
+
 {% if datasets %}
 
     <script type="text/javascript">
