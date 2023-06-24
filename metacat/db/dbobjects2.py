@@ -487,7 +487,7 @@ class DBFile(DBObject):
     @transactioned
     def delete(self, transaction=None):
         # delete the file from the DB
-        transactioned.execute("""
+        transaction.execute("""
                 delete from parent_child where parent_id = %s;
                 delete from parent_child where child_id = %s;
                 delete from files_datasets where file_id = %s;
@@ -1608,20 +1608,19 @@ class DBNamedQuery(DBObject):
         query.CreatedTimestamp = created_timespamp
         return query
         
-    def create(self, do_commit=True):
-        c = self.DB.cursor()
-        c.execute("""
+    @transactioned
+    def create(self, transaction=None):
+        transaction.execute("""
             insert into queries(namespace, name, source, parameters, creator) values(%s, %s, %s, %s, %s)
             returning created_timestamp""",
             (self.Namespace, self.Name, self.Source, self.Parameters, self.Creator)
         )
-        self.CreatedTimestamp = c.fetchone()[0]
-        if do_commit:
-            c.execute("commit")
+        self.CreatedTimestamp = transaction.fetchone()[0]
         return self
             
-    def save(self):
-        self.DB.cursor().execute("""
+    @transactioned
+    def save(self, transaction=None):
+        transaction.execute("""
             update queries 
                 set source=%s, parameters=%s, creator=%s, created_timestamp=%s
                 where namespace=%s and name=%s;
@@ -1708,9 +1707,9 @@ class DBNamespace(DBObject):
             created_timestamp = epoch(self.CreatedTimestamp)
         )
         
-    def save(self, do_commit=True):
-        c = self.DB.cursor()
-        c.execute(f"""
+    @transactioned
+    def save(self, transaction=None):
+        transaction.execute(f"""
             update {self.Table}
                 set owner_user=%s, owner_role=%s, description=%s, file_count=%s
                 where name=%s
@@ -1718,20 +1717,16 @@ class DBNamespace(DBObject):
             (self.OwnerUser, self.OwnerRole, self.Description, self.FileCount,
                 self.Name)
         )
-        if do_commit:
-            c.execute("commit")
         return self
 
-    def create(self, do_commit=True):
-        c = self.DB.cursor()
-        c.execute("""
+    @transactioned
+    def create(self, transaction=None):
+        transaction.execute("""
             insert into namespaces(name, owner_user, owner_role, description, creator) values(%s, %s, %s, %s, %s)
                 returning created_timestamp
             """,
             (self.Name, self.OwnerUser, self.OwnerRole, self.Description, self.Creator))
-        self.CreatedTimestamp = c.fetchone()[0]
-        if do_commit:
-            c.execute("commit")
+        self.CreatedTimestamp = transaction.fetchone()[0]
         return self
         
     @staticmethod

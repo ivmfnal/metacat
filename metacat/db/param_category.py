@@ -1,4 +1,4 @@
-from metacat.common import DBObject
+from metacat.common import DBObject, transactioned
 from metacat.db import DBRole, DBUser
 import json
 from metacat.util import epoch, validate_metadata, fetch_generator
@@ -86,12 +86,12 @@ class DBParamCategory(DBObject):
     def owned_by_role(self, role):
         if isinstance(role, DBRole):   role = role.name
         return self.OwnerRole == role
-
-    def save(self, do_commit=True):
-        c = self.DB.cursor()
+    
+    @transactioned
+    def save(self, transaction=None):
         defs = json.dumps(self.Definitions)
         columns = self.columns()
-        c.execute(f"""
+        transaction.execute(f"""
             update parameter_categories
                 set owner_user=%(owner_user)s, owner_role=%(owner_role)s, restricted=%(restricted)s, 
                     definitions=%(defs)s, description=%(description)s
@@ -99,15 +99,13 @@ class DBParamCategory(DBObject):
             """,
             dict(path=self.Path, owner_user=self.OwnerUser, owner_role=self.OwnerRole, restricted=self.Restricted, defs=defs,
                     description=self.Description, creator=self.Creator))
-        if do_commit:
-            c.execute("commit")
         return self
 
-    def create(self, do_commit=True):
-        c = self.DB.cursor()
+    @transactioned
+    def create(self, transaction=None):
         defs = json.dumps(self.Definitions)
         columns = self.columns(exclude="created_timestamp")
-        c.execute(f"""
+        transaction.execute(f"""
             insert into parameter_categories({columns}) 
                 values(%(path)s, %(owner_user)s, %(owner_role)s, %(description)s, %(restricted)s, %(defs)s, %(creator)s)
                 returning created_timestamp
@@ -115,9 +113,7 @@ class DBParamCategory(DBObject):
             dict(path=self.Path, owner_user=self.OwnerUser, owner_role=self.OwnerRole, restricted=self.Restricted, defs=defs,
                     description=self.Description, creator=self.Creator)
         )
-        self.CreatedTimestamp = c.fetchone()[0]
-        if do_commit:
-            c.execute("commit")
+        self.CreatedTimestamp = transaction.fetchone()[0]
         return self
     
     @staticmethod
@@ -126,18 +122,6 @@ class DBParamCategory(DBObject):
         path, owner_user, owner_role, description, restricted, definitions, creator, created_timestamp = tup
         return DBParamCategory(db, path, owner_user=owner_user, owner_role=owner_role, description=description, 
                 restricted=restricted, definitions=definitions, creator=creator, created_timestamp=created_timestamp)
-        
-    @staticmethod
-    def get(db, path):
-        c = db.cursor()
-        columns = DBParamCategory.columns()
-        c.execute(f"""
-            select {columns}
-                from parameter_categories where path=%s
-                """, (path,)
-        )
-        tup = c.fetchone()
-        return DBParamCategory.from_tuple(db, tup)
 
     @staticmethod
     def get_many(db, paths):
