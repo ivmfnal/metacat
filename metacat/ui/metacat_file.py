@@ -1,4 +1,4 @@
-import sys, getopt, os, json, pprint, time
+import sys, getopt, os, json, pprint, time, os.path
 from textwrap import dedent
 from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError, MCError
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
@@ -23,10 +23,13 @@ def read_file_list(opts):
     if isinstance(source, str):
         if source == "-":
             lst = ({field:x.strip(), "source":x} for x in sys.stdin.readlines())
-        elif source.startswith("@"):
-            lst = ({field:x.strip(), "source":x} for x in open(source[1:], "r").readlines())
         else:
-            lst = ({field:x.strip(), "source":x} for x in source.split(","))
+            if source.startswith("@"):
+                source = source[1:]
+            if os.path.isfile(source):
+                lst = ({field:x.strip(), "source":x} for x in open(source, "r").readlines())
+            else:
+                lst = ({field:x.strip(), "source":x} for x in source.split(","))
     elif isinstance(source, list):
         lst = source
     else:
@@ -497,9 +500,9 @@ class ShowCommand(CLICommand):
                     print("    %(namespace)s:%(name)s" % item)
                     
 class UpdateMetaCommand(CLICommand):
-    
+    MinArgs = 1
     Opts = ("i:n:N:rs", ["namespace=", "names=", "ids=", "sample", "replace","sample"])
-    Usage = """[options] (@<JSON file with metadata>|'<JSON expression>')
+    Usage = """[options] (<JSON file with metadata>|'<JSON expression>')
 
             -r|--replace          - replace metadata, otherwise update
 
@@ -507,17 +510,12 @@ class UpdateMetaCommand(CLICommand):
             -N|--namespace <default namespace>           - default namespace for files
             -n|--names <file namespace>:<file name>[,...]
             -n|--names -          - read the list from stdin
-            -n|--names @<file>    - read the list from file
+            -n|--names <file>    - read the list from file
 
             list files by file id
             -i|--ids <file id>[,...] 
             -i|--ids -            - read the list from stdin
-            -i|--ids @<file>      - read the list from file
-
-            read file list from JSON file
-            -j|--json <json file> - from a file
-            -j|--json -           - from stdin 
-            -s|--sample           - print JOSN file list sample
+            -i|--ids <file>      - read the list from file
     """
 
     UpdateSample = json.dumps(
@@ -549,6 +547,10 @@ class UpdateMetaCommand(CLICommand):
         namespace = opts.get("-N") or opts.get("--namespace")
     
         file_list = read_file_list(opts)
+        try:
+            meta = json.loads(" ",join(args))
+        except:
+            meta = json.load(open(args[0], "r"))
 
         try:
             response = client.update_file_meta(meta, files=file_list, mode=mode, namespace=namespace)
@@ -676,11 +678,11 @@ class UpdateCommand(CLICommand):
         if not dry_run:
             results = client.update_file(**update_args)
             if verbose:
-                print()
-                if "--json" in opts or "-j" in opts:
-                    print(json.dumps(results, sort_keys=True, indent=4))
-                else:
-                    pprint.pprint(results)
+                print("\nresults:")
+            if "--json" in opts or "-j" in opts:
+                print(json.dumps(results, sort_keys=True, indent=4))
+            elif verbose:
+                pprint.pprint(results)
             
 
 class AddCommand(CLICommand):
