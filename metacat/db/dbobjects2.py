@@ -688,7 +688,7 @@ class DBFile(DBObject):
         #
 
         # files: list of dicts:
-        #  { "fid": ... } or {"namespace":..., "name":...}
+        #  { "fid": ... } or {"namespace":..., "name":...} or {"did":"namespace:name"}
         
         #print("DBFile.get_files: files:", files)
         suffix = int(time.time()*1000)
@@ -702,7 +702,11 @@ class DBFile(DBObject):
                 ns = f.get("namespace")
                 n = f.get("name")
                 if ns is None or n is None:
-                    raise ValueError("Invalid file specificication: " + str(f))
+                    did = f.get("did")
+                    if did and ':' in did:
+                        ns, n = did.split(":", 1)
+                    else:
+                        raise ValueError("Invalid file specificication: " + str(f))
             strio.write("%s\t%s\t%s\n" % (fid or r'\N', ns or r'\N', n or r'\N'))
         c.execute(f"""create temp table if not exists
             {temp_table} (
@@ -888,6 +892,18 @@ class DBFile(DBObject):
         )
         if do_commit:   c.execute("commit")
         
+    def set_parents(self, fids_or_files, do_commit=True):
+        parent_fids = [(p if isinstance(p, str) else p.FID,) for p in fids_or_files]
+        c = self.DB.cursor()
+        #print("set_parents: fids:", parent_fids)
+        c.execute(f"delete from parent_child where child_id=%s", (self.FID,))
+        c.executemany(f"""
+            insert into parent_child(parent_id, child_id)
+                values(%s, %s)        
+            """, [(fid, self.FID) for fid in parent_fids]
+        )
+        if do_commit:   c.execute("commit")
+        
     def add_children(self, children, do_commit=True):
         child_fids = [(p if isinstance(p, str) else p.FID,) for p in children]
         c = self.DB.cursor()
@@ -899,19 +915,6 @@ class DBFile(DBObject):
         )
         if do_commit:   c.execute("commit")
         
-    def set_parents(self, fids_or_files, do_commit=True):
-        parent_fids = [(p if isinstance(p, str) else p.FID,) for p in fids_or_files]
-        c = self.DB.cursor()
-        #print("set_parents: fids:", parent_fids)
-        c.execute(f"delete from parent_child where child_id=%s", (self.FID,))
-        c.executemany(f"""
-            insert into parent_child(parent_id, child_id)
-                values(%s, %s)        
-                on conflict(parent_id, child_id) do nothing;
-            """, [(fid, self.FID) for fid in parent_fids]
-        )
-        if do_commit:   c.execute("commit")
-        
     def set_children(self, fids_or_files, do_commit=True):
         child_fids = [(p if isinstance(p, str) else p.FID,) for p in fids_or_files]
         c = self.DB.cursor()
@@ -920,7 +923,6 @@ class DBFile(DBObject):
         c.executemany(f"""
             insert into parent_child(parent_id, child_id)
                 values(%s, %s)        
-                on conflict(parent_id, child_id) do nothing;
             """, [(self.FID, fid) for fid in child_fids]
         )
         if do_commit:   c.execute("commit")

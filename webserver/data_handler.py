@@ -836,8 +836,10 @@ class DataHandler(MetaCatHandler):
             return 400, "Unsupported request data format"
 
         data = json.loads(request.body)
-        
         spec = ObjectSpec.from_dict(data)
+
+        print("data:", data)
+        print("spec:", spec)
 
         if spec.FID:
             self.sanitize(fid = spec.FID)
@@ -852,15 +854,26 @@ class DataHandler(MetaCatHandler):
         if not self._namespace_authorized(db, f.Namespace, user):
             return 403, "Not authtorized"
 
+        mode = data.get("mode", "add-update")
+
         new_metadata = f.Metadata.copy()
         if "metadata" in data:
-            if data.get("metadata_mode", "update") == "update":
+
+            errors = []
+            for k in data["metadata"].keys():
+                if '.' not in k:
+                    errors.append({
+                        "name": k,
+                        "message":f"Metadata parameter without a category: {k}"
+                    })
+
+            if mode == "add-update":
                 new_metadata.update(data["metadata"])
             else:
                 new_metadata = data["metadata"]
 
+
             # validate new metadata against file datasets
-            errors = []
             for ds_ns, ds_n in f.datasets:
                 ds = DBDataset(db, ds_ns, ds_n)
                 if ds is None:
@@ -868,32 +881,49 @@ class DataHandler(MetaCatHandler):
                 errors += ds.validate_file_metadata(new_metadata)
             if errors:
                 return json.dumps({
-                    "message":"Metadata validation errors",
-                    "metadata_errors":errors
+                    "message":          "Metadata validation errors",
+                    "metadata_errors":  errors
                 }), METADATA_ERROR_CODE, "application/json"
             f.Metadata = new_metadata
 
         if "checksums" in data:
             new_checksums = (f.Checksums or {}).copy()
-            if data.get("checksums_mode", "update") == "update":
+            if mode == "add-update":
                 new_checksums.update(data["checksums"])
             else:
                 new_checksums = data["checksums"]
             f.Checksums = new_checksums
 
         if "parents" in data:
-            if data.get("parents_mode", "add") == "add":
-                f.add_parents(data["parents"])
+            # parents are specified as dictionaries either {"fid":...} or {"namespace":..., "name":...}
+            parents = list(DBFile.get_files(db, data["parents"]))
+            fids = set(p.FID for p in parents)
+            dids = set((p.Namespace, p.Name) for p in parents)
+            for p in data["parents"]:
+                if "fid" in p and p["fid"] not in fids:
+                    return ValueError("File fid=%s not found" % (p["fid"]))
+                elif (p["namespace"], p["name"]) not in dids:
+                    return ValueError("File %s:%s not found" % (p["namespace"], p["name"]))
+            if mode == "add-update":
+                f.add_parents(parents)
             else:
-                f.set_parents(data["parents"])
+                f.set_parents(parents)
 
         if "children" in data:
-            if data.get("children_mode", "add") == "add":
-                f.add_children(data["children"])
+            children = list(DBFile.get_files(db, data["children"]))
+            fids = set(c.FID for c in children)
+            dids = set((c.Namespace, c.Name) for c in children)
+            for c in data["children"]:
+                if "fid" in c and c["fid"] not in fids:
+                    return ValueError("File fid=%s not found" % (c["fid"]))
+                elif (c["namespace"], c["name"]) not in dids:
+                    return ValueError("File %s:%s not found" % (c["namespace"], c["name"]))
+            if mode == "add-update":
+                f.add_children(children)
             else:
-                f.set_children(data["children"])
-        
-        f.Size = data.get("size", f.Size) or 0
+                f.set_children(children)
+
+        f.Size = data.get("size", f.Size or 0)
 
         f.update(user)
         return f.to_json(with_metadata=True, with_provenance=True), "application/json"

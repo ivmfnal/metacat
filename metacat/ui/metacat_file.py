@@ -496,7 +496,7 @@ class ShowCommand(CLICommand):
                 for item in sorted(data["datasets"], key=lambda ds: (ds["namespace"], ds["name"])):
                     print("    %(namespace)s:%(name)s" % item)
                     
-class UpdateCommand(CLICommand):
+class UpdateMetaCommand(CLICommand):
     
     Opts = ("i:n:N:rs", ["namespace=", "names=", "ids=", "sample", "replace","sample"])
     Usage = """[options] (@<JSON file with metadata>|'<JSON expression>')
@@ -515,8 +515,8 @@ class UpdateCommand(CLICommand):
             -i|--ids @<file>      - read the list from file
 
             read file list from JSON file
-            -j|--json <json file>
-            -j|--json -           - read JSON file list from stdin 
+            -j|--json <json file> - from a file
+            -j|--json -           - from stdin 
             -s|--sample           - print JOSN file list sample
     """
 
@@ -555,6 +555,133 @@ class UpdateCommand(CLICommand):
         except MCError as e:
             print(e)
             sys.exit(1)
+
+class UpdateCommand(CLICommand):
+    
+    MinArgs = 1
+    Opts = "jvdrs:f:k:p:c:m: replace sample verbose json dry-run file-description= size= checksums= parents= children= metadata="
+    Usage = """[options] (<file namespace>:<file name>|<file id>)
+
+            -d|--dry-run
+            -v|--verbose
+            -r|--replace                        - Replace metadata, checksums, parents and children
+                                                  otherwise update metadata, checksums, add parents and children.
+                                                  Applies to -k, -p, -c, -m, -f options
+            -j|--json                           - print updated file attributes as JSON. Otherwise - as Python pprint
+
+            -u|--updates <JSON file>            - JSON file with file attributes to be updated as a dictionary.
+                                                  The following keys are accepted: 
+                                                      size: int, 
+                                                      checksums: dict, 
+                                                      metadata: dict,
+                                                      parents: list of strings,
+                                                      children: list of strings
+
+            -s|--size <size>                    - file size
+            -k|--checksums <type>:<value>[,...] - checksums
+            -m|--metadata <JSON metadata file>  - metadata
+            -m|--metadata '<JSON dictionary>'   - inline metadata
+            -m|--metadata -                     - read metadata dictionary as JSON from stdin
+            -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
+                                                  if the item contains colon ':', it is interpreted as DID
+            -p|--parents -                      - use '-' with -r to remove all parents
+            -c|--children <child>[,...]         - children can be specified with their file ids or DIDs.
+                                                  if the item contains colon ':', it is interpreted as DID
+            -c|--children -                     - use '-' with -r to remove all choldren
+            
+            If -u is used together with some individual attributes options, the attributes from the -u file will
+            be updated with those coming from the individual attribute options first.
+    """
+
+    def __call__(self, command, client, opts, args):
+        
+        if "--sample" in opts:
+            print(self.SampleFile)
+            return
+
+        dry_run = "-d" in opts or "--dry-run" in opts
+        replce = "-r" in opts or "--replace" in opts
+        verbose = "-v" in opts or "--verbose" in opts
+
+        update_args = {}
+        updates_file = opts.get("-u", opts.get("--updates"))
+        if updates_file:
+            update_args = json.load(open(updates_file, "r"))
+
+        update_args["replace"] = "-r" in opts or "--replace" in opts
+
+        if ':' in args[0]:
+            update_args["did"] = args[0]
+        else:
+            update_args["fid"] = args[0]
+
+        size = opts.get("-s", opts.get("--size"))
+        if size is not None:
+            size = int(size)
+            if size < 0:
+                raise InvalidArguments("File size must be non-negative integer")
+            update_args["size"] = size
+
+        metadata_file = opts.get("-m") or opts.get("--metadata")
+        if metadata_file:
+            metadata_update = None
+            try:
+                metadata_update = json.loads(metadata_file)
+            except:
+                metadata_update = json.load(open(metadata_file, "r"))
+            if not isinstance(metadata_update, dict):
+                raise InvalidArguments("Metadata file not found or metadata is not a dictionary")
+            invalid_names = [k for k in metadata_update if '.' not in k]
+            if invalid_names:
+                print("Invalid metadata key(s):", ", ".join(invalid_names), file=sys.stderr)
+                sys.exit(1)
+            update_args["metadata"] = metadata_update
+
+        parents_specs = opts.get("-p") or opts.get("--parents")
+        if parents_specs is not None:
+            parents = []
+            if parents_specs != "-":
+                for p in parents_specs.split(","):
+                    if ':' in p:
+                        parents.append({"did":p})
+                    else:
+                        parents.append({"fid":p})
+            update_args["parents"] = parents
+
+        children_specs = opts.get("-c") or opts.get("--children")
+        if children_specs is not None:
+            children = []
+            if children_specs != "-":
+                for c in children_specs.split(","):
+                    if ':' in c:
+                        children.append({"did":c})
+                    else:
+                        children.append({"fid":c})
+            update_args["children"] = children
+
+        checksums = opts.get("-k") or opts.get("--checksums")
+        if checksums:
+            ckdict = {}
+            for item in checksums.split(","):
+                name, value = item.split(":", 1)
+                ckdict[name] = value
+            update_args["checksums"] = ckdict
+
+        if verbose or dry_run:
+            if dry_run:
+                print("-------- dry run mode --------")
+            for k, v in sorted(update_args.items()):
+                print("%-20s: %s" % (k, str(v)))
+        
+        if not dry_run:
+            results = client.update_file(**update_args)
+            if verbose:
+                print()
+                if "--json" in opts or "-j" in opts:
+                    print(json.dumps(results, sort_keys=True, indent=4))
+                else:
+                    pprint.pprint(results)
+            
 
 class AddCommand(CLICommand):
     
@@ -619,6 +746,7 @@ FileCLI = CLI(
     "add",      AddCommand(),
     "datasets", DatasetsCommand(),
     "update",   UpdateCommand(),
+    "update-meta",   UpdateMetaCommand(),
     "retire",   RetireCommand(),
     "name",     NameCommand(),
     "fid",      FileIDCommand(),

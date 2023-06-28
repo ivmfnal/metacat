@@ -8,8 +8,6 @@ def validate_metadata(definitions, restricted, metadata={}, name=None, value=Non
     ----------
     metadata : dict
         metadata dictionary to validate
-    kw :
-        additional metadata names and values
     definitions : dict
         metadata definitions, indexed by the parameter name:
             {
