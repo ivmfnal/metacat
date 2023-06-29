@@ -31,6 +31,7 @@ MetaCatClient Class Methods Reference
 
 .. autoclass:: metacat.webapi.MetaCatClient
    :members:
+   :noindex:
    :inherited-members:
 
 
