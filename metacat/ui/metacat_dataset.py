@@ -6,38 +6,7 @@ from metacat.util import to_bytes, to_str, epoch
 from metacat.webapi import MetaCatClient, MCError
 
 from metacat.ui.cli import CLI, CLICommand, InvalidArguments
-
-Usage = """
-Usage: 
-    metacat dataset <command> [<options>] ...
-    
-    Commands and options:
-    
-        list [<options>] [[<namespace pattern>:]<name pattern>]
-            -l|--long           - detailed output
-            -c|--file-counts    - include file counts if detailed output
-            
-        create [<options>] <namespace>:<name> [<description>]
-            -M|--monotonic
-            -F|--frozen
-            -m|--metadata '<JSON expression>'
-            -m|--metadata @<JSON file>
-            
-        add <parent dataset namespace>:<parent name> <child dataset namespace>:<child name> [<child dataset namespace>:<child name> ...]
-
-        remove <parent namespace>:<parent name> <child namespace>:<child name> 
-        
-        show [<options>] <namespace>:<name>
-            -j|--json       - print as JSON
-            -p|--pprint     - Python pprint
-        
-        update <options> <namespace>:<name> [<description>]
-            -M|--monotonic (yes|no) - set/reset monotonic flag
-            -F|--frozen (yes|no)    - set/reset monotonic flag
-            -r|--replace            - replace metadata, otherwise update
-            -m|--metadata @<JSON file with metadata> 
-            -m|--metadata '<JSON expression>' 
-"""
+from .common import load_text, load_json
 
 class ListDatasetFilesCommand(CLICommand):
     
@@ -198,17 +167,6 @@ class AddSubsetCommand(CLICommand):
         for child in children:
             client.add_child_dataset(parent, child)
 
-def load_metadata(opts):
-    # return None if no -j in options
-    meta = None
-    if "-m" in opts or "--metadata" in opts:
-        arg = opts.get("-m") or opts.get("--metadata")
-        if arg.startswith('@'):
-            meta = json.load(open(arg[1:], "r"))
-        else:
-            meta = json.loads(arg)
-    return meta
-    
 class CreateDatasetCommand(CLICommand):
 
     Opts = ("MFm:f:d:r:j", ["monotonic", "frozen", "metadata=", "dataset-query=", "file-query=", "meta-requirements=", "json"])
@@ -216,25 +174,15 @@ class CreateDatasetCommand(CLICommand):
         -M|--monotonic
         -F|--frozen
         -m|--metadata '<JSON expression>'
-        -m|--metadata @<JSON file>
+        -m|--metadata <JSON file>
         -f|--file-query '<MQL file query>'          - run the query and add files to the dataset
-        -f|--file-query @<file_with_query>          - run the query and add files to the dataset
+        -f|--file-query <file_with_query>           - run the query and add files to the dataset
         -r|--meta-requirements '<JSON expression>'  - add metadata requirements
-        -r|--meta-requirements @<JSON file>         - add metadata requirements
+        -r|--meta-requirements <JSON file>          - add metadata requirements
         -j|--json                                   - print dataset information as JSON
         """
     MinArgs = 1
     
-    def get_text(self, opts, opt_keys):
-        opt_value = None
-        for key in opt_keys:
-            opt_value = opts.get(key)
-            if opt_value:   break
-        if opt_value:
-            if opt_value.startswith('@'):
-                opt_value = open(opt_value[1:], "r").read()
-        return opt_value
-
     def __call__(self, command, client, opts, args):
         dataset_spec, desc = args[0], args[1:]
         if desc:
@@ -243,8 +191,8 @@ class CreateDatasetCommand(CLICommand):
             desc = ""    
         monotonic = "-M" in opts or "--monotonic" in opts
         frozen = "-F" in opts or "--frozen" in opts
-        metadata = load_metadata(opts) or {}
-        files_query = self.get_text(opts, ["-f", "--file-query"])
+        metadata = load_json(opts.get("-m") or opts.get("--metadata")) or {}
+        files_query = load_text(opts.get("-f") or opts.get("--file-query")) or None
         try:
             out = client.create_dataset(dataset_spec, monotonic = monotonic, frozen = frozen, description=desc, metadata = metadata,
                 files_query = files_query
@@ -263,7 +211,7 @@ class UpdateDatasetCommand(CLICommand):
             -M|--monotonic (yes|no) - set/reset monotonic flag
             -F|--frozen (yes|no)    - set/reset monotonic flag
             -r|--replace            - replace metadata, otherwise update
-            -m|--metadata @<JSON file with metadata> 
+            -m|--metadata <JSON file with metadata> 
             -m|--metadata '<JSON expression>'
             -j|--json               - print updated dataset information as JSON
     """
@@ -276,7 +224,7 @@ class UpdateDatasetCommand(CLICommand):
             print(Usage)
             sys.exit(2)
         
-        metadata = load_metadata(opts)
+        metadata = load_json(opts.get("-m") or opts.get("--metadata")) or {}
 
         dataset = args[0]
         monotonic = frozen = None
@@ -310,25 +258,24 @@ class AddFilesCommand(CLICommand):
     Opts = ("i:j:d:N:sq:", ["namespace=", "json=", "dids=", "ids=", "sample", "query="])
     Usage = """[options] <dataset namespace>:<dataset name>
 
-            add files by DIDs or namespace/names
-            -N|--namespace <default namespace>           - default namespace for files
-            -d|--names <file namespace>:<file name>[,...]
-            -d|--names -            - read the list from stdin
-            -d|--names @<file>      - read the list from file
+            add files by DIDs or namespace/names or MQL query
 
-            add files by file id
-            -i|--ids <file id>[,...]
-            -i|--ids -              - read the list from stdin
-            -i|--ids @<file>        - read the list from file
-
+            -f|--files (<did>|<file id>)[,...]          - dids and fids can be mixed
+            -f|--files <file with DIDs or file ids>     - one did or fid per line
+            -f|--files -                                - read file list from stdin
+            
             add file list from JSON file
-            -j|--json <json file>
-            -j|--json -             - read JSON file list from stdin
-            -s|--sample             - print JOSN file list sample
+            -j|--json <json file>                       - list of dictionaries:
+                                                            { "fid": ...} or
+                                                            { "namespace": ..., "name":... } or
+                                                            { "did":... } or
+            -j|--json -                                 - read JSON file list from stdin
+            -s|--sample                                 - print JOSN file list sample
 
             add files matching a query
             -q|--query "<MQL query>"
-            -q|--query @<file>      - read query from the file
+            -q|--query <file>       - read query from the file
+            -q|--query -            - read query from stdin
     """
     
     AddSample = json.dumps(
@@ -347,29 +294,6 @@ class AddFilesCommand(CLICommand):
         indent=4, sort_keys=True
     )
 
-    def get_text(self, opts, opt_keys):
-        opt_value = None
-        for key in opt_keys:
-            opt_value = opts.get(key)
-            if opt_value:   break
-        if opt_value:
-            if opt_value.startswith('@'):
-                opt_value = open(opt_value[1:], "r").read()
-            if opt_value == "-":
-                opt_value = sys.stdin.read()
-        return opt_value
-
-    def get_list(self, opts, opt_keys):
-        opt_value = self.get_text(opts, opt_keys)
-        out = []
-        if opt_value:
-            for line in opt_value.split():
-                for word in line.split(","):
-                    word = word.strip()
-                    if word:
-                        out.append(word)
-        return out
-
     def __call__(self, command, client, opts, args):
 
         if "--sample" in opts or "-s" in opts:
@@ -379,17 +303,44 @@ class AddFilesCommand(CLICommand):
         if len(args) != 1:
             raise InvalidArguments("Invalid arguments")
 
+        # backward compatibility
+        if "-f" not in opts and "--files" not in opts:
+            opts["-f"] = opts.get("-d") or opts.get("--names") or opts.get("-i") or opts.get("--ids")
+
         default_namespace = opts.get("-N")
         files = query = None
-        if "-i" in opts or "--ids" in opts:
-            files = [{"fid": fid} for fid in self.get_list(opts, ["-i", "--ids"])]
-        elif "-d" in opts or "--dids" in opts:
-            files = [{"did": did} for did in self.get_list(opts, ["-d", "--dids"])]
+        
+        file_list = opts.get("-f") or opts.get("--files")
+        if file_list:
+            text = get_text(file_list)
+            files = []
+            for line in text.split("\n"):
+                line = line.strip()
+                if line:
+                    for item in line.split(","):
+                        item = item.strip()
+                        if item:
+                            if ':' in item:
+                                ns, n = item.split(":", 1)
+                                files.append({"namespace":ns, "name":n})
+                            else:
+                                files.append({"fid": item})
         elif "-j" in opts or "--json" in opts:
             json_file = opts.get("-j") or opts.get("--json")
-            files = json.load(open(json_file, "r"))
+            files = load_json(json_file)
+            if files:
+                for item in files:
+                    did = item.get("did")
+                    if did and ':' in did:
+                        ns, n = item.split(":", 1)
+                        item["namespace"] = ns
+                        item["name"] = n
+                        del item("did")
+                    if not ("namespace" in item and "name" in item) and "fid" not in item:
+                        print("invalid file specification:", item, file=sys.stderr)
+                        sys.exit(1)
         else:
-            query = opts.get("-q") or opts.get("--query")
+            query = load_text(opts.get("-q") or opts.get("--query"))
             
         if (query is None) == (files is None):
             raise InvalidArguments("Eitther file list or a query must be specified, but not both")

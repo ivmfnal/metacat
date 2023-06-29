@@ -4,6 +4,7 @@ from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError,
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
 from metacat.util import ObjectSpec, undid
 from datetime import timezone, datetime
+from .common import load_text
 
 def read_file_list(opts):
     default_namespace = opts.get("-N")
