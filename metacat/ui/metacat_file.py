@@ -4,49 +4,7 @@ from metacat.webapi import MetaCatClient, MCWebAPIError, MCInvalidMetadataError,
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
 from metacat.util import ObjectSpec, undid
 from datetime import timezone, datetime
-from .common import load_text
-
-def read_file_list(opts):
-    default_namespace = opts.get("-N")
-    if "-i" in opts or "--ids" in opts:
-        field = "fid"
-        source = opts.get("-i") or opts.get("--ids")
-    elif "-n" in opts or "--names" in opts:
-        field = "did"
-        source = opts.get("-n") or opts.get("--names")
-    elif "-j" in opts or "--json" in opts:
-        field = "dict"
-        json_file = opts.get("-j") or opts.get("--json")
-        source = json.load(sys.stdin if json_file == "-" else open(json_file, "r"))
-    else:
-        raise InvalidArguments("File list must be specified either with -n(--names) or -i(--ids)")
-        
-    if isinstance(source, str):
-        if source == "-":
-            lst = ({field:x.strip(), "source":x} for x in sys.stdin.readlines())
-        else:
-            if source.startswith("@"):
-                source = source[1:]
-            if os.path.isfile(source):
-                lst = ({field:x.strip(), "source":x} for x in open(source, "r").readlines())
-            else:
-                lst = ({field:x.strip(), "source":x} for x in source.split(","))
-    elif isinstance(source, list):
-        lst = source
-    else:
-        raise InvalidArguments("Unrecognized file list specification")
-        
-    out = []
-    for item in lst:
-        spec = ObjectSpec.from_dict(item)
-
-        try:    spec.validate()
-        except ValueError:
-            InvalidArguments("Invalid file specification:", item.get("source", item))
-            
-        out.append(spec.as_dict())
-    return out
-                
+from .common import load_text, load_file_list, load_json
 
 class DeclareSampleCommand(CLICommand):
     Usage = """-- print sample input for declare-many command
@@ -136,6 +94,7 @@ class DeclareSingleCommand(CLICommand):
             -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
                                                   if the item contains colon ':', it is interpreted as DID
             -m|--metadata <JSON metadata file>  - if unspecified, file will be declared with empty metadata
+            -m|--metadata '<JSON metadata>'     - metadata can be specified inline
             -a|--auto-name [[<namespace>:]<pattern>]   - generate file name automatically
 
             -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
@@ -183,7 +142,7 @@ class DeclareSingleCommand(CLICommand):
 
         metadata_file = opts.get("-m") or opts.get("--metadata")
         if metadata_file:
-            metadata = json.load(open(metadata_file, "r"))
+            metadata = load_json(metadata_file)
             if not isinstance(metadata, dict):
                 raise InvalidArguments("Metadata must be a dictionary")
             file_description["metadata"] = metadata
@@ -246,7 +205,7 @@ class DeclareManyCommand(CLICommand):
     
     MinArgs = 2
     Opts = ("N:dj", ["namespace=", "dry-run", "json"])
-    Usage = """[options] <file list JSON file> [<dataset namespace>:]<dataset name>
+    Usage = """[options] <JSON file with file list> [<dataset namespace>:]<dataset name>
     Declare multiple files:
             -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
             -j|--json                           - print results as JSON
@@ -274,9 +233,6 @@ class DeclareManyCommand(CLICommand):
 
         if "-j" in opts or "--json" in opts:
             print(json.dumps(response, indent=4, sort_keys=True))
-
-
-
         else:
             for f in response:
                 print(f["fid"], f["namespace"], f["name"])
@@ -321,7 +277,7 @@ class DatasetsCommand(CLICommand):
 class FileIDCommand(CLICommand):
 
     MinArgs = 1
-    Usage = """<namespace>:<name>|<namespace> <name>  - print file id
+    Usage = """(<namespace>:<name>|<namespace> <name>)  - print file id
     """
 
     def __call__(self, command, client, opts, args):
@@ -502,21 +458,27 @@ class ShowCommand(CLICommand):
                     
 class UpdateMetaCommand(CLICommand):
     MinArgs = 1
-    Opts = ("i:n:N:rs", ["namespace=", "names=", "ids=", "sample", "replace","sample"])
+    Opts = ("i:n:N:rsf:", ["namespace=", "names=", "ids=", "sample", "replace","sample", "files="])
     Usage = """[options] (<JSON file with metadata>|'<JSON expression>')
 
             -r|--replace          - replace metadata, otherwise update
 
             list files by DIDs or namespace/names
-            -N|--namespace <default namespace>           - default namespace for files
-            -n|--names <file namespace>:<file name>[,...]
-            -n|--names -          - read the list from stdin
-            -n|--names <file>    - read the list from file
-
-            list files by file id
-            -i|--ids <file id>[,...] 
-            -i|--ids -            - read the list from stdin
-            -i|--ids <file>      - read the list from file
+            -N|--namespace <default namespace>              - default namespace for files
+            -f|--files <file namespace>:<file name>[,...]
+            -f|--files <file id>[,...]
+            -f|--files <file>                               - read the list from text file
+            -f|--files <JSON file>                          - read the list from JSON file
+            -f|--files -                                    - read the list from stdin
+            
+            In the text file, a file in the list can be specified as:
+                * did               (namespace:name)
+                * fid
+            In JSON:
+                * { "namespace":..., "name":... }
+                * { "did":... }
+                * { "fid":... }
+                * "namespace:name"
     """
 
     UpdateSample = json.dumps(
@@ -524,6 +486,7 @@ class UpdateMetaCommand(CLICommand):
             {        
                 "did":"test:file1.dat"
             },
+            "test:file1.dat",
             {        
                 "namespace":"test",
                 "name":"file2.dat"
@@ -544,14 +507,16 @@ class UpdateMetaCommand(CLICommand):
         if len(args) != 1:
             raise InvalidArguments("Invalid arguments")
 
+        # backward compatibility
+        opts["-f"] = opts.get("-f") or opts.get("--files") or \
+            opts.get("-n") or opts.get("--names") or \
+            opts.get("-i") or opts.get("--ids")
+
         mode = "replace" if ("-r" in opts or "--replace" in opts) else "update"
         namespace = opts.get("-N") or opts.get("--namespace")
     
-        file_list = read_file_list(opts)
-        try:
-            meta = json.loads(" ",join(args))
-        except:
-            meta = json.load(open(args[0], "r"))
+        file_list = load_file_list(opts["-f"])
+        meta = load_json(args[0])
 
         try:
             response = client.update_file_meta(meta, files=file_list, mode=mode, namespace=namespace)
@@ -584,7 +549,6 @@ class UpdateCommand(CLICommand):
             -k|--checksums <type>:<value>[,...] - checksums
             -m|--metadata <JSON metadata file>  - metadata
             -m|--metadata '<JSON dictionary>'   - inline metadata
-            -m|--metadata -                     - read metadata dictionary as JSON from stdin
             -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
                                                   if the item contains colon ':', it is interpreted as DID
             -p|--parents -                      - use '-' with -r to remove all parents
@@ -625,13 +589,10 @@ class UpdateCommand(CLICommand):
                 raise InvalidArguments("File size must be non-negative integer")
             update_args["size"] = size
 
+
         metadata_file = opts.get("-m") or opts.get("--metadata")
         if metadata_file:
-            metadata_update = None
-            try:
-                metadata_update = json.loads(metadata_file)
-            except:
-                metadata_update = json.load(open(metadata_file, "r"))
+            metadata_update = load_json(metadata_file)
             if not isinstance(metadata_update, dict):
                 raise InvalidArguments("Metadata file not found or metadata is not a dictionary")
             invalid_names = [k for k in metadata_update if '.' not in k]

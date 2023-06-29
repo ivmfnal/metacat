@@ -2,11 +2,11 @@ import sys, getopt, os, json, fnmatch, pprint
 from datetime import datetime, timezone
 from textwrap import indent
 #from urllib.request import urlopen, Request
-from metacat.util import to_bytes, to_str, epoch
+from metacat.util import to_bytes, to_str, epoch, ObjectSpec
 from metacat.webapi import MetaCatClient, MCError
 
 from metacat.ui.cli import CLI, CLICommand, InvalidArguments
-from .common import load_text, load_json
+from .common import load_text, load_json, load_file_list
 
 class ListDatasetFilesCommand(CLICommand):
     
@@ -255,7 +255,7 @@ class UpdateDatasetCommand(CLICommand):
 
 class AddFilesCommand(CLICommand):
     
-    Opts = ("i:j:d:N:sq:", ["namespace=", "json=", "dids=", "ids=", "sample", "query="])
+    Opts = ("i:j:d:N:sq:f:", ["namespace=", "json=", "dids=", "ids=", "sample", "query=", "files="])
     Usage = """[options] <dataset namespace>:<dataset name>
 
             add files by DIDs or namespace/names or MQL query
@@ -293,7 +293,8 @@ class AddFilesCommand(CLICommand):
         ],
         indent=4, sort_keys=True
     )
-
+    MinArgs = 1
+    
     def __call__(self, command, client, opts, args):
 
         if "--sample" in opts or "-s" in opts:
@@ -312,33 +313,12 @@ class AddFilesCommand(CLICommand):
         
         file_list = opts.get("-f") or opts.get("--files")
         if file_list:
-            text = get_text(file_list)
-            files = []
-            for line in text.split("\n"):
-                line = line.strip()
-                if line:
-                    for item in line.split(","):
-                        item = item.strip()
-                        if item:
-                            if ':' in item:
-                                ns, n = item.split(":", 1)
-                                files.append({"namespace":ns, "name":n})
-                            else:
-                                files.append({"fid": item})
+            files = load_file_list(file_list)
         elif "-j" in opts or "--json" in opts:
             json_file = opts.get("-j") or opts.get("--json")
             files = load_json(json_file)
             if files:
-                for item in files:
-                    did = item.get("did")
-                    if did and ':' in did:
-                        ns, n = item.split(":", 1)
-                        item["namespace"] = ns
-                        item["name"] = n
-                        del item("did")
-                    if not ("namespace" in item and "name" in item) and "fid" not in item:
-                        print("invalid file specification:", item, file=sys.stderr)
-                        sys.exit(1)
+                files = [ObjectSpec(item).as_dict() for item in files]
         else:
             query = load_text(opts.get("-q") or opts.get("--query"))
             

@@ -23,8 +23,11 @@ class ObjectSpec(object):
         if p1 and p2:
             namespace, name = p1, p2
         elif p1:
-            self.DID = p1
-            namespace, name = undid(p1, namespace)
+            if ':' in p1:
+                self.DID = p1
+                namespace, name = undid(p1, namespace)
+            else:
+                self.FID = self.FID or p1
         self.Namespace, self.Name = namespace, name
         if validate:
             self.validate()
@@ -42,7 +45,7 @@ class ObjectSpec(object):
         name = data.get("name")
         fid = data.get("fid")
         if name:
-            spec = ObjectSpec(data.get("namespace", namespace), name, fid=data.get("fid"), validate=validate)
+            spec = ObjectSpec(data.get("namespace", namespace), name, fid=fid, validate=validate)
         else:
             spec = ObjectSpec(data.get("did"), namespace=data.get("namespace", namespace), fid=data.get("fid"), validate=validate)
         return spec
