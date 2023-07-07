@@ -19,7 +19,7 @@ def load_text(arg):
     text = arg
     if arg:
         file_path = None
-        if arg.startswith('@'):
+        if arg.startswith('@'):             # accept "@<file>" for backward compatibility
             file_path = arg[1:]
         elif os.path.isfile(arg):
             file_path = arg
@@ -27,7 +27,6 @@ def load_text(arg):
             text = open(file_path, "r").read()
         elif arg == "-":
             text = sys.stdin.read()
-    print("load_text: returning text:", text)
     return text
 
 def load_json(arg):
@@ -43,13 +42,12 @@ def parse_file_spec(spec):
         return {"namespace":ns, "name":n}
 
 def load_file_list(arg):
-    print(f"load_file_list({arg})")
     text = load_text(arg)
     data = []
     try:
         data = json.loads(text)
     except:
-        print(f"load_file_list: received text: [{text}]")
+        #print(f"load_file_list: received text: [{text}]")
         for line in text.split("\n"):
             line = line.strip()
             if line:
@@ -57,6 +55,6 @@ def load_file_list(arg):
                     item = item.strip()
                     if item:
                         data.append(item)
-    print("load_file_list: data:", data)
+    #print("load_file_list: data:", data)
     return [ObjectSpec(item).as_dict() for item in data]
         

@@ -262,15 +262,11 @@ class AddFilesCommand(CLICommand):
 
             -f|--files (<did>|<file id>)[,...]          - dids and fids can be mixed
             -f|--files <file with DIDs or file ids>     - one did or fid per line
-            -f|--files -                                - read file list from stdin
-            
-            add file list from JSON file
-            -j|--json <json file>                       - list of dictionaries:
+            -f|--files <json file>                      - list of dictionaries:
                                                             { "fid": ...} or
                                                             { "namespace": ..., "name":... } or
                                                             { "did":... } or
-            -j|--json -                                 - read JSON file list from stdin
-            -s|--sample                                 - print JOSN file list sample
+            -f|--files -                                - read file list from stdin
 
             add files matching a query
             -q|--query "<MQL query>"
@@ -306,7 +302,16 @@ class AddFilesCommand(CLICommand):
 
         # backward compatibility
         if "-f" not in opts and "--files" not in opts:
-            opts["-f"] = opts.get("-d") or opts.get("--names") or opts.get("-i") or opts.get("--ids")
+            opts["-f"] = opts.get("-d") or opts.get("--names") or \
+                        opts.get("-i") or opts.get("--ids") or \
+                        opts.get("-j") or opts.get("--json")
+
+        if opts.get("-d") or opts.get("--names") or \
+                        opts.get("-i") or opts.get("--ids") or \
+                        opts.get("-j") or opts.get("--json"):
+            print("", file=sys.stderr)
+            print("Options -j, --json, -d, --names, -i, --ids are deprecated.\nPlease use -f|--files instead", file=sys.stderr)
+            print("", file=sys.stderr)
 
         default_namespace = opts.get("-N")
         files = query = None
@@ -314,18 +319,13 @@ class AddFilesCommand(CLICommand):
         file_list = opts.get("-f") or opts.get("--files")
         if file_list:
             files = load_file_list(file_list)
-        elif "-j" in opts or "--json" in opts:
-            json_file = opts.get("-j") or opts.get("--json")
-            files = load_json(json_file)
-            if files:
-                files = [ObjectSpec(item).as_dict() for item in files]
         else:
             query = load_text(opts.get("-q") or opts.get("--query"))
             
         if (query is None) == (files is None):
             raise InvalidArguments("Eitther file list or a query must be specified, but not both")
 
-        dataset = args[-1]
+        dataset = args[0]
         try:
             out = client.add_files(dataset, file_list=files, query=query)
         except MCError as e:

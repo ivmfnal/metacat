@@ -691,7 +691,7 @@ class AddCommand(CLICommand):
     def __call__(self, command, client, opts, args):
         print('Use "metacat dataset add..." instead')
         sys.exit(1)
-        
+
         if "--sample" in opts or "-s" in opts:
             print(self.AddSample)
             sys.exit(0)
