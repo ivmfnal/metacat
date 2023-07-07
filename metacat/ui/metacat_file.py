@@ -653,19 +653,11 @@ class AddCommand(CLICommand):
     Usage = """[options] <dataset namespace>:<dataset name>
 
             list files by DIDs or namespace/names
-            -N|--namespace <default namespace>           - default namespace for files
-            -n|--names <file namespace>:<file name>[,...]
-            -n|--names -          - read the list from stdin
-            -n|--names @<file>    - read the list from file
-    
-            list files by file id
-            -i|--ids <file id>[,...] 
-            -i|--ids -            - read the list from stdin
-            -i|--ids @<file>      - read the list from file
-
-            read file list from JSON file
-            -j|--json <json file>
-            -j|--json -           - read JSON file list from stdin 
+            -f|--files <file namespace>:<file name>[,...]
+            -f|--files <file id>[,...]
+            -f|--files <file>                               - read the list from text file
+            -f|--files <JSON file>                          - read the list from JSON file
+            -f|--files -                                    - read the list from stdin
             -s|--sample           - print JOSN file list sample
     """
     
@@ -692,6 +684,12 @@ class AddCommand(CLICommand):
         print('Use "metacat dataset add..." instead')
         sys.exit(1)
 
+        # backward compatibility
+        opts["-f"] = opts.get("-f") or opts.get("--files") or \
+            opts.get("-n") or opts.get("--names") or \
+            opts.get("-i") or opts.get("--ids") or \
+            opts.get("-j") or opts.get("--json")
+
         if "--sample" in opts or "-s" in opts:
             print(self.AddSample)
             sys.exit(0)
@@ -699,7 +697,7 @@ class AddCommand(CLICommand):
         if len(args) != 1:
             raise InvalidArguments("Invalid arguments")
 
-        file_list = read_file_list(opts)
+        file_list = load_file_list(opts["-f"])
         dataset = args[-1]
         out = client.add_files(dataset, file_list)
 
