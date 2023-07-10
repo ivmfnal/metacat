@@ -270,8 +270,8 @@ class AddFilesCommand(CLICommand):
 
             add files matching a query
             -q|--query "<MQL query>"
-            -q|--query <file>       - read query from the file
-            -q|--query -            - read query from stdin
+            -q|--query <file>                           - read query from the file
+            -q|--query -                                - read query from stdin
     """
     
     AddSample = json.dumps(

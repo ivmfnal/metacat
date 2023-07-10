@@ -685,10 +685,20 @@ class AddCommand(CLICommand):
         sys.exit(1)
 
         # backward compatibility
-        opts["-f"] = opts.get("-f") or opts.get("--files") or \
-            opts.get("-n") or opts.get("--names") or \
-            opts.get("-i") or opts.get("--ids") or \
+        opts["-f"] = (
+            opts.get("-f") or opts.get("--files") or
+            opts.get("-n") or opts.get("--names") or
+            opts.get("-i") or opts.get("--ids") or
             opts.get("-j") or opts.get("--json")
+        )
+
+        if opts.get("-n") or opts.get("--names") or \
+                        opts.get("-i") or opts.get("--ids") or \
+                        opts.get("-j") or opts.get("--json"):
+            print("", file=sys.stderr)
+            print("Options -j, --json, -n, --names, -i, --ids are deprecated.\nPlease use -f|--files instead", file=sys.stderr)
+            print("", file=sys.stderr)
+
 
         if "--sample" in opts or "-s" in opts:
             print(self.AddSample)

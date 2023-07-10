@@ -33,7 +33,7 @@ class QueryCommand(CLICommand):
             -S|--save-as=<namespace>:<name>     - save files as a new datset
             -A|--add-to=<namespace>:<name>      - add files to an existing dataset
             -r|--include-retired-files          - include retired files into the query results
-
+            
             -x|--explain                        - dp not run the query, show resulting SQL only
     """
     
