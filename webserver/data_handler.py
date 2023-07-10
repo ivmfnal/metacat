@@ -1121,11 +1121,12 @@ class DataHandler(MetaCatHandler):
                 debug = debug == "yes"
             )
         except (AssertionError, ValueError, MQLError) as e:
+            #traceback.print_exc()
             return 400, e.__class__.__name__ + ": " + e.Message
 
-        #print("results:", results)
+        print("results:", results)
 
-        if not results:
+        if results is None: 
             return "[]", "application/json"
 
         if query_type == "file":
