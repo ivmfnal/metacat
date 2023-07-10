@@ -380,9 +380,9 @@ class DataHandler(MetaCatHandler):
         ds_namespace, ds_name = parse_name(dataset, default_namespace)
         self.sanitize(namespace=default_namespace, dataset_namespace=ds_namespace, dataset_name=ds_name)
         if ds_namespace is None:
-            return "Dataset namespace unspecified", 400, "text/plain"
+            return 400, "Dataset namespace unspecified", "text/plain"
         if not self._namespace_authorized(db, ds_namespace, user):
-            return f"Permission to add files dataset {dataset} denied", 403, "text/plain"
+            return 403, f"Permission to add files dataset {dataset} denied", "text/plain"
         ds = DBDataset.get(db, ds_namespace, ds_name)
         if ds is None:
             return "Dataset not found", 404, "text/plain"
@@ -728,11 +728,15 @@ class DataHandler(MetaCatHandler):
         if file_sets:
             file_set = list(DBFileSet.union(db, file_sets))
             files_datasets = DBDataset.datasets_for_files(db, file_set)
+            print("files_datasets:", files_datasets)
             
             #
             # validate new metadata for affected datasets
             #
-            all_datasets = {(ds.Namespace, ds.Name): ds for ds in files_datasets.values()}
+            all_datasets = {}
+            for dslist in files_datasets.values():
+                for ds in dslist:
+                    all_datasets[(ds.Namespace, ds.Name)] = ds
             for ds in all_datasets.values():
                 errors = ds.validate_file_metadata(new_meta)
                 if errors:
@@ -964,7 +968,7 @@ class DataHandler(MetaCatHandler):
             else:
                 self.sanitize(namespace=spec.Namespace, name=spec.Name)
                 
-                by_namespace_name.append((spec.Namespace, spec.Name))
+                by_namespace_name.append({"namespace":spec.Namespace, "name":spec.Name})
         return self.__update_meta_bulk(db, user, data["metadata"], data["mode"], ids=by_fid, names=by_namespace_name)
         
     @sanitized
@@ -1117,11 +1121,10 @@ class DataHandler(MetaCatHandler):
                 debug = debug == "yes"
             )
         except (AssertionError, ValueError, MQLError) as e:
+            #traceback.print_exc()
             return 400, e.__class__.__name__ + ": " + e.Message
 
-        #print("results:", results)
-
-        if not results:
+        if results is None: 
             return "[]", "application/json"
 
         if query_type == "file":

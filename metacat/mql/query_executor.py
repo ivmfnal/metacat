@@ -4,6 +4,9 @@ from .meta_evaluator import MetaEvaluator
 
 class FileQueryExecutor(Ascender):
     
+    # the assumption is that the entire tree consists of:
+    # Node(T="sql") and DBFileSet objects
+    
     def __init__(self, db, filters, debug=False):
         self.DB = db
         self.Filters = filters
@@ -26,13 +29,9 @@ class FileQueryExecutor(Ascender):
         return DBFileSet.from_sql(self.DB, sql)
         
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
-        #print("meta_filter: args:", args)
-        #print("meta_filter: node:", node, "  query:", query)
         evaluator = MetaEvaluator()
-        out = (f for f in query
-                if evaluator(f.metadata(), meta_exp)
-        )
-        return DBFileSet(self.DB, out)
+        filtered_files = (f for f in query if evaluator(f, meta_exp))
+        return DBFileSet(self.DB, filtered_files)
 
     def union(self, node, *args):
         return DBFileSet.union(self.DB, args)
@@ -47,7 +46,7 @@ class FileQueryExecutor(Ascender):
     def minus(self, node, *args, **kv):
         #print("Evaluator.union: args:", args)
         assert len(args) == 2
-        assert all(n.T in ("sql", "file_set", "empty") for n in args)
+        assert all(isinstance(n, DBFileSet) or n.T == "sql" for n in args)
         left, right = args
         return left - right
 

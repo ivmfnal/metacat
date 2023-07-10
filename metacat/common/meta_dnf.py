@@ -64,10 +64,6 @@ class _MetaRegularizer(Ascender):
 
 class MetaExpressionDNF(object):
     
-    FileAttributes = [      # file attributes which can be used in queries
-            "creator", "created_timestamp", "name", "namespace", "size"
-    ]  
-
     def __init__(self, exp):
         #
         # meta_exp is a nested list representing the query filter expression in DNF:
@@ -96,6 +92,8 @@ class MetaExpressionDNF(object):
         return _MetaRegularizer()(exp)
 
     def sql_and(self, and_terms, table_name, meta_column_name="metadata"):
+        
+        from metacat.common import FileAttributes
 
         def sql_literal(v):
             if isinstance(v, str):       
@@ -133,7 +131,7 @@ class MetaExpressionDNF(object):
             if op == "present":
                 aname = exp["name"]
                 if not '.' in aname:
-                    term = "true" if aname in self.FileAttributes else "false"
+                    term = "true" if aname in FileAttributes else "false"
                 else:
                     term = f"{table_name}.{meta_column_name} ? '{aname}'"
 
