@@ -805,7 +805,10 @@ MetaCat queries are written in :doc:`Metadata Query Language <mql>`.
         -p|--pretty                         - pretty-print metadata
         -l|--line                           - print all metadata on single line (good for grepping, ignored with -j and -p)
         -i|--ids                            - print file ids instead of names
-        -s|--summary                        - print only summary information
+            -s|--summary (count|keys)           - print only summary information
+                                                      count: file count and total size
+                                                      keys: list of all top level metadata keys for selected files
+                 -2|--1024                      - for count, print sizes in summary in KiB, GiB, ... instead of powers of 1000 (KB, GB, ...)
         -m|--metadata=[<field>,...]         - print metadata fields
                                               overrides --summary
         -m|--metadata=all                   - print all metadata fields
