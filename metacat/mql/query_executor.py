@@ -26,7 +26,7 @@ class FileQueryExecutor(Ascender):
         
     def sql(self, node, sql=None):
         #print("sql:", sql)
-        return DBFileSet.from_sql(self.DB, sql)
+        return DBFileSet(self.DB, sql=sql)
         
     def meta_filter(self, node, query=None, meta_exp=None, with_meta=False, with_provenance=False):
         evaluator = MetaEvaluator()

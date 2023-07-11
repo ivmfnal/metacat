@@ -87,7 +87,8 @@ class DatasetQuery(object):
     def run(self, db, debug=False, **ignore):
         compiled = self.compile()
         return _DatasetQueryExecutor(db)(compiled)
-        
+
+
 class FileQuery(object):
 
     Type = "file"
@@ -164,15 +165,16 @@ class FileQuery(object):
         return compiled
 
     def run(self, db=None, filters={}, skip=0, limit=None, with_meta=True, with_provenance=True, debug=False):
-        compiled = self.Compiled or self.compile(db=db, 
+
+        compiled = self.compile(db=db, 
                     skip=skip, limit=limit, 
-                    with_meta=with_meta, with_provenance=with_provenance, 
+                    with_meta=with_meta, with_provenance=with_provenance,
                     debug=debug)
         try:
             result = FileQueryExecutor(db, filters, debug=debug)(compiled)
         except Exception as e:
             raise MQLExecutionError(str(e))
-        
+        assert isinstance(result, DBFileSet)
         return result
 
 class _Assembler(Ascender):
