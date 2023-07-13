@@ -1,3 +1,4 @@
+import json, time, pprint, traceback
 from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet
 from metacat.util import limited, unique
 from metacat.common.trees import Node, Ascender, Descender, Converter
@@ -5,12 +6,10 @@ from metacat.common import MetaExpressionDNF
 from .sql_converter import SQLConverter
 from .query_executor import FileQueryExecutor
 from .meta_evaluator import MetaEvaluator
-import json, time
 from datetime import date, datetime, timezone
 
 from lark import Lark, LarkError
 from lark import Tree, Token
-import pprint
 
 CMP_OPS = [">" , "<" , ">=" , "<=" , "==" , "=" , "!=", "~~", "~~*", "!~~", "!~~*"]
 
@@ -157,7 +156,7 @@ class FileQuery(object):
                 print("after _QueryOptionsApplier:", optimized.pretty())
             self.Compiled = compiled = SQLConverter(db, debug=debug, include_retired=self.IncludeRetired)(optimized)
         except Exception as e:
-            raise MQLCompilationError(str(e))
+            raise MQLCompilationError(traceback.format_exc(limit=-1))
 
         if debug:
             print("\nCompiled:", compiled.pretty())

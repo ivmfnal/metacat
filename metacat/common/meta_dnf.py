@@ -1,5 +1,9 @@
 from .trees import Ascender, Node
+from .file_attributes import FileAttributes
 
+#FileAttributes = [      # file attributes which can be used in queries
+#    "creator", "created_timestamp", "name", "namespace", "size"
+#]  
 
 class _MetaRegularizer(Ascender):
     # converts the meta expression into DNF form:
@@ -92,8 +96,6 @@ class MetaExpressionDNF(object):
         return _MetaRegularizer()(exp)
 
     def sql_and(self, and_terms, table_name, meta_column_name="metadata"):
-        
-        from metacat.common import FileAttributes
 
         def sql_literal(v):
             if isinstance(v, str):       

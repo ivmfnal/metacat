@@ -42,7 +42,7 @@ class WebAPIError(MCError):
                     self.Data = None
             else:
                 self.Message = to_str(response.text)
-        print("WebAPIError: self.Data:", self.Data)
+
     def __str__(self):
         lines = []
         if self.Message:
