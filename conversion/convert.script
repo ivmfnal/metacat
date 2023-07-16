@@ -7,9 +7,9 @@
     restore_authenticators.sh postgresql://ivm@ifdbprod.fnal.gov:5463/dune_metadata_prd
     
     {   - title Build metadata
-    
-        load_files.sh
         load_param_categories.sh
+        preload_groups.sh    
+        load_files.sh
         preload_attrs_1.sh
         preload_attrs_2.sh
         preload_dimensions_text.sh
@@ -27,7 +27,6 @@
         preload_file_types.sh
         preload_run_types.sh
         preload_data_tiers.sh
-        preload_groups.sh
     }
     
     merge_meta.sh
