@@ -27,6 +27,7 @@
         preload_file_types.sh
         preload_run_types.sh
         preload_data_tiers.sh
+        preload_groups.sh
     }
     
     merge_meta.sh

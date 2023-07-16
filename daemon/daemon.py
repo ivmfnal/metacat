@@ -17,8 +17,8 @@ class MetaCatDaemon(Logged):
         if self.FerryURL.lower().startswith("https:") and not (self.CertFile and self.KeyFile):
             raise ValueError("X.509 cert and key files are not in the conficuration")
         
-        self.FerryUpdateInterval = daemon_config.get("ferry_update_interval", 3600)
-        self.CountsUpdateInterval = daemon_config.get("counts_update_interval", 3600)
+        self.FerryUpdateInterval = daemon_config.get("ferry_update_interval", 6*3600)
+        self.CountsUpdateInterval = daemon_config.get("counts_update_interval", 6*3600)
         self.VO = daemon_config["vo"]
 
         db_config = config["database"]
@@ -41,16 +41,20 @@ class MetaCatDaemon(Logged):
         
     def update_dataset_file_counts(self):
         db = self.db()
+        counts = DBDataset.file_count_by_dataset(db)
         for ds in DBDataset.list(db):
-            ds.FileCount = ds.nfiles(True)
+            ds.FileCount = counts.get((ds.Namespace, ds.Name), 0)
             ds.save()
+        db.close()
         self.log("Dataset file counts updated")
 
     def update_namespace_file_counts(self):
         db = self.db()
+        counts = DBFile.file_count_by_namespace(db)
         for ns in DBNamespace.list(db):
-            ns.FileCount = ns.file_count()
+            ns.FileCount = counts.get(ns.Name, 0)
             ns.save()
+        db.close()
         self.log("Namespace file counts updated")
 
     def ferry_update(self):

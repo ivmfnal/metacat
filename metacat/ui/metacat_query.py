@@ -9,15 +9,16 @@ class QueryCommand(CLICommand):
 
     GNUStyle = False    
     Opts = (
-        "jis:m:N:pq:S:A:lPxrL:U:S:R:Q:2", 
+        "jis:m:N:pq:S:A:lPxrL:U:S:R:Q:2t:", 
         ["line", "json", "ids", "summary=", "metadata=", "namespace=", "pretty",
             "with-provenance", "save-as=", "add-to=", "explain", "include-retired-files",
-            "list=", "source=", "create=", "update=", "run=", "--1024"
+            "list=", "source=", "create=", "update=", "run=", "1024", "timeout="
         ]
     )
     Usage = """[<options>] (-q <MQL query file>|"<MQL query>")
 
         Options:
+            -t|--timeout <timeout in seconds>   - request timeout (default 600)
             -j|--json                           - print raw JSON output
             -p|--pretty                         - pretty-print metadata
             -l|--line                           - print all metadata on single line (good for grepping, ignored with -j and -p)
@@ -50,7 +51,7 @@ class QueryCommand(CLICommand):
         add_to = opts.get("-A") or opts.get("--add-to")
         include_retired = "-r" in opts or "--include-retired-files" in opts
         summary = opts.get("-s") or opts.get("--summary")
-        
+        timeout = int(opts.get("-t", opts.get("--timeout", 600)))
         if args:
             query_text = " ".join(args)
         else:
@@ -81,6 +82,7 @@ class QueryCommand(CLICommand):
             print("---- Compiled ----")
             print(compiled.pretty("    "))
         else:
+            client.Timeout = timeout
             results = client.query(query_text, 
                         namespace=namespace, with_metadata = with_meta, 
                         save_as=save_as, add_to=add_to,

@@ -1030,6 +1030,15 @@ class DBFile(DBObject):
     def datasets(self):
         return DBManyToMany(self.DB, "files_datasets", "dataset_namespace", "dataset_name", file_id = self.FID)
 
+    @staticmethod
+    def file_count_by_namespace(db):
+        table = DBFile.Table
+        c = db.cursor()
+        c.execute(f"""
+            select namespace, count(*) from {table} group by namespace
+        """)
+        return dict(fetch_generator(c))
+
 class _DatasetParentToChild(DBManyToMany):
     
     def __init__(self, db, parent):
@@ -1712,6 +1721,17 @@ class DBDataset(DBObject):
 
         return dataset_map
 
+    @staticmethod
+    def file_count_by_dataset(db):
+        c = db.cursor()
+        c.execute(f"""
+            select dataset_namespace, dataset_name, count(*) 
+                from files_datasets 
+                group by dataset_namespace, dataset_name
+        """)
+        return dict(((ds_ns, ds_name), n) for ds_ns, ds_name, n in fetch_generator(c))
+
+
 class DBNamedQuery(DBObject):
     
     Columns = "namespace,name,parameters,source,creator,created_timestamp".split(",")
@@ -1959,4 +1979,3 @@ class DBNamespace(DBObject):
         tup = c.fetchone()
         if not tup: return 0
         else:       return tup[0]
-
