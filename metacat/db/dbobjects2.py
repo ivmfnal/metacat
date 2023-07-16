@@ -440,7 +440,7 @@ class DBFileSet(DBObject):
             for f in self:
                 n += 1
                 total_size += f.Size
-        return (n, int(total_size))
+        return (n or 0, int(total_size or 0))
 
     def metadata_keys(self):
         if self.SQL:

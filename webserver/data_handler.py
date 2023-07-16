@@ -259,6 +259,7 @@ class DataHandler(MetaCatHandler):
             if query.Type != "file":
                 return 400, f"Invalid file query: {files_query}"
             files = query.run(db, filters=self.App.filters(), with_meta=True, with_provenance=False)
+            print("create_dataset: files:", type(files), files)
 
         metadata = params.get("metadata") or {}
         for k in metadata.keys():
@@ -273,7 +274,7 @@ class DataHandler(MetaCatHandler):
         )
         dataset.create()
 
-        if files:
+        if files is not None:
             dataset.add_files(files)
 
         return dataset.to_json(), "application/json"
