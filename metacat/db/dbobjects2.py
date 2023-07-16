@@ -499,6 +499,8 @@ class DBFileSet(DBObject):
 
 class DBFile(DBObject):
     
+    Table = "files"
+    
     def __init__(self, db, namespace = None, name = None, metadata = None, fid = None, size=None, checksums=None,
                     parents = None, children = None, creator = None, created_timestamp=None,
                     updated_timestamp = None, updated_by = None,

@@ -1,6 +1,6 @@
 import json, requests, time, psycopg2
 from pythreader import TaskQueue
-from metacat.db import DBUser, DBNamespace, DBDataset
+from metacat.db import DBUser, DBNamespace, DBDataset, DBFile
 from metacat.logs import Logged, init as init_logs
 
 class MetaCatDaemon(Logged):
