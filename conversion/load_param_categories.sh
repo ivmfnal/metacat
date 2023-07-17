@@ -7,7 +7,7 @@ $IN_DB_PSQL -q \
 	<< _EOF_
 
 copy (
-    select pc.param_category, 'admin', 'admin', '{}'
+    select lower(pc.param_category), 'admin', 'admin', '{}'
         from param_categories pc
 ) to stdout;
 _EOF_

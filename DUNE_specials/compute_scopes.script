@@ -1,0 +1,72 @@
+{   - title Compute scopes
+
+compute.sh protodune-sp                 files from dune:protodune-sp where core.data_tier=raw
+compute.sh pdsp_det_reco                files from dune:protodune-sp_detector where core.data_tier=full-reconstructed and DUNE.campaign = 'PDSPProd4' and core.application.version = v09_09_01 and 'core.runs[any] >= 5204' and core.data_stream = physics and data_quality.online_good_run_list = 1
+compute.sh pdsp_det_pandora             files from dune:protodune-sp_detector where core.data_tier=pandora_info
+compute.sh pdsp_det_tuple               files from dune:protodune-sp_detector where core.data_tier=root-tuple
+
+    load_param_categories.sh
+    preload_groups.sh    
+    load_files.sh
+    preload_attrs_1.sh
+    preload_attrs_2.sh
+    preload_dimensions_text.sh
+    preload_dimensions_int.sh
+    preload_dimensions_float.sh
+    preload_event_numbers.sh
+    preload_detector_config.sh
+    preload_detector_type.sh
+    preload_runs_subruns.sh
+    preload_retention.sh
+    preload_app_families.sh
+    preload_data_streams.sh
+    preload_content_status.sh
+    preload_formats.sh
+    preload_file_types.sh
+    preload_run_types.sh
+    preload_data_tiers.sh
+}
+
+
+
+#!/bin/bash
+
+metacat query -i files where core.data_tier=raw and core.run_type=protodune-sp \
+    > scope_protodune_sp.ids &
+metacat query -i files where core.run_type=protodune-sp and core.file_type=detector and core.data_tier=full-reconstructed \
+        and DUNE.campaign = 'PDSPProd4' and core.application.version = v09_09_01 and 'core.runs[any] >= 5204' \
+        and core.data_stream = physics and data_quality.online_good_run_list = 1 \
+    > scope_pdsp_det_reco.ids &
+metacat query -i files where core.run_type = 'protodune-sp' and core.file_type = detector and core.data_tier=pandora_info \
+    > scope_pdsp_det_pandora.ids &
+metacat query -i files where core.run_type = 'protodune-sp' and core.file_type = detector and core.data_tier=root-tuple \
+    > scope_pdsp_det_tuple.ids &
+wait
+metacat query -i files where core.run_type = 'protodune-sp' and core.file_type = mc and core.data_tier=detector-simulated \
+    > scope_pdsp_mc_detsim.ids &
+metacat query -i files where core.run_type = 'protodune-sp' and core.file_type = mc and core.data_tier=full-reconstructed \
+    > scope_pdsp_mc_reco.ids &
+metacat query -i files where core.run_type = 'protodune-sp' and core.file_type = mc and core.data_tier=pandora_info  \
+    > scope_pdsp_mc_pandora.ids &
+metacat query -i files where core.run_type = 'protodune-sp' and core.file_type = mc and core.data_tier=root-tuple \
+    > scope_pdsp_mc_tuple.ids &
+wait
+metacat query -i files where core.run_type = iceberg \
+    > scope_iceberg.ids &
+metacat query -i files where core.file_type = mc and DUNE.campaign = mcc11 \
+        and core.data_tier in '(detector-simulated, full-reconstructed)' \
+    > scope_mcc11.ids &
+metacat query -i files where core.run_type = vd-coldbox-bottom and core.file_type = detector and core.data_tier=raw  \
+    > scope_vd-coldbox-bottom.ids &
+metacat query -i files where core.run_type = vd-coldbox-top and core.file_type = detector \
+    and core.data_tier in '(raw , full-reconstructed)'  \
+    > scope_vd-coldbox-top.ids &
+metacat query -i files where core.file_type = mc and DUNE.campaign in '(FDVDProd1,FDVDProd2)' \
+    and core.data_tier in '(root-tuple,full-reconstructed)' and core.run_type = fardet-vd  \
+        > scope_fd_vd_mc_reco.ids &
+wait
+metacat query -i files where core.run_type = hd-coldbox and core.file_type = detector and core.data_tier=raw \
+    > scope_hd-coldbox.ids &
+metacat query -i files where core.run_type = hd-protodune \
+    > scope_hd-protodune.ids &
+wait

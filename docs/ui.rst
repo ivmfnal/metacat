@@ -100,7 +100,7 @@ Token obtained using CLI ``metacat auth login`` command can be further used by b
 When the MetaCat authentication token expires, the client must obtain new token to continue using MetaCat.
 
 Password authentication
-~~~~~~~~~~~~~~~~~~~~~~~
+.......................
 
 MetaCat gets user passwords from 2 sources: LDAP and MetaCat database. If configures, MetaCat will always present
 the password the user presented for authentication to LDAP. In addition, a user can have another password hashed and then
@@ -113,7 +113,7 @@ To obtain a new token using password authentication, use the following command:
     $ metacat auth login -m password <username>
 
 X.509 authentication
-~~~~~~~~~~~~~~~~~~~~
+....................
 
 MetaCat supports X.509 authentication. In order to enable X.509 authentication, the user has to add their DN to
 their user record stored in the MetaCat users database. This can be done by the user or by a MetaCat admin using MetaCat GUI.
@@ -154,7 +154,7 @@ then adding the following DNs to the database has exactly the same effect:
     CN=UID:jjohnson,CN=John Johnson,OU=People,O=FNAL,C=US,DC=cilogon,DC=org
 
 WLCG token authentication
-~~~~~~~~~~~~~~~~~~~~~~~~~
+.........................
 
 MetaCat supports WLCG tokens authentication. MetaCat client will for the token in the following standard locations:
 
@@ -181,7 +181,7 @@ Alternatively, you can specify the token value or the location of the token file
     $ metacat auth login -m token (-t|--token) <file with serilized token> <username>
 
 Listing available MetaCat authentication tokens
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+...............................................
 
 Once the MetaCat client obtains the MetaCat authentication token using one of the authentication mechanisms listed above,
 it stores the token into its own token library indexed by the MetaCat server URL. This way, the client can communicate
@@ -252,7 +252,7 @@ To create dataset in a namespace or to modify the dataset content or metadata, t
 either directly or through a role.
 
 Creating a dataset
-~~~~~~~~~~~~~~~~~~
+..................
 
 .. code-block:: shell
 
@@ -279,7 +279,7 @@ A multi-word description does not have to be put in quotes. E.g., the following 
 ``-r`` is used to create a dataset with specified metadata requirements. They are specified as a JSON dictionary (to be documented...)
 
 Adding files to dataset
-~~~~~~~~~~~~~~~~~~~~~~~
+.......................
 
 .. code-block:: shell
 
@@ -347,7 +347,7 @@ whereas ``-q`` only sends the list of file ids to the client one way.
 Note that it is not an error to attempt to add a file if it is already included in the dataset.
 
 Listing existing datasets
-~~~~~~~~~~~~~~~~~~~~~~~~~
+.........................
 
 .. code-block:: shell
 
@@ -368,7 +368,7 @@ When using -l option, user can also use -c to request dataset file counts. In th
 
 
 Updating a dataset metadata and flags
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.....................................
 
 .. code-block:: shell
 
@@ -380,7 +380,7 @@ Updating a dataset metadata and flags
             -m|--metadata '<JSON expression>' 
             
 Listing files in the dataset
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+............................
 
 .. code-block:: shell
 
@@ -389,7 +389,7 @@ Listing files in the dataset
             -j                      - as JSON
 
 Adding/removing subsets to/from a dataset
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.........................................
 
 .. code-block:: shell
 
@@ -398,12 +398,11 @@ Adding/removing subsets to/from a dataset
 When adding a dataset to another dataset, MetaCat checks whether the operation will create a circle in the ancestor/descendent relationship and refuses
 to do so.
 
-Declaring new files
--------------------
-
+Files
+-----
 
 Auto-naming
-~~~~~~~~~~~
+...........
 
 When declaring new files to MetaCat, sometimes it is useful to have MetaCat generate file names according to some naming schema.
 To do that, instead of ``name`` file attribute, specify ``auto-name`` attribute. Auto-name is a text string with some fields, which will be
@@ -421,7 +420,7 @@ in the following order:
 For example, the pattern ``file_$uuid8_$clock6.dat`` may generate file name like ``file_13d79a37_601828.dat``.
 
 Declare single file
-~~~~~~~~~~~~~~~~~~~
+...................
 
 When declaring a new file, the file has to be added to an existing dataset.
 
@@ -548,7 +547,7 @@ Complete set of options for this command is:
 
 
 Declare multiple files
-~~~~~~~~~~~~~~~~~~~~~~
+......................
 
 When declaring multiple files, the command accepts JSON file path. The file must contain a JSON representation of a list
 of file descriptions like this:
@@ -585,7 +584,7 @@ Once you have the JSON file with files description, you can delare them:
           -N|--namespace <default namespace>
 
 Listing datasets the file is in
--------------------------------
+...............................
 
 This command will print namespace/name for all the datasets the file is in. Currently, not recursively.
 
@@ -597,8 +596,166 @@ This command will print namespace/name for all the datasets the file is in. Curr
       -j print the dataset list as JSON
       otherwise print <namespace>:<name> for each dataset
 
-Metadata Parameter Categories
------------------------------
+Updating Metadata for Files
+...........................
+
+If you want to make similar changes to metadata for multiple files, you can use `update-meta` subcommand. 
+This subcommand allows you to perform one of 3 functions on multiple files:
+
+  * Add missing metadata values
+  * Update existing metadata values
+  * Replace entire file metadata with new values
+
+To use this command, first, you will need to create a JSON file with metadata values you want to add, update or replace::
+
+    {
+        "x": 3.14,
+        "run_type": "calibration"
+    }
+
+Then make the list of files you want to update, write the list into a text file, one file entry per line. Each file entry
+can be either the file DID ("namespace:name") or the file id.
+
+Then run the `metacat file update-meta` command.
+
+If the files are specified with their DIDs, then use `-n` option:
+
+.. code-block:: shell
+    
+    $ metacat update -n <namespace>:<name>[,...] metadata.json
+    $ metacat update -n <file with DIDs> metadata.json
+    $ metacat update -n - metadata.json             # read file namesspace:name's from stdin
+    
+If the files are specified with their file ids, then use `-i` option:
+ 
+.. code-block:: shell
+    
+    $ metacat update -i <file_id>[,...] metadata.json
+    $ metacat update -i <file with file ids> metadata.json
+    $ metacat update -i - metadata.json             # read file ids from stdin
+
+If you want to replace entire metadata for the files with new dictionary instead of adding or updating few parameters, use `-r` option, e.g.:
+
+.. code-block:: shell
+    
+    $ metacat update -r -i <file_id>[,...] metadata.json
+    $ metacat update -r <file with DIDs> metadata.json
+
+
+Updating Signle File Attributes and Metadata
+............................................
+
+The `update` subcommand works with single file, but it allows you to update file attributes such as:
+
+    * file size
+    * checksums dictionary
+    * provenance (parents and/or children)
+    
+in addition to the file metadata. The command works in 2 modes:
+
+    * replace - checksums dictionary, metadata and parents and children lists will be replaced with new values
+    * add/update - checksums dictionary and metadata will be updated with new values, specified parents/children will be added to existing lists
+    
+The command will modify only those attributes included in the command and will not affect other attrubutes. For example:
+
+.. code-block:: shell
+
+    # update size and add/update adler32 checksum for the file:
+    $ metacat file update -s 12345 -k '{"adler32":"1234abcd"}' my_scope:my_file.hdf5
+
+    # remove any checksums from the file:
+    $ metacat file update -r -k - my_scope:my_file.hdf5
+
+    # replace children for the file:
+    $ metacat file update -r -c my_scope:derived_a.hdf5,my_scope:derived_b.hdf5 my_scope:my_file.hdf5
+
+    # add/update metadata values from JSON file:
+    $ metacat file update -m meta.json my_scope:my_file.hdf5
+
+    # replace metadata:
+    $ metacat file update -r -m '{"math.pi":3.1415, "format":"hdf5"}' my_scope:my_file.hdf5
+
+    # read all the updates from a JSON file:
+    $ metacat file update -u update.json my_scope:my_file.hdf5
+
+The command has more options:
+
+.. code-block:: shell
+
+    $ metacat file update --help
+    metacat file update [options] (<file namespace>:<file name>|<file id>)
+  
+      -d|--dry-run
+      -v|--verbose
+      -r|--replace                        - Replace metadata, checksums, parents and children
+                                            otherwise update metadata, checksums, add parents and children.
+                                            Applies to -k, -p, -c, -m, -f options
+      -j|--json                           - print updated file attributes as JSON. Otherwise - as Python pprint
+  
+      -u|--updates <JSON file>            - JSON file with file attributes to be updated as a dictionary.
+                                            The following keys are accepted: 
+                                                size: int, 
+                                                checksums: dict, 
+                                                metadata: dict,
+                                                parents: list of strings,
+                                                children: list of strings
+  
+      -s|--size <size>                    - file size
+      -k|--checksums <type>:<value>[,...] - checksums
+      -m|--metadata <JSON metadata file>  - metadata
+      -m|--metadata '<JSON dictionary>'   - inline metadata
+      -m|--metadata -                     - read metadata dictionary as JSON from stdin
+      -p|--parents <parent>[,...]         - parents can be specified with their file ids or DIDs.
+                                            if the item contains colon ':', it is interpreted as DID
+      -p|--parents -                      - use '-' with -r to remove all parents
+      -c|--children <child>[,...]         - children can be specified with their file ids or DIDs.
+                                            if the item contains colon ':', it is interpreted as DID
+      -c|--children -                     - use '-' with -r to remove all choldren
+  
+      If -u is used together with some individual attributes options, the attributes from the -u file will
+      be updated with those coming from the individual attribute options first.
+
+
+
+Retrieving
+..........
+
+Retrieving single file metadata
+
+.. code-block:: shell
+
+        metacat file show [<options>] (-i <file id>|<namespace>:<name>)
+          -m|--meta-only            - print file metadata only
+          -n|--name-only            - print file namespace, name only
+          -d|--id-only              - print file id only
+
+          -j|--json                 - as JSON
+          -p|--pretty               - pretty-print information
+
+          -l|--lineage|--provenance (p|c)        - parents or children instead of the file itself
+          -I|--ids                               - for parents and children, print file ids instead of namespace/names
+          
+Validation
+..........
+
+Sometimes is it desireable to validate metadata without actually declaring a file. One way of doing this would be to
+use *dry run* mode of the file declaration command. Another way is to use ``metacat validate`` command:
+
+.. code-block:: shell
+
+    $ metacat validate [options] <JSON file with metadata>
+      -d <dataset namespace>:<dataset name>           - if specified, validate the file metadata against the dataset requirements
+      -q                                              - quiet - do not print anything, just use exit status to signal results
+
+To use the command, create a JSON file with file metadata only and use the command to validate it. The metadata will be validated
+against all the parameter category constraints and, if the target dataset for the file is specified with ``-d``, against the
+dataset metadata requirements. The command will exit with 0 (success) status if the metadata is valid. Otherwise it will
+print the violations found and exit with error status 1. ``-q`` can be used to suppress any error printing, to have the command
+quietly exit with 0 or 1 status.
+
+
+Metadata Categories
+-------------------
 
 Existing parameter categories can be listed using:
 
@@ -632,72 +789,6 @@ Information about an individual category can be printed using:
       word                                           text ~ '[A-Z].*'
 
 
-File Metadata
--------------
-        
-Updating
-~~~~~~~~
-
-Create JSON file with metadata values::
-
-    {
-        "x": 3.14,
-        "run_type": "calibration"
-    }
-
-Update metadata:
-
-.. code-block:: shell
-    
-    metacat update -n <namespace>:<name>[,...] @metadata.json
-    metacat update -n @<file with names> @metadata.json
-    metacat update -n - @metadata.json             # read file namesspace:name's from stdin 
-
-    metacat update -i <file id>[,...] @metadata.json
-    metacat update -i @<file with ids> @metadata.json
-    metacat update -i - @metadata.json             # read file ids from stdin 
-    
-    or you can put new metadata inline:
-    
-    metacat update -n <namespace>:<name>[,...] '{"x": 3.14, "run_type": "calibration"}'
-    ...
-    
-        
-Retrieving
-~~~~~~~~~~
-
-Retrieving single file metadata
-
-.. code-block:: shell
-
-        metacat file show [<options>] (-i <file id>|<namespace>:<name>)
-          -m|--meta-only            - print file metadata only
-          -n|--name-only            - print file namespace, name only
-          -d|--id-only              - print file id only
-
-          -j|--json                 - as JSON
-          -p|--pretty               - pretty-print information
-
-          -l|--lineage|--provenance (p|c)        - parents or children instead of the file itself
-          -I|--ids                               - for parents and children, print file ids instead of namespace/names
-          
-Validation
-~~~~~~~~~~
-
-Sometimes is it desireable to validate metadata without actually declaring a file. One way of doing this would be to
-use *dry run* mode of the file declaration command. Another way is to use ``metacat validate`` command:
-
-.. code-block:: shell
-
-    $ metacat validate [options] <JSON file with metadata>
-      -d <dataset namespace>:<dataset name>           - if specified, validate the file metadata against the dataset requirements
-      -q                                              - quiet - do not print anything, just use exit status to signal results
-
-To use the command, create a JSON file with file metadata only and use the command to validate it. The metadata will be validated
-against all the parameter category constraints and, if the target dataset for the file is specified with ``-d``, against the
-dataset metadata requirements. The command will exit with 0 (success) status if the metadata is valid. Otherwise it will
-print the violations found and exit with error status 1. ``-q`` can be used to suppress any error printing, to have the command
-quietly exit with 0 or 1 status.
 
 Query
 -----
@@ -710,11 +801,14 @@ MetaCat queries are written in :doc:`Metadata Query Language <mql>`.
     metacat query [<options>] -f <MQL query file>
 
     Options:
-        -j|--json                           - print raw JSON output
-        -p|--pretty                         - pretty-print metadata
+        -j|--json                           - print results as JSON
+        -p|--pretty                         - print results using Python pprint
         -l|--line                           - print all metadata on single line (good for grepping, ignored with -j and -p)
         -i|--ids                            - print file ids instead of names
-        -s|--summary                        - print only summary information
+        -s|--summary (count|keys)           - print only summary information
+                                                      count: file count and total size
+                                                      keys: list of all top level metadata keys for selected files
+             -2|--1024                      - for count, print sizes in summary in KiB, GiB, ... instead of powers of 1000 (KB, GB, ...)
         -m|--metadata=[<field>,...]         - print metadata fields
                                               overrides --summary
         -m|--metadata=all                   - print all metadata fields

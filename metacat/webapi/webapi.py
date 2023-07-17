@@ -42,7 +42,7 @@ class WebAPIError(MCError):
                     self.Data = None
             else:
                 self.Message = to_str(response.text)
-        
+
     def __str__(self):
         lines = []
         if self.Message:
@@ -77,7 +77,7 @@ class InvalidMetadataError(WebAPIError):
 
     def __str__(self):
         msg = ["Invalid metadata"]
-        for item in self.json():
+        for item in self.json().get("metadata_errors", []):
             item_headline = item["message"]
             index = item.get("index")
             fid = item.get("fid")
@@ -97,7 +97,7 @@ class HTTPClient(object):
 
     InitialRetry = 1.0
     RetryExponent = 1.5
-    DefaultTimeout = 300.0
+    DefaultTimeout = 1200.0
 
     def __init__(self, server_url, token, timeout):
         self.ServerURL = server_url
@@ -178,7 +178,7 @@ class HTTPClient(object):
                 line = line[1:]
             if line:
                 #print(f"stream line:[{line}]")
-                obj = json.loads(line)
+                obj = self.unpack_json(line)
                 yield obj
 
     def unpack_json_data(self, response):
@@ -186,7 +186,7 @@ class HTTPClient(object):
         if "application/json-seq" in response_content_type:
             return self.unpack_json_seq(response)
         else:
-            return response.json()
+            return self.unpack_json(response.text)
 
     def get_json(self, uri_suffix):
         headers = {"Accept": "application/json-seq, application/json, text/json"}
@@ -725,12 +725,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         out = self.post_json(url, lst)
         return out
         
-    def update_file(self, did=None, namespace=None, name=None, fid=None,
-                size=None, 
-                checksums=None, checksums_mode="update",
-                parents=None, parents_mode="add",
-                children=None, children_mode="add",
-                metadata=None, metadata_mode="update"
+    def update_file(self, did=None, namespace=None, name=None, fid=None, replace=False,
+                size=None, checksums=None, parents=None, children=None, metadata=None
         ):
         """
         Arguments
@@ -743,28 +739,19 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             file namespace
         name : str
             file name
+        replace : bool
+            If True, the specified attribute values will be replaced with new values. 
+            Otherwise added (for parents and children) and updated (for checksums and metadata)
         size : int >= 0
             file size, optional
         checksums : dict
             checksum values, optional
-        checksums_mode : str
-            either "update" (keep old values, add new values, replace existing values) or
-            "replace" (discard old checksums values and replace with the new dictionary)
         parents : list
             list of parent file ids, optional
-        parents_mode : str
-            either "add" (keep old parents, add new parents) or
-            "replace" (discard old parents list and replace with the new list)
         children : list
             list of child file ids, optional
-        children_mode : str
-            either "add" (keep old children, add new children) or
-            "replace" (discard old children list and replace with the new list)
         metadata : dict
-            dictionary with metadata to update or replace
-        metadata_mode : str
-            either "update" (add new values, replace existing values, keep old values) or
-            "replace" (discard old metadata and replace with the new dictionary)
+            dictionary with metadata to update or replace, optional
 
         Returns
         -------
@@ -772,7 +759,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             Dictionary with updated file information
         """
 
-        data = {}
+        data = {"mode":"replace" if replace else "add-update"}
+
         if fid:
             data["fid"] = fid
         else:
@@ -788,27 +776,19 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             
         if checksums is not None:
             assert isinstance(checksums, dict)
-            assert checksums_mode in ("update", "replace")
             data["checksums"] = checksums
-            data["checksums_mode"] = checksums_mode
             
         if parents is not None:
             assert isinstance(parents, list)
-            assert parents_mode in ("add", "replace")
-            data["parents"] = parents
-            data["parents_mode"] = parents_mode
+            data["parents"] = [ObjectSpec(p).as_dict() for p in parents]
             
         if children is not None:
             assert isinstance(children, list)
-            assert children_mode in ("add", "replace")
-            data["children"] = children
-            data["children_mode"] = children_mode
+            data["children"] = [ObjectSpec(c).as_dict() for c in children]
             
         if metadata is not None:
             assert isinstance(metadata, dict)
-            assert metadata_mode in ("update", "replace")
             data["metadata"] = metadata
-            data["metadata_mode"] = metadata_mode
 
         return self.post_json("data/update_file", data)
 
@@ -1110,7 +1090,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             return None
 
     def query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None, add_to=None,
-                        include_retired_files=False):
+                        include_retired_files=False, summary=None):
         """Run file query. Requires client authentication if save_as or add_to are used.
         
         Arguments
@@ -1123,13 +1103,16 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             boolean, whether to include retired files into the query results, default=False
         with_metadata : boolean
             whether to return file metadata
-        with_provenance:
+        with_provenance : boolean
             whether to return parents and children list
-        save_as:
+        save_as : str
             namespace:name for a new dataset to create and add found files to
-        add_to:
+        add_to : str
             namespace:name for an existing dataset to add found files to
-            
+        summary : str or None
+            "count" - return file count only as int
+            "keys" - return list of all top level metadata keys for the selected files
+            ``summary`` can not be used together with ``save_as`` or ``add_to``
 
         Returns
         -------
@@ -1141,15 +1124,26 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         Retrieving file provenance and metadata takes slightly longer time
         """
         
-        url = "data/query?with_meta=%s&with_provenance=%s" % ("yes" if with_metadata else "no","yes" if with_provenance else "no")
-        if namespace:
-            url += f"&namespace={namespace}"
-        if save_as:
-            url += f"&save_as={save_as}"
-        if add_to:
-            url += f"&add_to={add_to}"
-        if include_retired_files:
-            url += "&include_retired_files=yes"
+        assert not (summary is not None and (add_to or save_as)), "Summary can not be used together with add_to or save_as"
+        assert summary in ("count", "keys", None)
+        
+        if summary:
+            url = f"data/query?summary={summary}"
+            if namespace:
+                url += f"&namespace={namespace}"
+            if include_retired_files:
+                url += "&include_retired_files=yes"
+        else:
+            url = "data/query?with_meta=%s&with_provenance=%s" % ("yes" if with_metadata else "no","yes" if with_provenance else "no")
+            if namespace:
+                url += f"&namespace={namespace}"
+            if save_as:
+                url += f"&save_as={save_as}"
+            if add_to:
+                url += f"&add_to={add_to}"
+            if include_retired_files:
+                url += "&include_retired_files=yes"
+        #print("url:", url)
         results = self.post_json(url, query)
         return results
 

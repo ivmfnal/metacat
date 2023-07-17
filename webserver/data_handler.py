@@ -71,7 +71,7 @@ class DataHandler(MetaCatHandler):
     RS = '\x1E'
     LF = '\n'    
 
-    def json_stream(self, iterable, chunk=10000):
+    def json_stream(self, iterable, chunk=100000):
         # iterable is an iterable, returning jsonable items, one item at a time
         return self.text_chunks(("%s%s%s" % (self.RS, json.dumps(item), self.LF) for item in iterable), chunk)
 
@@ -259,6 +259,7 @@ class DataHandler(MetaCatHandler):
             if query.Type != "file":
                 return 400, f"Invalid file query: {files_query}"
             files = query.run(db, filters=self.App.filters(), with_meta=True, with_provenance=False)
+            print("create_dataset: files:", type(files), files)
 
         metadata = params.get("metadata") or {}
         for k in metadata.keys():
@@ -273,7 +274,7 @@ class DataHandler(MetaCatHandler):
         )
         dataset.create()
 
-        if files:
+        if files is not None:
             dataset.add_files(files)
 
         return dataset.to_json(), "application/json"
@@ -380,9 +381,9 @@ class DataHandler(MetaCatHandler):
         ds_namespace, ds_name = parse_name(dataset, default_namespace)
         self.sanitize(namespace=default_namespace, dataset_namespace=ds_namespace, dataset_name=ds_name)
         if ds_namespace is None:
-            return "Dataset namespace unspecified", 400, "text/plain"
+            return 400, "Dataset namespace unspecified", "text/plain"
         if not self._namespace_authorized(db, ds_namespace, user):
-            return f"Permission to add files dataset {dataset} denied", 403, "text/plain"
+            return 403, f"Permission to add files dataset {dataset} denied", "text/plain"
         ds = DBDataset.get(db, ds_namespace, ds_name)
         if ds is None:
             return "Dataset not found", 404, "text/plain"
@@ -732,7 +733,10 @@ class DataHandler(MetaCatHandler):
             #
             # validate new metadata for affected datasets
             #
-            all_datasets = {(ds.Namespace, ds.Name): ds for ds in files_datasets.values()}
+            all_datasets = {}
+            for dslist in files_datasets.values():
+                for ds in dslist:
+                    all_datasets[(ds.Namespace, ds.Name)] = ds
             for ds in all_datasets.values():
                 errors = ds.validate_file_metadata(new_meta)
                 if errors:
@@ -836,7 +840,6 @@ class DataHandler(MetaCatHandler):
             return 400, "Unsupported request data format"
 
         data = json.loads(request.body)
-        
         spec = ObjectSpec.from_dict(data)
 
         if spec.FID:
@@ -852,15 +855,26 @@ class DataHandler(MetaCatHandler):
         if not self._namespace_authorized(db, f.Namespace, user):
             return 403, "Not authtorized"
 
+        mode = data.get("mode", "add-update")
+
         new_metadata = f.Metadata.copy()
         if "metadata" in data:
-            if data.get("metadata_mode", "update") == "update":
+
+            errors = []
+            for k in data["metadata"].keys():
+                if '.' not in k:
+                    errors.append({
+                        "name": k,
+                        "message":f"Metadata parameter without a category: {k}"
+                    })
+
+            if mode == "add-update":
                 new_metadata.update(data["metadata"])
             else:
                 new_metadata = data["metadata"]
 
+
             # validate new metadata against file datasets
-            errors = []
             for ds_ns, ds_n in f.datasets:
                 ds = DBDataset(db, ds_ns, ds_n)
                 if ds is None:
@@ -868,32 +882,49 @@ class DataHandler(MetaCatHandler):
                 errors += ds.validate_file_metadata(new_metadata)
             if errors:
                 return json.dumps({
-                    "message":"Metadata validation errors",
-                    "metadata_errors":errors
+                    "message":          "Metadata validation errors",
+                    "metadata_errors":  errors
                 }), METADATA_ERROR_CODE, "application/json"
             f.Metadata = new_metadata
 
         if "checksums" in data:
             new_checksums = (f.Checksums or {}).copy()
-            if data.get("checksums_mode", "update") == "update":
+            if mode == "add-update":
                 new_checksums.update(data["checksums"])
             else:
                 new_checksums = data["checksums"]
             f.Checksums = new_checksums
 
         if "parents" in data:
-            if data.get("parents_mode", "add") == "add":
-                f.add_parents(data["parents"])
+            # parents are specified as dictionaries either {"fid":...} or {"namespace":..., "name":...}
+            parents = list(DBFile.get_files(db, data["parents"]))
+            fids = set(p.FID for p in parents)
+            dids = set((p.Namespace, p.Name) for p in parents)
+            for p in data["parents"]:
+                if "fid" in p and p["fid"] not in fids:
+                    return ValueError("File fid=%s not found" % (p["fid"]))
+                elif (p["namespace"], p["name"]) not in dids:
+                    return ValueError("File %s:%s not found" % (p["namespace"], p["name"]))
+            if mode == "add-update":
+                f.add_parents(parents)
             else:
-                f.set_parents(data["parents"])
+                f.set_parents(parents)
 
         if "children" in data:
-            if data.get("children_mode", "add") == "add":
-                f.add_children(data["children"])
+            children = list(DBFile.get_files(db, data["children"]))
+            fids = set(c.FID for c in children)
+            dids = set((c.Namespace, c.Name) for c in children)
+            for c in data["children"]:
+                if "fid" in c and c["fid"] not in fids:
+                    return ValueError("File fid=%s not found" % (c["fid"]))
+                elif (c["namespace"], c["name"]) not in dids:
+                    return ValueError("File %s:%s not found" % (c["namespace"], c["name"]))
+            if mode == "add-update":
+                f.add_children(children)
             else:
-                f.set_children(data["children"])
-        
-        f.Size = data.get("size", f.Size) or 0
+                f.set_children(children)
+
+        f.Size = data.get("size", f.Size or 0)
 
         f.update(user)
         return f.to_json(with_metadata=True, with_provenance=True), "application/json"
@@ -934,7 +965,7 @@ class DataHandler(MetaCatHandler):
             else:
                 self.sanitize(namespace=spec.Namespace, name=spec.Name)
                 
-                by_namespace_name.append((spec.Namespace, spec.Name))
+                by_namespace_name.append({"namespace":spec.Namespace, "name":spec.Name})
         return self.__update_meta_bulk(db, user, data["metadata"], data["mode"], ids=by_fid, names=by_namespace_name)
         
     @sanitized
@@ -1018,11 +1049,23 @@ class DataHandler(MetaCatHandler):
     @sanitized
     def query(self, request, relpath, query=None, namespace=None, 
                     with_meta="no", with_provenance="no", debug="no", include_retired_files="no",
-                    add_to=None, save_as=None,
+                    add_to=None, save_as=None, summary=None,
                     **args):
+
+        if summary not in ("count", "keys", None):
+            return 400, f"Unsupported summary type: {summary}"
+
         with_meta = with_meta == "yes"
         with_provenance = with_provenance == "yes"
         include_retired_files = include_retired_files == "yes"
+
+        if summary == "count":
+            with_meta = False
+            with_provenance = False
+
+        if summary in ("keys", "key-values"):
+            with_meta = True
+            with_provenance = False
 
         self.sanitize(namespace=namespace)
 
@@ -1044,6 +1087,7 @@ class DataHandler(MetaCatHandler):
         if (save_as or add_to) and user is None:
             return 401, error
 
+        add_to_dataset = None
         if save_as:
             ds_namespace, ds_name = parse_name(save_as, namespace)
             self.sanitize(dataset_namespace=ds_namespace, dataset_name=ds_name)
@@ -1057,8 +1101,11 @@ class DataHandler(MetaCatHandler):
 
             if DBDataset.exists(db, ds_namespace, ds_name):
                 return f"Dataset {ds_namespace}:{ds_name} already exists", 409
-
-        if add_to:
+                
+            add_to_dataset = DBDataset(db, ds_namespace, ds_name)
+            add_to_dataset.create()
+            
+        elif add_to:
             add_namespace, add_name = parse_name(add_to, namespace)
             self.sanitize(dataset_namespace=add_namespace, dataset_name=add_name)
             ns = DBNamespace.get(db, add_namespace)
@@ -1066,11 +1113,12 @@ class DataHandler(MetaCatHandler):
             if ns is None:
                 return f"Namespace {add_namespace} does not exist", 404
 
-            if not DBDataset.exists(db, add_namespace, add_name):
-                return f"Dataset {add_namespace}:{add_name} does not exist", 404
-
             if not ns.owned_by_user(user):
                 return f"Permission to add files to dataset in the namespace {add_namespace} denied", 403
+
+            add_to_dataset = DBDataset.get(db, add_namespace, add_name)
+            if add_to_dataset is None:
+                return f"Dataset {add_namespace}:{add_name} does not exist", 404
 
         t0 = time.time()
         if not query_text:
@@ -1087,31 +1135,32 @@ class DataHandler(MetaCatHandler):
                 debug = debug == "yes"
             )
         except (AssertionError, ValueError, MQLError) as e:
+            #traceback.print_exc()
             return 400, e.__class__.__name__ + ": " + e.Message
 
-        #print("results:", results)
-
-        if not results:
+        if results is None: 
             return "[]", "application/json"
 
         if query_type == "file":
-            if save_as:
-                results = list(results)
-                ds = DBDataset(db, ds_namespace, ds_name)
-                ds.create()
-                ds.add_files(results)            
-            if add_to:
-                results = list(results)
-                ds = DBDataset(db, add_namespace, add_name)
-                ds.add_files(results)      
-            
-            data = ( f.to_jsonable(with_metadata=with_meta, with_provenance=with_provenance) for f in results)
+
+            if add_to_dataset is not None:
+                nfiles, total_size = add_to_dataset.add_files(results)
+                return json.dumps({"count":count, "total_size": total_size}), "application/json"
+
+            elif summary == "count":
+                count, size = results.counts()
+                return json.dumps({"count":count, "total_size":size}), "application/json"
+
+            elif summary == "keys":
+                return json.dumps(list(results.metadata_keys())), "application/json"
+
+            else:
+                data = (f.to_jsonable(with_metadata=with_meta, with_provenance=with_provenance) for f in results)
+                return self.json_stream(data), "application/json-seq"
 
         else:
-            print("query: results:", results)
-            results = list(results)
-            print("query: results:", results)
             data = ( d.to_jsonable(with_relatives=with_provenance) for d in results )
+
         return self.json_stream(data), "application/json-seq"
         
     @sanitized

@@ -1,5 +1,9 @@
 from .trees import Ascender, Node
+from .file_attributes import FileAttributes
 
+#FileAttributes = [      # file attributes which can be used in queries
+#    "creator", "created_timestamp", "name", "namespace", "size"
+#]  
 
 class _MetaRegularizer(Ascender):
     # converts the meta expression into DNF form:
@@ -64,10 +68,6 @@ class _MetaRegularizer(Ascender):
 
 class MetaExpressionDNF(object):
     
-    FileAttributes = [      # file attributes which can be used in queries
-            "creator", "created_timestamp", "name", "namespace", "size"
-    ]  
-
     def __init__(self, exp):
         #
         # meta_exp is a nested list representing the query filter expression in DNF:
@@ -133,7 +133,7 @@ class MetaExpressionDNF(object):
             if op == "present":
                 aname = exp["name"]
                 if not '.' in aname:
-                    term = "true" if aname in self.FileAttributes else "false"
+                    term = "true" if aname in FileAttributes else "false"
                 else:
                     term = f"{table_name}.{meta_column_name} ? '{aname}'"
 

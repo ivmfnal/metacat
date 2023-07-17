@@ -1,16 +1,25 @@
-import re
+import re, traceback
+from metacat.common import FileAttributes
 
 class MetaEvaluator(object):
 
     BOOL_OPS = ("and", "or", "not")
+    
+    def file_attribute(self, f, attrname):
+        x = None
+        if attrname == "creator":               x = f.Creator
+        elif attrname == "created_timestamp":   x = f.CreatedTimestamp.epoch()
+        elif attrname == "name":                x = f.Name
+        elif attrname == "namespace":           x = f.Namespace
+        elif attrname == "size":                x = f.Size
+        return x
 
-    def evaluate_meta_expression(self, metadata, meta_expression):
-        #print("evaluate_meta_expression: meta_expression:", meta_expression.pretty())
+    def evaluate_meta_expression(self, f, meta_expression):
+        metadata = f.metadata()
         #print("    meta:", metadata)
         op, args = meta_expression.T, meta_expression.C
-        #print("evaluate_meta_expression:", op, args)
         if op in ("meta_and", "meta_or") and len(args) == 1:
-            return self.evaluate_meta_expression(metadata, args[0])
+            return self.evaluate_meta_expression(f, args[0])
         #if meta_expression["neg"]:
         #    return not self.evaluate_meta_expression(metadata, meta_expression.clone(neg=False))
         if op == "meta_and":    op = "and"
@@ -25,11 +34,14 @@ class MetaEvaluator(object):
             neg = meta_expression.get("neg", False) != (op == "not_in_set")
             vset = set(meta_expression.get("set", []))
             left = args[0]
+            aname = left["name"]
             if left.T == "scalar":
-                aname = left["name"]
-                result = aname in metadata and metadata[aname] in vset
+                v = metadata.get(aname)
+                result = v in vset
+            elif left.T == "object_attribute":
+                v = self.file_attribute(f, aname)
+                result = v in vset
             elif left.T == "array_any":
-                aname = left["name"]
                 if not aname in metadata:  return neg
                 lst = metadata[aname]
                 if not isinstance(lst, list):   return neg
@@ -40,7 +52,6 @@ class MetaEvaluator(object):
                 else:
                     result = False
             elif left.T == "array_subscript":
-                aname = left["name"]
                 inx = left["index"]
                 if not aname in metadata:  return neg
                 lst = metadata[aname]
@@ -48,7 +59,6 @@ class MetaEvaluator(object):
                 except: result = False
                 else: result = v in vset
             elif left.T == "array_length":
-                aname = left["name"]
                 if not aname in metadata:  return neg
                 lst = metadata[aname]
                 if not isinstance(lst, list):
@@ -97,15 +107,22 @@ class MetaEvaluator(object):
         elif op == "cmp_op":
             cmp_op = meta_expression["op"]
             left, right = args
-            #print("cmp_op: left:", left.pretty())
+            aname = left["name"]
             value = right["value"]
             if left.T == "meta_attribute":
-                aname = left["name"]
                 try:    
                     result = aname in metadata and self.do_cmp_op(metadata[aname], cmp_op, value)
                     #print("result:", result)
                     return result
                 except: return False
+            elif left.T == "object_attribute" and aname in FileAttributes:
+                try:    
+                    v = self.file_attribute(f, aname)
+                    result = self.do_cmp_op(self.file_attribute(f, aname), cmp_op, value)
+                    return result
+                except: 
+                    traceback.print_exc()
+                    return False
             elif left.T == "array_any":
                 aname = left["name"]
                 lst = metadata.get(aname)
@@ -183,6 +200,38 @@ class MetaEvaluator(object):
             return negated != match
         else:
             raise ValueError("Invalid comparison operator '%s'" % (op,))
+            
+    def do_cmp_attribute(self, f, attrname, op, y):
+
+        x = None
+        if attrname == "creator":               x = f.Creator
+        elif attrname == "created_timestamp":   x = f.CreatedTimestamp.epoch()
+        elif attrname == "name":                x = f.Name
+        elif attrname == "namespace":           x = f.Namespace
+        elif attrname == "size":                x = f.Size
+        else:
+            raise ValueError("Unknown file attribute:", attrname)
+
+        if op == "<":          return x < y
+        elif op == ">":    
+            #print("evaluate_meta_expression: > :", attr_value, value)    
+            return x > y
+        elif op == "<=":       return x <= y
+        elif op == ">=":       return x >= y
+        elif op in ("==",'='): 
+            #print("evaluate_meta_expression:", repr(attr_value), repr(value))
+            return x == y
+        elif op == "!=":       return x != y
+        # - fix elif op == "in":       return value in attr_value       # exception, e.g.   123 in event_list
+        elif op in ("~", "!~", "~*", "!~*"):
+            negated = op[0] == '!'
+            flags = re.IGNORECASE if op[-1] == '*' else 0
+            r = re.compile(y, flags)
+            match = r.search(x) is not None
+            return negated != match
+        else:
+            raise ValueError("Invalid comparison operator '%s'" % (op,))
+        
         
     @staticmethod
     def evaluate(meta, exp):

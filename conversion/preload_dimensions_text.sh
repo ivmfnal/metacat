@@ -12,7 +12,7 @@ create temp view active_files as
 
 -- string attrs
 copy (
-   select f.file_id, pc.param_category || '.' || pt.param_type, to_json(pv.param_value)
+   select f.file_id, lower(pc.param_category || '.' || pt.param_type), to_json(pv.param_value)
         from active_files f
                 inner join data_files_param_values dfv on f.file_id = dfv.file_id
                 inner join param_values pv on pv.param_value_id = dfv.param_value_id

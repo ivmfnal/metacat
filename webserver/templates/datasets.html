@@ -34,6 +34,8 @@
     </table>
 </form>
 
+{% set logged_in = not user is none %}
+
 {% if datasets %}
 
     <script type="text/javascript">
@@ -91,6 +93,7 @@
                     </td>
                 {% endif %}
 
+                {# disable
                 <script>
                     var out = {};
     		        out.data_received = function(data, ds) {
@@ -105,7 +108,7 @@
                     //HTTPRequest("{{GLOBAL_AppTopPath}}/data/dataset_counts?dataset={{ds.Namespace}}:{{ds.Name}}", 
     			    //    out, "{{did}}", "json");
                 </script>
-
+                #}
             </tr>
     	{% endfor %}
     </table>
