@@ -1,0 +1,6 @@
+{
+    [
+        metacat dataset create -f "files where core.run_type=protodune-sp" dune:protodune-sp
+        metacat dataset create -f "files from dune:protodune-sp where core.file_type=detector" dune:protodune-sp_detector
+    ]
+}

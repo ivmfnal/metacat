@@ -45,7 +45,7 @@ insert into parent_child(parent_id, child_id)
 
 alter table parent_child add primary key(parent_id, child_id);
 
-create index parent_child_child on parent_child(child_id);
+create index parent_child_child on parent_child(child_id) include (child_id);
 
 
 create view file_provenance as

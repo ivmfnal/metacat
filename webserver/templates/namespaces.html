@@ -45,12 +45,14 @@
 				<td id="query_count:{{ns.Name}}">{{ns.query_count()}}</td>
                 <td>{{ns.Description or ""}}</td>
 	    </tr>
-            <script>
+            {# disable
+                <script>
 		        var out = document.getElementById("file_count:{{ns.Name}}");
 		        out.data_received = function(data, param) { this.innerHTML = "" + data.nfiles; };
                 request_queue.push("{{GLOBAL_AppTopPath}}/data/namespace_counts?name={{ns.Name}}", 
 			        out, null, "json");
             </script>
+            #}
 	{% endfor %}
 </table>
 

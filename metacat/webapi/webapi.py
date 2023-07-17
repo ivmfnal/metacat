@@ -97,7 +97,7 @@ class HTTPClient(object):
 
     InitialRetry = 1.0
     RetryExponent = 1.5
-    DefaultTimeout = 300.0
+    DefaultTimeout = 1200.0
 
     def __init__(self, server_url, token, timeout):
         self.ServerURL = server_url
