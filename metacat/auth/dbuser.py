@@ -144,16 +144,16 @@ class BaseDBUser(DBObject):
         self.roles.remove(role.Name if isinstance(role, BaseDBRole) else role)
 
 
-class BaseDBRole(object):
+class BaseDBRole(DBObject):
 
     Table = "roles"
     Columns = ["name", "description"]
     PK = ["name"]
 
     def __init__(self, db, name, description=None, users=[]):
+        DBObject.__init__(self, db)
         self.Name = name
         self.Description = description
-        self.DB = db
             
     def __str__(self):
         return "[BaseDBRole %s %s]" % (self.Name, self.Description)

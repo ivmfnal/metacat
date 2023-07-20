@@ -17,8 +17,8 @@ class MetaCatDaemon(Logged):
         if self.FerryURL.lower().startswith("https:") and not (self.CertFile and self.KeyFile):
             raise ValueError("X.509 cert and key files are not in the conficuration")
         
-        self.FerryUpdateInterval = daemon_config.get("ferry_update_interval", 6*3600)
-        self.CountsUpdateInterval = daemon_config.get("counts_update_interval", 6*3600)
+        self.FerryUpdateInterval = daemon_config.get("ferry_update_interval", 1*3600)
+        self.CountsUpdateInterval = daemon_config.get("counts_update_interval", 1*3600)
         self.VO = daemon_config["vo"]
 
         db_config = config["database"]
