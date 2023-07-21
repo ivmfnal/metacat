@@ -1222,9 +1222,10 @@ class DBDataset(DBObject):
         meta_errors = []
         t = int(time.time()*1000) % 1000000
         temp_table = f"temp_{t}"
-        transaction.execute(f"create temp table if not exists {temp_table} (fid text, namespace text, name text)")
-        transaction.execute(f"truncate table {temp_table}")
-        nfiles = 0
+        transaction.execute(f"""
+            create temp table {temp_table} (fid text, namespace text, name text);
+            truncate table {temp_table}
+        """)
         total_size = 0
         for chunk in chunked(files, 1000):
             if validate_meta:
@@ -1238,24 +1239,25 @@ class DBDataset(DBObject):
 
             csv = "\n".join(["%s\t%s\t%s" % (f.FID, f.Namespace, f.Name) for f in chunk])
             transaction.copy_from(io.StringIO(csv), temp_table, columns = ["fid", "namespace", "name"])
-            nfiles += len(chunk)
 
         if meta_errors:
+            ransaction.rollback()
             raise MetaValidationError("File metadata validation errors", meta_errors)
 
         transaction.execute(f"""
             insert into files_datasets(file_id, dataset_namespace, dataset_name) 
-                select distinct f.id, %s, %s 
+                select f.id, %s, %s 
                     from {temp_table} tt, files f
-                    where tt.fid = f.id or tt.namespace = f.namespace and tt.name = f.name
+                    where tt.fid = f.id or (tt.namespace = f.namespace and tt.name = f.name)
                 on conflict do nothing""", (self.Namespace, self.Name))
+        nadded = transaction.rowcount
         transaction.execute(f"drop table {temp_table}")
         transaction.execute(f"""
             update datasets
                 set file_count = file_count + %s
                 where namespace = %s and name = %s
-        """, (nfiles, self.Namespace, self.Name))
-        return nfiles, total_size
+        """, (nadded, self.Namespace, self.Name))
+        return nadded, total_size
 
     def list_files(self, with_metadata=False, limit=None, include_retired_files=False):
         meta = "null as metadata" if not with_metadata else "f.metadata"

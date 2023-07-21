@@ -51,18 +51,19 @@ def insert_many(transaction, table, column_names, tuples, copy_threshold = 100):
         except Exception as e:
             cursor.execute("rollback")
             raise
-        
 
 
+class HasDB(object):
+    
+    def __init__(self, db):
+        self.DB = db
 
-class DBObject(object):
+
+class DBObject(HasDB):
 
     PK = None
     Table = None
     Columns = None
-
-    def __init__(self, db):
-        self.DB = db
 
     @classmethod
     def columns(cls, table_name=None, as_text=True, exclude=[]):
