@@ -3,6 +3,7 @@ from urllib.request import urlopen, Request
 from urllib.parse import quote_plus, unquote_plus
 from metacat.util import to_bytes, to_str
 from metacat.common import SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, TokenLib
+from .common import load_text
 from metacat.webapi import MetaCatClient, AuthenticationError, MCError
 import getpass
 from metacat.ui.cli import CLI, CLICommand, InvalidOptions, InvalidArguments
@@ -150,12 +151,7 @@ class LoginCommand(CLICommand):
             token = token_file = None
             v = opts.get("-t") or opts.get("--token")
             if v:
-                if os.path.isfile(v):
-                    token_file = v
-                elif v.startswith('@'):
-                    token_file = v[1:]
-                else:
-                    token = v
+                token = load_text(v)
             else:
                 token = os.environ.get("BEARER_TOKEN")
                 if not token:

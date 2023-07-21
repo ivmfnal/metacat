@@ -110,19 +110,17 @@ class DBFileSet(DBObject):
     @staticmethod
     def from_namespace_name_specs(db, specs, default_namespace=None):
         # specs: list of dicts {"name":..., "namespace":...} - namespace is optional
-        specs = [(s.get("namespace", default_namespace), s["name"]) for s in specs]
         assert all(s["namespace"] for s in specs), "Incomplete file specification:"
+        specs = [(s.get("namespace", default_namespace), s["name"]) for s in specs]
         just_names = set(name for ns, name in specs)
         dids = set("%s:%s" % t for t in specs)
         c = db.cursor()
         columns = DBFile.all_columns()
         c.execute(f"""
-            select {columns}, null as parents, null as children from files
-                where name = any(%s)""", (just_names,))
-        selected = ((fid, namespace, name, metadata) 
-                    for (fid, namespace, name, metadata) in fetch_generator(c)
-                    if "%s:%s" % (namespace, name) in dids)
-        return DBFileSet.from_tuples(db, selected, count=c.rowcount)
+            select {columns} from files
+                where name = any(%s)""", (list(just_names),))
+        files = DBFileSet.from_tuples(db, fetch_generator(c))
+        return DBFileSet(db, (f for f in files if "%s:%s" % (f.Namespace, f.Name) in dids))
         
     def __iter__(self):
         if self.Files is not None:
@@ -1652,7 +1650,7 @@ class DBDataset(DBObject):
                         from datasets ds, files_datasets fd
                         where fd.dataset_namespace = ds.namespace and fd.dataset_name = ds.name and fd.file_id = any(%s)
                         order by fd.file_id, ds.namespace, ds.name
-                        """, (file_ids,)
+                        """, (list(file_ids),)
         )
         
         for tup in fetch_generator(c):

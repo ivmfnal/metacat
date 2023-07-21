@@ -258,14 +258,15 @@ Creating a dataset
 
     $ metacat dataset create [<options>] <namespace>:<name> [<description>]
 
-      -M|--monotonic
-      -F|--frozen
-      -m|--metadata '<JSON expression>'
-      -m|--metadata @<JSON file>
-      -f|--file-query '<MQL file query>'          - run the query and add files to the dataset
-      -f|--file-query @<file_with_query>          - run the query and add files to the dataset
-      -r|--meta-requirements '<JSON expression>'  - add metadata requirements
-      -r|--meta-requirements @<JSON file>         - add metadata requirements
+        -M|--monotonic
+        -F|--frozen
+        -m|--metadata '<JSON expression>'
+        -m|--metadata <JSON file>
+        -f|--file-query '<MQL file query>'          - run the query and add files to the dataset
+        -f|--file-query <file_with_query>           - run the query and add files to the dataset
+        -r|--meta-requirements '<JSON expression>'  - add metadata requirements
+        -r|--meta-requirements <JSON file>          - add metadata requirements
+        -j|--json                                   - print dataset information as JSON
 
 A multi-word description does not have to be put in quotes. E.g., the following two commands are equivalent:
 
@@ -287,23 +288,20 @@ Adding files to dataset
   
         add files by DIDs or namespace/names
         -N|--namespace <default namespace>           - default namespace for files
-        -d|--names <file namespace>:<file name>[,...]
-        -d|--names -            - read the list from stdin
-        -d|--names @<file>      - read the list from file
 
-        add files by file id
-        -i|--ids <file id>[,...]
-        -i|--ids -              - read the list from stdin
-        -i|--ids @<file>        - read the list from file
+        -f|--files (<did>|<file id>)[,...]          - dids and fids can be mixed
+        -f|--files <file with DIDs or file ids>     - one did or fid per line
+        -f|--files <json file>                      - list of dictionaries:
+                                                        { "fid": ...} or
+                                                        { "namespace": ..., "name":... } or
+                                                        { "did":... } or
+        -f|--files -                                - read file list from stdin
 
-        add file list from JSON file
-        -j|--json <json file>
-        -j|--json -             - read JSON file list from stdin
-        -s|--sample             - print JOSN file list sample
+        -s|--sample                                 - print JOSN file list sample
 
         add files matching a query
         -q|--query "<MQL query>"
-        -q|--query @<file>      - read query from the file
+        -q|--query <file>                           - read query from the file
 
 There are several ways to specify the list of files to be added to the dataset:
 
@@ -376,8 +374,9 @@ Updating a dataset metadata and flags
             -M|--monotonic (yes|no) - set/reset monotonic flag
             -F|--frozen (yes|no)    - set/reset monotonic flag
             -r|--replace            - replace metadata, otherwise update
-            -m|--metadata @<JSON file with metadata> 
-            -m|--metadata '<JSON expression>' 
+            -m|--metadata <JSON file with metadata> 
+            -m|--metadata '<JSON expression>'
+            -j|--json               - print updated dataset information as JSON
             
 Listing files in the dataset
 ............................
@@ -419,8 +418,8 @@ in the following order:
 
 For example, the pattern ``file_$uuid8_$clock6.dat`` may generate file name like ``file_13d79a37_601828.dat``.
 
-Declare single file
-...................
+Declare a single file
+.....................
 
 When declaring a new file, the file has to be added to an existing dataset.
 
