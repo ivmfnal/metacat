@@ -356,7 +356,66 @@ class DataHandler(MetaCatHandler):
             #print("Adding ", child_ds, " to ", parent_ds)
             parent_ds.add_child(child_ds)
         return "OK"
+
+    @sanitized
+    def add_files(self, request, relpath, dataset=None, **args):
+        #
+        # add existing files to a dataset
+        #
+
+        user, error = self.authenticated_user()
+        if user is None:
+            return 403, "Client authentication failed"
+
+        params = json.loads(request.body)
+        file_list = params.get("file_list")
+        query_text = params.get("query")
+
+        if not file_list and not query_text:
+            return "No files to remove", 400, "text/plain"
+        if file_list and query_text:
+            return "Either file list or query must be specified, but not both", 400, "text/plain"
+            
+        db = self.App.connect()
+        ds_namespace, ds_name = parse_name(dataset)
+        self.sanitize(namespace=default_namespace, dataset_namespace=ds_namespace, dataset_name=ds_name)
+        if ds_namespace is None:
+            return 400, "Dataset namespace unspecified", "text/plain"
+        if not self._namespace_authorized(db, ds_namespace, user):
+            return 403, f"Permission to add files dataset {dataset} denied", "text/plain"
+        ds = DBDataset.get(db, ds_namespace, ds_name)
+        if ds is None:
+            return "Dataset not found", 404, "text/plain"
+        if ds.Frozen:
+            return "Dataset is frozen", 403, "text/plain"
+        if ds.Monotonic:
+            return "Dataset is monotonic", 403, "text/plain"
         
+        if query_text:
+            query = MQLQuery.parse(query_text)
+            if query.Type != "file":
+                return 400, f"Invalid file query: {query_text}"
+            files = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False)
+        elif file_list:
+            files = []
+            for file_item in file_list:
+                spec = ObjectSpec(file_item, namespace=default_namespace)
+                self.sanitize(namespace=spec.Namespace, name=spec.Name, fid=spec.FID)
+                
+                if spec.FID:
+                    f = DBFile(db, fid=spec.FID)
+                else:
+                    f = DBFile(db, spec.Namespace, spec.Name)
+                files.append(f)
+                #print("add_files: files:", files)
+        
+        if files:
+            try:    ds.remove_files(files, do_commit=True)
+            except MetaValidationError as e:
+                return e.as_json(), 400, "application/json"
+        return json.dumps([f.to_jsonable() for f in files]), "application/json"
+
+
     @sanitized
     def add_files(self, request, relpath, dataset=None, **args):
         #

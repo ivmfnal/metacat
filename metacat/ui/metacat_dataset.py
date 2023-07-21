@@ -169,16 +169,15 @@ class AddSubsetCommand(CLICommand):
 
 class CreateDatasetCommand(CLICommand):
 
-    Opts = ("MFm:f:d:r:j", ["monotonic", "frozen", "metadata=", "dataset-query=", "file-query=", "meta-requirements=", "json"])
+    Opts = ("m:q:jf:", ["flags=", "metadata=", "query=", "json"])
     Usage = """[<options>] <namespace>:<name> [<description>]           -- create dataset
-        -M|--monotonic
-        -F|--frozen
+        -f|--flags (monotonic|frozen)               - optional, dataset flags
         -m|--metadata '<JSON expression>'
         -m|--metadata <JSON file>
-        -f|--file-query '<MQL file query>'          - run the query and add files to the dataset
-        -f|--file-query <file_with_query>           - run the query and add files to the dataset
-        -r|--meta-requirements '<JSON expression>'  - add metadata requirements
-        -r|--meta-requirements <JSON file>          - add metadata requirements
+        -m|--metadata -                             - read metadata as JSON from stdin
+        -q|--query '<MQL file query>'               - run the query and add files to the dataset
+        -q|--query <file_with_query>                - run the query and add files to the dataset
+        -q|--query -                                - read the query from stdin
         -j|--json                                   - print dataset information as JSON
         """
     MinArgs = 1
@@ -188,11 +187,12 @@ class CreateDatasetCommand(CLICommand):
         if desc:
             desc = " ".join(desc)
         else:
-            desc = ""    
-        monotonic = "-M" in opts or "--monotonic" in opts
-        frozen = "-F" in opts or "--frozen" in opts
+            desc = ""
+        flags = opts.get("-f") or opts.get("--flags")
+        monotonic = flags == "monotonic"
+        frozen = flags == "frozen"
         metadata = load_json(opts.get("-m") or opts.get("--metadata")) or {}
-        files_query = load_text(opts.get("-f") or opts.get("--file-query")) or None
+        files_query = load_text(opts.get("-q") or opts.get("--query")) or None
         try:
             out = client.create_dataset(dataset_spec, monotonic = monotonic, frozen = frozen, description=desc, metadata = metadata,
                 files_query = files_query
@@ -206,46 +206,42 @@ class CreateDatasetCommand(CLICommand):
 
 class UpdateDatasetCommand(CLICommand):
 
-    Opts = ("MFm:rj", ["replace", "monotonic", "frozen", "metadata=", "json"])
-    Usage = """<options> <namespace>:<name> [<description>]             -- modify dataset info
-            -M|--monotonic (yes|no) - set/reset monotonic flag
-            -F|--frozen (yes|no)    - set/reset monotonic flag
-            -r|--replace            - replace metadata, otherwise update
+    Opts = ("f:m:rj", ["replace", "flags=", "metadata=", "json"])
+    Usage = """<options> <namespace>:<name> [<description>] -- modify dataset info
+
+            update dataset metadata and flags
+
+            -f|--flags (monotonic|frozen|-)             - optional, dataset flags, use '-' to remove restrictions
             -m|--metadata <JSON file with metadata> 
             -m|--metadata '<JSON expression>'
-            -j|--json               - print updated dataset information as JSON
+            -m|--metadata -                             - read metadata from stdin
+            -r|--replace                                - replace metadata, otherwise update
+            -j|--json                                   - print updated dataset information as JSON
     """
     MinArgs = 1
 
     def __call__(self, command, client, opts, args):
         mode = "replace" if ("-r" in opts or "--replace" in opts) else "update"
-
-        if not args or args[0] == "help":
-            print(Usage)
-            sys.exit(2)
+        flags = opts.get("-f") or opts.get("--flags")
+        if flags not in ("-", "monotonic", "frozen"):
+            raise InvalidArguments(f"Invalid value for dataset flags: {flags}")
         
+        monotonic = frozen = None
+        if flags == "monotonic":        monotonic = True
+        elif flags == "frozen":         frozen = True
+        elif flags == "-":              monotonic = frozen = False
+
         metadata = load_json(opts.get("-m") or opts.get("--metadata")) or {}
 
         dataset = args[0]
-        monotonic = frozen = None
-        if "-M" in opts or "--monotonic" in opts:    
-            monotonic = opts.get("-M") or opts.get("--monotonic")
-            if not monotonic in ("yes", "no"):
-                print("Invalid value for -M or --monotonic option:", monotonic, ". Valid values are 'yes' and 'no'")
-                sys.exit(2)
-            monotonic = monotonic == "yes"
-        if "-F" in opts or "--frozen" in opts:    
-            frozen = opts.get("-F") or opts.get("--frozen")
-            if not frozen in ("yes", "no"):
-                print("Invalid value for -F or --frozen option:", frozen, ". Valid values are 'yes' and 'no'")
-                sys.exit(2)
-            frozen = frozen == "yes"
         desc = None
         if args[1:]:
             desc = " ".join(args[1:])
 
         try:
-            response = client.update_dataset(dataset, metadata=metadata, frozen=frozen, monotonic=monotonic, mode=mode, description=desc)
+            response = client.update_dataset(dataset, metadata=metadata, 
+                frozen=frozen, monotonic=monotonic, 
+                mode=mode, description=desc)
         except MCError as e:
             print(e)
             sys.exit(1)
@@ -255,7 +251,7 @@ class UpdateDatasetCommand(CLICommand):
 
 class AddFilesCommand(CLICommand):
     
-    Opts = ("i:j:d:N:sq:f:", ["namespace=", "json=", "dids=", "ids=", "sample", "query=", "files="])
+    Opts = ("i:d:N:sq:f:j:", ["json=", "dids=", "ids=", "sample", "query=", "files=", "names="])
     Usage = """[options] <dataset namespace>:<dataset name>
 
             add files by DIDs or namespace/names or MQL query
@@ -268,7 +264,7 @@ class AddFilesCommand(CLICommand):
                                                             { "did":... } or
             -f|--files -                                - read file list from stdin
 
-            add files matching a query
+            add files selected by a query
             -q|--query "<MQL query>"
             -q|--query <file>                           - read query from the file
             -q|--query -                                - read query from stdin
@@ -328,6 +324,51 @@ class AddFilesCommand(CLICommand):
         dataset = args[0]
         try:
             out = client.add_files(dataset, file_list=files, query=query)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+        else:
+            print("Added", len(out), "files")
+
+class RemoveFilesCommand(CLICommand):
+    
+    Opts = ("q:f:", ["query=", "files="])
+    Usage = """[options] <dataset namespace>:<dataset name>
+
+            remove files from a dataset
+
+            -f|--files (<did>|<file id>)[,...]          - dids and fids can be mixed
+            -f|--files <file with DIDs or file ids>     - one did or fid per line
+            -f|--files <json file>                      - list of dictionaries:
+                                                            { "fid": ...} or
+                                                            { "namespace": ..., "name":... } or
+                                                            { "did":... } or
+            -f|--files -                                - read file list from stdin
+
+            remove files selected by a query
+            -q|--query "<MQL query>"
+            -q|--query <file>                           - read query from the file
+            -q|--query -                                - read query from stdin
+    """
+    MinArgs = 1
+    
+    def __call__(self, command, client, opts, args):
+
+        files = query = None
+        if "-q" not in opts and "-f" not in opts:
+            raise InvalidArguments("Either -q or -f must be used")
+        file_list = opts.get("-f") or opts.get("--files")
+        if file_list:
+            files = load_file_list(file_list)
+        else:
+            query = load_text(opts.get("-q") or opts.get("--query"))
+            
+        if (query is None) == (files is None):
+            raise InvalidArguments("Eitther file list or a query must be specified, but not both")
+
+        dataset = args[0]
+        try:
+            out = client.remove_files(dataset, file_list=files, query=query)
         except MCError as e:
             print(e)
             sys.exit(1)
