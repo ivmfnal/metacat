@@ -9,7 +9,7 @@ class QueryCommand(CLICommand):
 
     GNUStyle = False    
     Opts = (
-        "jis:m:N:pq:S:A:lPxrL:U:S:R:Q:2t:", 
+        "jim:N:pq:S:A:lPxrL:U:S:R:Q:2t:s", 
         ["line", "json", "ids", "summary=", "metadata=", "namespace=", "pretty",
             "with-provenance", "save-as=", "add-to=", "explain", "include-retired-files",
             "list=", "source=", "create=", "update=", "run=", "1024", "timeout="
@@ -23,10 +23,11 @@ class QueryCommand(CLICommand):
             -p|--pretty                         - pretty-print metadata
             -l|--line                           - print all metadata on single line (good for grepping, ignored with -j and -p)
             -i|--ids                            - print file ids instead of names
-            -s|--summary (count|keys)           - print only summary information
+               --summary (count|keys)           - print only summary information
                                                       count: file count and total size
                                                       keys: list of all top level metadata keys for selected files
-                 -2|--1024                      - for count, print sizes in summary in KiB, GiB, ... instead of powers of 1000 (KB, GB, ...)
+            -s                                  - shortcut for --summary count
+                 -2|--1024                      - for count, print sizes in KiB, GiB (1024, ...), instead of powers of 1000 (KB, GB, ...)
             -m|--metadata [<field>,...]         - print metadata fields
                                                   overrides --summary
             -m|--metadata all                   - print all metadata fields
@@ -50,7 +51,7 @@ class QueryCommand(CLICommand):
         save_as = opts.get("-S") or opts.get("--saves-as")
         add_to = opts.get("-A") or opts.get("--add-to")
         include_retired = "-r" in opts or "--include-retired-files" in opts
-        summary = opts.get("-s") or opts.get("--summary")
+        summary = opts.get("--summary", "count" if "-s" in opts else None)
         timeout = int(opts.get("-t", opts.get("--timeout", 600)))
         if args:
             query_text = " ".join(args)

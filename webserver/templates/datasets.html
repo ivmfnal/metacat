@@ -47,13 +47,13 @@
 
     <table class="data">
     	<tr>
-            <th>Namespace</th>
     		<th>Name</th>
+            <th>Namespace</th>
             {% if logged_in %}<th>Creator</th>{% endif %}
             <th>Created</th>
             {% if logged_in %}<th>Owner</th>{% endif %}
     		<th>Flags</th>
-    		<th>Files</th>
+    		<th>Files<sup>*</sup></th>
             <th>Children</th>
             <th>Subsets</th>
             <th>Parents</th>
@@ -63,8 +63,8 @@
     	{% for ds in datasets %}
             {% set did=ds.Namespace + ':' + ds.Name %}
     		<tr>
-                <td><a href="./namespace?name={{ds.Namespace}}">{{ds.Namespace}}</a></td>
                 <td><a href="./dataset?namespace={{ds.Namespace}}&name={{ds.Name}}">{{ds.Name}}</a></td>
+                <td><a href="./namespace?name={{ds.Namespace}}">{{ds.Namespace}}</a></td>
                 {% if logged_in %}
                     <td>{% if ds.Creator %}<a href="./user?username={{ds.Creator}}">{{ds.Creator}}</a>{% endif %}</td>
                 {% endif %}
@@ -112,6 +112,9 @@
             </tr>
     	{% endfor %}
     </table>
+    
+    <p style="color:gray">* - may not be accurate, updated periodically</p>
+    
 {% else %}
     <p>No datasets found</p>
 {% endif %}

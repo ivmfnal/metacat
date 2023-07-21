@@ -72,7 +72,7 @@
     	                <th>Checksums</th>
                         <td>
                                 {% for ckn, ckv in f.Checksums.items() %}
-                                    {{ckn}}:&nbsp;{{ckv}}<br/>
+                                    {{ckn}}:&nbsp;<span class="attr_value">{{ckv}}</span><br/>
                                 {% endfor %}
     	                </td>
                     </tr>
