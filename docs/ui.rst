@@ -800,19 +800,27 @@ MetaCat queries are written in :doc:`Metadata Query Language <mql>`.
     metacat query [<options>] -f <MQL query file>
 
     Options:
-        -j|--json                           - print raw JSON output
-        -p|--pretty                         - pretty-print metadata
-        -l|--line                           - print all metadata on single line (good for grepping, ignored with -j and -p)
-        -i|--ids                            - print file ids instead of names
-        -s|--summary                        - print only summary information
-        -m|--metadata=[<field>,...]         - print metadata fields
-                                              overrides --summary
-        -m|--metadata=all                   - print all metadata fields
-                                              overrides --summary
-        -P|--with-provenance                - include provenance information
-        -N|--namespace=<default namespace>  - default namespace for the query
-        -S|--save-as=<namespace>:<name>     - save files as a new datset
-        -A|--add-to=<namespace>:<name>      - add files to an existing dataset
+            -t|--timeout <timeout in seconds>   - request timeout - useful for long running queries (default 600)
+            -j|--json                           - print raw JSON output
+            -p|--pretty                         - pretty-print metadata
+            -l|--line                           - print all metadata on single line (good for grepping, ignored with -j and -p)
+            -i|--ids                            - print file ids instead of names
+               --summary (count|keys)           - print only summary information
+                                                      count: file count and total size
+                                                      keys: list of all top level metadata keys for selected files
+            -s                                  - shortcut for --summary count
+                 -2|--1024                      - for count, print sizes in KiB, GiB (1024, ...), instead of powers of 1000 (KB, GB, ...)
+            -m|--metadata [<field>,...]         - print metadata fields
+                                                  overrides --summary
+            -m|--metadata all                   - print all metadata fields
+                                                  overrides --summary
+            -P|--with-provenance                - include provenance information
+            -N|--namespace=<default namespace>  - default namespace for the query
+            -S|--save-as=<namespace>:<name>     - save files as a new datset
+            -A|--add-to=<namespace>:<name>      - add files to an existing dataset
+            -r|--include-retired-files          - include retired files into the query results
+
+            -x|--explain                        - dp not run the query, show resulting SQL only
         
 
     

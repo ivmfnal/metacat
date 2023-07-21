@@ -29,9 +29,6 @@ create table datasets
     file_count  bigint  default 0
 );
 
-create index dataset_specs on datasets((namespace || ':' || name));
-create index datasets_meta_index on datasets using gin (metadata);
-create index datasets_meta_path_ops_index on datasets using gin (metadata jsonb_path_ops);
 
 insert into datasets(namespace, name, creator, description)
 	values('dune','all','admin','All files imported during conversion from SAM');
@@ -68,7 +65,8 @@ insert into files_datasets(file_id, dataset_namespace, dataset_name)
 
 
 alter table files_datasets add primary key (dataset_namespace, dataset_name, file_id);
-create index files_datasets_file_id on files_datasets(file_id);
+create index dataset_did on datasets((namespace || ':' || name));
+create index files_datasets_file_id on files_datasets(file_id) include(dataset_namespace, dataset_name);
 create index datasets_meta_path_index on datasets using gin (metadata jsonb_path_ops);
 create index datasets_meta_index on datasets using gin (metadata);
 

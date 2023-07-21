@@ -1,3 +1,4 @@
+import json, time, pprint, traceback
 from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet
 from metacat.util import limited, unique
 from metacat.common.trees import Node, Ascender, Descender, Converter
@@ -5,12 +6,10 @@ from metacat.common import MetaExpressionDNF
 from .sql_converter import SQLConverter
 from .query_executor import FileQueryExecutor
 from .meta_evaluator import MetaEvaluator
-import json, time
 from datetime import date, datetime, timezone
 
 from lark import Lark, LarkError
 from lark import Tree, Token
-import pprint
 
 CMP_OPS = [">" , "<" , ">=" , "<=" , "==" , "=" , "!=", "~~", "~~*", "!~~", "!~~*"]
 
@@ -87,7 +86,8 @@ class DatasetQuery(object):
     def run(self, db, debug=False, **ignore):
         compiled = self.compile()
         return _DatasetQueryExecutor(db)(compiled)
-        
+
+
 class FileQuery(object):
 
     Type = "file"
@@ -156,7 +156,7 @@ class FileQuery(object):
                 print("after _QueryOptionsApplier:", optimized.pretty())
             self.Compiled = compiled = SQLConverter(db, debug=debug, include_retired=self.IncludeRetired)(optimized)
         except Exception as e:
-            raise MQLCompilationError(str(e))
+            raise MQLCompilationError(traceback.format_exc(limit=-1))
 
         if debug:
             print("\nCompiled:", compiled.pretty())
@@ -164,15 +164,16 @@ class FileQuery(object):
         return compiled
 
     def run(self, db=None, filters={}, skip=0, limit=None, with_meta=True, with_provenance=True, debug=False):
-        compiled = self.Compiled or self.compile(db=db, 
+
+        compiled = self.compile(db=db, 
                     skip=skip, limit=limit, 
-                    with_meta=with_meta, with_provenance=with_provenance, 
+                    with_meta=with_meta, with_provenance=with_provenance,
                     debug=debug)
         try:
             result = FileQueryExecutor(db, filters, debug=debug)(compiled)
         except Exception as e:
             raise MQLExecutionError(str(e))
-        
+        assert isinstance(result, DBFileSet)
         return result
 
 class _Assembler(Ascender):

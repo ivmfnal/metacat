@@ -7,10 +7,11 @@ from textwrap import dedent, indent
 
 class SQLConverter(Ascender):
     
-    def __init__(self, db, debug=False, include_retired=False):
+    def __init__(self, db, debug=False, include_retired=False, summary=None):
         self.DB = db
         self.Debug = debug
         self.IncludeRetired = include_retired
+        self.Summary = summary
 
     def columns(self, t, with_meta=True, with_provenance=True):
         meta = f"{t}.metadata" if with_meta else "null as metadata"
@@ -34,6 +35,8 @@ class SQLConverter(Ascender):
         #print("hello")
         self.debug("\nSQL converter: input tree:----------\n", tree.pretty(), "\n-------------")
         result = self.walk(tree)
+        if self.Summary:
+            result = Node("summary", [result], mode=mode)
         #print("debug:", self.Debug)
         self.debug("\nSQL converter: output tree:----------\n", result.pretty(), "\n-------------")
         return result

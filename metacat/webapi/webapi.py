@@ -42,7 +42,7 @@ class WebAPIError(MCError):
                     self.Data = None
             else:
                 self.Message = to_str(response.text)
-        print("WebAPIError: self.Data:", self.Data)
+
     def __str__(self):
         lines = []
         if self.Message:
@@ -97,7 +97,7 @@ class HTTPClient(object):
 
     InitialRetry = 1.0
     RetryExponent = 1.5
-    DefaultTimeout = 300.0
+    DefaultTimeout = 1200.0
 
     def __init__(self, server_url, token, timeout):
         self.ServerURL = server_url
@@ -1090,7 +1090,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             return None
 
     def query(self, query, namespace=None, with_metadata=False, with_provenance=False, save_as=None, add_to=None,
-                        include_retired_files=False):
+                        include_retired_files=False, summary=None):
         """Run file query. Requires client authentication if save_as or add_to are used.
         
         Arguments
@@ -1103,13 +1103,16 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             boolean, whether to include retired files into the query results, default=False
         with_metadata : boolean
             whether to return file metadata
-        with_provenance:
+        with_provenance : boolean
             whether to return parents and children list
-        save_as:
+        save_as : str
             namespace:name for a new dataset to create and add found files to
-        add_to:
+        add_to : str
             namespace:name for an existing dataset to add found files to
-            
+        summary : str or None
+            "count" - return file count only as int
+            "keys" - return list of all top level metadata keys for the selected files
+            ``summary`` can not be used together with ``save_as`` or ``add_to``
 
         Returns
         -------
@@ -1121,15 +1124,26 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         Retrieving file provenance and metadata takes slightly longer time
         """
         
-        url = "data/query?with_meta=%s&with_provenance=%s" % ("yes" if with_metadata else "no","yes" if with_provenance else "no")
-        if namespace:
-            url += f"&namespace={namespace}"
-        if save_as:
-            url += f"&save_as={save_as}"
-        if add_to:
-            url += f"&add_to={add_to}"
-        if include_retired_files:
-            url += "&include_retired_files=yes"
+        assert not (summary is not None and (add_to or save_as)), "Summary can not be used together with add_to or save_as"
+        assert summary in ("count", "keys", None)
+        
+        if summary:
+            url = f"data/query?summary={summary}"
+            if namespace:
+                url += f"&namespace={namespace}"
+            if include_retired_files:
+                url += "&include_retired_files=yes"
+        else:
+            url = "data/query?with_meta=%s&with_provenance=%s" % ("yes" if with_metadata else "no","yes" if with_provenance else "no")
+            if namespace:
+                url += f"&namespace={namespace}"
+            if save_as:
+                url += f"&save_as={save_as}"
+            if add_to:
+                url += f"&add_to={add_to}"
+            if include_retired_files:
+                url += "&include_retired_files=yes"
+        #print("url:", url)
         results = self.post_json(url, query)
         return results
 

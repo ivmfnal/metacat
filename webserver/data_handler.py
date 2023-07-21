@@ -259,6 +259,7 @@ class DataHandler(MetaCatHandler):
             if query.Type != "file":
                 return 400, f"Invalid file query: {files_query}"
             files = query.run(db, filters=self.App.filters(), with_meta=True, with_provenance=False)
+            print("create_dataset: files:", type(files), files)
 
         metadata = params.get("metadata") or {}
         for k in metadata.keys():
@@ -273,7 +274,7 @@ class DataHandler(MetaCatHandler):
         )
         dataset.create()
 
-        if files:
+        if files is not None:
             dataset.add_files(files)
 
         return dataset.to_json(), "application/json"
@@ -842,9 +843,6 @@ class DataHandler(MetaCatHandler):
         data = json.loads(request.body)
         spec = ObjectSpec.from_dict(data)
 
-        print("data:", data)
-        print("spec:", spec)
-
         if spec.FID:
             self.sanitize(fid = spec.FID)
             f = DBFile.get(db, fid=spec.FID, with_metadata=True)
@@ -1052,11 +1050,26 @@ class DataHandler(MetaCatHandler):
     @sanitized
     def query(self, request, relpath, query=None, namespace=None, 
                     with_meta="no", with_provenance="no", debug="no", include_retired_files="no",
-                    add_to=None, save_as=None,
+                    add_to=None, save_as=None, summary=None,
                     **args):
+
+        if summary and (add_to or save_as):
+            return 400, "Can not do summary togerher with save-to or add-to a dataset"
+        
+        if summary not in ("count", "keys", None):
+            return 400, f"Unsupported summary type: {summary}"
+
         with_meta = with_meta == "yes"
         with_provenance = with_provenance == "yes"
         include_retired_files = include_retired_files == "yes"
+
+        if summary == "count":
+            with_meta = False
+            with_provenance = False
+
+        if summary in ("keys", "key-values"):
+            with_meta = True
+            with_provenance = False
 
         self.sanitize(namespace=namespace)
 
@@ -1124,28 +1137,35 @@ class DataHandler(MetaCatHandler):
             #traceback.print_exc()
             return 400, e.__class__.__name__ + ": " + e.Message
 
-        print("results:", results)
-
         if results is None: 
             return "[]", "application/json"
 
         if query_type == "file":
-            if save_as:
-                results = list(results)
-                ds = DBDataset(db, ds_namespace, ds_name)
-                ds.create()
-                ds.add_files(results)            
-            if add_to:
-                results = list(results)
-                ds = DBDataset(db, add_namespace, add_name)
-                ds.add_files(results)      
-            
-            data = ( f.to_jsonable(with_metadata=with_meta, with_provenance=with_provenance) for f in results)
+
+            if summary is None:
+                if save_as:
+                    results = list(results)
+                    ds = DBDataset(db, ds_namespace, ds_name)
+                    ds.create()
+                    ds.add_files(results)            
+
+                if add_to:
+                    results = list(results)
+                    ds = DBDataset(db, add_namespace, add_name)
+                    ds.add_files(results)
+
+                data = (f.to_jsonable(with_metadata=with_meta, with_provenance=with_provenance) for f in results)
+                return self.json_stream(data), "application/json-seq"
+
+            elif summary == "count":
+                count, size = results.counts()
+                #size = size/1000000000.0
+                #print("query: count,size:", count, size)
+                return json.dumps({"count":count, "total_size":size}), "application/json"
+            elif summary == "keys":
+                return json.dumps(list(results.metadata_keys())), "application/json"
 
         else:
-            print("query: results:", results)
-            results = list(results)
-            print("query: results:", results)
             data = ( d.to_jsonable(with_relatives=with_provenance) for d in results )
         return self.json_stream(data), "application/json-seq"
         

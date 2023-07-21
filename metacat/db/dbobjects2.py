@@ -21,10 +21,24 @@ from .common import (
 
 class DBFileSet(DBObject):
     
-    def __init__(self, db, files=[], count=None):
+    class FileSetSummary(object):
+        
+        def __init__(self, db, sql):
+            self.DB = db
+            self.SQL = sql
+            
+        def __iter__(self):
+            c = self.DB.cursor()
+            c.execute(self.SQL)
+            return fetch_generator(c)
+
+    def __init__(self, db, files=None, sql=None, count=None):
         DBObject.__init__(self, db)
+        assert not (files and sql), "DBFileSet can not be initialized from both files and sql"
+        if not sql and not files:
+            files = []          # empty file set
         self.Files = files
-        self.SQL = None
+        self.SQL = sql
         if hasattr(files, "__len__"):
             count = len(files)
         self.Count = count
@@ -109,11 +123,15 @@ class DBFileSet(DBObject):
         return DBFileSet(db, (f for f in files if "%s:%s" % (f.Namespace, f.Name) in dids))
         
     def __iter__(self):
-        if isinstance(self.Files, (list, set, tuple)):
+        if self.Files is not None:
             return (f for f in self.Files)
         else:
-            return self.Files
-                        
+            c = self.DB.cursor()
+            c.execute(self.SQL)
+            print("DBFileSet.__iter__: self.SQL:", self.SQL, "   row count:", c.rowcount)
+            debug("DBFileSet.from_sql: return from execute()")
+            return (f for f in DBFileSet.from_tuples(self.DB, fetch_generator(c), count=c.rowcount))
+
     def as_list(self):
         # list(DBFileSet) should work too
         return list(self.Files)
@@ -242,8 +260,6 @@ class DBFileSet(DBObject):
 
         datasets = None if basic_file_query.DatasetSelectors is None else list(DBDataset.datasets_for_bdqs(db, basic_file_query.DatasetSelectors))
         debug("sql_for_basic_query: datasets:", datasets)
-        
-        
         
         attrs = DBFile.attr_columns(f)
         if datasets is None:
@@ -404,17 +420,84 @@ class DBFileSet(DBObject):
 
         return sql
 
-    @staticmethod
-    def from_sql(db, sql):
-        c = db.cursor()
-        debug("DBFileSet.from_sql: executing sql:", sql)
-        c.execute(sql)
-        debug("DBFileSet.from_sql: return from execute()")
-        fs = DBFileSet.from_tuples(db, fetch_generator(c), count=c.rowcount)
-        fs.SQL = sql
-        return fs
-        
+    def counts(self):
+        total_size = n = 0
+        if self.SQL:
+            sql = insert_sql(f"""
+                -- summary:count
+                    select count(*), sum(size)
+                    from (
+                        $fileset_sql
+                    ) keys
+                -- end of summary:count
+            """, fileset_sql=self.SQL)
+            c = self.DB.cursor()
+            c.execute(sql)
+            n, total_size = c.fetchone()
+        else:
+            for f in self:
+                n += 1
+                total_size += f.Size
+        return (n or 0, int(total_size or 0))
+
+    def metadata_keys(self):
+        if self.SQL:
+            sql = insert_sql(f"""
+                -- summary:keys
+                    select distinct jsonb_object_keys(metadata) as key
+                    from (
+                        $fileset_sql
+                    ) keys
+                    order by key
+                -- end of summary:keys
+            """, fileset_sql=self.SQL)
+            c = self.DB.cursor()
+            c.execute(sql)
+            for tup in fetch_generator(c):
+                yield tup[0]
+        else:
+            seen = set()
+            for f in self:
+                for k in f.metadata():
+                    if not k in seen:
+                        seen.add(k)
+                        yield k
+    
+    def metadata_key_values(self):
+        if self.SQL:
+            sql = insert_sql(f"""
+                -- summary:key/values
+                    select distinct (jsonb_each(metadata)).*
+                    from (
+                        $fileset_sql
+                    ) keyvalues
+                    order by key
+                -- end of summary:key/values
+            """, fileset_sql=self.SQL)
+            c = self.DB.cursor()
+            c.execute(sql)
+            yield from fetch_generator(c)
+        else:
+            seen = {}
+            for f in self:
+                for k, v in f.metadata():
+                    if not k in seen or v != seen[k]:
+                        seen[k] = v
+                        yield k, v
+                        
+    def summary(self, mode):
+        if mode is None:
+            return self
+        elif mode == "keys":
+            return self.metadata_keys()
+        elif mode == "key-values":
+            return self.metadata_key_values()
+        elif mode == "count":
+            return self.count()
+
 class DBFile(DBObject):
+    
+    Table = "files"
     
     def __init__(self, db, namespace = None, name = None, metadata = None, fid = None, size=None, checksums=None,
                     parents = None, children = None, creator = None, created_timestamp=None,
@@ -731,7 +814,7 @@ class DBFile(DBObject):
         #for row in c.fetchall():
         #    print(row)
 
-        return DBFileSet.from_sql(db, sql)
+        return DBFileSet(db, sql=sql)
         
     @staticmethod
     def get(db, fid = None, namespace = None, name = None, with_metadata = False):
@@ -946,6 +1029,15 @@ class DBFile(DBObject):
     @property
     def datasets(self):
         return DBManyToMany(self.DB, "files_datasets", "dataset_namespace", "dataset_name", file_id = self.FID)
+
+    @staticmethod
+    def file_count_by_namespace(db):
+        table = DBFile.Table
+        c = db.cursor()
+        c.execute(f"""
+            select namespace, count(*) from {table} group by namespace
+        """)
+        return dict(fetch_generator(c))
 
 class _DatasetParentToChild(DBManyToMany):
     
@@ -1629,6 +1721,17 @@ class DBDataset(DBObject):
 
         return dataset_map
 
+    @staticmethod
+    def file_count_by_dataset(db):
+        c = db.cursor()
+        c.execute(f"""
+            select dataset_namespace, dataset_name, count(*) 
+                from files_datasets 
+                group by dataset_namespace, dataset_name
+        """)
+        return dict(((ds_ns, ds_name), n) for ds_ns, ds_name, n in fetch_generator(c))
+
+
 class DBNamedQuery(DBObject):
     
     Columns = "namespace,name,parameters,source,creator,created_timestamp".split(",")
@@ -1876,4 +1979,3 @@ class DBNamespace(DBObject):
         tup = c.fetchone()
         if not tup: return 0
         else:       return tup[0]
-
