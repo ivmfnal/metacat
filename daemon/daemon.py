@@ -2,6 +2,7 @@ import json, requests, time, psycopg2
 from pythreader import TaskQueue
 from metacat.db import DBUser, DBNamespace, DBDataset, DBFile
 from metacat.logs import Logged, init as init_logs
+from wsdbtools import ConnectionWithTransactions
 
 class MetaCatDaemon(Logged):
     
@@ -26,6 +27,7 @@ class MetaCatDaemon(Logged):
         if "password" in db_config:
             self.DBConnect += " password=%(password)s" % db_config
         self.Schema = db_config.get("schema")
+        self.ConnPool = 
 
         self.Queue = TaskQueue(5, delegate=self)
         self.Queue.append(self.ferry_update, interval=self.FerryUpdateInterval, after=time.time())
@@ -37,7 +39,7 @@ class MetaCatDaemon(Logged):
         db = psycopg2.connect(self.DBConnect)
         if self.Schema:
             db.cursor().execute(f"set search_path to {self.Schema}")
-        return db
+        return ConnectionWithTransactions(db)
         
     def update_dataset_file_counts(self):
         db = self.db()
