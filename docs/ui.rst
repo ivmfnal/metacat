@@ -258,14 +258,13 @@ Creating a dataset
 
     $ metacat dataset create [<options>] <namespace>:<name> [<description>]
 
-        -M|--monotonic
-        -F|--frozen
+        -f|--flags (monotonic|frozen)               - optional, dataset flags
         -m|--metadata '<JSON expression>'
         -m|--metadata <JSON file>
-        -f|--file-query '<MQL file query>'          - run the query and add files to the dataset
-        -f|--file-query <file_with_query>           - run the query and add files to the dataset
-        -r|--meta-requirements '<JSON expression>'  - add metadata requirements
-        -r|--meta-requirements <JSON file>          - add metadata requirements
+        -m|--metadata -                             - read metadata as JSON from stdin
+        -q|--query '<MQL file query>'               - run the query and add files to the dataset
+        -q|--query <file_with_query>                - run the query and add files to the dataset
+        -q|--query -                                - read the query from stdin
         -j|--json                                   - print dataset information as JSON
 
 A multi-word description does not have to be put in quotes. E.g., the following two commands are equivalent:
@@ -274,10 +273,6 @@ A multi-word description does not have to be put in quotes. E.g., the following 
 
     $ metacat dataset create scope:name Carefully selected files
     $ metacat dataset create scope:name "Carefully selected files"
-    
-``-f`` option can be used to create a dataset with files matching the MQL query. The query can be given inline or read from a file.
-
-``-r`` is used to create a dataset with specified metadata requirements. They are specified as a JSON dictionary (to be documented...)
 
 Adding files to dataset
 .......................
@@ -285,62 +280,32 @@ Adding files to dataset
 .. code-block:: shell
 
     $ metacat dataset add-files [options] <dataset namespace>:<dataset name>
-  
-        add files by DIDs or namespace/names
-        -N|--namespace <default namespace>           - default namespace for files
+
+        add files by DIDs or namespace/names or MQL query
 
         -f|--files (<did>|<file id>)[,...]          - dids and fids can be mixed
         -f|--files <file with DIDs or file ids>     - one did or fid per line
-        -f|--files <json file>                      - list of dictionaries:
+        -f|--files <JSON file>                      - list of dictionaries:
                                                         { "fid": ...} or
                                                         { "namespace": ..., "name":... } or
                                                         { "did":... } or
         -f|--files -                                - read file list from stdin
 
-        -s|--sample                                 - print JOSN file list sample
-
-        add files matching a query
+        add files selected by a query
         -q|--query "<MQL query>"
         -q|--query <file>                           - read query from the file
-
-There are several ways to specify the list of files to be added to the dataset:
-
-``-d`` option is used to specify s list of file DIDs ("namespace:name"). ``-i`` option specifies a list of file ids. 
-
-``-j`` option can be used to specify the list of files as a JSON document. The JSON document must contain a list of dictionaries. E.g.:
-
-
-.. code-block:: json
-
-    [
-        {   
-            "did":"my_scope:file.data"
-        },
-        {   
-            "namespace":"my_scope",
-            "name":"file.data"
-        },
-        {
-            "fid":"abcd1234"
-        }
-    ]
-
-Each dictionary represents a single file to add. The dictionary must contain one of the following keys and corresponding values:
-
-  - "did" - file DID
-  - "namespace" and "name"
-  - "fid" - file id
+        -q|--query -                                - read query from stdin
 
 To add files which match an MQL query, use ``-q`` option.
 
-An alternative way to add files matching a query is to pipe the outout of ``query`` command into ``dataset add``:
+An alternative way to add files matching a query is to pipe the outout of ``query`` command into ``dataset add-files`:
 
 .. code-block:: shell
 
-    $ metacat query -i files from scope:dataset1 | metacat dataset add-files -i - scope:dataset2
+    $ metacat query -i files from scope:dataset1 where x.y = 123 | metacat dataset add-files -f - scope:dataset2
 
 Using ``-q`` can be faster because piping involves sending the file list to the client and back to the server, 
-whereas ``-q`` only sends the list of file ids to the client one way.
+whereas ``-q`` does not send the list of files.
 
 Note that it is not an error to attempt to add a file if it is already included in the dataset.
 

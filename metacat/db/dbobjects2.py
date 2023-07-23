@@ -128,7 +128,6 @@ class DBFileSet(DBObject):
         else:
             c = self.DB.cursor()
             c.execute(self.SQL)
-            print("DBFileSet.__iter__: self.SQL:", self.SQL, "   row count:", c.rowcount)
             debug("DBFileSet.from_sql: return from execute()")
             return (f for f in DBFileSet.from_tuples(self.DB, fetch_generator(c), count=c.rowcount))
 
@@ -1046,11 +1045,11 @@ class DBDataset(DBObject):
         column_names = self.columns(exclude="created_timestamp")        # use DB default for creation
         transaction.execute(f"""
             insert into datasets({column_names}) 
-                values(%s, %s, %s, %s, %s, %s, %s, %s, 0)
+                values(%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 returning created_timestamp
             """,
             (namespace, self.Name, self.Frozen, self.Monotonic, meta, self.Creator, 
-                    self.Description, file_meta_requirements
+                    self.Description, file_meta_requirements, self.FileCount
             )
         )
         self.CreatedTimestamp = transaction.fetchone()[0]
@@ -1224,7 +1223,6 @@ class DBDataset(DBObject):
             create temp table {temp_table} (fid text, namespace text, name text);
             truncate table {temp_table}
         """)
-        total_size = 0
         for chunk in chunked(files, 1000):
             if validate_meta:
                 for f in chunk:
@@ -1232,8 +1230,6 @@ class DBDataset(DBObject):
                     errors = self.validate_file_metadata(f.Metadata)
                     if errors:
                         meta_errors += errors
-                    else:
-                        total_size += f.Size
 
             csv = "\n".join(["%s\t%s\t%s" % (f.FID, f.Namespace, f.Name) for f in chunk])
             transaction.copy_from(io.StringIO(csv), temp_table, columns = ["fid", "namespace", "name"])
@@ -1255,7 +1251,7 @@ class DBDataset(DBObject):
                 set file_count = file_count + %s
                 where namespace = %s and name = %s
         """, (nadded, self.Namespace, self.Name))
-        return nadded, total_size
+        return nadded
 
     def list_files(self, with_metadata=False, limit=None, include_retired_files=False):
         meta = "null as metadata" if not with_metadata else "f.metadata"
@@ -1375,7 +1371,8 @@ class DBDataset(DBObject):
             creator = self.Creator,
             created_timestamp = epoch(self.CreatedTimestamp),
             file_meta_requirements = self.FileMetaRequirements,
-            description = self.Description
+            description = self.Description,
+            file_count = self.FileCount
         )
         if with_relatives:
             out["parents"] = [

@@ -504,8 +504,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         Returns
         -------
-        list
-            list of dictionaries, one dictionary per file with file ids: { "fid": "..." }
+        dictionary
+            { "files_added": <number of files added to the dataset> }
         
         Notes
         -----
@@ -526,7 +526,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         params = {
             "namespace": namespace,
         }
-        if file_list:
+        if file_list is not None:
             lst = []
             for f in file_list:
                 spec = ObjectSpec.from_dict(f, default_namespace)

@@ -259,7 +259,6 @@ class DataHandler(MetaCatHandler):
             if query.Type != "file":
                 return 400, f"Invalid file query: {files_query}"
             files = query.run(db, filters=self.App.filters(), with_meta=True, with_provenance=False)
-            print("create_dataset: files:", type(files), files)
 
         metadata = params.get("metadata") or {}
         for k in metadata.keys():
@@ -272,11 +271,14 @@ class DataHandler(MetaCatHandler):
             file_meta_requirements = params.get("file_meta_requirements"),
             metadata = metadata
         )
-        dataset.create()
+        
+        with db.transaction() as transaction:
+            dataset.create(transaction=transaction)
 
-        if files is not None:
-            dataset.add_files(files)
-
+            if files is not None:
+                dataset.FileCount = dataset.add_files(files, transaction=transaction)
+                dataset.save(transaction=transaction)
+        
         return dataset.to_json(), "application/json"
     
     @sanitized
@@ -358,7 +360,7 @@ class DataHandler(MetaCatHandler):
         return "OK"
 
     @sanitized
-    def add_files(self, request, relpath, dataset=None, **args):
+    def remove_files(self, request, relpath, dataset=None, **args):
         #
         # add existing files to a dataset
         #
@@ -454,7 +456,8 @@ class DataHandler(MetaCatHandler):
             if query.Type != "file":
                 return 400, f"Invalid file query: {query_text}"
             files = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False)
-            files = list(files)
+            #print("add_files: files from query:", files)
+
         elif file_list:
             files = []
             for file_item in file_list:
@@ -467,12 +470,17 @@ class DataHandler(MetaCatHandler):
                     f = DBFile(db, spec.Namespace, spec.Name)
                 files.append(f)
                 #print("add_files: files:", files)
-        
-        if files:
-            try:    ds.add_files(files, do_commit=True)
+
+        nadded = 0
+        if files is not None:
+            try:
+                with db.transaction() as transaction:
+                    nadded = ds.add_files(files, transaction=transaction)
+                    ds.FileCount += nadded
+                    ds.save(transaction=transaction)
             except MetaValidationError as e:
                 return e.as_json(), 400, "application/json"
-        return json.dumps([f.to_jsonable() for f in files]), "application/json"
+        return json.dumps({"files_added": nadded}), "application/json"
 
     @sanitized
     def datasets_for_files(self, request, relpath, **args):

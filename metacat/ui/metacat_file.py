@@ -205,28 +205,24 @@ class DeclareManyCommand(CLICommand):
     
     MinArgs = 2
     Opts = ("N:dj", ["namespace=", "dry-run", "json"])
-    Usage = """[options] <JSON file with file list> [<dataset namespace>:]<dataset name>
+    Usage = """[options] <JSON file with file list> <dataset namespace>:<dataset name>
     Declare multiple files:
             -d|--dry-run                        - dry run: run all the checks but stop short of actual file declaration
             -j|--json                           - print results as JSON
-            -N|--namespace <default namespace>
     """
 
     def __call__(self, command, client, opts, args):
         json_file, dataset_spec = args
-        default_namespace = opts.get("-N") or opts.get("--namespace")
 
         files = json.load(open(json_file, "r"))       # parse to validate JSON
 
-        dataset_namespace, dataset_name = undid(dataset_spec, default_namespace)
-
-        if dataset_namespace is None:
-            raise InvalidArguments("dataset not specified")
-            sys.exit(1)
+        if ':' not in dataset_spec:
+            raise InvalidArguments("Invalid dataset specification")
+            
+        dataset_namespace, dataset_name = undid(dataset_spec)
 
         try:
-            response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, namespace = default_namespace,
-                dry_run = "-d" in opts)
+            response = client.declare_files(f"{dataset_namespace}:{dataset_name}", files, dry_run = "-d" in opts)
         except MCError as e:
             print(e)
             sys.exit(1)
@@ -240,22 +236,23 @@ class DeclareManyCommand(CLICommand):
 
 class DatasetsCommand(CLICommand):
 
-    Opts = "jpi:"
-    Usage = """[-j|-p] (-i <file id>|<namespace>:<name>)
-            -p pretty-print the list of datasets
-            -j print the list as JSON
+    Opts = "jp"
+    Usage = """[-j|-p] (<file id>|<did>)                   - print datasets containing a file
+    
+            -p      - pretty-print the list of datasets
+            -j      - print the list as JSON
             otherwise print dataset DIDs
     """
+    MinArgs = 1
 
     def __call__(self, command, client, opts, args):
         did = fid = None
-    
-        if args:
+
+        if ':' in args[0]:
             did = args[0]
         else:
-            if "-i" not in opts:
-                raise InvalidArguments("File specification error")
-            fid = opts["-i"]
+            fid = args[0]
+
         try:
             data = client.get_file(did=did, fid=fid, with_provenance=False, with_metadata=False, with_datasets=True)
         except MCError as e:
@@ -263,7 +260,7 @@ class DatasetsCommand(CLICommand):
             sys.exit(1)
 
         if data is None:
-            print("file not found", file=sys.stderr)
+            print("File not found", file=sys.stderr)
             sys.exit(1)
         datasets = sorted(data.get("datasets", []), key = lambda ds: (ds["namespace"], ds["name"]))
         if "-j" in opts:

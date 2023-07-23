@@ -125,16 +125,19 @@ class ShowDatasetCommand(CLICommand):
         elif "-j" in opts or "--json" in opts:
             print(json.dumps(info, indent=4, sort_keys=True))
         else:
-            print("Namespace:       ", info["namespace"])
-            print("Name:            ", info["name"])
-            print("Description:     ", info.get("description", ""))
-            print("Creator:         ", info.get("creator", ""))
+            print("Namespace:            ", info["namespace"])
+            print("Name:                 ", info["name"])
+            print("Description:          ", info.get("description", ""))
+            print("Creator:              ", info.get("creator", ""))
             ct = info.get("created_timestamp") or ""
             if ct:
                 ct = datetime.fromtimestamp(ct, timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z")
-            print("Created at:      ", ct)
-            print("Frozen:          ", "yes" if info.get("frozen", False) else "no")
-            print("Monotonic:       ", "yes" if info.get("monotonic", False) else "no")
+            print("Created at:           ", ct)
+            print("Estimated file count: ", info.get("file_count"), "")
+            print("Restricted:           ", "frozen" if info.get("frozen", False) else (
+                                            "monotonic" if info.get("monotonic", False) else "no"
+                                            )
+            )
             print("Metadata:")
             if info.get("metadata"):
                 print(indent(json.dumps(info["metadata"], indent=4, sort_keys=True), "  "))
@@ -203,6 +206,9 @@ class CreateDatasetCommand(CLICommand):
         else:
             if "-j" in opts or "--json" in opts:
                 print(json.dumps(out, indent=4, sort_keys=True))
+            else:
+                nfiles = out.get("file_count")
+                print(f"Dataset {dataset_spec} cteated", f"with {nfiles} files" if nfiles is not None else "")
 
 class UpdateDatasetCommand(CLICommand):
 
@@ -328,7 +334,7 @@ class AddFilesCommand(CLICommand):
             print(e)
             sys.exit(1)
         else:
-            print("Added", len(out), "files")
+            print("Added", out["files_added"], "files")
 
 class RemoveFilesCommand(CLICommand):
     
