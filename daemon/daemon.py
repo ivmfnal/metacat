@@ -27,7 +27,6 @@ class MetaCatDaemon(Logged):
         if "password" in db_config:
             self.DBConnect += " password=%(password)s" % db_config
         self.Schema = db_config.get("schema")
-        self.ConnPool = 
 
         self.Queue = TaskQueue(5, delegate=self)
         self.Queue.append(self.ferry_update, interval=self.FerryUpdateInterval, after=time.time())
