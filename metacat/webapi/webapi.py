@@ -504,8 +504,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         Returns
         -------
-        dictionary
-            { "files_added": <number of files added to the dataset> }
+        int
+            number of files added to the dataset
         
         Notes
         -----
@@ -539,7 +539,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             raise ValueError("Either file_list or query must be specified, but not both")
         
         out = self.post_json(url, params)
-        return out
+        return out["files_added"]
 
     def declare_file(self, did=None, namespace=None, name=None, auto_name=None,
                      dataset_did=None, dataset_namespace=None,

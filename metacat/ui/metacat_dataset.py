@@ -329,12 +329,12 @@ class AddFilesCommand(CLICommand):
 
         dataset = args[0]
         try:
-            out = client.add_files(dataset, file_list=files, query=query)
+            nadded = client.add_files(dataset, file_list=files, query=query)
         except MCError as e:
             print(e)
             sys.exit(1)
         else:
-            print("Added", out["files_added"], "files")
+            print("Added", nadded, "files")
 
 class RemoveFilesCommand(CLICommand):
     
