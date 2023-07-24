@@ -711,17 +711,19 @@ class AddCommand(CLICommand):
 class MoveCommand(CLICommand):
     
     Usage = """[options] - move files to a new namespace
+    
+            -n <target namespace> -f <file list>        - move listed files
+            -n <target namespace> -q <query file>       - move selected files
+            -n <target namespace> <MQL query>           - move selected files
             
-            -n|--namespace                                  - new namespace
-            
-            Specify files explicitly
+            File list specification
             -f|--files <file namespace>:<file name>[,...]
             -f|--files <file id>[,...]
             -f|--files <file>                               - read the list from text file
             -f|--files <JSON file>                          - read the list from JSON file
             -f|--files -                                    - read the list from stdin
 
-            Use results of a query
+            Select files by running a query
             -q|--query "<MQL query>"
             -q|--query <file>                           - read query from the file
             -q|--query -                                - read query from stdin
@@ -730,25 +732,41 @@ class MoveCommand(CLICommand):
     Opts = ("f:n:q:", ["namespace=", "files=", "query="])
 
     def __call__(self, command, client, opts, args):
+        
         namespace = opts.get("-n") or opts.get("--namespace")
         if not namespace:
             raise InvalidArguments("Namespace must be specified")
         query = opts.get("-q") or opts.get("--query")
         if query:
             query = load_text(query)
+            
+        if query and args:
+            raise InvalidArguments("Query may be specified using -q|--query or command arguments, but not both")
+        
+        if not query:
+            query = " ".join(args).strip() or None
+
         file_list = opts.get("-f") or opts.get("--files")
         if file_list:
             file_list = load_file_list(file_list)
         if (file_list is None) == (query is None):
             raise InvalidArguments("Either query or file list must be specified, but not both")
         client.Timeout = None       # this may take long time, so turn the timeout off
-        nmoved = client.move_files(namespace, file_list=file_list, query=query)
-        print(nmoved, "files moved")
+        nmoved, errors = client.move_files(namespace, file_list=file_list, query=query)
+        if errors:
+            for error in errors:
+                print(error)
+            print("Number of errors:     ", len(error))
+            print()
+        print("Files moved:          ", nmoved)
+        if errors:
+            sys.exit(1)
 
 FileCLI = CLI(
     "declare",  DeclareSingleCommand(),
     "declare-many",  DeclareManyCommand(),
     "declare-sample",  DeclareSampleCommand(),
+    "move",     MoveCommand(),
     "add",      AddCommand(),
     "datasets", DatasetsCommand(),
     "update",   UpdateCommand(),

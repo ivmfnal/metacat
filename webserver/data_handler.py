@@ -793,7 +793,7 @@ class DataHandler(MetaCatHandler):
             "query": "MQL query"
         }
         """
-
+        
         user, error = self.authenticated_user()
         if user is None:
             return "Authentication required", 403
@@ -802,8 +802,8 @@ class DataHandler(MetaCatHandler):
         data = json.loads(request.body)
         if not isinstance(data, dict):
             return 400, "Unsupported request data format"
-        if "files" not in data or "namespace" not in data or not isinstance(data["files"], list):
-            return 400, "Request must contain file list (as 'files') and namespace"
+        if "namespace" not in data:
+            return 400, "Request must contain target namespace"
         
         authorized_namespaces = set(ns.Name for ns in user.namespaces())
         target_namespace = data["namespace"]
@@ -812,20 +812,13 @@ class DataHandler(MetaCatHandler):
         if target_namespace not in authorized_namespaces:
             return 401, f"Not authorized to rename into namespace {target_namespace}"
             
-        files = []
-        for item in data["files"]:
-            if "fid" in item:
-                files.append(DBFile(db, fid=item["fid"]))
-            elif "namespace" in item and "name" in item:
-                files.append(DBFile(db, namespace=item["namespace"], name=item["name"]))
-            else:
-                return 400, "Invalid file specification: " + str(item)
-
-        files = list(DBFile.get_files(db, files))   # fill namespaces and fids
-        
-        for f in files:
-            if not self._namespace_authorized(db, f.Namespace, user):
-                return 403, f"Not authtorized to rename file: {f.Namespace}:{f.Name}"
+        if "files" in data:
+            files = DBFile.get_files(db, data["files"])
+        else:
+            query = MQLQuery.parse(data["query"])
+            if query.Type != "file":
+                return 400, f"Invalid file query: {query_text}"
+            files = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False)
 
         nmoved, errors = DBFile.move_to_namespace(db, target_namespace, files, authorized_namespaces=authorized_namespaces)
         return json.dumps({"files_moved": nmoved, "errors":errors}), "application/json"

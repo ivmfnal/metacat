@@ -30,11 +30,11 @@ def insert_many(db, table, items, column_names=None, copy_threshold=0, chunk_siz
                 cols = "" if not column_names else "(" + ",".join(column_names) + ")"
                 ncols = len(column_names) if column_names else len(chunk[0])
                 vals = ",".join(["%s"] * ncols)
-                print("cols:", cols)
-                print("vals:", vals)
-                print("chunk:", chunk)
+                #print("cols:", cols)
+                #print("vals:", vals)
+                #print("chunk:", chunk)
                 sql = f"insert into {table} {cols} values({vals})"
-                print("sql:", sql)
+                #print("sql:", sql)
                 transaction.executemany(sql, chunk)
             else:
                 csv_file = io.StringIO()
