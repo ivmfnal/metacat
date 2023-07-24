@@ -16,7 +16,7 @@ def debug(*parts):
 
 from .common import (
     AlreadyExistsError, DatasetCircularDependencyDetected, NotFoundError, MetaValidationError,
-    parse_name, alias, insert_bulk
+    parse_name, alias
 )
 
 class DBFileSet(DBObject):
@@ -586,10 +586,11 @@ class DBFile(DBObject):
             (self.FID, self.Namespace, self.Name, meta, self.Size, checksums, creator))
         self.CreatedTimestamp = c.fetchone()[0]
         if self.Parents:
-            insert_many(transaction,
+            insert_many(self.DB,
                 "parent_child", 
-                ["parent_id", "child_id"], 
                 ((p.FID if isinstance(p, DBFile) else p, self.FID) for p in self.Parents),
+                column_names=["parent_id", "child_id"], 
+                transaction=transaction
             )
         return self
 
@@ -761,8 +762,8 @@ class DBFile(DBObject):
                 name text);
             truncate table {temp_table};
                 """)
-        cvs = strio.getvalue()
-        transaction.copy_from(io.StringIO(cvs), temp_table)
+        csv = strio.getvalue()
+        transaction.copy_from(io.StringIO(csv), temp_table)
         #print("DBFile.get_files: strio:", strio.getvalue())
         
         columns = DBFile.all_columns("f")
@@ -774,6 +775,36 @@ class DBFile(DBObject):
         """
         
         return DBFileSet(db, sql=sql)
+        
+    @staticmethod
+    @transactioned
+    def move_to_namespace(db, namespace, files, transaction=None):
+        """
+        
+        WARNING: DOES NOT check namespace permissions for the source namespace
+        
+        files expected to be a list of DBFile objects with correct file ids 
+        """
+
+        suffix = int(time.time()*1000) % 10000
+        temp_table = f"temp_fids_{suffix}"
+        transaction.execute(f"create temp table {temp_table} ( id text );")
+        
+        errors = []
+
+        for chunk in chunked(files, chunk_size=1000):
+            chunk = 
+
+        insert_many(db, temp_table, ((f.FID,) for f in files), column_names=["id"], transaction=transaction)
+
+        transaction.execute(f"""
+            update files set namespace = %(ns)s
+                from {temp_table} tt
+                where files.id = tt.id
+                    and files.namespace != %(ns)s
+            """, {"ns": namespace}
+        )
+        return transaction.rowcount
         
     @staticmethod
     @transactioned

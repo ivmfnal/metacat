@@ -777,7 +777,61 @@ class DataHandler(MetaCatHandler):
         
         out = [f.to_jsonable() for f in files]
         return json.dumps(out), "application/json"
+
+    def move_files(self, request, relpath, **args):
+        """
         
+        WARNING: DOES NOT check namespace permissions for the file source namespaces
+        
+        Moves files to new namespace
+        the request body expected to be:
+        {
+            "namespace": "new_namespace",
+            "files" : [
+                { "namespace":..., "name":... } or
+                { "fid": ... }
+                ...
+            ]
+            or
+            "query": "MQL query"
+        }
+        """
+
+        user, error = self.authenticated_user()
+        if user is None:
+            return "Authentication required", 403
+
+        db = self.App.connect()
+        data = json.loads(request.body)
+        if not isinstance(data, dict):
+            return 400, "Unsupported request data format"
+        if "files" not in data or "namespace" not in data or not isinstance(data["files"], list):
+            return 400, "Request must contain file list (as 'files') and namespace"
+            
+        target_namespace = data["namespace"]
+        if DBNamespace.get(db, target_namespace) is None:
+            return 404, f"Namespace {target_namespace} not found"
+        if not self._namespace_authorized(db, target_namespace, user):
+            return 403, f"Not authorized to rename into namespace {target_namespace}"
+            
+        files = []
+        for item in data["files"]:
+            if "fid" in item:
+                files.append(DBFile(db, fid=item["fid"]))
+            elif "namespace" in item and "name" in item:
+                files.append(DBFile(db, namespace=item["namespace"], name=item["name"]))
+            else:
+                return 400, "Invalid file specification: " + str(item)
+
+        files = list(DBFile.get_files(db, files))   # fill namespaces and fids
+        
+        for f in files:
+            if not self._namespace_authorized(db, f.Namespace, user):
+                return 403, f"Not authtorized to rename file: {f.Namespace}:{f.Name}"
+
+        nmoved = DBFile.move_to_namespace(db, target_namespace, files)
+        return json.dumps({"renamed": nmoved}), "application/json"
+
     def __update_meta_bulk(self, db, user, new_meta, mode, names=None, ids=None):
         metadata_errors = self.validate_metadata(new_meta)
         if metadata_errors:
@@ -1004,7 +1058,7 @@ class DataHandler(MetaCatHandler):
         # 
         # Update metadata for existing files
         #
-        # mode2: common changes for many files, cannot be used to update parents
+        # common changes for many files, cannot be used to update parents
         # {
         #   files: [ ... ]              # dicts, either namespace/name or fid
         #   metadata: { ... }
@@ -1028,11 +1082,9 @@ class DataHandler(MetaCatHandler):
             spec = ObjectSpec.from_dict(f)
             if spec.FID:
                 self.sanitize(fid = spec.FID)
-                
                 by_fid.append(spec.FID)
             else:
                 self.sanitize(namespace=spec.Namespace, name=spec.Name)
-                
                 by_namespace_name.append({"namespace":spec.Namespace, "name":spec.Name})
         return self.__update_meta_bulk(db, user, data["metadata"], data["mode"], ids=by_fid, names=by_namespace_name)
         

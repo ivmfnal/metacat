@@ -1,12 +1,12 @@
-from metacat.util import fetch_generator
-import json
+from metacat.util import fetch_generator, chunked
+import json, io, csv
 
 def transactioned(method):
     def decorated(first, *params, transaction=None, **args):
 
         if transaction is not None:
             return method(first, *params, transaction=transaction, **args)
-
+        
         if isinstance(first, HasDB):
             transaction = first.DB.transaction()
         elif isinstance(first, type):
@@ -20,37 +20,31 @@ def transactioned(method):
 
     return decorated
 
-def insert_many(transaction, table, column_names, tuples, copy_threshold = 100):
-
-    # if the tuples list or iterable is short enough, do it as multiple inserts
-    tuples_lst, tuples = make_list_if_short(tuples, copy_threshold)
-    if tuples_lst is not None and len(tuples_lst) <= copy_threshold:
-        columns = ",". join(column_names)
-        placeholders = ",".join(["%s"]*len(column_names))
-        try:
-            transaction.executemany(f"""
-                insert into parent_child({columns}) values({placeholders})
-            """, tuples_lst)
-            if do_commit:   cursor.execute("commit")
-        except Exception as e:
-            cursor.execute("rollback")
-            raise
-    else:
-        
-        csv_file = io.StringIO()
-        writer = csv.writer(csv_file, delimiter='\t', quoting=csv.QUOTE_MINIMAL)
-
-        for tup in tuples:
-            assert len(tup) == len(column_names)
-            tup = ["\\N" if x is None else x for x in tup]
-            writer.writerow(tup)
-        csv_file.seek(0,0)
-        try:
-            cursor.copy_from(csv_file, table, columns = column_names)
-            if do_commit:   cursor.execute("commit")
-        except Exception as e:
-            cursor.execute("rollback")
-            raise
+@transactioned
+def insert_many(db, table, items, column_names=None, copy_threshold=0, chunk_size=1000, make_tuple=None, transaction=None):
+    for chunk in chunked(items, chunk_size):
+        if chunk:
+            if make_tuple is not None:
+                chunk = [make_tuple(item) for item in chunk]
+            if len(chunk) <= copy_threshold:
+                cols = "" if not column_names else "(" + ",".join(column_names) + ")"
+                ncols = len(column_names) if column_names else len(chunk[0])
+                vals = ",".join(["%s"] * ncols)
+                print("cols:", cols)
+                print("vals:", vals)
+                print("chunk:", chunk)
+                sql = f"insert into {table} {cols} values({vals})"
+                print("sql:", sql)
+                transaction.executemany(sql, chunk)
+            else:
+                csv_file = io.StringIO()
+                writer = csv.writer(csv_file, delimiter='\t', quoting=csv.QUOTE_MINIMAL)
+                for tup in chunk:
+                    assert len(tup) == len(column_names)
+                    tup = ["\\N" if x is None else x for x in tup]          # null in Postgres
+                    writer.writerow(tup)
+                csv_file.seek(0,0)
+                transaction.copy_from(csv_file, table, columns = column_names)
 
 
 class HasDB(object):

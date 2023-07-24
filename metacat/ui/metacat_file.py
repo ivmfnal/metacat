@@ -658,7 +658,7 @@ class AddCommand(CLICommand):
             -s|--sample           - print JOSN file list sample
     """
     
-    Usage = 'Use "metacat dataset add..." instead'
+    Usage = 'DEPRECATED. Use "metacat dataset add..." instead'
     
     AddSample = json.dumps(
         [
@@ -707,6 +707,43 @@ class AddCommand(CLICommand):
         file_list = load_file_list(opts["-f"])
         dataset = args[-1]
         out = client.add_files(dataset, file_list)
+        
+class MoveCommand(CLICommand):
+    
+    Usage = """[options] - move files to a new namespace
+            
+            -n|--namespace                                  - new namespace
+            
+            Specify files explicitly
+            -f|--files <file namespace>:<file name>[,...]
+            -f|--files <file id>[,...]
+            -f|--files <file>                               - read the list from text file
+            -f|--files <JSON file>                          - read the list from JSON file
+            -f|--files -                                    - read the list from stdin
+
+            Use results of a query
+            -q|--query "<MQL query>"
+            -q|--query <file>                           - read query from the file
+            -q|--query -                                - read query from stdin
+            
+    """
+    Opts = ("f:n:q:", ["namespace=", "files=", "query="])
+
+    def __call__(self, command, client, opts, args):
+        namespace = opts.get("-n") or opts.get("--namespace")
+        if not namespace:
+            raise InvalidArguments("Namespace must be specified")
+        query = opts.get("-q") or opts.get("--query")
+        if query:
+            query = load_text(query)
+        file_list = opts.get("-f") or opts.get("--files")
+        if file_list:
+            file_list = load_file_list(file_list)
+        if (file_list is None) == (query is None):
+            raise InvalidArguments("Either query or file list must be specified, but not both")
+        client.Timeout = None       # this may take long time, so turn the timeout off
+        nmoved = client.move_files(namespace, file_list=file_list, query=query)
+        print(nmoved, "files moved")
 
 FileCLI = CLI(
     "declare",  DeclareSingleCommand(),

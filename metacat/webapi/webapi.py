@@ -102,7 +102,10 @@ class HTTPClient(object):
     def __init__(self, server_url, token, timeout=None):
         self.ServerURL = server_url
         self.Token = token
-        self.Timeout = timeout or self.DefaultTimeout
+        if timeout is not None and timeout <= 0:
+            self.Timeout = None         # no timeout
+        else:
+            self.Timeout = timeout or self.DefaultTimeout
         self.LastResponse = self.LastURL = self.LastStatusCode = None
 
     def retry_request(self, method, url, timeout=None, **args):
@@ -725,6 +728,51 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         out = self.post_json(url, lst)
         return out
         
+    def move_files(self, namespace, file_list=None, query=None):
+        """
+        Arguments
+        ---------
+        namespace : str
+            namespace to move files to
+        query : str
+            MQL query to run and add files matching the query
+        file_list : list
+            List of dictionaries, one dictionary per file. Each dictionary must contain either a file id
+        
+            .. code-block:: python
+        
+                    { "fid": "abcd12345" }
+
+            or namespace/name:
+        
+            .. code-block:: python
+
+                    { "name": "filename.data", "namespace": "my_namespace" }
+
+            or DID:
+        
+            .. code-block:: python
+
+                    { "did": "my_namespace:filename.data" }
+        """    
+        params = {
+            "namespace": namespace,
+        }
+        if file_list is not None:
+            lst = []
+            for f in file_list:
+                spec = ObjectSpec.from_dict(f, default_namespace)
+                spec.validate()
+                lst.append(spec.as_dict())
+            params["files"] = lst
+        elif query:
+            params["query"] = query
+        else:
+            raise ValueError("Either file_list or query must be specified, but not both")
+
+        out = self.post_json(url, params)
+        return out["files_moved"]
+
     def update_file(self, did=None, namespace=None, name=None, fid=None, replace=False,
                 size=None, checksums=None, parents=None, children=None, metadata=None
         ):
