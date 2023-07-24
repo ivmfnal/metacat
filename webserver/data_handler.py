@@ -780,9 +780,6 @@ class DataHandler(MetaCatHandler):
 
     def move_files(self, request, relpath, **args):
         """
-        
-        WARNING: DOES NOT check namespace permissions for the file source namespaces
-        
         Moves files to new namespace
         the request body expected to be:
         {
@@ -807,12 +804,13 @@ class DataHandler(MetaCatHandler):
             return 400, "Unsupported request data format"
         if "files" not in data or "namespace" not in data or not isinstance(data["files"], list):
             return 400, "Request must contain file list (as 'files') and namespace"
-            
+        
+        authorized_namespaces = set(ns.Name for ns in user.namespaces())
         target_namespace = data["namespace"]
         if DBNamespace.get(db, target_namespace) is None:
             return 404, f"Namespace {target_namespace} not found"
-        if not self._namespace_authorized(db, target_namespace, user):
-            return 403, f"Not authorized to rename into namespace {target_namespace}"
+        if target_namespace not in authorized_namespaces:
+            return 401, f"Not authorized to rename into namespace {target_namespace}"
             
         files = []
         for item in data["files"]:
@@ -829,8 +827,8 @@ class DataHandler(MetaCatHandler):
             if not self._namespace_authorized(db, f.Namespace, user):
                 return 403, f"Not authtorized to rename file: {f.Namespace}:{f.Name}"
 
-        nmoved = DBFile.move_to_namespace(db, target_namespace, files)
-        return json.dumps({"renamed": nmoved}), "application/json"
+        nmoved, errors = DBFile.move_to_namespace(db, target_namespace, files, authorized_namespaces=authorized_namespaces)
+        return json.dumps({"files_moved": nmoved, "errors":errors}), "application/json"
 
     def __update_meta_bulk(self, db, user, new_meta, mode, names=None, ids=None):
         metadata_errors = self.validate_metadata(new_meta)

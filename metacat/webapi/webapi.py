@@ -754,6 +754,10 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             .. code-block:: python
 
                     { "did": "my_namespace:filename.data" }
+        Returns
+        -------
+        tuple
+            number of files moved, list of errors, if any
         """    
         params = {
             "namespace": namespace,
@@ -771,7 +775,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             raise ValueError("Either file_list or query must be specified, but not both")
 
         out = self.post_json(url, params)
-        return out["files_moved"]
+        return out["files_moved"], out.get("errors", [])
 
     def update_file(self, did=None, namespace=None, name=None, fid=None, replace=False,
                 size=None, checksums=None, parents=None, children=None, metadata=None

@@ -778,12 +778,10 @@ class DBFile(DBObject):
         
     @staticmethod
     @transactioned
-    def move_to_namespace(db, namespace, files, transaction=None):
+    def move_to_namespace(db, to_namespace, files, transaction=None, authorized_namespaces=None):
         """
-        
-        WARNING: DOES NOT check namespace permissions for the source namespace
-        
-        files expected to be a list of DBFile objects with correct file ids 
+        files expected to be a list of DBFile objects with correct file ids, name and namespace.
+        authorized_namespaces is a set of ns names the user owns (directly or through a role)
         """
 
         suffix = int(time.time()*1000) % 10000
@@ -793,9 +791,15 @@ class DBFile(DBObject):
         errors = []
 
         for chunk in chunked(files, chunk_size=1000):
-            chunk = 
+            authorized = []
+            for f in chunk:
+                if authorized_namespaces is None or f.Namespace in authorized_namespaces:
+                    authorized.append(f)
+                else:
+                    errors.append("not authorized to move file: " + f.did())
 
-        insert_many(db, temp_table, ((f.FID,) for f in files), column_names=["id"], transaction=transaction)
+            if authorized:
+                insert_many(db, temp_table, authorized, column_names=["id"], transaction=transaction)
 
         transaction.execute(f"""
             update files set namespace = %(ns)s
@@ -804,7 +808,7 @@ class DBFile(DBObject):
                     and files.namespace != %(ns)s
             """, {"ns": namespace}
         )
-        return transaction.rowcount
+        return transaction.rowcount, errors
         
     @staticmethod
     @transactioned
