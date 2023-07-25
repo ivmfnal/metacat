@@ -717,17 +717,15 @@ class MoveCommand(CLICommand):
             -n <target namespace> <MQL query>           - move selected files
             
             File list specification
-            -f|--files <file namespace>:<file name>[,...]
-            -f|--files <file id>[,...]
-            -f|--files <file>                               - read the list from text file
+            -f|--files <file namespace>:<file name>[,...]   - list of DIDs
+            -f|--files <file id>[,...]                      - list of file ids
+            -f|--files <file>                               - read the list of DIDs or file ids from a text file
             -f|--files <JSON file>                          - read the list from JSON file
             -f|--files -                                    - read the list from stdin
 
             Select files by running a query
-            -q|--query "<MQL query>"
             -q|--query <file>                           - read query from the file
             -q|--query -                                - read query from stdin
-            
     """
     Opts = ("f:n:q:", ["namespace=", "files=", "query="])
 
@@ -752,13 +750,17 @@ class MoveCommand(CLICommand):
         if (file_list is None) == (query is None):
             raise InvalidArguments("Either query or file list must be specified, but not both")
         client.Timeout = None       # this may take long time, so turn the timeout off
-        nmoved, errors = client.move_files(namespace, file_list=file_list, query=query)
+        nmoved, errors, nerrors = client.move_files(namespace, file_list=file_list, query=query)
         if errors:
             for error in errors:
                 print(error)
-            print("Number of errors:     ", len(error))
             print()
-        print("Files moved:          ", nmoved)
+            if len(errors) < nerrors:
+                print("Error list was truncated.")
+                print("Number of errors:  ", nerrors)
+            else:
+                print("Number of errors:  ", len(errors))
+        print("Files moved:       ", nmoved)
         if errors:
             sys.exit(1)
 

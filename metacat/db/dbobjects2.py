@@ -789,7 +789,6 @@ class DBFile(DBObject):
         transaction.execute(f"create temp table {temp_table} ( id text );")
         
         errors = []
-        print("move_to_namespace: files:", files)
         for chunk in chunked(files, 1000):
             authorized = []
             for f in chunk:
@@ -797,7 +796,6 @@ class DBFile(DBObject):
                     authorized.append((f.FID,))
                 else:
                     errors.append("not authorized to move file: " + f.did())
-            print("move_to_namespace: chunk:", len(chunk), " authorized:", len(authorized))
             if authorized:
                 insert_many(db, temp_table, authorized, column_names=["id"], transaction=transaction)
 

@@ -765,7 +765,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         if file_list is not None:
             lst = []
             for f in file_list:
-                spec = ObjectSpec.from_dict(f, default_namespace)
+                spec = ObjectSpec.from_dict(f)
                 spec.validate()
                 lst.append(spec.as_dict())
             params["files"] = lst
@@ -776,7 +776,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         url = "data/move_files"
         out = self.post_json(url, params)
-        return out["files_moved"], out.get("errors", [])
+        errors = out.get("errors", [])
+        return out["files_moved"], errors, out.get("nerrors", len(errors))
 
     def update_file(self, did=None, namespace=None, name=None, fid=None, replace=False,
                 size=None, checksums=None, parents=None, children=None, metadata=None

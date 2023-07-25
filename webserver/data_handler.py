@@ -27,6 +27,8 @@ def parse_name(name, default_namespace=None):
 
 class DataHandler(MetaCatHandler):
     
+    MAX_ERRORS = 100                # Truncate error list if it is too long
+    
     def __init__(self, request, app):
         MetaCatHandler.__init__(self, request, app)
         self.Categories = None
@@ -821,7 +823,8 @@ class DataHandler(MetaCatHandler):
             files = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False)
 
         nmoved, errors = DBFile.move_to_namespace(db, target_namespace, files, authorized_namespaces=authorized_namespaces)
-        return json.dumps({"files_moved": nmoved, "errors":errors}), "application/json"
+        nerrors = len(errors)
+        return json.dumps({"files_moved": nmoved, "errors":errors[:self.MAX_ERRORS], "nerrors":nerrors}), "application/json"
 
     def __update_meta_bulk(self, db, user, new_meta, mode, names=None, ids=None):
         metadata_errors = self.validate_metadata(new_meta)
