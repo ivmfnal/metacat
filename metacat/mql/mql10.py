@@ -818,7 +818,8 @@ class QueryConverter(Converter):
             #print(args[-1], args[-1].C)
             specs = [fid.value for fid in args[-1].C]
         return Node("file_list", specs=specs, spec_type=spec_type,
-                 with_meta=False, with_provenance=False, limit=None)
+                skip=0, limit=None,
+                with_meta=False, with_provenance=False)
 
     def int_constant(self, args):
         v = args[0]
