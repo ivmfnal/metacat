@@ -679,7 +679,46 @@ The command has more options:
       If -u is used together with some individual attributes options, the attributes from the -u file will
       be updated with those coming from the individual attribute options first.
 
+Moving files into another namespace
+...................................
 
+To move a set of files to another namespace, use `move` subcommand. There are 2 ways to specify the list of files to move:
+
+    * explsistly listhing their DIDs or file ids
+    * selecting files using an MQL query
+    
+To specify files explicitly, use `-f` option:
+
+.. code-block:: shell
+
+    $ metacat file move -n <target namespace> -f <file list specification>
+            
+The File list can be specified in one of the following ways:
+
+.. code-block:: shell
+
+    -f|--files <file namespace>:<file name>[,...]   - list of DIDs
+    -f|--files <file id>[,...]                      - list of file ids
+    -f|--files <file>                               - read the list of DIDs or file ids from a text file
+    -f|--files <JSON file>                          - read the list from JSON file
+    -f|--files -                                    - read the list from stdin
+
+To use an MQL query:
+
+.. code-block:: shell
+
+    $ metacat file move -n <target namespace> <inline query>
+    $ metacat file move -n <target namespace> -q <query source>
+
+    -q|--query <file>                           - read query from the file
+    -q|--query -                                - read query from stdin
+
+Using this command, keep in mind that this operation is slow because it involves updating not only the file data
+but also several indexes in the database. Depending on the number of files to move, it can take ~hours to complete.
+
+The user has to own (directly or through a role) both source namespace for each file and the destination namespace.
+The command will move files the user is authorized to move and print errors for those the user does not have
+permission to move.
 
 Retrieving
 ..........
