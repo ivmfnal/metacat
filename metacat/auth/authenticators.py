@@ -220,21 +220,34 @@ class X509Authenticator(Authenticator):
         subject = request_env.get("SSL_CLIENT_S_DN")
         issuer = request_env.get("SSL_CLIENT_I_DN")
         
+        #debug
+        debug = open("/tmp/x509.debug", "w")
+        print("subject:", subject, file=debug)
+        print("issuer:", issuer, file=debug)
+        print("known DNs:", file=debug)
+        for dn in known_dns:
+            print("   ", dn)
+        
         if not subject or not issuer or not known_dns:
             return False, "SSL info not found", None
 
         subject = DN(subject)
         issuer = DN(issuer)
+        print("converted subject:", subject, file=debug)
+        print("converted issuer:", issuer, file=debug)
         known_dns = [DN(dn) for dn in known_dns]
+        
+        t1 = any(subject == dn for dn in known_dns) or                     # cert
+        t2 = any(issuer == dn for dn in known_dns) and issuer <= subject   # proxy
+        
+        print("test1:", t1, file=debug)
+        print("test2:", t2, file=debug)
+        
+        debug.close()
 
-        #print("subject:", subject)
-        #print("issuer:", issuer)
-        #print("subject in known_dns:", subject in known_dns, file=log)
-        #print("issuer in known_dns:", issuer in known_dns, file=log)
-        #print("issuer in subject:", issuer in subject, file=log)
         return (
-            any(subject == dn for dn in known_dns) or                     # cert
-            any(issuer == dn for dn in known_dns) and issuer <= subject   # proxy
+            t1 or                     # cert
+            t2                        # proxy
         ), None, None
         
     def enabled(self):
