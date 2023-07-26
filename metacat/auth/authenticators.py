@@ -237,8 +237,8 @@ class X509Authenticator(Authenticator):
         print("converted issuer:", issuer, file=debug)
         known_dns = [DN(dn) for dn in known_dns]
         
-        t1 = any(subject == dn for dn in known_dns) or                     # cert
-        t2 = any(issuer == dn for dn in known_dns) and issuer <= subject   # proxy
+        t1 = any(subject == dn for dn in known_dns) # cert
+        t2 = any(issuer == dn for dn in known_dns)  # proxy
         
         print("test1:", t1, file=debug)
         print("test2:", t2, file=debug)

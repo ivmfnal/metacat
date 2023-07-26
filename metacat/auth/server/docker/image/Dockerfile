@@ -34,7 +34,7 @@ RUN yum install -y httpd httpd-devel mod_ssl \
 RUN source /opt/conda/etc/profile.d/conda.sh && \
     conda activate && \
     pip install --upgrade pip && \
-    pip install --upgrade pythreader jinja2 webpie pyyaml pyjwt requests mod_wsgi scitokens \
+    pip install --upgrade pythreader jinja2 webpie pyyaml pyjwt requests mod_wsgi scitokens lark \
     && rm -rf ~/.chache/pip \
     && mod_wsgi-express module-config > /etc/httpd/conf.modules.d/10-wsgi.conf \
     && yum clean all \
