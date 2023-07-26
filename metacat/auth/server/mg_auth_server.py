@@ -2,7 +2,7 @@
 # Multi-group authentication server
 #
 
-from metacat.auth.server import BaseApp, AuthHandler
+from metacat.auth.server import AuthHandler
 from metacat.auth.auth_core import AuthenticationCore
 from webpie import Response, WPApp, WPHandler
 from metacat.util import to_str
@@ -10,10 +10,10 @@ from metacat.util import to_str
 import time, os, yaml, os.path
 from urllib.parse import quote_plus, unquote_plus
 
-class MultiGroupAuthServerApp(BaseApp):
+class MultiGroupAuthServerApp(WPApp):
 
     def __init__(self, config, root_handler, **args):
-        BaseApp.__init__(self, config, root_handler, **args)
+        WPApp.__init__(self, root_handler, **args)
         self.Cfg = config
 
         self.Cores = {

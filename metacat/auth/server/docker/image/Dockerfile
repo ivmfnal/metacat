@@ -34,7 +34,7 @@ RUN yum install -y httpd httpd-devel mod_ssl \
 RUN source /opt/conda/etc/profile.d/conda.sh && \
     conda activate && \
     pip install --upgrade pip && \
-    pip install --upgrade pythreader jinja2 webpie pyyaml pyjwt requests mod_wsgi scitokens \
+    pip install --upgrade pythreader jinja2 webpie pyyaml pyjwt requests mod_wsgi scitokens lark \
     && rm -rf ~/.chache/pip \
     && mod_wsgi-express module-config > /etc/httpd/conf.modules.d/10-wsgi.conf \
     && yum clean all \
@@ -42,27 +42,23 @@ RUN source /opt/conda/etc/profile.d/conda.sh && \
 
 RUN rm -f /etc/localtime && ln -s /usr/share/zoneinfo/US/Central /etc/localtime 
 
-WORKDIR /tmp
-RUN git clone https://github.com/ivmfnal/wsdbtools.git
-WORKDIR /tmp/wsdbtools
-RUN make HOME=/tmp
+RUN cd /tmp; \
+        git clone https://github.com/ivmfnal/wsdbtools.git; \
+        git clone https://github.com/ivmfnal/metacat.git; \
+    cd /tmp/wsdbtools; \
+        make HOME=/tmp; \
+    cd /tmp/metacat; \
+        git checkout main
 
-WORKDIR /tmp
-RUN echo 10 >/dev/null
-RUN git clone https://github.com/ivmfnal/metacat.git 
-RUN cd metacat; git checkout main
-
-RUN mkdir /tmp/auth_server 
+RUN mkdir /tmp/auth_server
 WORKDIR /tmp/auth_server
-RUN cp -R /tmp/metacat/metacat/auth/server .
+RUN cp -R /tmp/metacat/metacat/auth/server /tmp/auth_server; \
+    ln -s /tmp/build/wsdbtools/wsdbtools /tmp/metacat/metacat /tmp/auth_server
 
-RUN ln -s /tmp/build/wsdbtools/wsdbtools /tmp/metacat/metacat .
 COPY auth_server.conf /etc/httpd/conf.d/
 COPY start.sh env.py /tmp/auth_server/
 
 EXPOSE 8443
-
-WORKDIR /tmp/auth_server
 
 RUN rm -rf /root/.cache && \
 	chmod go+rwx /root
