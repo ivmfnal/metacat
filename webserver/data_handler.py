@@ -786,7 +786,7 @@ class DataHandler(MetaCatHandler):
             #print("server:declare_files(): calling ds.add_files...")
             ds.add_files(files, validate_meta=False, transaction=transaction)
         
-        out = [f.to_jsonable() for f in results]
+        out = [f.to_jsonable(with_metadata=True) for f in results]
         return json.dumps(out), "application/json"
 
     def move_files(self, request, relpath, **args):

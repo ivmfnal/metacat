@@ -628,7 +628,8 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             size = size,
             checksums = checksums,
             fid = fid,
-            parents = parents
+            parents = parents,
+            metadata = metadata
         )
         if not name and auto_name:
             info["auto_name"] = auto_name
