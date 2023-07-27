@@ -231,7 +231,7 @@ class DeclareManyCommand(CLICommand):
             print(json.dumps(response, indent=4, sort_keys=True))
         else:
             for f in response:
-                print(f["fid"], f["namespace"], f["name"])
+                print(f["fid"], f["namespace"]+':'+f["name"])
 
 
 class DatasetsCommand(CLICommand):

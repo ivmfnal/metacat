@@ -414,7 +414,7 @@ class DataHandler(MetaCatHandler):
                 #print("add_files: files:", files)
         
         if files:
-            try:    ds.remove_files(files, do_commit=True)
+            try:    ds.remove_files(files)
             except MetaValidationError as e:
                 return e.as_json(), 400, "application/json"
         return json.dumps([f.to_jsonable() for f in files]), "application/json"
@@ -625,6 +625,14 @@ class DataHandler(MetaCatHandler):
                 did = file_item.get("did")
                 if did is not None:
                     namespace, name = parse_name(did, namespace)
+                    
+            if name is None and "auto_name" not in file_item:
+                errors.append({
+                    "message":"Missing name and auto_name",
+                    "index": inx,
+                    "fid":fid
+                })
+                continue
 
             if not namespace:
                 errors.append({
@@ -684,6 +692,7 @@ class DataHandler(MetaCatHandler):
                     .replace("$clock", clock)\
                     .replace("$uuid8", u8).replace("$uuid16", u16).replace("$uuid", u)\
                     .replace("$fid", fid)
+                print("")
 
             f = DBFile(db, namespace=namespace, name=name, fid=fid, metadata=meta, size=size, creator=user.Username)
             f.Checksums = file_item.get("checksums")
@@ -748,8 +757,11 @@ class DataHandler(MetaCatHandler):
                 f.Parents = parents
                                 
         if errors:
-            #print("data_handler.declare_files: errors:", errors)
-            return json.dumps(errors), METADATA_ERROR_CODE, "application/json"
+            print("data_handler.declare_files: errors:", errors)
+            return json.dumps({
+                    "message": "Invalid file data",
+                    "metadata_errors": errors
+                    }), METADATA_ERROR_CODE, "application/json"
 
         if dry_run:
             return 202, json.dumps(
@@ -763,21 +775,18 @@ class DataHandler(MetaCatHandler):
                 ]
             ), "application/json"
 
-        try:    
-            results = DBFile.create_many(db, files)
-            #print("data_server.declare_files: DBFile.create_may->results: ", results)
-        except IntegrityError as e:
-            return f"Integrity error: {e}", 404
+        with db.transaction() as transaction:
+            try:    
+                results = DBFile.create_many(db, files, user.Username, transaction=transaction)
+                #print("data_server.declare_files: DBFile.create_may->results: ", results)
+            except IntegrityError as e:
+                transaction.rollback()
+                return 404, f"Integrity error: {e}"
             
-        #print("server:declare_files(): calling ds.add_files...")
-        try:    
-            ds.add_files(files, do_commit=True, validate_meta=False)
-            #print("data_server.declare_files: added to dataset:", files)
-
-        except MetaValidationError as e:
-            return e.as_json(), METADATA_ERROR_CODE, "application/json"
+            #print("server:declare_files(): calling ds.add_files...")
+            ds.add_files(files, validate_meta=False, transaction=transaction)
         
-        out = [f.to_jsonable() for f in files]
+        out = [f.to_jsonable() for f in results]
         return json.dumps(out), "application/json"
 
     def move_files(self, request, relpath, **args):

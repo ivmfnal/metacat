@@ -599,7 +599,9 @@ class DBFile(DBObject):
 
     @staticmethod
     @transactioned
-    def create_many(db, files, creator=None, transaction=None):
+    def create_many(db, files, creator, transaction=None):
+        if isinstance(creator, DBUser):
+            creator = DBUser.Username
         files = list(files)
         files_csv = []
         parents_csv = []

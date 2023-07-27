@@ -157,21 +157,17 @@ class DBFile(object):
         
     __repr__ = __str__
 
-    def save(self, do_commit = True):
+    @transactioned
+    def save(self, transaction=None):
         from psycopg2 import IntegrityError
-        c = self.DB.cursor()
-        try:
-            meta = json.dumps(self.Metadata or {})
-            c.execute("""
-                insert 
-                    into files(id, namespace, name, metadata) 
-                    values(%s, %s, %s, %s)
-                    on conflict(id) do update set namespace=%s, name=%s, metadata=%s""",
-                (self.FID, self.Namespace, self.Name, meta, self.Namespace, self.Name, meta))
-            if do_commit:   c.execute("commit")
-        except IntegrityError:
-            c.execute("rollback")
-            raise AlreadyExistsError("%s:%s" % (self.Namespace, self.Name))
+        meta = json.dumps(self.Metadata or {})
+        transaction.execute("""
+            insert 
+                into files(id, namespace, name, metadata) 
+                values(%s, %s, %s, %s)
+                on conflict(id) do update set namespace=%s, name=%s, metadata=%s""",
+            (self.FID, self.Namespace, self.Name, meta, self.Namespace, self.Name, meta)
+        )
         return self
                             
     @staticmethod

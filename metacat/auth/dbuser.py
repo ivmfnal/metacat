@@ -1,6 +1,6 @@
 import json
 from .authenticators import authenticator
-from metacat.common import DBObject, DBManyToMany, password_digest_hash
+from metacat.common import DBObject, DBManyToMany, password_digest_hash, transactioned
 from metacat.util import fetch_generator
 
 class DBAuthenticator(DBObject):
@@ -52,11 +52,11 @@ class BaseDBUser(DBObject):
         
     __repr__ = __str__
     
-    def save(self, do_commit=True):
-        c = self.DB.cursor()
+    @transactioned
+    def save(self, transaction=None):
         auth_info = json.dumps(self.AuthInfo)
         columns = self.columns()
-        c.execute(f"""
+        transaction.execute(f"""
             insert into users({columns}) values(%s, %s, %s, %s, %s, %s)
                 on conflict(username) 
                     do update set name=%s, email=%s, flags=%s, auth_info=%s, auid=%s;
@@ -64,9 +64,6 @@ class BaseDBUser(DBObject):
             (self.Username, self.Name, self.EMail, self.Flags, auth_info, self.AUID,
                             self.Name, self.EMail, self.Flags, auth_info, self.AUID
             ))
-        
-        if do_commit:
-            c.execute("commit")
         return self
 
     def authenticate(self, method, auth_config, presented):
@@ -163,16 +160,15 @@ class BaseDBRole(DBObject):
     @property
     def members(self):
         return DBManyToMany(self.DB, "users_roles", "username", role_name=self.Name)
-        
-    def save(self, do_commit=True):
-        c = self.DB.cursor()
-        c.execute("""
+
+    @transactioned
+    def save(self, transaction=None):
+        transaction.execute("""
             insert into roles(name, description) values(%s, %s)
                 on conflict(name) 
                     do update set description=%s
             """,
             (self.Name, self.Description, self.Description))
-        if do_commit:   c.execute("commit")
         return self
         
     @staticmethod
