@@ -78,7 +78,7 @@
                         <th>Parameter</th><th>Value</th>
                     </tr>
                     {% for k, v in dataset.Metadata.items()|sort %}
-                	<tr><td class="attr_name">{{k}}</td><td class="attr_value">{{v}}</td></tr>
+                	<tr><td class="attr_name left">{{k}}</td><td class="attr_value">{{v}}</td></tr>
                     {% endfor %}
                 </table>
             {% endif %}
