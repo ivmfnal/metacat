@@ -70,6 +70,22 @@
     </tr>
     {% if not create %}
     <tr>
+        <th>Metadata:</th>
+        <td>
+            {% if dataset.Metadata %}
+                <table class="file_metadata">
+                    <tr>
+                        <th>Parameter</th><th>Value</th>
+                    </tr>
+                    {% for k, v in dataset.Metadata.items()|sort %}
+                	<tr><td class="attr_name">{{k}}</td><td class="attr_value">{{v}}</td></tr>
+                    {% endfor %}
+                </table>
+            {% endif %}
+        </td>
+    </tr>
+
+    <tr>
         <th>Immediate children:</th>
         <td>
             {% for subset in dataset.children() %}
@@ -164,64 +180,66 @@
     <tr>
         <th>File metadata requirements</th>
         <td>
-            <table>
-                {% set inx = 0 %}
-                <tr>
-                    <th>Parameter name</th>
-                    <th>Required</th>
-                    <th>Min</th>
-                    <th>Max</th>
-                    <th>Values</th>
-                    <th>Pattern</th>
-                    <td>{% if edit %}delete{% endif %}</td>
-                </tr>
-                {% if edit %}
-                    {% for name, reqs in dataset.FileMetaRequirements.items() %}
-                        <tr>
-                            <td><input type="hidden" name="param:1_{{loop.index}}:name" value="{{name}}">{{name}}</td>
-                            <td><input type="checkbox" name="param:1_{{loop.index}}:required"
-                                    {% if reqs["required"] == True %}checked="checked"{% endif %}/>
-                            </td>
-                            <td><input type="text" name="param:1_{{loop.index}}:min" value="{{reqs['min'] or ''}}"/></td>
-                            <td><input type="text" name="param:1_{{loop.index}}:max" value="{{reqs['max'] or ''}}"/></td>
-                            <td><input type="text" name="param:1_{{loop.index}}:values" 
-                                {% if "values" in reqs and reqs['values'] %}
-                                    value="{{reqs['values']|join(',')}}"
-                                {% endif %}/></td>
-                            <td><input type="text" name="param:1_{{loop.index}}:pattern" value="{{reqs['pattern'] or ''}}"/></td>
-                            <td>{% if edit %}<input type="checkbox" name="param:1_{{loop.index}}:remove">{% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                {% endif %}
+            {% if edit or dataset.FileMetaRequirements %}
+                <table>
+                    {% set inx = 0 %}
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Required</th>
+                        <th>Min</th>
+                        <th>Max</th>
+                        <th>Values</th>
+                        <th>Pattern</th>
+                        <td>{% if edit %}delete{% endif %}</td>
+                    </tr>
+                    {% if edit %}
+                        {% for name, reqs in dataset.FileMetaRequirements.items() %}
+                            <tr>
+                                <td><input type="hidden" name="param:1_{{loop.index}}:name" value="{{name}}">{{name}}</td>
+                                <td><input type="checkbox" name="param:1_{{loop.index}}:required"
+                                        {% if reqs["required"] == True %}checked="checked"{% endif %}/>
+                                </td>
+                                <td><input type="text" name="param:1_{{loop.index}}:min" value="{{reqs['min'] or ''}}"/></td>
+                                <td><input type="text" name="param:1_{{loop.index}}:max" value="{{reqs['max'] or ''}}"/></td>
+                                <td><input type="text" name="param:1_{{loop.index}}:values" 
+                                    {% if "values" in reqs and reqs['values'] %}
+                                        value="{{reqs['values']|join(',')}}"
+                                    {% endif %}/></td>
+                                <td><input type="text" name="param:1_{{loop.index}}:pattern" value="{{reqs['pattern'] or ''}}"/></td>
+                                <td>{% if edit %}<input type="checkbox" name="param:1_{{loop.index}}:remove">{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% endif %}
                 
-                {% if edit or create %}
-                    {% for i in range(5) %}
+                    {% if edit or create %}
+                        {% for i in range(5) %}
 
-                        <tr>
-                            <td><input type="text" name="param:2_{{loop.index}}:name"/></td>
-                            <td><input type="checkbox" name="param:2_{{loop.index}}:required"/></td>
-                            <td><input type="text" name="param:2_{{loop.index}}:min"/></td>
-                            <td><input type="text" name="param:2_{{loop.index}}:max"/></td>
-                            <td><input type="text" name="param:2_{{loop.index}}:values"/></td>
-                            <td><input type="text" name="param:2_{{loop.index}}:pattern"/></td>
-                            <td></td>
-                        </tr>
-                    {% endfor %}
-                {% else %}
-                    {% for name, definition in dataset.FileMetaRequirements.items() %}
-                        <tr>
-                            <!-- {{name}} {{definition}} -->
-                            <td>{{name}}</td>
-                            <td>{{'yes' if definition["required"] == True else 'no'}}</td>
-                            <td>{{definition["min"] or ""}}</td>
-                            <td>{{definition["max"] or ""}}</td>
-                            <td>{% if "values" in definition %}{{definition["values"]|join(',') or ""}}{% endif %}</td>
-                            <td></td>
-                        </tr>
-                    {% endfor %}
-                {% endif %}
-            </table>
+                            <tr>
+                                <td><input type="text" name="param:2_{{loop.index}}:name"/></td>
+                                <td><input type="checkbox" name="param:2_{{loop.index}}:required"/></td>
+                                <td><input type="text" name="param:2_{{loop.index}}:min"/></td>
+                                <td><input type="text" name="param:2_{{loop.index}}:max"/></td>
+                                <td><input type="text" name="param:2_{{loop.index}}:values"/></td>
+                                <td><input type="text" name="param:2_{{loop.index}}:pattern"/></td>
+                                <td></td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        {% for name, definition in dataset.FileMetaRequirements.items() %}
+                            <tr>
+                                <!-- {{name}} {{definition}} -->
+                                <td>{{name}}</td>
+                                <td>{{'yes' if definition["required"] == True else 'no'}}</td>
+                                <td>{{definition["min"] or ""}}</td>
+                                <td>{{definition["max"] or ""}}</td>
+                                <td>{% if "values" in definition %}{{definition["values"]|join(',') or ""}}{% endif %}</td>
+                                <td></td>
+                            </tr>
+                        {% endfor %}
+                    {% endif %}
+                </table>
+            {% endif %}
         </td>
     </tr>
 	{% if edit or create %}
@@ -236,7 +254,7 @@
 
 {% if files %}
 
-    <h3>{{files|length}}/{{nfiles}} files</h3>
+    <h3>{{files|length}}/{{nfiles}} (approximate) files</h3>
 
     <table class="file_metadata">
         {% for f in files|sort(attribute="Name") %}

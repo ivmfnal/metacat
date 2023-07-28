@@ -791,8 +791,8 @@ class GUIHandler(MetaCatHandler):
         dataset = DBDataset.get(db, namespace, name)
         if dataset is None: self.redirect("./datasets")
 
-        nfiles = dataset.nfiles(exact=True)
-        files = sorted(list(dataset.list_files(with_metadata=True, limit=1000)), key = lambda x: x.Name)
+        nfiles = dataset.FileCount
+        files = sorted(list(dataset.list_files(with_metadata=True, limit=100)), key = lambda x: x.Name)
         #print ("files:", len(files))
         attr_names = set()
         for f in files:
