@@ -146,7 +146,7 @@ class HTTPClient(object):
             default_headers.update(headers)
         headers = default_headers
         self.LastResponse = response = self.retry_request(method, url, headers=headers, **args)
-        #print(response, response.text)
+        print(response, response.text)
         self.LastStatusCode = response.status_code
         if response.status_code == INVALID_METADATA_ERROR_CODE:
             raise InvalidMetadataError(url, response)

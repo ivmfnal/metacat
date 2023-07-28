@@ -229,7 +229,7 @@ class UpdateDatasetCommand(CLICommand):
     def __call__(self, command, client, opts, args):
         mode = "replace" if ("-r" in opts or "--replace" in opts) else "update"
         flags = opts.get("-f") or opts.get("--flags")
-        if flags not in ("-", "monotonic", "frozen"):
+        if flags not in ("-", "monotonic", "frozen", None):
             raise InvalidArguments(f"Invalid value for dataset flags: {flags}")
         
         monotonic = frozen = None
