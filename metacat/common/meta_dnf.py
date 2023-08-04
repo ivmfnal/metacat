@@ -155,8 +155,11 @@ class MetaExpressionDNF(object):
                 if arg.T == "array_subscript":
                     # a[i] = x
                     aname, inx = arg["name"], arg["index"]
-                    inx = json_literal(inx)
-                    subscript = f"[{inx}]"
+                    inx_json = json_literal(inx)
+                    if isinstance(inx, str):
+                        subscript = f".{inx_json}"
+                    else:
+                        subscript = f"[{inx_json}]"
                 elif arg.T == "array_any":
                     aname = arg["name"]
                     subscript = "[*]"
