@@ -147,12 +147,12 @@ class MetaExpressionDNF(object):
             else:
                 assert op in ("cmp_op", "in_range", "in_set", "not_in_range", "not_in_set"), f"Unexpected expression type: {op}, exp:\n" + exp.pretty()
                 arg = args[0]
-                assert arg.T in ("array_any", "array_subscript", "array_length", "object_attribute", "meta_attribute")
+                assert arg.T in ("array_any", "subscript", "array_length", "object_attribute", "meta_attribute")
 
                 negate = not not exp.get("neg")
                 aname = arg["name"]
                 
-                if arg.T == "array_subscript":
+                if arg.T == "subscript":
                     # a[i] = x
                     aname, inx = arg["name"], arg["index"]
                     inx_json = json_literal(inx)
@@ -189,7 +189,7 @@ class MetaExpressionDNF(object):
                         high = json_literal(high)
                     if arg.T == "object_attribute":
                         term = f"{table_name}.{aname} between {low} and {high}"
-                    elif arg.T in ("array_subscript", "scalar", "array_any"):
+                    elif arg.T in ("subscript", "scalar", "array_any"):
                         term = f"{table_name}.{meta_column_name} @? '$.\"{aname}\"{subscript} ? (@ >= {low} && @ <= {high})'"
                     elif arg.T == "array_length":
                         n = "not" if negate else ""
@@ -209,7 +209,7 @@ class MetaExpressionDNF(object):
                         high = json_literal(high)
                     if arg.T == "object_attribute":
                         term = f"not ({table_name}.{aname} between {low} and {high})"
-                    elif arg.T in ("array_subscript", "scalar", "array_any"):
+                    elif arg.T in ("subscript", "scalar", "array_any"):
                         term = f"{table_name}.{meta_column_name} @? '$.\"{aname}\"{subscript} ? (@ < {low} || @ > {high})'"
                     elif arg.T == "array_length":
                         n = "" if negate else "not"
@@ -227,7 +227,7 @@ class MetaExpressionDNF(object):
                         n = "not" if negate else ""
                         negate = False
                         term = f"jsonb_array_length({table_name}.{meta_column_name} -> '{aname}') {n} in ({value_list})"
-                    else:           # arg.T in ("array_any", "array_subscript","scalar")
+                    else:           # arg.T in ("array_any", "subscript","scalar")
                         values = [json_literal(x) for x in exp["set"]]
                         or_parts = [f"@ == {v}" for v in values]
                         predicate = " || ".join(or_parts)
@@ -244,7 +244,7 @@ class MetaExpressionDNF(object):
                         n = "" if negate else "not"
                         negate = False
                         term = f"not(jsonb_array_length({table_name}.{meta_column_name} -> '{aname}') {n} in ({value_list}))"
-                    else:           # arg.T in ("array_any", "array_subscript","scalar")
+                    else:           # arg.T in ("array_any", "subscript","scalar")
                         values = [json_literal(x) for x in exp["set"]]
                         and_parts = [f"@ != {v}" for v in values]
                         predicate = " && ".join(and_parts)
@@ -293,7 +293,7 @@ class MetaExpressionDNF(object):
                             predicate = f"!({predicate})"
                         term = f"{table_name}.{meta_column_name} @? '$.\"{aname}\"{subscript} ? ({predicate})'"
                     else:
-                        # scalar, array_subscript, array_any
+                        # scalar, subscript, array_any
                         term = f"{table_name}.{meta_column_name} @@ '$.\"{aname}\"{subscript} {cmp_op} {value}'"
                     
             if negate:  term = f"not ({term})"

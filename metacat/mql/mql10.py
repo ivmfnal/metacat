@@ -1014,13 +1014,13 @@ class QueryConverter(Converter):
         (n,) = args
         return Node("array_length", name=n.value)
         
-    def array_subscript(self, args):
+    def subscript(self, args):
         name, inx = args
         if inx.type == "STRING":
             inx = inx.value[1:-1]
         else:
             inx = int(inx.value)
-        return Node("array_subscript", name=name.value, index=inx)
+        return Node("subscript", name=name.value, index=inx)
 
     def json_path(self, args):
         node = Node("json_path", [args[0]], neg=False)

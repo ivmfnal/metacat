@@ -471,7 +471,7 @@ Then:
     * ``trigger_bits["proton"] == 1`` - will not match
     * ``trigger_mask[3] == 0`` - will match
 
-Also, you can use subscripts ``[any]`` as "any element of" and ``[all]`` as "all elements of" a dictionary or an array:
+Also, you can use subscripts ``[any]`` as "any element of" and ``[all]`` as "all elements of" an array, but *not* dictionary:
 
     * ``trigger_bits[any] == 1`` - will match
     * ``trigger_bits[any] != 1`` - will match

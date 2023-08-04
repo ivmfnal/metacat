@@ -41,8 +41,7 @@ scalar: META_NAME                                       -> meta_attribute
         | DATASET_ATTR_NAME                             -> object_attribute
         | META_NAME "[" "all" "]"                       -> array_all
         | META_NAME "[" "any" "]"                       -> array_any
-        | META_NAME "[" SIGNED_INT "]"                  -> array_subscript
-        | META_NAME "[" STRING "]"                      -> array_subscript
+        | META_NAME "[" (SIGNED_INT|STRING) "]"         -> subscript
         | "len" "(" META_NAME ")"                       -> array_length
 
 constant_list:    constant ("," constant)*                    
