@@ -355,10 +355,10 @@ class DBFileSet(DBObject):
             
             fd = alias("fd")
             ds = alias("ds")
-            
+            distinct = "" if basic_file_query.single_dataset() else "distinct"
             sql = insert_sql(f"""\
                 -- sql_for_basic_query {f}
-                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
+                    select {distinct} {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
                         from {table} {f},
                             files_datasets {fd},
                             (

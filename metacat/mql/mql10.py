@@ -629,6 +629,9 @@ class BasicFileQuery(object):
         if self.DatasetSelectors:
             for ds in self.DatasetSelectors:
                 ds.apply_params(params)
+    
+    def single_dataset(self):
+        return not self.DatasetSelectors or len(self.DatasetSelectors) == 1 and self.DatasetSelectors[0].is_explicit()
                 
 class Orderer(Descender):
 
