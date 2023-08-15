@@ -10,3 +10,4 @@ from .dbbase import DBObject, DBManyToMany, transactioned, insert_many
 from .password_hash import password_hash, PasswordHashAlgorithm, password_digest_hash
 from .auth_client import TokenAuthClientMixin, AuthenticationError
 from .file_attributes import FileAttributes
+from .transaction import ConnectionWithTransactions, Transaction

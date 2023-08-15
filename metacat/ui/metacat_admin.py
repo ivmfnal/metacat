@@ -1,25 +1,6 @@
 import sys, getopt
-from metacat.common import password_digest_hash
+from metacat.common import password_digest_hash, ConnectionWithTransactions
 from metacat.ui.cli import CLI, CLICommand
-
-Usage="""
-metacat admin -c <config file>  create <username> <password>   - create new admin account
-                                password <username> <password> - change admins password
-                                add <username>                 - add admin privileges
-                                remove <username>              - remove admin privileges
-                                list                           - list all admin accounts
-                                genkey [-l <length>] [-x]      - generate random key, length in bytes, default 32
-                                                                 if -x is used, generate random bytes in hex
-
-Requires direct access to the database. The YAML config file must include:
-
-    database:
-        host: ...
-        port: ...
-        user: ...
-        password: ...
-        dbname: ...
-"""
 
 def connect(config):
     import psycopg2
@@ -31,7 +12,7 @@ def connect(config):
     schema = dbcfg.get("schema")
     if schema:
         conn.cursor().execute(f"set search_path to {schema}")
-    return conn
+    return ConnectionWithTransactions(conn)
 
 class ListCommand(CLICommand):
 
