@@ -1266,22 +1266,20 @@ class DataHandler(MetaCatHandler):
 
         if query_type == "file":
 
-            if add_to_dataset is not None:
-                nfiles, total_size = add_to_dataset.add_files(results)
-                return json.dumps({"count":count, "total_size": total_size}), "application/json"
-
-            elif summary == "count":
+            if summary == "count":
                 count, size = results.counts()
                 return json.dumps({"count":count, "total_size":size}), "application/json"
-
             elif summary == "keys":
                 return json.dumps(list(results.metadata_keys())), "application/json"
 
-            else:
-                data = (f.to_jsonable(with_metadata=with_meta, with_provenance=with_provenance) for f in results)
-                return self.json_stream(data), "application/json-seq"
+            if add_to_dataset is not None:
+                results = list(results)
+                nfiles = add_to_dataset.add_files(results)
+            data = (f.to_jsonable(with_metadata=with_meta, with_provenance=with_provenance) for f in results)
+            return self.json_stream(data), "application/json-seq"
 
         else:
+            # dataset query
             data = ( d.to_jsonable(with_relatives=with_provenance) for d in results )
 
         return self.json_stream(data), "application/json-seq"
