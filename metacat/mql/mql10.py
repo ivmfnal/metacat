@@ -2,7 +2,7 @@ import json, time, pprint, traceback
 from metacat.db import DBDataset, DBFile, DBNamedQuery, DBFileSet
 from metacat.util import limited, unique
 from metacat.common.trees import Node, Ascender, Descender, Converter
-from metacat.common import MetaExpressionDNF
+from metacat.common import FileMetaExpressionDNF
 from .sql_converter import SQLConverter
 from .query_executor import FileQueryExecutor
 from .meta_evaluator import MetaEvaluator
@@ -474,7 +474,7 @@ class _MetaExpPusher(Descender):
         elif meta_exp is None:
             new_exp = node_exp
         else:
-            new_exp = MetaExpressionDNF.regularize(Node("meta_and", [meta_exp, node_exp]))
+            new_exp = FileMetaExpressionDNF.regularize(Node("meta_and", [meta_exp, node_exp]))
         return self.walk(child, new_exp)
 
 class _DatasetEvaluator(Ascender):
@@ -611,7 +611,7 @@ class BasicFileQuery(object):
             wheres = where
         else:
             wheres = Node("meta_and", self.Wheres, where)
-        self.Wheres = MetaExpressionDNF.regularize(wheres)
+        self.Wheres = FileMetaExpressionDNF.regularize(wheres)
         #print("BasicFileQuery.addWhere() result:")
         #print(self.Wheres.pretty("    "))
             
@@ -784,7 +784,7 @@ class QueryConverter(Converter):
 
     def meta_filter(self, args):
         q, meta_exp = args
-        meta_exp=MetaExpressionDNF.regularize(meta_exp)
+        meta_exp = FileMetaExpressionDNF.regularize(meta_exp)
         if q.T == "basic_file_query":
             bfq = q["query"]
             if not (bfq.Skip or bfq.Limit):
