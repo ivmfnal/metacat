@@ -98,7 +98,7 @@ class MetaExpressionDNF(object):
         return _MetaRegularizer()(exp)
 
     def sql_and(self, and_terms, table_name, meta_column_name="metadata"):
-
+        
         def sql_literal(v):
             if isinstance(v, str):       
                 v = "'%s'" % (v,)
@@ -129,23 +129,20 @@ class MetaExpressionDNF(object):
             op = exp.T
             args = exp.C
             negate = False
-
-            term = ""
-
-            if op == "present":
-                aname = exp["name"]
-                if not '.' in aname:
-                    term = "true" if aname in self.ObjectAttributes else "false"
-                else:
-                    term = f"{table_name}.{meta_column_name} ? '{aname}'"
-
-            elif op == "not_present":
-                aname = exp["name"]
-                if not '.' in aname:
-                    term = "false" if aname in self.FileAttributes else "true"
-                else:
-                    term = f"{table_name}.{meta_column_name} ? '{aname}'"
             
+            #print("exp: T:", exp.T, "  C:", exp.C, "  C0 T:", args[0].T, "  C0 name:", args[0]["name"])
+
+            if args and args[0].T == "object_attribute" and args[0]["name"] not in self.ObjectAttributes:
+                raise ValueError("Unrecognized attribute name %s" % (args[0]["name"],))
+
+            term = "true"
+
+            if op in ("present", "not_present"):
+                aname = exp["name"]
+                term = f"{table_name}.{meta_column_name} ? '{aname}'"
+                if op == "not_present":
+                    negate = not negate
+
             else:
                 assert op in ("cmp_op", "in_range", "in_set", "not_in_range", "not_in_set"), f"Unexpected expression type: {op}, exp:\n" + exp.pretty()
                 arg = args[0]
@@ -303,6 +300,7 @@ class MetaExpressionDNF(object):
 
         if contains_items:
             parts.append("%s.{meta_column_name} @> '{%s}'" % (table_name, ",".join(contains_items )))
+        
         return parts
 
     def sql(self, table_name, meta_column_name="metadata"):

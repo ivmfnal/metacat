@@ -43,8 +43,15 @@ The following are file attributes, they are defined for every file and some of t
 File size and checksums are not used by MetaCat, therefore, depending on the application, they do not have to have meaningful values.
 
 MetaCat file also has a dictionary of *flexible* metadata. This dictionary can be any dictionary representable in JSON.
-MetaCat itself does not put any restrictions on the values stored in this dictionary. However, MetaCat users can
-define metadata restrictions or requirements usning Categories and Dataset metadata requirements.
+MetaCat itself does not put any restrictions on the values stored in this dictionary. 
+In this dictionary, top level key names must have the following strucrure:
+
+    * <category>.<name>
+    * <category>.<subcategory>.<name> and so on
+    
+Category names, subcategory names and parameter names are separated with dots.
+Categories and subcategories can be used to define restrictions on the metadata namespace.
+
 
 Dataset
 -------

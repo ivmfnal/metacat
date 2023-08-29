@@ -12,12 +12,12 @@ dataset_query_list: dataset_query ("," dataset_query)*            -> dataset_que
 
 !dataset_provenance_op: "with" "subsets" "recursively"?
 
-!dataset_spec:  qualified_name
-    | "matching" "regexp" regexp_pattern
+!dataset_spec:  did
     | "matching" sql_pattern
+    | "matching" "regexp" regexp_pattern
 
-sql_pattern:    (FNAME ":")? UNQUOTED_STRING                   
-regexp_pattern:    (FNAME ":")? STRING                              
+sql_pattern:       FNAME ":" PATTERN                   
+regexp_pattern:    FNAME ":" STRING                       
 
 ?simple_dataset_query : dataset_query_with_subsets
 

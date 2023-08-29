@@ -1460,8 +1460,8 @@ class DBDataset(DBObject):
                             and {name_cmp}
                             {meta_filter}
                 """)
-                if meta_filter_dnf is not None:
-                    sql += " and " + meta_filter_dnf.sql(ds)
+                #if meta_filter_dnf is not None:
+                #    sql += " and " + meta_filter_dnf.sql(ds)
             else:
                 columns = ",".join(f"{d}.{c}" for c in columns)
                 top_sql = dedent(f"""\

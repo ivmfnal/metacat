@@ -3,5 +3,6 @@ FileAttributes = [      # file attributes which can be used in queries
 ]  
 
 DatasetAttributes = [
-    "creator", "created_timestamp", "namespace", "name"
+    "creator", "created_timestamp", "namespace", "name",
+    "description", "frozen", "monotonic"
 ]
