@@ -1263,7 +1263,7 @@ class QueryConverter(Converter):
         else:
             namespace, name = args[0].value, args[1].value
         name = name[1:-1]           # remove enclosing quotes
-        out = Node("did_pattern", namespace=namespace, name=name)
+        out = Node("regexp_pattern", namespace=namespace, name=name)
         return out
 
     def sql_pattern(self, args):
@@ -1274,17 +1274,24 @@ class QueryConverter(Converter):
         else:
             namespace, name = args[0].value, args[1].value
         name = name.replace("*", "%").replace("?", "_")
-        out = Node("did_pattern", namespace=namespace, name=name)
+        out = Node("sql_pattern", namespace=namespace, name=name)
         return out
+
+    def did(self, args):
+        assert len(args) == 2
+        namespace, name = args[0].value, args[1].value
+        return Node("did", namespace=namespace, name=name)
 
     def dataset_spec(self, args):
         name_or_pattern = args[-1]
         pattern = "matching" in args
         regexp = "regexp" in args
-        assert name_or_pattern.T in ("did_pattern", "qualified_name")
+        assert name_or_pattern.T in ("did", "sql_pattern", "regexp_pattern")
         name = name_or_pattern["name"]
         namespace = name_or_pattern.get("namespace") or self.DefaultNamespace
-        query = BasicDatasetQuery(namespace, name, pattern=pattern, regexp=regexp)
+        query = BasicDatasetQuery(namespace, name, 
+                pattern=name_or_pattern.T != "did", 
+                regexp=name_or_pattern.T == "regexp_pattern")
         return Node("basic_dataset_query", query=query)
         
     def dataset_add_where(self, children):
