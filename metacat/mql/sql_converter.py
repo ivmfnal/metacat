@@ -1,6 +1,6 @@
 from metacat.common.trees import Ascender, Node
 from metacat.db import DBFileSet, alias, DBDataset, DBFile
-from metacat.common import MetaExpressionDNF
+from metacat.common import FileMetaExpressionDNF
 from .meta_evaluator import MetaEvaluator
 from metacat.util import limited, insert_sql
 from textwrap import dedent, indent
@@ -54,7 +54,7 @@ class SQLConverter(Ascender):
             return query
         if query.T == "sql":
             t = alias("t")
-            dnf = MetaExpressionDNF(meta_exp)
+            dnf = FileMetaExpressionDNF(meta_exp)
             where_sql = dnf.sql(t)
             if not where_sql:
                 return node

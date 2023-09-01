@@ -3,7 +3,7 @@ from metacat.util import (to_bytes, to_str, epoch, chunked, limited, strided,
     skipped, first_not_empty, validate_metadata, insert_sql, fetch_generator
 )
 from metacat.auth import BaseDBUser, BaseDBRole as DBRole
-from metacat.common import MetaExpressionDNF, DBObject, DBManyToMany, transactioned, insert_many
+from metacat.common import FileMetaExpressionDNF, DatasetMetaExpressionDNF, DBObject, DBManyToMany, transactioned, insert_many
 from psycopg2 import IntegrityError
 from textwrap import dedent
 from datetime import datetime, timezone
@@ -235,82 +235,6 @@ class DBFileSet(DBObject):
             )
         
     @staticmethod
-    def ____sql_for_basic_query(db, basic_file_query):
-        debug("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
-
-        f = alias("f")
-
-        limit = basic_file_query.Limit
-        limit = "" if limit is None else f"limit {limit}"
-        offset = "" if not basic_file_query.Skip else f"offset {basic_file_query.Skip}"
-        #order = f"order by {f}.id" if basic_file_query.Skip or basic_file_query.Limit or basic_file_query.Ordered else ""
-        order = f"order by {f}.id" if basic_file_query.Ordered else ""
-        
-        debug("sql_for_basic_query: offset:", offset)
-
-        meta = f"{f}.metadata" if basic_file_query.WithMeta else "null as metadata"
-        parents = f"{f}.parents" if basic_file_query.WithProvenance else "null as parents"
-        children = f"{f}.children" if basic_file_query.WithProvenance else "null as children"
-        table = "files_with_provenance" if basic_file_query.WithProvenance else "files"
-
-        debug("sql_for_basic_query: table:", table)
-
-        file_meta_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f) or "true"
-
-        datasets = None if basic_file_query.DatasetSelectors is None else list(DBDataset.datasets_for_bdqs(db, basic_file_query.DatasetSelectors))
-        debug("sql_for_basic_query: datasets:", datasets)
-        
-        attrs = DBFile.attr_columns(f)
-        if datasets is None:
-            # no dataset selection
-            sql = dedent(f"""\
-                -- sql_for_basic_query {f}
-                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
-                        from {table} {f}
-                        where {file_meta_exp}
-                        {order} {limit} {offset}
-                -- end of sql_for_basic_query {f}
-            """)
-        else:
-            #datasets_sql = DBDataset.sql_for_selector(dataset_selector)
-            
-            datasets = list(datasets)
-            if not datasets:
-                return None
-            ds_names = set()
-            ds_namespaces = set()
-            ds_specs = set()
-            for ns, n in datasets:
-                ds_names.add(ns)
-                ds_namespaces.add(n)
-                ds_specs.add(ns + ":" + n)
-                
-            fd = alias("fd")
-            ds = alias("ds")
-            
-            ds_namespaces = list(ds_namespaces)
-            ds_names = list(ds_names)
-            ds_specs = list(ds_specs)
-
-            pairs_where = f"({fd}.dataset_namespace, {fd}.dataset_name) in %s" % (tuple(datasets),)
-        
-            sql = insert_sql(f"""\
-                -- sql_for_basic_query {f}
-                    select {f}.id, {f}.namespace, {f}.name, {meta}, {attrs}, {parents}, {children}
-                        from {table} {f}
-                            inner join files_datasets {fd} on {fd}.file_id = {f}.id
-                        where
-                            {pairs_where}
-                            and (
-                                $file_meta_exp
-                            )
-                        {order} {limit} {offset}
-                -- end of sql_for_basic_query {f}
-            """, file_meta_exp = file_meta_exp)
-        debug("sql_for_basic_query: sql:-------\n", sql, "\n---------")
-        return sql
-        
-    @staticmethod
     def sql_for_basic_query(db, basic_file_query, include_retired=False):
         debug("sql_for_basic_query: bfq:", basic_file_query, " with provenance:", basic_file_query.WithProvenance)
 
@@ -331,7 +255,7 @@ class DBFileSet(DBObject):
 
         debug("sql_for_basic_query: table:", table)
 
-        file_meta_exp = MetaExpressionDNF(basic_file_query.Wheres).sql(f) or "true"
+        file_meta_exp = FileMetaExpressionDNF(basic_file_query.Wheres).sql(f) or "true"
         retired_condition = "true" if include_retired else f"not {f}.retired"
 
         attrs = DBFile.attr_columns(f)
@@ -1498,7 +1422,7 @@ class DBDataset(DBObject):
                             from {table} {a}
                             where {a}.namespace = '{namespace}' and {a}.name = '{name}'
                 """
-                print("was explicit. SQL:", sql)
+                #print("was explicit. SQL:", sql)
                 return dedent(sql)
 
             pattern = bdq.Pattern
@@ -1514,7 +1438,7 @@ class DBDataset(DBObject):
             ds = alias("ds")
             t = alias("t")
 
-            meta_filter_dnf = MetaExpressionDNF(where) if where is not None else None
+            meta_filter_dnf = DatasetMetaExpressionDNF(where) if where is not None else None
 
             name_cmp_op = "=" if not pattern else (
                 "~" if regexp else "like"
@@ -1536,8 +1460,8 @@ class DBDataset(DBObject):
                             and {name_cmp}
                             {meta_filter}
                 """)
-                if meta_filter_dnf is not None:
-                    sql += " and " + meta_filter_dnf.sql(ds)
+                #if meta_filter_dnf is not None:
+                #    sql += " and " + meta_filter_dnf.sql(ds)
             else:
                 columns = ",".join(f"{d}.{c}" for c in columns)
                 top_sql = dedent(f"""\

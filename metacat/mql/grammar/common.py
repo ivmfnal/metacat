@@ -37,8 +37,7 @@ meta_and:   term_meta ( "and" term_meta )*
     | "exists" STRING                               -> json_path
 
 scalar: META_NAME                                       -> meta_attribute
-        | FILE_ATTR_NAME                                -> object_attribute
-        | DATASET_ATTR_NAME                             -> object_attribute
+        | OBJECT_ATTRIBUTE                              -> object_attribute
         | META_NAME "[" "all" "]"                       -> array_all
         | META_NAME "[" "any" "]"                       -> array_any
         | META_NAME "[" (SIGNED_INT|STRING) "]"         -> subscript
@@ -58,6 +57,7 @@ index:  STRING
     | SIGNED_INT
 
 META_NAME: WORD ("." WORD)+                            // meta attribute has to have a dot in the name
+OBJECT_ATTRIBUTE: WORD
 
 FNAME: LETTER ("_"|"-"|"."|LETTER|DIGIT|"/")*
 
@@ -70,7 +70,10 @@ CMPOP:  "<" "="? | "!"? "=" "="? | "!"? "~" "*"? | ">" "="? | "like"            
 BOOL: "true"i | "false"i
 
 STRING : /("(?!"").*?(?<!\\\\)(\\\\\\\\)*?"|'(?!'').*?(?<!\\\\)(\\\\\\\\)*?')/i
-UNQUOTED_STRING : /[a-z0-9:%$@_^.%*?-]+/i
+SAFE_CHARACTER : /[a-z0-9$@_.-]/i
+UNQUOTED_STRING : SAFE_CHARACTER+
+PATTERN_CHARACTER : (SAFE_CHARACTER|/[*?^%]/)
+PATTERN : PATTERN_CHARACTER+
 
 %import common.CNAME
 %import common.SIGNED_INT

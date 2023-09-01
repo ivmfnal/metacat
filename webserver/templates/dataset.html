@@ -42,6 +42,12 @@
     			<input type="text" name="name"/>
     		</td>
     	</tr>
+    {% else %}
+    	<tr>
+    		<th>Creator:</th>
+    		<td>{{dataset.Creator or ''}}</td>
+    	</tr>
+    
     {% endif %}
     
     <tr>

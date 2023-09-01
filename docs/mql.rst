@@ -105,9 +105,49 @@ Meta-filters can be chained. The following query is equivalent to the query abov
 In fact, MQL compiler always merges subsequent meta-filters into single meta-filter, so, behind the scene, query (B) will be converted to (A) first
 and then further compiled and executed.
 
+File/Dataset Attributes
+-----------------------
+Each file and dataset has a fixed set of attributes. File and dataset attributes can be used in MQL query
+just like metadata parameters. MQL recognizes the attributes by absence if a dot in their names.
+
+The following are file attributes which can be used in a file query:
+
+     * id
+     * namespace
+     * name
+     * creator
+     * updated_by
+     * created_timestamp
+     * updated_timestamp
+     * retired 
+     * retired_by
+     * retired_timestamp
+ 
+Dataset attributes:
+
+     * namespace
+     * name
+     * parent_namespace
+     * parent_name
+     * creator
+     * description
+     * created_timestamp
+     * updated_timestamp
+     * frozen
+     * monotonic
+ 
+Examples of queries uaing file and dataset attributes:
+
+.. code-block:: sql
+
+    files from scope:dataset where data.type = monte-carlo and creator=joe
+    
+    datasets matching scope:data_* having frozen=false and math.pi=3.14
+
+
 Safe Strings
 ------------
-String constants containing only letters, digits and symbols ``:%$@_^.-`` (safe string literals) can be entered without
+String constants containing only letters, digits and symbols ``$@_.-`` (safe string literals) can be entered without
 enclosing quotes. So the following queries are equivalent:
 
 .. code-block:: sql
