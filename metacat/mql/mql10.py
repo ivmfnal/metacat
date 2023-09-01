@@ -1289,9 +1289,7 @@ class QueryConverter(Converter):
         assert name_or_pattern.T in ("did", "sql_pattern", "regexp_pattern")
         name = name_or_pattern["name"]
         namespace = name_or_pattern.get("namespace") or self.DefaultNamespace
-        query = BasicDatasetQuery(namespace, name, 
-                pattern=name_or_pattern.T != "did", 
-                regexp=name_or_pattern.T == "regexp_pattern")
+        query = BasicDatasetQuery(namespace, name, pattern=pattern, regexp=regexp)
         return Node("basic_dataset_query", query=query)
         
     def dataset_add_where(self, children):
