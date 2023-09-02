@@ -274,6 +274,16 @@ A multi-word description does not have to be put in quotes. E.g., the following 
     $ metacat dataset create scope:name Carefully selected files
     $ metacat dataset create scope:name "Carefully selected files"
 
+Removing a dataset
+..................
+
+.. code-block:: shell
+
+    $ metacat dataset remove <namespace>:<name>
+    
+To remove a dataset, the user has to be an owner of the dataset namespace either directly or through
+a role.
+
 Adding files to dataset
 .......................
 
@@ -308,6 +318,36 @@ Using ``-q`` can be faster because piping involves sending the file list to the 
 whereas ``-q`` does not send the list of files.
 
 Note that it is not an error to attempt to add a file if it is already included in the dataset.
+
+To add files from a dataset, the user has to be an owner of the dataset namespace either directly or through a role. A user can add any files to a dataset regardless of the file's namespace ownership.
+
+
+Removing files to dataset
+.........................
+
+.. code-block:: shell
+
+    $ metacat dataset remove-files [options] <dataset namespace>:<dataset name>
+
+        remove files by DIDs or namespace/names
+        -f|--files (<did>|<file id>)[,...]          - dids and fids can be mixed
+        -f|--files <file with DIDs or file ids>     - one did or fid per line
+        -f|--files <JSON file>                      - list of dictionaries:
+                                                        { "fid": ...} or
+                                                        { "namespace": ..., "name":... } or
+                                                        { "did":... } or
+        -f|--files -                                - read file list from stdin
+
+        remove files selected by a query
+        -q|--query "<MQL query>"
+        -q|--query <file>                           - read query from the file
+        -q|--query -                                - read query from stdin
+
+The command parameters are the same as for ``add-files``.
+
+If the dataset is frozen or monotonic, the command will return an error.
+
+To remove files from a dataset, the user has to be an owner of the dataset namespace either directly or through a role. A user can remove any files from a dataset regardless of the file's namespace ownership.
 
 Listing existing datasets
 .........................
