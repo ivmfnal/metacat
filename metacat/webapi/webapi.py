@@ -611,6 +611,17 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         out = self.post_json("data/remove_files", params)
         return out["files_removed"]
 
+    def remove_dataset(self, dataset):
+        """Remove a dataset. Requires client authentication.
+        
+        Arguments
+        ---------
+        dataset : str
+            "namespace:name"
+        """
+        return self.get_text(f"data/remove_dataset/{dataset}")
+
+
     def declare_file(self, did=None, namespace=None, name=None, auto_name=None,
                      dataset_did=None, dataset_namespace=None,
                      dataset_name=None, size=0, metadata={}, fid=None, parents=[], checksums={},

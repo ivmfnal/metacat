@@ -11,7 +11,7 @@ from .common import load_text, load_json, load_file_list
 class ListDatasetFilesCommand(CLICommand):
     
     Opts = "mjr with-metadata include-retired-files"
-    Usage = """[<options>] <dataset namespace>:<dataset name>           -- list dataset files
+    Usage = """[<options>] <dataset namespace>:<dataset name>          -- list dataset files
         -m|--with-metadata              - include file metadata
         -r|--include-retired-files      - include retired files
         -j                              - as JSON
@@ -39,7 +39,7 @@ class ListDatasetFilesCommand(CLICommand):
 class ListDatasetsCommand(CLICommand):
     
     Opts = ("lc", ["--long", "--file-counts"])
-    Usage = """ [<options>] [<namespace pattern>:<name pattern>]      -- list datasets
+    Usage = """[<options>] [<namespace pattern>:<name pattern>]        -- list datasets
             -l|--long               - detailed output
                 -c|--file-counts    - if detailed output, include file counts
             """
@@ -112,7 +112,7 @@ class ListDatasetsCommand(CLICommand):
 class ShowDatasetCommand(CLICommand):
     
     Opts = ("pj", ["pprint=","json"])
-    Usage = """[<options>] <namespace>:<name>                           -- print dataset info
+    Usage = """[<options>] <namespace>:<name>
             -j|--json       - print as JSON
             -p|--pprint     - Python pprint
     """
@@ -173,7 +173,7 @@ class AddSubsetCommand(CLICommand):
 class CreateDatasetCommand(CLICommand):
 
     Opts = ("m:q:jf:", ["flags=", "metadata=", "query=", "json"])
-    Usage = """[<options>] <namespace>:<name> [<description>]           -- create dataset
+    Usage = """[<options>] <namespace>:<name> [<description>]          -- create dataset
         -f|--flags (monotonic|frozen)               - optional, dataset flags
         -m|--metadata '<JSON expression>'
         -m|--metadata <JSON file>
@@ -213,7 +213,7 @@ class CreateDatasetCommand(CLICommand):
 class UpdateDatasetCommand(CLICommand):
 
     Opts = ("f:m:rj", ["replace", "flags=", "metadata=", "json"])
-    Usage = """<options> <namespace>:<name> [<description>] -- modify dataset info
+    Usage = """<options> <namespace>:<name> [<description>]            -- modify dataset info
 
             update dataset metadata and flags
 
@@ -258,7 +258,7 @@ class UpdateDatasetCommand(CLICommand):
 class AddFilesCommand(CLICommand):
     
     Opts = ("i:d:N:sq:f:j:", ["json=", "dids=", "ids=", "sample", "query=", "files=", "names="])
-    Usage = """[options] <dataset namespace>:<dataset name>
+    Usage = """[options] <dataset namespace>:<dataset name>            -- add files to a dataset
 
             add files by DIDs or namespace/names or MQL query
 
@@ -339,7 +339,7 @@ class AddFilesCommand(CLICommand):
 class RemoveFilesCommand(CLICommand):
     
     Opts = ("N:q:f:s", ["query=", "files=", "sample"])
-    Usage = """[options] <dataset namespace>:<dataset name>
+    Usage = """[options] <dataset namespace>:<dataset name>            -- remove files from a dataset
 
             remove files by file ids, DIDs or namespace/names
             -f|--files (<did>|<file id>)[,...]          - dids and fids can be mixed
@@ -416,6 +416,20 @@ class RemoveFilesCommand(CLICommand):
         else:
             print("Added", nremoved, "files")
 
+class RemoveDatasetCommand(CLICommand):
+    
+    Usage = """<dataset namespace>:<dataset name>                      -- demove a dataset
+    """
+    MinArgs = 1
+    
+    def __call__(self, command, client, opts, args):
+        dataset = args[0]
+        try:
+            nremoved = client.remove_dataset(dataset)
+        except MCError as e:
+            print(e)
+            sys.exit(1)
+
 DatasetCLI = CLI(
     "create",       CreateDatasetCommand(),
     "show",         ShowDatasetCommand(),
@@ -424,7 +438,8 @@ DatasetCLI = CLI(
     "add-subset",   AddSubsetCommand(),
     "add-files",    AddFilesCommand(),
     "remove-files", RemoveFilesCommand(),
-    "update",       UpdateDatasetCommand()
+    "update",       UpdateDatasetCommand(),
+    "remove",       RemoveDatasetCommand()
 )
     
  

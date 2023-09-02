@@ -485,6 +485,92 @@ class DataHandler(MetaCatHandler):
         return json.dumps({"files_added": nadded}), "application/json"
 
     @sanitized
+    def remove_files(self, request, relpath, **args):
+        user, error = self.authenticated_user()
+        if user is None:
+            return 403, "Client authentication failed"
+
+        params = json.loads(request.body)
+        file_list = params.get("file_list")
+        query_text = params.get("query")
+        default_namespace = params.get("namespace")
+        ds_namespace = params.get("dataset_namespace", default_namespace)
+        ds_name = params.get("dataset_name")
+        if not ds_namespace or not ds_name:
+            return 400, "Dataset unspecified", "text/plain"
+
+        self.sanitize(namespace=default_namespace, dataset_namespace=ds_namespace, dataset_name=ds_name)
+
+        if not file_list and not query_text:
+            return "No files to remove", 400, "text/plain"
+        if file_list and query_text:
+            return "Either file list or query must be specified, but not both", 400, "text/plain"
+            
+        db = self.App.connect()
+        if ds_namespace is None:
+            return 400, "Dataset namespace unspecified", "text/plain"
+        if not self._namespace_authorized(db, ds_namespace, user):
+            return 403, f"Permission to add files dataset {dataset} denied", "text/plain"
+        ds = DBDataset.get(db, ds_namespace, ds_name)
+        if ds is None:
+            return "Dataset not found", 404, "text/plain"
+        if ds.Frozen:
+            return "Dataset is frozen", 403, "text/plain"
+        if ds.Monotonic:
+            return "Dataset is monotonic", 403, "text/plain"
+        
+        resolved = []
+        to_resolve = []
+
+        if query_text:
+            query = MQLQuery.parse(query_text)
+            if query.Type != "file":
+                return 400, f"Invalid file query: {query_text}"
+            resolved = query.run(db, filters=self.App.filters(), with_meta=False, with_provenance=False)
+            #print("add_files: files from query:", files)
+
+        elif file_list:
+            for file_item in file_list:
+                spec = ObjectSpec(file_item, namespace=default_namespace)
+                self.sanitize(namespace=spec.Namespace, name=spec.Name, fid=spec.FID)
+                
+                if spec.FID:
+                    resolved.append(DBFile(db, fid=spec.FID))
+                else:
+                    to_resolve.append(spec.as_dict())
+                #print("add_files: files:", files)
+        with db.transaction() as transaction:
+            if to_resolve:
+                resolved += list(DBFile.get_files(db, to_resolve, transaction=transaction))
+            nremoved = ds.remove_files(resolved, transaction=transaction)
+        return json.dumps({"files_removed": nremoved}), "application/json"
+        
+    @sanitized
+    def remove_dataset(self, request, relpath, dataset=None):
+        #
+        # add existing files to a dataset
+        #
+        
+        dataset = dataset or relpath
+
+        user, error = self.authenticated_user()
+        if user is None:
+            return 403, "Client authentication failed"
+
+        ds_namespace, ds_name = parse_name(dataset)
+        self.sanitize(dataset_namespace=ds_namespace, dataset_name=ds_name)
+        if ds_namespace is None or ds_name is None:
+            return 400, "Dataset specification error", "text/plain"
+        db = self.App.connect()
+        ds = DBDataset.get(db, ds_namespace, ds_name)
+        if ds is None:
+            return 404, "Dataset not found", "text/plain"
+        if not self._namespace_authorized(db, ds_namespace, user):
+            return 403, f"Permission denied", "text/plain"
+        ds.delete()
+        return "OK"
+
+    @sanitized
     def datasets_for_files(self, request, relpath, **args):
         #
         # JSON data: list of one of the following

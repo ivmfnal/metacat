@@ -996,6 +996,13 @@ class DBDataset(DBObject):
         return dataset
         
     @transactioned
+    def delete(self, transaction=None):
+        transaction.execute("""
+            delete from datasets 
+                where name=%s and namespace=%d
+            """, (self.Namespace, self.Name))
+
+    @transactioned
     def create(self, transaction=None):
         namespace = self.Namespace.Name if isinstance(self.Namespace, DBNamespace) else self.Namespace
         meta = json.dumps(self.Metadata or {})
