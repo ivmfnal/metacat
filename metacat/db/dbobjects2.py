@@ -1212,6 +1212,20 @@ class DBDataset(DBObject):
         """, (nadded, self.Namespace, self.Name))
         return nadded
 
+    @transactioned
+    def remove_files(self, files, transaction=None):
+        """
+        files: iterable with DBFile objcts or file ids 
+        """
+        file_ids = [item.FID if isinstance(item, DBFile) else item for item in files]
+        transaction.execute("""
+            delete from files_datasets
+                where dataset_namespace = %s
+                    and dataset_name = %s
+                    and file_id = any(%s)
+        """, (self.Namespace, self.Name, file_ids))
+        return transaction.rowcount
+
     def list_files(self, with_metadata=False, limit=None, include_retired_files=False):
         meta = "null as metadata" if not with_metadata else "f.metadata"
         limit = f"limit {limit}" if limit else ""

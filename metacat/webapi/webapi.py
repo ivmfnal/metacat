@@ -543,6 +543,74 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         out = self.post_json(url, params)
         return out["files_added"]
 
+    def remove_files(self, dataset, file_list=None, namespace=None, query=None):
+        """Remove files from a dataset. Requires client authentication.
+        
+        Arguments
+        ---------
+        dataset : str
+            "namespace:name" or "name", if namespace argument is given
+        query : str
+            MQL query to run and add files matching the query
+        file_list : list
+            List of dictionaries, one dictionary per file. Each dictionary must contain either a file id
+        
+            .. code-block:: python
+        
+                    { "fid": "abcd12345" }
+
+            or namespace/name:
+        
+            .. code-block:: python
+
+                    { "name": "filename.data", "namespace": "my_namespace" }
+
+            or DID:
+        
+            .. code-block:: python
+
+                    { "did": "my_namespace:filename.data" }
+        
+        namespace : str, optional
+            Default namespace. If a ``file_list`` item is specified with a name without a namespace, the ``default namespace``
+            will be used.
+
+        Returns
+        -------
+        int
+            actual number of files removed from the dataset
+        
+        Notes
+        -----
+        Either ``file_list`` or ``query`` must be specified, but not both
+        """
+            
+        default_namespace = namespace
+        dataset_spec = ObjectSpec(dataset, namespace=default_namespace)
+        
+        if (file_list is None) == (query is None):
+            raise ValueError("Either file_list or query must be specified, but not both")
+        
+        params = {
+            "dataset_namespace": dataset_spec.Namespace,
+            "dataset_name": dataset_spec.Name,
+            "namespace": namespace
+        }
+        if file_list is not None:
+            lst = []
+            for f in file_list:
+                spec = ObjectSpec.from_dict(f, default_namespace)
+                spec.validate()
+                lst.append(spec.as_dict())
+            params["file_list"] = lst
+        elif query:
+            params["query"] = query
+        else:
+            raise ValueError("Either file_list or query must be specified, but not both")
+        
+        out = self.post_json("data/remove_files", params)
+        return out["files_removed"]
+
     def declare_file(self, did=None, namespace=None, name=None, auto_name=None,
                      dataset_did=None, dataset_namespace=None,
                      dataset_name=None, size=0, metadata={}, fid=None, parents=[], checksums={},

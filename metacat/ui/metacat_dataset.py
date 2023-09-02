@@ -338,11 +338,10 @@ class AddFilesCommand(CLICommand):
 
 class RemoveFilesCommand(CLICommand):
     
-    Opts = ("q:f:", ["query=", "files="])
+    Opts = ("N:q:f:s", ["query=", "files=", "sample"])
     Usage = """[options] <dataset namespace>:<dataset name>
 
-            remove files from a dataset
-
+            remove files by file ids, DIDs or namespace/names
             -f|--files (<did>|<file id>)[,...]          - dids and fids can be mixed
             -f|--files <file with DIDs or file ids>     - one did or fid per line
             -f|--files <json file>                      - list of dictionaries:
@@ -356,13 +355,49 @@ class RemoveFilesCommand(CLICommand):
             -q|--query <file>                           - read query from the file
             -q|--query -                                - read query from stdin
     """
+    
+    RemoveSample = json.dumps(
+        [
+            {        
+                "did":"test:file1.dat"
+            },
+            {        
+                "namespace":"test",
+                "name":"file2.dat"
+            },
+            {        
+                "fid":"54634"
+            }
+        ],
+        indent=4, sort_keys=True
+    )
     MinArgs = 1
     
     def __call__(self, command, client, opts, args):
 
+        if "--sample" in opts or "-s" in opts:
+            print(self.RemoveSample)
+            sys.exit(0)
+
+        if len(args) != 1:
+            raise InvalidArguments("Invalid arguments")
+
+        # backward compatibility
+        if "-f" not in opts and "--files" not in opts:
+            opts["-f"] = opts.get("-d") or opts.get("--names") or \
+                        opts.get("-i") or opts.get("--ids") or \
+                        opts.get("-j") or opts.get("--json")
+
+        if opts.get("-d") or opts.get("--names") or \
+                        opts.get("-i") or opts.get("--ids") or \
+                        opts.get("-j") or opts.get("--json"):
+            print("", file=sys.stderr)
+            print("Options -j, --json, -d, --names, -i, --ids are deprecated.\nPlease use -f|--files instead", file=sys.stderr)
+            print("", file=sys.stderr)
+
+        default_namespace = opts.get("-N")
         files = query = None
-        if "-q" not in opts and "-f" not in opts:
-            raise InvalidArguments("Either -q or -f must be used")
+        
         file_list = opts.get("-f") or opts.get("--files")
         if file_list:
             files = load_file_list(file_list)
@@ -374,12 +409,12 @@ class RemoveFilesCommand(CLICommand):
 
         dataset = args[0]
         try:
-            out = client.remove_files(dataset, file_list=files, query=query)
+            nremoved = client.remove_files(dataset, file_list=files, query=query)
         except MCError as e:
             print(e)
             sys.exit(1)
         else:
-            print("Added", len(out), "files")
+            print("Added", nremoved, "files")
 
 DatasetCLI = CLI(
     "create",       CreateDatasetCommand(),
@@ -388,6 +423,7 @@ DatasetCLI = CLI(
     "list",         ListDatasetsCommand(),
     "add-subset",   AddSubsetCommand(),
     "add-files",    AddFilesCommand(),
+    "remove-files", RemoveFilesCommand(),
     "update",       UpdateDatasetCommand()
 )
     
