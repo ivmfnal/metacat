@@ -132,7 +132,6 @@ Dataset attributes:
      * creator
      * description
      * created_timestamp
-     * updated_timestamp
      * frozen
      * monotonic
  

@@ -71,10 +71,13 @@ Dataset Attributes
 Dataset attributes are:
 
 * Name and namespace
+* Name and namespace of parent dataset, if any
 * Creator username
 * Creation time
 * Zero or more children datasets
-* Flags: *monotonic* and *frozen*
+* Frozen
+* Monotonic
+* Description
 
 Dataset metadata restrictions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
