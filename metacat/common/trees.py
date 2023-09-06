@@ -285,6 +285,9 @@ class Descender(Traveler):
         
 class Ascender(Traveler):
     
+    def __call__(self, tree):
+        return self.walk(tree)
+    
     def walk(self, tree, debug=False, level=0):
         self.WalkLevel = level
         try:

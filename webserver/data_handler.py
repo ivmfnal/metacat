@@ -1371,6 +1371,40 @@ class DataHandler(MetaCatHandler):
         return self.json_stream(data), "application/json-seq"
         
     @sanitized
+    def search_queries(self, request, relpath, query=None,**args):
+        if query is not None:
+            query_text = unquote_plus(query)
+            #print("query from URL:", query_text)
+        elif "query" in request.POST:
+            query_text = request.POST["query"]
+            #print("query from POST:", query_text)
+        else:
+            query_text = request.body
+            #print("query from body:", query_text)
+        query_text = to_str(query_text or "")
+        
+        db = self.App.connect()
+        t0 = time.time()
+        if not query_text:
+            return "[]", "application/json"
+            
+        try:
+            query = MQLQuery.parse(query_text, db=db)
+            query_type = query.Type
+            if query_type != "query":
+                return 400, "Invalid query type"
+            results = query.run(db, with_meta=True)
+        except (AssertionError, ValueError, MQLError) as e:
+            #traceback.print_exc()
+            return 400, e.__class__.__name__ + ": " + e.Message
+
+        if results is None:
+            return "[]", "application/json"
+
+        data = ( q.to_jsonable() for q in results )
+        return self.json_stream(data), "application/json-seq"
+        
+    @sanitized
     def named_queries(self, request, relpath, namespace=None, **args):
         db = self.App.connect()
         queries = list(DBNamedQuery.list(db, namespace))

@@ -1,7 +1,8 @@
 Common = """
 
 ?query:  top_file_query             
-    | top_dataset_query                            
+    | top_dataset_query
+    | top_query_query
 
 qualified_name:     (FNAME ":")? FNAME
 

@@ -44,14 +44,37 @@ def _merge_skip_limit(existing_skip, existing_limit, skip=0, limit=None):
     else:
         return existing_skip + skip, max(0, min(existing_limit - skip, limit))
         
-class _DatasetQueryCompiler(Ascender):
+class _QueryQueryCompiler(Ascender):
 
-    def __init__(self):
+    def basic_query_query(self, node, *args, query=None):
+        return Node("sql", sql=DBNamedQuery.sql_for_bqq(query))
+
+class _QueryQueryExecutor(Ascender):
+    
+    def __init__(self, db):
         Ascender.__init__(self)
+        self.DB = db
 
-    def __call__(self, tree):
-        out = self.walk(tree)
-        return out
+    def sql(self, node, sql=None):
+        return DBNamedQuery.queries_from_sql(self.DB, sql)
+
+class QueryQuery(object):
+    
+    Type = "query"
+    
+    def __init__(self, tree):
+        self.Tree = tree
+        self.Compiled = None
+
+    def compile(self, with_meta=False, with_provenance=False):
+        self.Compiled = self.Compiled or _QueryQueryCompiler()(self.Tree)
+        return self.Compiled
+
+    def run(self, db, debug=False, **ignore):
+        compiled = self.compile()
+        return _QueryQueryExecutor(db)(compiled)
+
+class _DatasetQueryCompiler(Ascender):
 
     def dataset_query_list(self, node, *args):
         queries = [a["query"] for a in args]
@@ -63,10 +86,6 @@ class _DatasetQueryExecutor(Ascender):
     def __init__(self, db):
         Ascender.__init__(self)
         self.DB = db
-
-    def __call__(self, tree):
-        out = self.walk(tree)
-        return out
 
     def sql(self, node, sql=None):
         return DBDataset.datasets_from_sql(self.DB, sql)
@@ -504,6 +523,28 @@ def _merge_skip_limit(existing_skip, existing_limit, skip=0, limit=None):
     else:
         return existing_skip + skip, max(0, min(existing_limit - skip, limit))
 
+class BasicQueryQuery(object):
+
+    def __init__(self, namespace, name, pattern=False, regexp=False, with_children=False, recursively=False, where=None):
+        self.Namespace = namespace
+        self.Name = name
+        self.RegExp = regexp
+        self.Where = where
+        
+    def line(self):
+        return "BasicQueryQuery(%s:%s%s)" % (
+                self.Namespace, self.Name, 
+                " (regexp) " if self.RegExp else " (pattern) ")
+
+    __str__ = line
+    __repr__ = line
+                
+    def setWhere(self, where):
+        self.Where = where
+        
+    def queries(self, db, limit=None):
+        return DBQuery.queries_for_bqq(db, self, limit)
+
 class BasicDatasetQuery(object):
 
     def __init__(self, namespace, name, pattern=False, regexp=False, with_children=False, recursively=False, where=None):
@@ -693,8 +734,10 @@ class QueryConverter(Converter):
 
         if q.T == "top_file_query":         out = FileQuery(q.C[0])
         elif q.T == "top_dataset_query":    out = DatasetQuery(q.C[0])
+        elif q.T == "top_query_query":      out = QueryQuery(q.C[0])
         else:
             raise ValueError("Unrecognozed top level node type: %s" % (q.T,))
+        print("QueryConverter: returning:", out.pretty())
         return out
     
     def __default__(self, typ, children, meta):
@@ -1310,6 +1353,26 @@ class QueryConverter(Converter):
 
     def dataset_provenance_op(self, children):
         return Node("subsets", recursive=any(c.value == "recursively" for c in children))
+        
+    #
+    # Queries
+    #
+    def query_name_match(self, args):
+        did_pattern = args[-1]
+        assert did_pattern.T in ("sql_pattern", "regexp_pattern")
+        query = BasicQueryQuery(did_pattern["namespace"], did_pattern["name"], 
+            regexp=did_pattern.T == "regexp_pattern")
+        return Node("basic_query_query", query=query)
+
+    def top_query_query(self, args):
+        meta_exp = args[-1] if "where" in args else None
+        if "matching" in args:
+            bqq = args[2]["query"]
+        else:
+            bqq = BasicQueryQuery()
+        if "where" in args:
+            bqq.setWhere(args[-1])
+        return Node("basic_query_query", query=bqq)
 
 class MQLQuery(object):
     
@@ -1322,16 +1385,16 @@ class MQLQuery(object):
         text = '\n'.join(out)
         try:
             parsed = _Parser.parse(text)
-            if debug:
-                print("parsed:\n", parsed.pretty())
+            print("parsed:\n", parsed.pretty())
             if convert:
                 converted = QueryConverter(db=db, loader=loader, default_namespace=default_namespace).convert(parsed)
-                if debug:
-                    print("converted:\n", converted.pretty())
+                print("converted:\n", converted.pretty())
                 if converted.T == "top_file_query":
                     q = FileQuery(converted.C[0], include_retired_files)
-                else:
+                elif converted.T == "top_dataset_query":
                     q = DatasetQuery(converted.C[0])
+                else:
+                    q = QueryQuery(converted)
                 q.Parsed = parsed
                 return q
             else:

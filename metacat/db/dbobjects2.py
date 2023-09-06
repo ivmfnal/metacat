@@ -1652,11 +1652,11 @@ class DBDataset(DBObject):
 
 class DBNamedQuery(DBObject):
     
-    Columns = "namespace,name,parameters,source,creator,created_timestamp".split(",")
+    Columns = "namespace,name,parameters,source,creator,created_timestamp,description,metadata".split(",")
     Table = "queries"
     PK = ["namespace", "name"]
 
-    def __init__(self, db, namespace, name, source, parameters=[]):
+    def __init__(self, db, namespace, name, source, parameters, description, metadata):
         DBObject.__init__(self, db)
         assert namespace is not None and name is not None
         self.Namespace = namespace
@@ -1665,6 +1665,8 @@ class DBNamedQuery(DBObject):
         self.Parameters = parameters
         self.Creator = None
         self.CreatedTimestamp = None
+        self.Description = description
+        self.Metadata = metadata
         
     def to_jsonable(self):
         return dict(
@@ -1673,37 +1675,44 @@ class DBNamedQuery(DBObject):
             source = self.Source,
             creator = self.Creator,
             created_timestamp = epoch(self.CreatedTimestamp),
-            parameters = self.Parameters
+            description = self.Description,
+            metadata = self.Metadata
         )
 
     @staticmethod
     def from_tuple(db, tup):
-        namespace, name, parameters, source, creator, created_timespamp = tup
+        namespace, name, parameters, source, creator, created_timespamp, description, metadata = tup
         #print("DBNamedQuery.from_tuple:", tup)
-        query = DBNamedQuery(db, namespace, name, source, parameters)
+        query = DBNamedQuery(db, namespace, name, source, parameters, description, metadata)
         query.Creator = creator
         query.CreatedTimestamp = created_timespamp
         return query
         
     @transactioned
     def create(self, transaction=None):
+        meta = json.dumps(self.Metadata or {})
         transaction.execute("""
-            insert into queries(namespace, name, source, parameters, creator) values(%s, %s, %s, %s, %s)
+            insert into queries(namespace, name, source, parameters, creator, description, metadata) 
+                values(%s, %s, %s, %s, %s, %s, %s)
             returning created_timestamp""",
-            (self.Namespace, self.Name, self.Source, self.Parameters, self.Creator)
+            (self.Namespace, self.Name, self.Source, self.Parameters, self.Creator, self.Description,
+                meta)
         )
         self.CreatedTimestamp = transaction.fetchone()[0]
         return self
             
     @transactioned
     def save(self, transaction=None):
+        meta = json.dumps(self.Metadata or {})
         transaction.execute("""
             update queries 
-                set source=%s, parameters=%s, creator=%s, created_timestamp=%s
+                set source=%s, parameters=%s, creator=%s, created_timestamp=%s,
+                    description=%s, metadata=%s
                 where namespace=%s and name=%s;
-            commit
             """,
-            (self.Source, self.Parameters, self.Creator, self.CreatedTimestamp, self.Namespace, self.Name)
+            (self.Source, self.Parameters, self.Creator, self.CreatedTimestamp, 
+                self.Description, meta,
+            self.Namespace, self.Name)
         )
         return self
             
@@ -1725,6 +1734,37 @@ class DBNamedQuery(DBObject):
                         order by namespace, name
                         """
             )
+        return (DBNamedQuery.from_tuple(db, tup) for tup in fetch_generator(c))
+
+    @staticmethod
+    def sql_for_bqq(bqq):
+        namespace = bqq.Namespace
+        name = bqq.Name
+        regexp = bqq.RegExp
+        where = bqq.Where
+        a = alias("nq")
+        meta_filter_dnf = DatasetMetaExpressionDNF(where) if where is not None else None
+        where_sql = "" if meta_filter_dnf is None else " and " + meta_filter_dnf.sql(a)
+        table = DBNamedQuery.Table
+        columns = DBNamedQuery.columns(table_name=a)
+        if regexp:
+            sql = f"""select {columns}
+                from {table} {a}
+                where {a}.namespace='{namespace}' and {a}.name ~ '{name}'
+                    {where_sql}
+            """
+        else:
+            sql = f"""select {columns}
+                from {table} {a}
+                where {a}.namespace='{namespace}' and {a}.name like '{name}'
+                    {where_sql}
+            """
+        return sql
+    
+    @staticmethod
+    def queries_from_sql(db, sql):
+        c = db.cursor()
+        c.execute(sql)
         return (DBNamedQuery.from_tuple(db, tup) for tup in fetch_generator(c))
 
 

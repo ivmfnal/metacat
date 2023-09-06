@@ -94,11 +94,45 @@ class CreateNamedQueryCommand(CLICommand):
         namespace, name = args[0].split(':', 1)
         query = client.create_named_query(namespace, name, query_text, update=update)
 
+class SearchCommand(CLICommand):
+
+    Opts = "f:q: format= query-file="
+    Usage = """                                                -- search for named queries
+        search <inline MQL query>                               - inline query
+        search -q|--query <MQL query file>                      - read query from file
+        search -q|--query -                                     - read query from stdin
+        
+        Options:
+            -f|--format (json|pretty|names)                     - output format
+    """
+    
+    def __call__(self, command, client, opts, args):
+        query = None
+        if "-q" in opts or "--query-file" in opts:
+            query = load_text(opts.get("-q") or opts.get("--query")) or None
+        elif args:
+            query = " ".join(args)
+        
+        if query is None:
+            raise InvalidArguments()
+        
+        fmt = opts.get("-f") or opts.get("--format") or "names"
+        results = list(client.search_named_queries(query))
+        if fmt == "json":
+            print(json.dumps(results, indent=4, sort_keys=True))
+        elif fmt == "pretty":
+            pprint.pprint(results)
+        else:
+            for item in results:
+                print(item["namespace"] + ":" + item["name"])
+            
+
 
 NamedQueriesCLI = CLI(
     "create",       CreateNamedQueryCommand(),
     "show",         ShowNamedQueryCommand(),
-    "list",         ListNamedQueriesCommand()
+    "list",         ListNamedQueriesCommand(),
+    "search",       SearchCommand()
 )
     
  

@@ -1308,6 +1308,25 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
         Wait for all issued asynchronous queries to complete
         """
         self.async_queue.waitUntilEmpty()
+
+
+    def search_named_queries(self, query):
+        """
+        Run MQL query for named queries
+        
+        Arguments
+        ---------
+        query : str
+            Query in MQL
+
+        Returns
+        -------
+        list of dicts
+            The list contains one dictionary per matching named query with the query information.
+        """
+        url = "data/search_queries"
+        results = self.post_json(url, query)
+        return results
     
     def create_namespace(self, name, owner_role=None, description=None):
         """Creates new namespace. Requires client authentication.

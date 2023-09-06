@@ -148,11 +148,13 @@ create table queries
 (
     namespace       text references namespaces(name),
     name            text,
-    parameters      text[],
-    source      text,
     primary key(namespace, name),
-    creator             text references users(username),
-    created_timestamp   timestamp with time zone     default now()
+    parameters      text[],
+    source          text,
+    creator         text references users(username),
+    created_timestamp   timestamp with time zone     default now(),
+    description     text,
+    metadata        jsonb default '{}'
 );
 
 create table parameter_categories
