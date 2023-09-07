@@ -923,7 +923,31 @@ Dataset and file metadata filtering can be mixed together:
         where beam.status="on" and reco.version > "3.0"     # files selection
         
     
+.. _named_queries:
 
+Named Query Search
+~~~~~~~~~~~~~~~~~~
+
+MetaCat allows the user to save a query under a namespace/name and then reuse the query as part of
+another MQL query. Currently only file queries can be saved.
+
+Along with a name and a description, a named query can have its own set of metadata attributes.
+MetaCat provides a capability to search for named queries by their name pattern, description,
+creator and metadata attributes. A subset of MQL is used to search for a named query.
+
+Here are some examples of named query search queries:
+
+.. code-block:: sql
+
+    queries matching my_namespace:favorite_*
+    queries matching regexp my_namespace:"prod_202[0-3]"
+
+To include the query metadata into the search criteria, add `where` clause:
+
+.. code-block:: sql
+
+    queries matching my_namespace:favorite_*
+        where file.quality > 1 and file.type = "hdf5"
 
 
         

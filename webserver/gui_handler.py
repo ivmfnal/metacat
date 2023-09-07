@@ -475,10 +475,22 @@ class GUIHandler(MetaCatHandler):
             
     @sanitize()
     def named_query(self, request, relpath, name=None, edit="no", **args):
+        me, auth_error = self.authenticated_user()
         namespace, name = parse_name(name, None)
         db = self.App.connect()
+        is_admin = me is not None and me.is_admin()
+        is_owner = is_admin
+        if not is_owner and me is not None:
+            ns = DBNamespace.get(db, namespace)
+            is_owner = ns.owned_by_user(me)
+
         query = DBNamedQuery.get(db, namespace, name)
-        return self.render_to_response("named_query.html", query=query, edit = edit=="yes")
+        meta = query.Metadata or {}
+        meta_attr_names = sorted(meta.keys())
+        return self.render_to_response("named_query.html", query=query, 
+            edit = edit=="yes" and is_owner,
+            meta_attr_names = sorted(meta.keys()),
+            meta_as_json=json.dumps(meta, sort_keys=True, indent=4))
 
     def create_named_query(self, request, relapth, **args):
         me, auth_error = self.authenticated_user()
@@ -503,22 +515,65 @@ class GUIHandler(MetaCatHandler):
 
         create = request.POST["create"] == "yes"
         query_text = request.POST["text"]
+        description = request.POST["description"].strip() or ""
 
         query = MQLQuery.parse(query_text)
         if query.Type != "file":
             self.redirect("./named_queries?error=%s" % (quote_plus("Only file queries can be saved"),))
-        
+        meta_text = request.POST["metadata"].strip()
+        meta_text = meta_text or "{}"
+        try:
+            metadata = json.loads(meta_text)
+        except:
+            self.redirect(f"./named_queries?error=%s" % (quote_plus(f"Invalid metadata - JSON parse error"),))
+
+        for k in metadata:
+            if not '.' in k:
+                self.redirect(f"./named_queries?error=%s" % (quote_plus(f"Invalid metadata - all key names must contain dot"),))
+
         if create:
-            query = DBNamedQuery(db, name=name, namespace=namespace, source=query_text)
+            query = DBNamedQuery(db, name=name, namespace=namespace, source=query_text,
+                metadata=metadata, description=description)
             query.Creator = user.Username
             query.create()
         else:
             query = DBNamedQuery.get(db, namespace, name)
             query.Source = query_text
+            query.Metadata = metadata
+            query.Description = description
             query.save()
         
         return self.render_to_response("named_query.html", query=query, edit = True)
-        
+
+    def search_named_queries(self, request, relpath, query=None, error="", message="", **args):
+        if not query:
+            # just show the form
+            return self.render_to_response("search_named_queries.html", query=None, results=None)
+        else:
+            query_text = unquote(query)
+            results = None
+            url_query = None
+            db = self.App.connect()
+            parsed = MQLQuery.parse(query_text, db=db)
+            if parsed.Type != "query":
+                return self.render_to_response("search_named_queries.html", query=None, results=None,
+                    error = "Invalid search query", 
+                    message=unquote_plus(message)
+                )
+            try:
+                results = parsed.run(db, with_meta=True)
+                error = ""
+            except MQLError as e:
+                error = str(e)
+                results = []
+            results = sorted(results, key=lambda q: q.Name)
+            for query in results:
+                query.meta_view = "" if not query.Metadata else \
+                    json.dumps(query.Metadata, indent=4, sort_keys=True)
+            return self.render_to_response("search_named_queries.html",
+                results=results, query=query_text, error=error
+            )
+
     @sanitize()
     def users(self, request, relpath, error="", **args):
         me, auth_error = self.authenticated_user()

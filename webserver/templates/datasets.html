@@ -68,7 +68,7 @@
                 {% if logged_in %}
                     <td>{% if ds.Creator %}<a href="./user?username={{ds.Creator}}">{{ds.Creator}}</a>{% endif %}</td>
                 {% endif %}
-                <td>{% if ds.CreatedTimestamp %}{{ds.CreatedTimestamp|as_dt_local}}{% endif %}</td>
+                <td>{% if ds.CreatedTimestamp %}{{ds.CreatedTimestamp|as_dt_utc}} UTC{% endif %}</td>
                 {% if logged_in %}
                     <td>{% if ds.GUI_OwnerUser %}user <a href="./user?username={{ds.GUI_OwnerUser}}">{{ds.GUI_OwnerUser}}</a>
                         {% else %}role <a href="./role/{{ds.GUI_OwnerRole}}">{{ds.GUI_OwnerRole}}</a>

@@ -27,7 +27,7 @@
 			{% else %}
 				<input type="hidden" name="namespace" 
 					value="{{query.Namespace}}"/>
-				{{query.Namespace}}
+				<a href="./namespace?name={{query.Namespace}}">{{query.Namespace}}</a>
 			{% endif %}
 		</td>
 	</tr>
@@ -46,7 +46,7 @@
     {% if not create %}
     	<tr>
     		<th>Created by</th>
-    		<td>{{query.Creator}}</td>
+    		<td><a href="./user?username={{query.Creator}}">{{query.Creator}}</a></td>
     	</tr>
     	<tr>
     		<th>Created timestamp</th>
@@ -54,15 +54,49 @@
     	</tr>
     {% endif %}
 	<tr>
-		<th>Query</th>
+		<th>Description</th>
+		<td>
+			{% if create or edit %}
+				<textarea name="description" cols=80 rows=3>{% if not create %}{{query.Description or ""}}{% endif %}</textarea>
+			{% else %}
+				{{query.Description or ""}}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>Query source</th>
 		<td>	
             {% if edit or create %}
-				<textarea name="text" cols=80 rows=10>{% if not create %}{{query.Source}}{% endif %}</textarea>
+				<textarea name="text" cols=80 rows=5>{% if not create %}{{query.Source}}{% endif %}</textarea>
 			{% else %}
 				<pre class="source">{{query.Source}}</pre>
 			{% endif %}
 		</td>
 	</tr>
+    <tr>
+        <th>Query metadata</th>
+		<td>
+            {% if edit or create %}
+                <i><span color="gray">JSON dictionary</span></i><br/>
+				<textarea name="metadata" cols=80 rows=10>
+                    {%- if not create %}{{meta_as_json}}{% endif -%}
+                </textarea>
+			{% else %}
+                {% if query.Metadata %}
+                    <table class="file_metadata">
+                        {% for n in meta_attr_names %}
+                            {% if n in query.Metadata -%}
+                                <tr>
+                                    <td class="attr_name">{{n}}</td>
+                                    <td class="attr_value">{{query.Metadata[n]|json}}</td>
+                                </tr>
+                            {%- endif %}
+                        {% endfor %}
+                    </table>
+    			{% endif %}
+            {% endif %}
+		</td>
+            
 	{% if edit or create %}
 		<tr><td></td><td><input type="submit" value="Save"/></td>
 		</tr>

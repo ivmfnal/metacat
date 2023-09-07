@@ -4,21 +4,23 @@
 
 {% block content %}
 
-<p><a href="./create_named_query">create</a></p>
+<p><a href="./create_named_query">create</a>&nbsp;&nbsp;<a href="./search_named_queries">search</a></p>
 
 <table class="data">
 	<tr>
-		<th>Namespace</th>
-		<th>Name</th>
+		<th></th>
         {% if logged_in %}<th>Creator</th>{% endif %}
         <th>Created</th>
+        <th>Description</th>
 	</tr>
 	{% for q in queries %}
 		<tr>
-				<td><a href="./namespaces/{{q.Namespace}}">{{q.Namespace}}</a></td>
-				<td><a href="./named_query?name={{q.Namespace}}:{{q.Name}}&edit=yes">{{q.Name}}</td>
+				<td><a href="./named_query?name={{q.Namespace}}:{{q.Name}}&edit=yes">
+                        {{q.Namespace}}:{{q.Name}}
+                </td>
                 {% if logged_in %}<td><a href="./user/{{q.Creator}}">{{q.Creator}}</a></td>{% endif %}
-                <td>{{q.CreatedTimestamp}}</td>
+                <td>{{q.CreatedTimestamp|as_dt_utc}} UTC</td>
+                <td>{{q.Description or ""}}</td>
 	    </tr>
 	{% endfor %}
 </table>
