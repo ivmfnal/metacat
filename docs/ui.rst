@@ -932,9 +932,33 @@ To show a named query:
         -j|--json                               - as JSON
         -v|--verbose                            - verbose outout. Otherwise - print query source only
 
+To search for named query:
+
+.. code-block:: shell
+
+    $ metacat named_queries search ...
     
-    
-    
+        search <inline query>                                   - inline query
+        search -q|--query <query file>                          - read query from file
+        search -q|--query -                                     - read query from stdin
+        
+        Options:
+            -f|--format (json|pretty|names)                     - output format
+
+Named query search uses a subset of MQL to specify the search criteria. Here are some examples:
+
+.. code-block:: sql
+
+    queries matching my_namespace:favorite_*
+    queries matching regexp my_namespace:"prod_202[0-3]"
+
+To include the query metadata into the search criteria, add `where` clause:
+
+.. code-block:: sql
+
+    queries matching my_namespace:favorite_*
+        where file.quality > 1 and file.type = "hdf5"
+
     
     
 
