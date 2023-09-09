@@ -133,6 +133,11 @@ class ShowDatasetCommand(CLICommand):
             if ct:
                 ct = datetime.fromtimestamp(ct, timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z")
             print("Created at:           ", ct)
+            ut = info.get("updated_timestamp") or ""
+            if ut:
+                ut = datetime.fromtimestamp(ut, timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z")
+            print("Updated by:           ", info.get("updated_by", ""))
+            print("Updated at:           ", ut)
             print("Estimated file count: ", info.get("file_count"), "")
             print("Restricted:           ", "frozen" if info.get("frozen", False) else (
                                             "monotonic" if info.get("monotonic", False) else "no"

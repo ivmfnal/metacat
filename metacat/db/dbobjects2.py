@@ -1368,7 +1368,9 @@ class DBDataset(DBObject):
             created_timestamp = epoch(self.CreatedTimestamp),
             file_meta_requirements = self.FileMetaRequirements,
             description = self.Description,
-            file_count = self.FileCount
+            file_count = self.FileCount,
+            updated_timestamp = epoch(self.UpdatedTimestamp),
+            updated_by = self.UpdatedBy
         )
         if with_relatives:
             out["parents"] = [
