@@ -993,7 +993,7 @@ class GUIHandler(MetaCatHandler):
         elif mode == "create":
             ds.create()
         elif mode == "edit":
-            ds.save()
+            ds.save(updated_by=user.Username)
             
         self.redirect(f"./dataset?namespace={namespace}&name={name}" + ("&message=" + quote_plus(warning) if warning else ""))
         

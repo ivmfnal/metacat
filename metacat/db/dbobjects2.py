@@ -958,12 +958,16 @@ class _DatasetParentToChild(DBManyToMany):
 class DBDataset(DBObject):
     
     ColumnsText = "namespace,name,frozen,monotonic,metadata,creator,created_timestamp,description,file_metadata_requirements,file_count"
-    Columns = ColumnsText.split(",")
+    Columns = ['namespace', 'name', 'frozen', 'monotonic', 
+            'metadata', 'creator', 'created_timestamp', 'description', 
+            'file_metadata_requirements', 'file_count',
+            'updated_timestamp', 'updated_by'
+    ]
     Table = "datasets"
     
 
     def __init__(self, db, namespace, name, frozen=False, monotonic=False, metadata={}, file_meta_requirements=None, creator=None,
-            description = None, file_count = 0):
+            description = None, file_count = 0, updated_timestamp=None, updated_by=None):
         DBObject.__init__(self, db)
         assert namespace is not None and name is not None
         self.Namespace = namespace
@@ -977,6 +981,8 @@ class DBDataset(DBObject):
         self.Description = description
         self.FileMetaRequirements = file_meta_requirements
         self.FileCount = file_count
+        self.UpdatedTimestamp = updated_timestamp
+        self.UpdatedBy = updated_by
     
     def __str__(self):
         return "DBDataset(%s:%s)" % (self.Namespace, self.Name)
@@ -986,10 +992,11 @@ class DBDataset(DBObject):
         
     @staticmethod
     def from_tuple(db, tup):
-        namespace, name, frozen, monotonic, metadata, creator, created_timestamp, description, file_metadata_requirements, file_count = tup
+        (namespace, name, frozen, monotonic, metadata, creator, created_timestamp, description,
+            file_metadata_requirements, file_count, updated_timestamp, updated_by) = tup
         dataset = DBDataset(db, namespace, name, 
             frozen=frozen, monotonic=monotonic, metadata=metadata, file_meta_requirements=file_metadata_requirements,
-            file_count = file_count)
+            file_count = file_count, updated_timestamp=updated_timestamp, updated_by=updated_by)
         dataset.Creator = creator
         dataset.CreatedTimestamp = created_timestamp
         dataset.Description = description
@@ -1015,21 +1022,38 @@ class DBDataset(DBObject):
         return self
         
     @transactioned
-    def save(self, transaction=None):
+    def save(self, updated_by=None, transaction=None):
         namespace = self.Namespace.Name if isinstance(self.Namespace, DBNamespace) else self.Namespace
         meta = json.dumps(self.Metadata or {})
         file_meta_requirements = json.dumps(self.FileMetaRequirements or {})
         #print("DBDataset.save: saving")
         column_names = self.columns()
-        transaction.execute(f"""
-            update datasets 
-                set frozen=%s, monotonic=%s, metadata=%s, description=%s, file_metadata_requirements=%s, file_count=%s
-                where namespace=%s and name=%s
-            """,
-            (   self.Frozen, self.Monotonic, meta, self.Description, file_meta_requirements, self.FileCount,
-                namespace, self.Name
+        if updated_by:
+            transaction.execute(f"""
+                update datasets 
+                    set frozen=%s, monotonic=%s, metadata=%s, description=%s, 
+                        file_metadata_requirements=%s, file_count=%s,
+                        updated_by=%s, updated_timestamp=now()
+                    where namespace=%s and name=%s
+                    returning updated_timestamp
+                """,
+                (   self.Frozen, self.Monotonic, meta, self.Description, file_meta_requirements, self.FileCount,
+                    updated_by,
+                    namespace, self.Name
+                )
             )
-        )
+            self.UpdatedTimestamp = transaction.fetchone()[0]
+        else:
+            transaction.execute(f"""
+                update datasets 
+                    set frozen=%s, monotonic=%s, metadata=%s, description=%s, 
+                        file_metadata_requirements=%s, file_count=%s
+                    where namespace=%s and name=%s
+                """,
+                (   self.Frozen, self.Monotonic, meta, self.Description, file_meta_requirements, self.FileCount,
+                    namespace, self.Name
+                )
+            )
         return self
 
     @transactioned
@@ -1120,8 +1144,7 @@ class DBDataset(DBObject):
                     )""", (self.Namespace, self.Name)
         )
         return c.fetchone()[0]
-        
-    
+
     def parents(self):
         # immediate children as filled DBDataset objects
         c = self.DB.cursor()

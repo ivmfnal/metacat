@@ -47,6 +47,18 @@
     		<th>Creator:</th>
     		<td>{{dataset.Creator or ''}}</td>
     	</tr>
+    	<tr>
+    		<th>Create timestamp:</th>
+    		<td>{{dataset.CreatedTimestamp|as_dt_utc}} UTC</td>
+    	</tr>
+    	<tr>
+    		<th>Updated by:</th>
+    		<td>{{dataset.UpdatedBy or ''}}</td>
+    	</tr>
+    	<tr>
+    		<th>Update timestamp:</th>
+    		<td>{% if dataset.UpdatedTimestamp %}{{dataset.UpdatedTimestamp|as_dt_utc}} UTC{% endif %}</td>
+    	</tr>
     
     {% endif %}
     

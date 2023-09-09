@@ -298,8 +298,7 @@ class DataHandler(MetaCatHandler):
             return 403, "Authentication required"
         db = self.App.connect()
         request_data = json.loads(request.body)
-        
-        
+
         try:
             if not self._namespace_authorized(db, namespace, user):
                 return f"Permission to update dataset in namespace {namespace} denied", 403, "text/plain"
@@ -322,11 +321,14 @@ class DataHandler(MetaCatHandler):
                 if '.' not in name:
                     return 400, f"Metadata parameter without a category: {name}"
 
-        if "monotonic" in request_data: ds.Monotonic = request_data["monotonic"]
-        if "frozen" in request_data: ds.Frozen = request_data["frozen"]
-        if "description" in request_data: ds.Description = request_data["description"]
+        if "monotonic" in request_data: 
+            ds.Monotonic = request_data["monotonic"]
+        if "frozen" in request_data: 
+            ds.Frozen = request_data["frozen"]
+        if "description" in request_data: 
+            ds.Description = request_data["description"]
         
-        ds.save()
+        ds.save(updated_by=user.Username)
         return json.dumps(ds.to_jsonable()), "application/json"
 
     @sanitized

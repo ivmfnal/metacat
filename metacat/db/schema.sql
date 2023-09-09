@@ -111,7 +111,9 @@ create table datasets
     expiration          timestamp with time zone,
     description         text,
     file_metadata_requirements  jsonb   default '{}'::jsonb,
-    file_count  bigint          default 0
+    file_count  bigint          default 0,
+    updated_timestamp   timestamp with time zone,
+    updated_by          text references users(username)
 );
 
 create index datasets_meta_index on datasets using gin (metadata);
