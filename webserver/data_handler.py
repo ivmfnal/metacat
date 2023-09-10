@@ -297,18 +297,16 @@ class DataHandler(MetaCatHandler):
         if user is None:
             return 403, "Authentication required"
         db = self.App.connect()
-        request_data = json.loads(request.body)
 
-        try:
-            if not self._namespace_authorized(db, namespace, user):
-                return f"Permission to update dataset in namespace {namespace} denied", 403, "text/plain"
-        except KeyError:
-            return f"Namespace {namespace} does not exist", 404, "text/plain"
-        
         ds = DBDataset.get(db, namespace, name)
         if ds is None:
             return 404, "Dataset not found"
 
+        request_data = json.loads(request.body)
+
+        if not user.is_admin() and not self._namespace_authorized(db, namespace, user):
+            return f"Permission to update dataset in namespace {namespace} denied", 403, "text/plain"
+        
         if "metadata" in request_data:
             meta = request_data["metadata"]
             mode = request_data.get("mode", "update")
