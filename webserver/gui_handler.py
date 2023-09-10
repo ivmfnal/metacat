@@ -789,9 +789,28 @@ class GUIHandler(MetaCatHandler):
                 ns.OwnerRole = owner_role
             ns.save()
         self.redirect("./namespaces")
+        
+    def make_page_links(self, npages, page, page_size, all_page_links, window=2):
+        links = []
+        w1 = max(page-window, 0)
+        w2 = min(page+window, npages-1)
+        if w1 > 0:
+            links.append((0, all_page_links[0]))
+        if w1 > 1:
+            links.append(("text", "..."))
+        for i in range(w1, w2+1):
+            links.append((i, all_page_links[i]) if i != page else ("text", str(page+1)))
+        if w2 < npages-1 - 1:
+            links.append(("text", "..."))
+        if w2 < npages-1:
+            links.append((npages-1, all_page_links[npages-1]))
+        return links
+            
     
     @sanitize()
-    def datasets(self, request, relpath, selection=None, **args):
+    def datasets(self, request, relpath, selection=None, page=0, page_size=1000, **args):
+        page = int(page)
+        page_size = int(page_size)
         user, auth_error = self.authenticated_user()
         admin = user is not None and user.is_admin()
         db = self.App.connect()
@@ -813,16 +832,23 @@ class GUIHandler(MetaCatHandler):
             # assume selection == "all"
             datasets = DBDataset.list(db)
             
-        datasets = sorted(datasets, key=lambda x: (x.Namespace, x.Name))
-                
+        all_datasets = sorted(datasets, key=lambda x: (x.Namespace, x.Name))
+        ndatasets = len(all_datasets)
+        npages = (ndatasets + page_size - 1) // page_size
+        istart = page * page_size
+        datasets = all_datasets[istart : istart + page_size]
+
         for ds in datasets:
             ns = all_namespaces[ds.Namespace]
             ds.GUI_OwnerUser = ns.OwnerUser
             ds.GUI_OwnerRole = ns.OwnerRole
             ds.GUI_Authorized = user is not None and (admin or self._namespace_authorized(db, ds.Namespace, user))
-            #ds.GUI_Children = sorted(ds.children(), key=lambda x: (x.Namespace, x.Name))
-            #ds.GUI_Parents = sorted(ds.parents(), key=lambda x: (x.Namespace, x.Name))
+
+        all_page_links = [f"./datasets?selection={selection}&page_size={page_size}&page={p}" for p in range(npages)]
+        page_links = self.make_page_links(npages, page, page_size, all_page_links, 2)
+
         return self.render_to_response("datasets.html", datasets=datasets,
+            page=page, npages=npages, page_links=page_links,
             owned_namespaces = owned_namespaces, other_namespaces=other_namespaces,
             selection=selection, user=user, **self.messages(args))
 

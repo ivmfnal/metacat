@@ -38,13 +38,27 @@
 
 {% if datasets %}
 
+    {# disable
     <script type="text/javascript">
         var request_queue = new RequestQueue(5);
         window.onbeforeunload = function() {
             request_queue.cancel();
         }
     </script>
-
+    #}
+    
+    {% if npages > 1 %}
+        <p>Page:&nbsp;
+            {%- for ipage, link in page_links -%}
+                {%- if ipage == "text" -%}
+                    {{link}}
+                {%- else -%}
+                    <a href="{{link}}">{{ipage+1}}</a>
+                {%- endif -%}&nbsp;
+            {%- endfor -%}
+        </p>
+    {% endif %}    
+    
     <table class="data">
     	<tr>
     		<th>Name</th>
@@ -114,6 +128,18 @@
     </table>
     
     <p style="color:gray">* - may not be accurate, updated periodically</p>
+
+    {% if npages > 1 %}
+        <p>Page:&nbsp;
+            {%- for ipage, link in page_links -%}
+                {%- if ipage == "text" -%}
+                    {{link}}
+                {%- else -%}
+                    <a href="{{link}}">{{ipage+1}}</a>
+                {%- endif -%}&nbsp;
+            {%- endfor -%}
+        </p>
+    {% endif %}    
     
 {% else %}
     <p>No datasets found</p>
