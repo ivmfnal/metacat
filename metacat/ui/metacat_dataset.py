@@ -120,6 +120,9 @@ class ShowDatasetCommand(CLICommand):
 
     def __call__(self, command, client, opts, args):
         info = client.get_dataset(args[0])
+        if info is None:
+            print("Dataset not found")
+            sys.exit(1)
         if "-p" in opts or "--pprint" in opts:
             pprint.pprint(info)
         elif "-j" in opts or "--json" in opts:
