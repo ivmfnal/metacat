@@ -1011,7 +1011,7 @@ class DBDataset(DBObject):
         column_names = self.columns(exclude="created_timestamp")        # use DB default for creation
         transaction.execute(f"""
             insert into datasets({column_names}) 
-                values(%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                values(%s, %s, %s, %s, %s, %s, %s, %s, %s, null, null)
                 returning created_timestamp
             """,
             (namespace, self.Name, self.Frozen, self.Monotonic, meta, self.Creator, 

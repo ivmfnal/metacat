@@ -41,7 +41,7 @@ class ListDatasetsCommand(CLICommand):
     Opts = ("lc", ["--long", "--file-counts"])
     Usage = """[<options>] [<namespace pattern>:<name pattern>]        -- list datasets
             -l|--long               - detailed output
-                -c|--file-counts    - if detailed output, include file counts
+                -c|--file-counts    - if detailed output, include exact file counts -- can take long time !
             """
     
     def __call__(self, command, client, opts, args):
@@ -56,20 +56,14 @@ class ListDatasetsCommand(CLICommand):
         ns_pattern, name_pattern = patterns.split(':', 1)
             
         verbose = "-l" in opts or "--long" in opts
-        include_counts = verbose and ("-c" in opts or "--file-counts" in opts)
-        output = list(client.list_datasets(ns_pattern, name_pattern, with_counts=include_counts))
+        exact_counts = verbose and ("-c" in opts or "--file-counts" in opts)
+        output = list(client.list_datasets(ns_pattern, name_pattern, with_counts=exact_counts))
         output = sorted(output, key=lambda ds:(ds["namespace"], ds["name"]))
     
-        if include_counts:
-            verbose_format = "%-16s %-23s %10s %5s/%-5s %s"
-            header_format = "%-16s %-23s %-10s %-11s %s"
-            divider = " ".join(("-"*16, "-"*23, "-"*10, "-"*11, "-"*60))
-            columns = ("creator", "created", "files", "subsets", "namespace:name")
-        else:
-            verbose_format = "%-16s %-23s %s"
-            header_format = "%-16s %-23s %s"
-            divider = " ".join(("-"*16, "-"*23, "-"*60))
-            columns = ("creator", "created", "namespace:name")
+        verbose_format = "%-16s %-23s %10s %s"
+        header_format = "%-16s %-23s %-10s %s"
+        divider = " ".join(("-"*16, "-"*23, "-"*10, "-"*60))
+        columns = ("creator", "created", "files", "namespace:name")
             
         if verbose:
             print(header_format % columns)
@@ -90,21 +84,12 @@ class ListDatasetsCommand(CLICommand):
                         file_count = "?"
                     else:
                         file_count = str(file_count)
-                    child_count = item.get("child_count", "?")
-                    subset_count = item.get("subset_count", "?")
-                    if include_counts:
-                        print(verbose_format % (
-                            item.get("creator") or "",
-                            ct,
-                            file_count, child_count, subset_count,
-                            namespace + ":" + name
-                        ))
-                    else:
-                        print(verbose_format % (
-                            item.get("creator") or "",
-                            ct,
-                            namespace + ":" + name
-                        ))
+                    print(verbose_format % (
+                        item.get("creator") or "",
+                        ct,
+                        file_count,
+                        namespace + ":" + name
+                    ))
                 else:
                     print("%s:%s" % (namespace, name))
                     
@@ -130,17 +115,17 @@ class ShowDatasetCommand(CLICommand):
         else:
             print("Namespace:            ", info["namespace"])
             print("Name:                 ", info["name"])
-            print("Description:          ", info.get("description", ""))
-            print("Creator:              ", info.get("creator", ""))
+            print("Description:          ", info.get("description") or "")
+            print("Creator:              ", info.get("creator") or "")
             ct = info.get("created_timestamp") or ""
             if ct:
                 ct = datetime.fromtimestamp(ct, timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z")
-            print("Created at:           ", ct)
+            print("Create timestamp:     ", ct)
             ut = info.get("updated_timestamp") or ""
             if ut:
                 ut = datetime.fromtimestamp(ut, timezone.utc).strftime("%Y-%m-%d %H:%M:%S %Z")
-            print("Updated by:           ", info.get("updated_by", ""))
-            print("Updated at:           ", ut)
+            print("Updated by:           ", info.get("updated_by") or "")
+            print("Update timestamp:     ", ut)
             print("Estimated file count: ", info.get("file_count"), "")
             print("Restricted:           ", "frozen" if info.get("frozen", False) else (
                                             "monotonic" if info.get("monotonic", False) else "no"

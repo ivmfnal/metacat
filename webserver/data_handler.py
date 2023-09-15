@@ -161,15 +161,15 @@ class DataHandler(MetaCatHandler):
         } 
         
     def datasets(self, request, relpath, with_file_counts="no", **args):
-        with_file_counts = with_file_counts == "yes"
+        with_file_counts = with_file_counts == "yes"        # whether exact number of files is to be returned
         #print("data_server.datasets: with_file_counts:", with_file_counts)
         db = self.App.connect()
         datasets = DBDataset.list(db)
         out = []
         for ds in datasets:
             dct = ds.to_jsonable()
-            if with_file_counts:
-                dct["file_count"] = ds.nfiles()
+            if with_file_counts:        # otherwise the file_count column will be used
+                dct["file_count"] = ds.nfiles(exact=True)
             out.append(dct)
         return json.dumps(out), "application/json"
         
