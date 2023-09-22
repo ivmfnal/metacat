@@ -1,6 +1,6 @@
 from .http_client import HTTPClient
 from .exceptions import MCError, NotFoundError, InvalidArgument, PermissionError, BadRequestError, WebAPIError
-from .meta_dnf import FileMetaExpressionDNF, DatasetMetaExpressionDNF
+from .meta_dnf import FileMetaExpressionDNF, DatasetMetaExpressionDNF, MetaExpressionDNF
 
 from .rfc2617 import digest_client, digest_server
 from .signed_token_jwt import SignedToken, SignedTokenExpiredError, SignedTokenImmatureError, \
