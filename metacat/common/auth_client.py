@@ -97,7 +97,6 @@ class TokenAuthClientMixin(object):
         auth_url = self.AuthURL
         url = "%s/%s?method=ldap" % (auth_url, "auth")        
         data = b"%s:%s" % (to_bytes(username), to_bytes(password))
-        #print("HTTPClient.post_json: headers:", headers)
         response = requests.post(url, verify=False, data = data)
         if response.status_code != 200:
             raise AuthenticationError(response.text)
