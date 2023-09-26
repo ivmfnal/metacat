@@ -32,25 +32,33 @@ You can also specify multiple datasets in the same query:
 
         files from MyScope:MC1, MyScope:MC2, AnotherScope:MC
 
-Also, you can use wildcards in the dataset name (but not in the scope name). If the dataset name is in quotes,
-it is interpreted as an SQL style wildcard.
+Also, you can use wildcards in the dataset name (but not in the dataset namespace).
 
 .. code-block:: sql
 
-        files from MyScope:"MC%", AnotherScope:MC
+        files from datasets matching MyScope:"MC%" 
+            where ...
 
-By SQL wildcard standard, '%' matches any string, including empty string, and '_' matches any single
-character.
+        files from datasets matching MyScope:"MC*" 
+            where ...
 
-If you want to select all files in the database, regardless the dataset, you can do this:
+        files from datasets matching regexp MyScope:"MC.*" 
+            where ...
+
+The `regexp` keyword tells MQL to use regular expression to match the dataset name. Otherwise, it will use
+SQL wildcard notation (% - any substring, _ - any single character) or UNIX filename match notation
+(* - any substring, ? - any single character).
+
+The `from <dataset specification>` clause is optional.
+If do not want to limit the query to one or more datasets, you can omit it:
 
 .. code-block:: sql
 
-    files where data_type="mc"
+    files where core.data_type="mc"
 
 but this can take long time because it will scan the entire MetaCat database.
 
-To select files by their namespaces and names:
+To select files by their explicit namespaces and names:
 
 .. code-block:: sql
 
@@ -179,9 +187,9 @@ To get list of parents or children of all files matching certain criteria, use `
 
         children (
             files from MyScope:MyDataset
-                where x > 0.5 and x < 1.5 
-                        and run = 123 
-                        and ( type="MC" or type="Data" )
+                where params.x > 0.5 and params.x < 1.5 
+                        and dara.run = 123 
+                        and ( data.type="MC" or data.type="Data" )
         )
 
 You can use MQL to get parents or children of a single 
@@ -209,8 +217,8 @@ Queries can be combined using boolean operations *union*, *join*, and subtractio
 
         union(
                 files from MC:Cosmics
-                        where p > 0.5 and p < 1.5 
-                files from MC:Beam where e = 10
+                        where params.p > 0.5 and params.p < 1.5 
+                files from MC:Beam where params.e = 10
         )
         
 This query will return files from both datasets. Even if the individual queries happen to produce overallping
@@ -222,9 +230,9 @@ Queries can be *joined* to procude the intersection of the results of individual
 
         join(
                 files from MC:All
-                        where p > 0.5 and p < 1.5 
+                        where params.p > 0.5 and params.p < 1.5 
                 files from MC:All
-                        where e = 10
+                        where params.e = 10
         )
         
 Of course this is equivalent to:
@@ -232,21 +240,21 @@ Of course this is equivalent to:
 .. code-block:: sql
 
         files from MC:All
-                where p > 0.5 and p < 1.5 and e = 10
+                where params.p > 0.5 and params.p < 1.5 and params.e = 10
         
 Queries can be subtracted from each other, which means the resulting set will be boolean subtraction of second query
 result set from the first:
 
 .. code-block:: sql
 
-        files from MC:Beam where e1 > 10 - files from MC:Exotics
+        files from MC:Beam where params.e1 > 10 - files from MC:Exotics
         
 Although is it not necessary in this example, you can use parethesis and white space to make the query more readable:
 
 .. code-block:: sql
 
-        (files from MC:Beam where e1 > 10) 
-        - (files from MC:Exotics where type = "abcd")
+        (files from MC:Beam where params.e1 > 10) 
+        - (files from MC:Exotics where data.type = "abcd")
         
 Also, you can use square and curly brackets as an alternative to using explicit words "union" and "join" respectively.
 The following two queries are equivalent:
