@@ -1,4 +1,3 @@
-!.readthedocs.yaml
 git_token
 build
 dist
@@ -17,3 +16,4 @@ __pycache__
 *.pem
 *.yaml
 *.ipynb
+!.readthedocs.yaml
