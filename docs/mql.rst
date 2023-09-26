@@ -932,11 +932,38 @@ Dataset and file metadata filtering can be mixed together:
     
 .. _named_queries:
 
-Named Query Search
-~~~~~~~~~~~~~~~~~~
+Named Queries
+~~~~~~~~~~~~~
 
-MetaCat allows the user to save a query under a namespace/name and then reuse the query as part of
-another MQL query. Currently only file queries can be saved.
+File queries can be named, saved and later reused as part of another query. A named query is identified
+as a combination of namespace and name. To create or modify  a named query in a namespace, the user has to
+own, directly or through a role, the namespace.
+
+Once a query is saved as a named query it can be reused as is:
+
+.. code-block:: sql
+
+  query my_amespace:favorite_files
+  
+Metadata filters can be applied to the named query results:
+
+.. code-block:: sql
+
+  query my_amespace:favorite_files
+    where run.type = calibration and file.type = raw
+
+Named queries can be combined using boolean algebra just like any other MQL queries:
+
+.. code-block:: sql
+
+  join( 
+    query my_amespace:favorite_files,
+    query their_namespace:favorite_files
+  )
+  
+  query my_amespace:favorite_files - query their_namespace:favorite_files
+
+  files from dune:all - query official:processed_files
 
 Along with a name and a description, a named query can have its own set of metadata attributes.
 MetaCat provides a capability to search for named queries by their name pattern, description,
