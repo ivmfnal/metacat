@@ -939,35 +939,35 @@ File queries can be named, saved and later reused as part of another query. A na
 as a combination of namespace and name. To create or modify  a named query in a namespace, the user has to
 own, directly or through a role, the namespace.
 
-Once a query is saved as a named query it can be reused as is:
+Once a query is saved as a named query (e.g. `my_namespace:favorite_files`) it can be reused as is:
 
 .. code-block:: sql
 
-  query my_amespace:favorite_files
+  query my_namespace:favorite_files
   
 Metadata filters can be applied to the named query results:
 
 .. code-block:: sql
 
-  query my_amespace:favorite_files
+  query my_namespace:favorite_files
     where run.type = calibration and file.type = raw
     
 Provenance fnctions can be applied to the named query results:
 
 .. code-block:: sql
 
-  parents ( query my_amespace:favorite_files )
+  parents ( query my_namespace:favorite_files )
 
 Named queries can be combined using boolean algebra just like any other MQL queries:
 
 .. code-block:: sql
 
   join( 
-    query my_amespace:favorite_files,
+    query my_namespace:favorite_files,
     query their_namespace:favorite_files
   )
   
-  query my_amespace:favorite_files - query their_namespace:favorite_files
+  query my_namespace:favorite_files - query their_namespace:favorite_files
 
   files from dune:all - query official:processed_files
 
