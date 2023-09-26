@@ -951,6 +951,12 @@ Metadata filters can be applied to the named query results:
 
   query my_amespace:favorite_files
     where run.type = calibration and file.type = raw
+    
+Provenance fnctions can be applied to the named query results:
+
+.. code-block:: sql
+
+  parents ( query my_amespace:favorite_files )
 
 Named queries can be combined using boolean algebra just like any other MQL queries:
 
