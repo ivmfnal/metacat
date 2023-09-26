@@ -382,7 +382,7 @@ After first parameter, the ``filter`` method can accept some additional position
 
     filter my_filter(3, 'test', pi=3.14, e=2.718) (
         files from user:dataset_a,
-        files from group:dataset_b where x=5
+        files from group:dataset_b where params.x=5
     )
 
 will call the filter() method with the following arguments:
@@ -501,51 +501,50 @@ Assume the file metadata has the following parameters:
 .. code-block:: json
     
     {
-        "run_type":       "calibration",
-        "trigger_mask":   [0,1,0,0,1],
-        "trigger_bits":   
+        "data.run_type":       "calibration",
+        "data.trigger_mask":   [0,1,0,0,1],
+        "data.trigger_bits":   
         {
             "muon":       1,
             "electron":   0
         },
-        "modules":        ["a1", "a2", "a3"]
+        "detector.modules":        ["a1", "a2", "a3"]
     }
 
 
 Then:
 
-    * ``trigger_bits["muon"] == 1`` - will match
-    * ``trigger_bits["proton"] == 1`` - will not match
-    * ``trigger_mask[3] == 0`` - will match
+    * ``data.trigger_bits["muon"] == 1`` - will match
+    * ``data.trigger_bits["proton"] == 1`` - will not match
+    * ``data.trigger_mask[3] == 0`` - will match
 
 Also, you can use subscripts ``[any]`` as "any element of" and ``[all]`` as "all elements of" an array, but *not* dictionary:
 
-    * ``trigger_bits[any] == 1`` - will match
-    * ``trigger_bits[any] != 1`` - will match
-    * ``trigger_bits[all] == 1`` - will not match
-    * ``trigger_bits[all] != 1`` - will not match
-    * ``trigger_bits[all] < 2`` - will match
+    * ``data.trigger_bits[any] == 1`` - will match
+    * ``data.trigger_bits[any] != 1`` - will match
+    * ``data.trigger_bits[all] == 1`` - will not match
+    * ``data.trigger_bits[all] != 1`` - will not match
+    * ``data.trigger_bits[all] < 2`` - will match
     
 You can also use ``in`` and ``not in`` to check if a value is contained in the array:
 
-    * ``"a1" in modules`` - will match, equivalent to ``modules[any] = "a1"``
-    * ``"xyz" not in modules`` - will match, equivalent to ``modules[all] != "xyz"`` or ``!(modules[any] = "xyz")``
+    * ``"a1" in detector.modules`` - will match, equivalent to ``detector.modules[any] = "a1"``
+    * ``"xyz" not in detector.modules`` - will match, equivalent to ``detector.modules[all] != "xyz"`` or ``!(detector.modules[any] = "xyz")``
 
-Note that while `trigger_bits[all] != 1` will not match, `!(trigger_bits[all] == 1)` will match. In general, the following pairs of expressions are
-equal:
+Note that while `trigger_bits[all] != 1` will not match, `!(trigger_bits[all] == 1)` will match. In general, the following pairs of expressions are equal:
 
     * ``array[all] != x`` and ``!(array[any] == x)``
     * ``array[any] != x`` and ``!(array[all] == x)``
     
-To use size of the array in an expression, you len(): ``len(trigger_mask) > 2``
+To use size of the array in an expression, you len(): ``len(data.trigger_mask) > 2``
 
 Ranges and Sets
 ~~~~~~~~~~~~~~~
 
 Logical expressins can include ranges or sets of values. Here are some examples:
 
-    * ``x in 3:5`` - if x is scalar, equivalent to ``(x >=3 and x <= 5)``
-    * ``x in (3,4,5)`` - if x is scalar, equivalent to ``(x==3 or x==4 or x==5)``
+    * ``params.x in 3:5`` - if x is scalar, equivalent to ``(params.x >=3 and params.x <= 5)``
+    * ``params.x in (3,4,5)`` - if x is scalar, equivalent to ``(params.x==3 or params.x==4 or params.x==5)``
     
 Keep in mind that due to the way the underlying database works, queries with enumerated sets of allowed values work much faster than 
 those with ranges.
@@ -554,8 +553,8 @@ So while the two expressions above are mathematically equivalent for integer num
 Sets and ranges can be expressed in terms of floating point numbers and strings:
 
     * ``application.version in "1.0":"2.3"``
-    * ``pi in 3.131:3.152``
-    * ``values[any] in 3:5``
+    * ``params.pi in 3.131:3.152``
+    * ``params.values[any] in 3:5``
 
 Note that ``array[any] in low:high`` is `not` equivalent to ``(array[any] >= low and array[any] >= low)`` because former expression means:
 "any element of the array is in the range" while the later one means "any element is greater or equal `low` and the same or another element 
@@ -564,20 +563,20 @@ of the array is less or equal `high`". For example, consider this metadata:
 .. code-block:: json
 
     {
-        "run_type":       "calibration",
-        "sequence":  [1,1,2,3,5,8,13],
-        "bits": [0,1,1,0,0]
+        "data.run_type":       "calibration",
+        "data.sequence":  [1,1,2,3,5,8,13],
+        "data.bits": [0,1,1,0,0]
     }
 
 In this case,
 
-    * ``sequence[any] in 6:7`` will not match because there is no single element in the array between 6 and 7,
-    * ``(sequence[any] >= 6 and sequence[any] <= 7)`` will match because there are some elements below 7 and then some others above 6.
+    * ``data.sequence[any] in 6:7`` will not match because there is no single element in the array between 6 and 7,
+    * ``(data.sequence[any] >= 6 and data.sequence[any] <= 7)`` will match because there are some elements below 7 and then some others above 6.
     
 Similarly, the following expressions are not equivalent:
 
-    * ``(bits[all] == 0 or bits[all] == 1)`` - is false for the metadata above
-    * ``bits[all] in (0,1)`` - is true
+    * ``(data.bits[all] == 0 or data.bits[all] == 1)`` - is false for the metadata above
+    * ``data.bits[all] in (0,1)`` - is true
     
 Date and Time
 ~~~~~~~~~~~~~
