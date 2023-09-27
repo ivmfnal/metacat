@@ -943,13 +943,19 @@ Once a query is saved as a named query (e.g. `my_namespace:favorite_files`) it c
 
 .. code-block:: sql
 
-  query my_namespace:favorite_files
+  files selected by my_namespace:favorite_files
   
+`by` keyword there is optional, so the same query could be written as:
+
+.. code-block:: sql
+
+  files selected my_namespace:favorite_files
+
 Metadata filters can be applied to the named query results:
 
 .. code-block:: sql
 
-  query my_namespace:favorite_files
+  files selected by my_namespace:favorite_files
     where run.type = calibration and file.type = raw
     
 Provenance fnctions can be applied to the named query results:
@@ -963,13 +969,13 @@ Named queries can be combined using boolean algebra just like any other MQL quer
 .. code-block:: sql
 
   join( 
-    query my_namespace:favorite_files,
-    query their_namespace:favorite_files
+    files selected by my_namespace:favorite_files,
+    files selected by their_namespace:favorite_files
   )
   
-  query my_namespace:favorite_files - query their_namespace:favorite_files
+  files selected by my_namespace:favorite_files - files selected by their_namespace:favorite_files
 
-  files from dune:all - query official:processed_files
+  files from dune:all where params.x=3 - files selected by official:processed_files
 
 Along with a name and a description, a named query can have its own set of metadata attributes.
 MetaCat provides a capability to search for named queries by their name pattern, description,

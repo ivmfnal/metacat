@@ -7,11 +7,11 @@ File queries
 .. code-block::
 
         <file query>: files [from [datasets] <dataset selector list> [,...]]
+                | files selected [by] <saved query namespace>:<saved query name>
+                | filter <filter name>( <parameter> [,...] ) ( <file query> [,...] )
                 | <file query> where <metadata expression>]
                 | <file query> skip <integer>
                 | <file query> limit <integer>
-                | query <saved query namespace>:<saved query name>
-                | filter <filter name>( <parameter> [,...] ) ( <file query> [,...] )
                 | union ( <file query> [,...] )
                 | join ( <file query> [,...] )
                 | <file query> - <file query>

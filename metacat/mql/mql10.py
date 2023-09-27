@@ -195,28 +195,6 @@ class FileQuery(object):
         assert isinstance(result, DBFileSet)
         return result
 
-class _Assembler(Ascender):
-
-    def __init__(self, default_namespace, db=None, loader=None):
-        Ascender.__init__(self)
-        self.DB = db
-        self.Loader = loader
-        self.DefaultNamespace = default_namespace
-        
-    def named_query(self, node, name=None, namespace=None):
-        namespace = namespace or self.DefaultNamespace
-        if self.DB is not None:
-            parsed = MQLQuery.from_db(self.DB, namespace, name)
-        elif self.Loader is not None:
-            parsed = MQLQuery.from_loader(self.Loader, namespace, name)
-        else:
-            raise MQLCompilationError(f"Can not load named query {namespace}:{name}")
-        assert parsed.Type == "file"
-        tree = parsed.Tree
-        #tree = _WithParamsApplier().walk(tree, {"namespace":namespace})
-        #print("_Assembler.named_query: returning:", tree.pretty())
-        return tree
-        
 class _OrderedApplier(Descender):
     
     def walk(self, tree, ordered=False):
@@ -1412,7 +1390,11 @@ class MQLQuery(object):
         
     @staticmethod
     def from_loader(loader, namespace, name, convert=True):
-        text = loader.get_named_query(namespace, name)
+        data = loader.get_named_query(namespace, name)
+        if isinstance(data, dict):
+            text = data["source"]
+        else:
+            text = data
         if text is None:
             raise ValueError("Named query %s:%s not found" % (namespace, name))
         return MQLQuery.parse(text, convert=convert)

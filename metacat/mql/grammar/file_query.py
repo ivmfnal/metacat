@@ -22,7 +22,7 @@ top_file_query          :    file_query
 
 file_query_term: "files" ("from" "datasets"? dataset_query_list)?                   -> basic_file_query
     |   "filter" FNAME "(" filter_params ? ")" "(" file_query_list ")"              -> filter
-    |   "query" qualified_name                                                      -> named_query
+    |   "files" "selected" "by"? qualified_name                                     -> named_query
     |   file_list
 
 !file_list: ("fids"|"fid") fid_list
