@@ -809,7 +809,9 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
 
         url = f"data/declare_files?dataset={dataset}"
         if dry_run: url += "&dry_run=yes"
+        #print("webapi: declare_files: post...")
         out = self.post_json(url, lst)
+        #print("webapi: declare_files: out:", out)
         return out
         
     def move_files(self, namespace, file_list=None, query=None):

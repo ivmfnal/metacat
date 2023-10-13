@@ -3,7 +3,6 @@ import json, io, csv
 
 def transactioned(method):
     def decorated(first, *params, transaction=None, **args):
-
         if transaction is not None:
             return method(first, *params, transaction=transaction, **args)
         
