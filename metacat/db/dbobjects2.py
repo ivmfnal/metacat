@@ -4,6 +4,7 @@ from metacat.util import (to_bytes, to_str, epoch, chunked, limited, strided,
 )
 from metacat.auth import BaseDBUser, BaseDBRole as DBRole
 from metacat.common import FileMetaExpressionDNF, DatasetMetaExpressionDNF, DBObject, DBManyToMany, transactioned, insert_many
+from metacat.util import ObjectSpec
 from psycopg2 import IntegrityError
 from textwrap import dedent
 from datetime import datetime, timezone
@@ -669,17 +670,17 @@ class DBFile(DBObject):
         temp_table = f"temp_files_{suffix}"
         strio = io.StringIO()
         for f in files:
-            ns = n = None
-            fid = f.get("fid")
-            if fid is None:
-                ns = f.get("namespace")
-                n = f.get("name")
-                if ns is None or n is None:
-                    did = f.get("did")
-                    if did and ':' in did:
-                        ns, n = did.split(":", 1)
-                    else:
-                        raise ValueError("Invalid file specificication: " + str(f))
+            if isinstance(f, DBFile):
+                ns = f.Namespace
+                n = f.Name
+                fid = f.FID
+            else:
+                try:    spec = ObjectSpec(f)
+                except ValueError:
+                    raise ValueError("Invalid file specificication: " + str(f))
+                ns = spec.Namespace
+                n = spec.Name
+                fid = spec.FID
             strio.write("%s\t%s\t%s\n" % (fid or r'\N', ns or r'\N', n or r'\N'))
         transaction.execute(f"""create temp table if not exists
             {temp_table} (

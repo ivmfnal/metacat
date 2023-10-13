@@ -656,10 +656,10 @@ class DataHandler(MetaCatHandler):
         if user is None:
             #print("Unauthenticated user")
             return 401, error
-            
+
         if dataset is None:
             return 400, "Dataset not specified"
-            
+
         db = self.App.connect()
 
         ds_namespace, ds_name = parse_name(dataset, default_namespace)
@@ -843,7 +843,7 @@ class DataHandler(MetaCatHandler):
                 f.Parents = parents
                                 
         if errors:
-            print("data_handler.declare_files: errors:", errors)
+            #print("data_handler.declare_files: errors:", errors)
             return json.dumps({
                     "message": "Invalid file data",
                     "metadata_errors": errors
@@ -867,7 +867,14 @@ class DataHandler(MetaCatHandler):
                 #print("data_server.declare_files: DBFile.create_may->results: ", results)
             except IntegrityError as e:
                 transaction.rollback()
-                return 404, f"Integrity error: {e}"
+                existing = list(DBFile.get_files(db, files))
+                if existing:
+                    message = "The following files already exist:"
+                    for f in existing:
+                        message += "\n  " + f.did()
+                else:
+                    message = f"Integrity error: {e}"
+                return 409, message
             
             #print("server:declare_files(): calling ds.add_files...")
             ds.add_files(files, validate_meta=False, transaction=transaction)
@@ -939,7 +946,7 @@ class DataHandler(MetaCatHandler):
         if file_sets:
             file_set = list(DBFileSet.union(db, file_sets))
             files_datasets = DBDataset.datasets_for_files(db, file_set)
-            print("files_datasets:", files_datasets)
+            #print("files_datasets:", files_datasets)
             
             #
             # validate new metadata for affected datasets
@@ -1218,10 +1225,10 @@ class DataHandler(MetaCatHandler):
         namespace = None
         if spec.FID:
             f = DBFile.get(db, fid = spec.FID)
-            if f is None:
-                return 404, "File not found"
         else:
             f = DBFile.get(db, namespace=spec.Namespace, name=spec.Name)
+        if f is None:
+            return 404, "File not found"
         namespace = f.Namespace
         try:
             if not self._namespace_authorized(db, namespace, user):
