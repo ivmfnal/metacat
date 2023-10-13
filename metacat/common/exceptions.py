@@ -66,3 +66,6 @@ class NotFoundError(WebAPIError):
 class BadRequestError(WebAPIError):
     Headline = "Invalid request"
 
+class AlreadyExists(WebAPIError):
+    Headline = "Already exists"
+

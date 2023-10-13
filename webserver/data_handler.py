@@ -867,7 +867,7 @@ class DataHandler(MetaCatHandler):
                 #print("data_server.declare_files: DBFile.create_may->results: ", results)
             except IntegrityError as e:
                 transaction.rollback()
-                return 404, f"Integrity error: {e}"
+                return 409, f"Integrity error: {e}"
             
             #print("server:declare_files(): calling ds.add_files...")
             ds.add_files(files, validate_meta=False, transaction=transaction)
@@ -1218,10 +1218,10 @@ class DataHandler(MetaCatHandler):
         namespace = None
         if spec.FID:
             f = DBFile.get(db, fid = spec.FID)
-            if f is None:
-                return 404, "File not found"
         else:
             f = DBFile.get(db, namespace=spec.Namespace, name=spec.Name)
+        if f is None:
+            return 404, "File not found"
         namespace = f.Namespace
         try:
             if not self._namespace_authorized(db, namespace, user):

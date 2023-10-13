@@ -72,6 +72,9 @@ class NotFoundError(WebAPIError):
 class BadRequestError(WebAPIError):
     Headline = "Invalid request"
             
+class AlreadyExistsError(WebAPIError):
+    Headline = "Object already exists"
+            
 class InvalidMetadataError(WebAPIError):
     Headline = "Invalid metadata"
 
@@ -151,6 +154,8 @@ class HTTPClient(object):
             raise InvalidMetadataError(url, response)
         if response.status_code == 404:
             raise NotFoundError(url, response)
+        if response.status_code == 409:
+            raise AlreadyExistsError(url, response)
         if response.status_code == 400:
             raise BadRequestError(url, response)
         elif response.status_code/100 != 2:
@@ -361,7 +366,7 @@ class MetaCatClient(HTTPClient, TokenAuthClientMixin):
             #print("get_dataset_counts", did, " out=", out)
             return out
         except NotFoundError:
-            print("get_dataset_counts: None")
+            #print("get_dataset_counts: None")
             return None
 
     def get_dataset(self, did=None, namespace=None, name=None, exact_file_count=False):
