@@ -34,6 +34,28 @@ MetaCatClient Class Methods Reference
    :noindex:
    :inherited-members:
 
+Exceptions
+----------
+
+MetaCatClient methods can raise the following exceptions:
+
+* ``metacat.webapi.InvalidArgument`` - method was called with an invalid argument
+* ``metacat.webapi.NotFoundError`` - an object is not found in the database
+* ``metacat.webapi.BadRequestError`` - invalid request
+* ``metacat.webapi.AlreadyExistsError`` - an object already exists in the database
+* ``metacat.webapi.PermissionDeniedError`` - permission denied
+* ``metacat.webapi.InvalidMetadataError`` - metadata validation failed
+
+All these exceptions inherit from ``metacat.webapi.WebAPIError`` class. ``WebAPIError.__str__`` can be
+used to get humanly readable description of the exceptions, e.g.:
+
+.. code-block:: python
+
+    try:
+      results = metacat_client.method(...)
+    except metacat.webapi.WebAPIError as e:
+      print(e)
+
 
 Asynchronous Queries
 --------------------

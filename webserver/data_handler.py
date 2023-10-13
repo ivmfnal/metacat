@@ -665,7 +665,7 @@ class DataHandler(MetaCatHandler):
         ds_namespace, ds_name = parse_name(dataset, default_namespace)
         try:
             if not self._namespace_authorized(db, ds_namespace, user):
-                return f"Permission to declare files in namespace {namespace} denied", 403
+                return f"Permission to add files to dataset {ds_namespace}:{ds_name} denied", 403
         except KeyError:
             return f"Namespace {ds_namespace} does not exist", 404
 
@@ -733,7 +733,7 @@ class DataHandler(MetaCatHandler):
                     errors.append({
                         "index": inx,
                         "fid":fid,
-                        "message":f"Permission to declare files to namespace {namespace} denied"
+                        "message":f"Permission to declare files in namespace {namespace} denied"
                     })
                     continue
             except KeyError:

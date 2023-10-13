@@ -75,6 +75,9 @@ class BadRequestError(WebAPIError):
 class AlreadyExistsError(WebAPIError):
     Headline = "Object already exists"
             
+class PermissionDeniedError(WebAPIError):
+    Headline = "Permission denied"
+            
 class InvalidMetadataError(WebAPIError):
     Headline = "Invalid metadata"
 
@@ -150,13 +153,16 @@ class HTTPClient(object):
         headers = default_headers
         self.LastResponse = response = self.retry_request(method, url, headers=headers, **args)
         self.LastStatusCode = response.status_code
+        #print("webapi.send_request: status:", response.status_code)
         if response.status_code == INVALID_METADATA_ERROR_CODE:
             raise InvalidMetadataError(url, response)
-        if response.status_code == 404:
+        elif response.status_code == 404:
             raise NotFoundError(url, response)
-        if response.status_code == 409:
+        elif response.status_code == 403:
+            raise PermissionDeniedError(url, response)
+        elif response.status_code == 409:
             raise AlreadyExistsError(url, response)
-        if response.status_code == 400:
+        elif response.status_code == 400:
             raise BadRequestError(url, response)
         elif response.status_code/100 != 2:
             raise WebAPIError(url, response)
