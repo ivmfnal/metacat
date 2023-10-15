@@ -305,7 +305,7 @@ class RetireCommand(CLICommand):
     MinArgs = 1
     Opts = "u unretire"
     Usage = """[-u|--unretire] (<namespace>:<name>|<namespace> <name>)  - retire/unretire file
-        -u - unretire the file
+        -u|--unretire - unretire the file
     """
 
     def __call__(self, command, client, opts, args):
@@ -318,9 +318,9 @@ class RetireCommand(CLICommand):
             namespace, name = args
         else:
             raise InvalidArguments("Too many arguments")
-
+        do_retire = not ("-u" not in opts or "--unretire" in opts)
         try:
-            data = client.retire_file(did=did, namespace=namespace, name=name, retire="-u" not in opts)
+            data = client.retire_file(did=did, namespace=namespace, name=name, retire=do_retire)
         except MCError as e:
             print(e)
             sys.exit(1)
