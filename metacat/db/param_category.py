@@ -4,9 +4,11 @@ import json
 from metacat.util import epoch, validate_metadata, fetch_generator
 
 class DBParamCategory(DBObject):
-    
+
+    Table = "parameter_categories"
     ColumnsText = "path,owner_user,owner_role,description,restricted,definitions,creator,created_timestamp"
     Columns = ColumnsText.split(",")
+    PK = ["path"]
 
     """
         Definitions is JSON with the following structure:
@@ -24,7 +26,6 @@ class DBParamCategory(DBObject):
 
     Types =  ('int','float','text','boolean',
                 'int[]','float[]','text[]','boolean[]','dict', 'list', 'any')
-
 
     def __init__(self, db, path, restricted=False, owner_role=None, owner_user=None, creator=None, definitions={}, description="", created_timestamp=None):
         self.Path = path

@@ -163,8 +163,8 @@ create table parameter_categories
 (
     path        text    primary key,
     
-	owner_user          text        references  users(username),
-	owner_role          text        references  roles(name),
+    owner_user          text        references  users(username),
+    owner_role          text        references  roles(name),
     
     check ( (owner_user is null ) != (owner_role is null) ),
     

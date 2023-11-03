@@ -39,7 +39,7 @@ class ShowCommand(CLICommand):
                 print(json.dumps(data, indent=4, sort_keys=True))
             else:
                 print("Path:            ", data["path"])
-                print("Description:     ", data.get("description", ""))
+                print("Description:     ", data.get("description") or "")
                 print("Owner user:      ", data.get("owner_user", "") or "")
                 print("Owner role:      ", data.get("owner_role", "") or "")
                 print("Creator:         ", data.get("creator", ""))
