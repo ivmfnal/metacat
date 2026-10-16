@@ -979,7 +979,7 @@ class DBFile(DBObject):
         csl = []      # list of column spec parts
         reskeys = []  # list of dictionary keys for result
         for key in keylist:
-            colkey = key.replace(".","_")
+            colkey = key.replace(".","_").replace("-","_")
             reskeys.extend([f"{key}.count", f"{key}.max", f"{key}.min" ])
             csl.append(f"""     SUM(CASE WHEN metadata ? '{key}' THEN 1 ELSE 0 END) as {colkey}_count,
                 MAX(metadata->>'{key}') as {colkey}_max,
